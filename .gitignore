@@ -1,0 +1,32 @@
+# Godot 4.x
+.godot/
+.import/
+export_presets.cfg
+*.translation
+
+# Mono / C#
+.mono/
+data_*/mono/
+
+# Builds
+builds/
+export/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE (optional local)
+.vscode/
+.idea/
+
+# Cursor cache
+.cursor/cache/
+
+# Large binaries (use Git LFS when tracked — see .gitattributes)
+# *.png
+# *.wav

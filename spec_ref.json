@@ -1,0 +1,12 @@
+{
+  "spec_repository": "https://github.com/haepari1019/project_tdc",
+  "spec_remote": "origin",
+  "spec_branch": "staging",
+  "spec_commit": "7a20da9d6ce3e9cd5e270b2da2fcd9a4cb46d196",
+  "spec_commit_short": "7a20da9",
+  "pinned_at": "2026-06-02",
+  "playable_contract_id": "QA-030",
+  "implementation_phase": "1a",
+  "blueprint_id": "DBP-DEMO-001",
+  "map_id": "MAP-DEMO-001"
+}

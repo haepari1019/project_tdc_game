@@ -1,0 +1,23 @@
+; Engine configuration file.
+; Godot 4.x — Project TDC (game implementation)
+
+config_version=5
+
+[application]
+config/name="Project TDC"
+config/description="Top-down extraction raid ARPG — Godot implementation"
+config/version="0.1.0-slice01"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+GameBootstrap="*res://scripts/autoload/game_bootstrap.gd"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"

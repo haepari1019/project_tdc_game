@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://bqx7slice01main"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="Label" type="Label" parent="."]
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 900.0
+offset_bottom = 120.0
+text = "Project TDC — Phase 1a bootstrap (see QA-030)"
