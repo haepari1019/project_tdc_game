@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "spec_commit_short": "7a20da9",
+  "encounter_ids": ["ENC-NORM-001", "ENC-NORM-002"],
+  "enemy_ids": ["EN-001", "EN-010", "EN-011", "EN-012", "EN-013"],
+  "identity_skill_ids": [
+    "tank_anchor_guard",
+    "dps_press_line",
+    "nuker_mark_ruin",
+    "healer_mend_circle"
+  ],
+  "ability_ids": ["AB-020", "AB-024", "AB-025", "AB-026"],
+  "pattern_ids": ["PT-010", "PT-020", "PT-021", "PT-022"],
+  "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
+  "blueprint_ids": ["DBP-DEMO-001"],
+  "map_ids": ["MAP-DEMO-001"],
+  "contract_ids": ["CONTRACT-DEMO-001"],
+  "pool_slots": ["P-ENTRY-01", "P-ADV-01", "P-ADV-02", "P-OBJ-01", "P-EXT-ROUTE-01"],
+  "room_refs": [
+    "RM-ENTRY-01",
+    "RM-ADV-01",
+    "RM-ADV-02",
+    "RM-OBJ-01",
+    "RM-ROUTE-01",
+    "RM-EXT-01"
+  ],
+  "extraction_point_ids": ["POINT-DEMO-01"]
+}

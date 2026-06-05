@@ -38,7 +38,7 @@ Non-goal: haul·허브·Recovery 풀·서브 auto·`ENC-3RD` — spec `QA-030` �
 
 ## Open in Godot
 
-Godot 4.3+ (로컬 4.5.1 tested path: `Game_design/Godot_v4.5.1-stable_win64.exe`). Import `project.godot`.
+**Godot 4.5.1** (프로젝트 `config/features`: `4.5`). 로컬 실행 파일: `Game_design/Godot_v4.5.1-stable_win64.exe`. Import `project.godot`.
 
 ## Sync spec → data
 

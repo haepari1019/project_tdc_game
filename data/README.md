@@ -5,4 +5,4 @@
 
 ## slice01/
 
-Phase 1a manifest — extend as you import encounters, abilities, blueprint bindings.
+Phase 1a data — see `slice01/README.md`. Loaded by `Slice01Data` autoload (ID abort on unknown).

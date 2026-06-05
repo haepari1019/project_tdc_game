@@ -1,0 +1,10 @@
+{
+  "encounter_id": "ENC-NORM-002",
+  "difficulty_profile": "Normal",
+  "risk_pattern_ref": null,
+  "group_size": 4,
+  "units": [
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
+    { "enemy_id": "EN-013", "count": 2, "slot": "fodder" }
+  ]
+}

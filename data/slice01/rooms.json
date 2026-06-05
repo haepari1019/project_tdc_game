@@ -1,0 +1,41 @@
+{
+  "map_id": "MAP-DEMO-001",
+  "zone_id": "ZONE-DEMO-UPPER",
+  "rooms": [
+    {
+      "room_ref": "RM-ENTRY-01",
+      "connects": ["RM-ADV-01"],
+      "lighting_profile": "lit",
+      "pool_slot": "P-ENTRY-01"
+    },
+    {
+      "room_ref": "RM-ADV-01",
+      "connects": ["RM-ADV-02", "RM-OBJ-01"],
+      "lighting_profile": "lit",
+      "pool_slot": "P-ADV-01"
+    },
+    {
+      "room_ref": "RM-ADV-02",
+      "connects": ["RM-ROUTE-01"],
+      "lighting_profile": "standard"
+    },
+    {
+      "room_ref": "RM-OBJ-01",
+      "connects": [],
+      "lighting_profile": "dim",
+      "gimmick_ref": "GIMMICK-DEMO-01"
+    },
+    {
+      "room_ref": "RM-ROUTE-01",
+      "connects": ["RM-EXT-01"],
+      "lighting_profile": "standard",
+      "pool_slot": "P-EXT-ROUTE-01"
+    },
+    {
+      "room_ref": "RM-EXT-01",
+      "connects": [],
+      "lighting_profile": "lit",
+      "extraction_point_id": "POINT-DEMO-01"
+    }
+  ]
+}

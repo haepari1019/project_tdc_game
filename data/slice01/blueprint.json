@@ -1,0 +1,16 @@
+{
+  "blueprint_id": "DBP-DEMO-001",
+  "contract_id": "CONTRACT-DEMO-001",
+  "map_id": "MAP-DEMO-001",
+  "difficulty_profile": "Normal",
+  "run_phase_sequence": [
+    "Entry",
+    "Advance",
+    "Objective",
+    "AdvanceExtraction",
+    "Extraction"
+  ],
+  "third_faction": {
+    "enabled": false
+  }
+}

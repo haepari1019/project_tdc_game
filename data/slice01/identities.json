@@ -1,0 +1,28 @@
+{
+  "identities": [
+    {
+      "identity_skill_id": "tank_anchor_guard",
+      "class_id": "Tank",
+      "ability_id": "AB-020",
+      "pattern_id": "PT-010"
+    },
+    {
+      "identity_skill_id": "dps_press_line",
+      "class_id": "DPS",
+      "ability_id": "AB-024",
+      "pattern_id": "PT-020"
+    },
+    {
+      "identity_skill_id": "nuker_mark_ruin",
+      "class_id": "Nuker",
+      "ability_id": "AB-025",
+      "pattern_id": "PT-021"
+    },
+    {
+      "identity_skill_id": "healer_mend_circle",
+      "class_id": "Healer",
+      "ability_id": "AB-026",
+      "pattern_id": "PT-022"
+    }
+  ]
+}

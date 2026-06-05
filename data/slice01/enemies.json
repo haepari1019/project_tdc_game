@@ -1,0 +1,9 @@
+{
+  "enemies": [
+    { "enemy_id": "EN-001", "role": "elite", "display_name": "Shield Elite" },
+    { "enemy_id": "EN-010", "role": "fodder", "display_name": "Front Rush" },
+    { "enemy_id": "EN-011", "role": "fodder", "display_name": "Back Pester" },
+    { "enemy_id": "EN-012", "role": "fodder", "display_name": "Slow Bulk" },
+    { "enemy_id": "EN-013", "role": "fodder", "display_name": "Skitter" }
+  ]
+}

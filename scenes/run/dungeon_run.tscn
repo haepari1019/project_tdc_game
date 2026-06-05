@@ -1,0 +1,89 @@
+[gd_scene load_steps=5 format=3 uid="uid://ctdcslice01dungeon"]
+
+[ext_resource type="Script" path="res://scripts/run/dungeon_run.gd" id="1_dungeon"]
+[ext_resource type="Script" path="res://scripts/run/run_controller.gd" id="2_run"]
+[ext_resource type="Script" path="res://scripts/run/map_demo_layout.gd" id="3_map"]
+[ext_resource type="Script" path="res://scripts/party/party_controller.gd" id="4_party"]
+
+[node name="DungeonRun" type="Node3D"]
+script = ExtResource("1_dungeon")
+
+[node name="RunController" type="Node" parent="."]
+script = ExtResource("2_run")
+
+[node name="MapDemoLayout" type="Node3D" parent="."]
+script = ExtResource("3_map")
+
+[node name="Rooms" type="Node3D" parent="MapDemoLayout"]
+
+[node name="Markers" type="Node3D" parent="MapDemoLayout"]
+
+[node name="PartyController" type="Node3D" parent="."]
+script = ExtResource("4_party")
+
+[node name="Members" type="Node3D" parent="PartyController"]
+
+[node name="CameraPivot" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 18, 14)
+current = true
+fov = 55.0
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 12, 0)
+shadow_enabled = true
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Panel" type="PanelContainer" parent="HUD"]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 480.0
+offset_bottom = 260.0
+
+[node name="Margin" type="MarginContainer" parent="HUD/Panel"]
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="HUD/Panel/Margin"]
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "Slice-01 Demo Run"
+
+[node name="MapLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "mapId"
+
+[node name="MapValue" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "MAP-DEMO-001"
+
+[node name="PhaseLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "runPhase"
+
+[node name="PhaseValue" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "Entry"
+
+[node name="RoomLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "room"
+
+[node name="RoomValue" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "RM-ENTRY-01"
+
+[node name="ControlledLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "controlled"
+
+[node name="ControlledValue" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "—"
+
+[node name="CohesionLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "cohesion"
+
+[node name="CohesionValue" type="Label" parent="HUD/Panel/Margin/VBox"]
+text = "파티결속"
+
+[node name="Hint" type="Label" parent="HUD/Panel/Margin/VBox"]
+autowrap_mode = 2
+text = "WASD · 1-4 swap · U cohesion"

@@ -41,10 +41,7 @@ func get_spec_pin_summary() -> String:
 
 
 func get_identity_ids() -> PackedStringArray:
-	# QA-030 §2 — canonical Identity strings
-	return PackedStringArray([
-		"tank_anchor_guard",
-		"dps_press_line",
-		"nuker_mark_ruin",
-		"healer_mend_circle",
-	])
+	# QA-030 §2 — loaded from data/slice01 (Slice01Data autoload)
+	if Slice01Data.is_loaded():
+		return Slice01Data.get_identity_skill_ids()
+	return PackedStringArray()

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Godot 4 implementation for **Project TDC**. Design SSOT lives in **`project_tdc`** (GitHub: `haepari1019/project_tdc`, branch `staging`). Do not duplicate `F-###` / `D-###` rule text here.
+Godot **4.5.1** implementation for **Project TDC** (`project.godot` features: 4.5). Design SSOT lives in **`project_tdc`** (GitHub: `haepari1019/project_tdc`, branch `staging`). Do not duplicate `F-###` / `D-###` rule text here.
 
 ## Before coding
 

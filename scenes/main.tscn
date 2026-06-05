@@ -1,13 +1,78 @@
-[gd_scene load_steps=2 format=3 uid="uid://bqx7slice01main"]
+[gd_scene load_steps=3 format=3 uid="uid://bqx7slice01main"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/ui/loadout_stub.gd" id="2_loadout"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="Label" type="Label" parent="."]
-offset_left = 40.0
-offset_top = 40.0
-offset_right = 900.0
-offset_bottom = 120.0
-text = "Project TDC — Phase 1a bootstrap (see QA-030)"
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -200.0
+offset_right = 280.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+text = "Project TDC — Slice-01"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+text = "UI-005 Loadout (stub) · QA-030"
+horizontal_alignment = 1
+
+[node name="Status" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+text = "Data loaded."
+horizontal_alignment = 1
+
+[node name="LoadoutStub" type="VBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+script = ExtResource("2_loadout")
+
+[node name="LoadoutTitle" type="Label" parent="Panel/Margin/VBox/LoadoutStub"]
+layout_mode = 2
+text = "4 Identity (fixed demo)"
+
+[node name="IdentityList" type="VBoxContainer" parent="Panel/Margin/VBox/LoadoutStub"]
+layout_mode = 2
+
+[node name="ConfirmButton" type="Button" parent="Panel/Margin/VBox/LoadoutStub"]
+layout_mode = 2
+text = "Confirm Loadout"
+
+[node name="StatusLabel" type="Label" parent="Panel/Margin/VBox/LoadoutStub"]
+layout_mode = 2
+text = "Confirm before entering dungeon."
+
+[node name="StartButton" type="Button" parent="Panel/Margin/VBox"]
+layout_mode = 2
+disabled = true
+text = "Enter Demo Dungeon (DBP-DEMO-001)"

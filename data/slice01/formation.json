@@ -1,0 +1,160 @@
+{
+
+  "schema_version": 1,
+
+  "cohesion_default": "bound",
+
+  "offset_axes_note": "x=right, z=forward (movement direction). Anchor=controlled or leader.",
+
+  "slots": [
+
+    { "class_id": "Tank", "offset": [0, 0, 3.5] },
+
+    { "class_id": "DPS", "offset": [2.4, 0, -0.8] },
+
+    { "class_id": "Nuker", "offset": [-2.0, 0, -2.8] },
+
+    { "class_id": "Healer", "offset": [0.0, 0, -3.8] }
+
+  ],
+
+  "tank_min_lead_m": 3.2,
+
+  "formation_forward_smooth_rate": 12.0,
+
+  "formation_forward": {
+
+    "min_speed_mps": 0.2,
+
+    "update_angle_deg": 30,
+
+    "hold_s": 0.08,
+
+    "commit_override_opposite_dot": -0.6,
+
+    "commit_speed_fast_mps": 6.5,
+
+    "commit_speed_slow_mps": 2.8,
+
+    "commit_override_backpedal_s_fast": 1.0,
+
+    "commit_override_backpedal_s_slow": 2.5,
+
+    "commit_override_opposite_s_fast": 0.65,
+
+    "commit_override_opposite_s_slow": 2.4,
+
+    "commit_override_cooldown_s": 0.75,
+
+    "backpedal_timer_reset_stop_fast": 0.12,
+
+    "backpedal_timer_reset_stop_slow": 0.35
+
+  },
+
+  "tank_follow": {
+
+    "correction_gain": 5.0,
+
+    "motion_forward_dot": 0.35,
+
+    "inherit_min_dot": 0.35,
+
+    "preferred_min_anchor_distance_m": 2.0,
+
+    "comfort_push_strength": 5.5,
+
+    "reversal_orbit_strength": 4.5,
+
+    "reversal_clear_radius_m": 2.8
+
+  },
+
+  "controlled_move_speed_mps": 9.0,
+  "player_accel_mps2": 25.0,
+  "player_decel_mps2": 45.0,
+
+  "follower_move_speed_mps": 13.0,
+  "follower_move_speed_near_mps": 9.5,
+  "follower_speed_far_distance_m": 5.0,
+  "follower_accel_mps2": 50.0,
+
+  "formation_arrive_distance_m": 0.5,
+
+  "follow_variation": {
+
+    "layout_change_angle_deg": 25,
+
+    "large_layout_change_angle_deg": 100,
+
+    "reposition_start_delay_min_s": 0.0,
+
+    "reposition_start_delay_max_s": 0.16,
+
+    "reposition_start_delay_large_max_s": 0.28,
+
+    "swap_reposition_start_delay_min_s": 0.05,
+
+    "swap_reposition_start_delay_max_s": 0.26
+
+  },
+
+  "follow_steering_deprecated": {
+    "_note": "v0 legacy — replaced by steering_v1. Kept for rollback reference.",
+    "preferred_min_anchor_distance_m": 1.35,
+    "lateral_approach_blend": 0.45,
+    "slot_arrive_extra_m": 0.45,
+    "party_separation_radius_m": 1.25,
+    "party_separation_strength": 6.5,
+    "party_separation_max_mps": 5.0,
+    "party_separation_boost_moving": 1.35,
+    "party_separation_max_mps_moving": 8.5,
+    "anchor_path_clearance_extra_m": 0.45,
+    "party_separation_stationary_boost": 1.65,
+    "party_slot_target_separation_blend": 0.55
+  },
+
+  "steering_v1": {
+    "sep_zero_radius_m": 1.0,
+    "sep_zero_anchor_extra_m": 0.2,
+    "sep_touch_radius_m": 0.52,
+    "sep_urgency_power": 4.0,
+    "sep_strength": 4.0,
+    "sep_max_mps": 5.0,
+    "sep_deadzone_ratio": 0.85,
+    "sep_asymmetry_min": 0.15,
+
+    "collinear_perp_dist_m": 0.35,
+    "collinear_opposing_dot": -0.65,
+    "bypass_strength": 3.0,
+
+    "arrive_radius_extra_m": 0.45,
+    "seek_gain": 4.0,
+    "slot_proximity_damping_min": 0.2,
+
+    "dir_smooth_rate": 14.0,
+
+    "wall_clip_enabled": true,
+
+    "goal_ramp_after_delay_s": 0.08,
+
+    "slot_min_distance_pair_m": 2.5,
+    "slot_min_distance_anchor_m": 2.0,
+
+    "noise_dir_deg": 12.0,
+    "noise_dir_freq": 0.7,
+    "noise_speed_pct": 0.20,
+    "noise_speed_freq": 0.5
+  },
+
+  "collision": {
+
+    "capsule_radius_m": 0.26,
+
+    "capsule_height_m": 1.15
+
+  }
+
+}
+
+

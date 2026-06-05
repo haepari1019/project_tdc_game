@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "phase": "1a",
   "contract": "QA-030",
   "blueprint_id": "DBP-DEMO-001",
