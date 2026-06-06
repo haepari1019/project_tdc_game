@@ -9,10 +9,18 @@ signal controlled_changed(member: CharacterBody3D)
 signal cohesion_changed(mode: int)
 
 const CLASS_COLORS: Dictionary = {
-	"Tank": Color(0.35, 0.5, 1.0),
-	"DPS": Color(1.0, 0.42, 0.2),
-	"Nuker": Color(0.72, 0.28, 1.0),
-	"Healer": Color(0.25, 0.92, 0.45),
+	"Tank": Color(0.19, 0.44, 0.80),    # #3070CC Blue
+	"DPS": Color(0.13, 0.63, 0.63),     # #20A0A0 Teal
+	"Nuker": Color(0.38, 0.25, 0.69),   # #6040B0 Indigo
+	"Healer": Color(0.19, 0.63, 0.31),  # #30A050 Green
+}
+
+## Role-based mesh scale multiplier (relative to default 1.0)
+const CLASS_SCALES: Dictionary = {
+	"Tank": 1.25,
+	"DPS": 1.0,
+	"Nuker": 0.95,
+	"Healer": 0.9,
 }
 
 @export var move_speed: float = 9.0
@@ -422,7 +430,8 @@ func _spawn_party_from_data() -> void:
 			i,
 			CLASS_COLORS.get(class_id, Color.GRAY),
 			_collision_radius,
-			_collision_height
+			_collision_height,
+			CLASS_SCALES.get(class_id, 1.0)
 		)
 		var ctrl := PlayerControl.new()
 		ctrl.name = "Control"

@@ -1,5 +1,5 @@
 extends CharacterBody3D
-## One party slot — capsule placeholder (A2 replaces mesh).
+## One party slot — cylinder placeholder with role color/size (A2 replaces mesh).
 
 signal became_controlled
 signal became_non_controlled
@@ -23,17 +23,19 @@ var follow_reposition_delay_s: float = 0.0
 var _controlled: bool = false
 var _base_color: Color = Color.WHITE
 var _body_material: StandardMaterial3D
+var _role_scale: float = 1.0
 
 
-func setup(row: Dictionary, index: int, color: Color, collision_radius: float = -1.0, collision_height: float = -1.0) -> void:
+func setup(row: Dictionary, index: int, color: Color, collision_radius: float = -1.0, collision_height: float = -1.0, role_scale: float = 1.0) -> void:
 	identity_skill_id = String(row.get("identity_skill_id", ""))
 	class_id = String(row.get("class_id", ""))
 	ability_id = String(row.get("ability_id", ""))
 	slot_index = index
 	_base_color = color
+	_role_scale = role_scale
 	name = identity_skill_id
 	_apply_collision_size(collision_radius, collision_height)
-	_ensure_unique_material(color)
+	_build_cylinder_mesh(color, role_scale)
 	collision_layer = LAYER_PARTY
 	collision_mask = MASK_PARTY
 	add_to_group("party_member")
@@ -69,18 +71,25 @@ func _apply_collision_size(radius: float, height: float) -> void:
 	col_shape.height = height if height > 0.0 else DEFAULT_COLLISION_HEIGHT
 
 
-func _ensure_unique_material(color: Color) -> void:
-	var mesh := get_node_or_null("Mesh") as MeshInstance3D
-	if mesh == null:
+func _build_cylinder_mesh(color: Color, role_scale: float) -> void:
+	var mesh_node := get_node_or_null("Mesh") as MeshInstance3D
+	if mesh_node == null:
 		return
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.35 * role_scale
+	cyl.bottom_radius = 0.40 * role_scale
+	cyl.height = 1.4 * role_scale
+	mesh_node.mesh = cyl
+	mesh_node.position.y = cyl.height * 0.5
 	_body_material = StandardMaterial3D.new()
 	_body_material.albedo_color = color
-	_body_material.roughness = 0.45
-	mesh.material_override = _body_material
+	_body_material.roughness = 0.4
+	mesh_node.material_override = _body_material
 
 
 func _apply_controlled_visual(active: bool) -> void:
 	if _body_material:
 		_body_material.emission_enabled = active
 		_body_material.emission = _base_color * CONTROLLED_EMISSION if active else Color.BLACK
-	scale = Vector3.ONE * CONTROLLED_SCALE if active else Vector3.ONE
+	var s := _role_scale * CONTROLLED_SCALE if active else _role_scale
+	scale = Vector3(s, s, s)
