@@ -1,0 +1,21 @@
+{
+  "_note": "Unified ability catalog (spec D-016 model). Characters/units LINK by id: party identity via identities.ability_id, enemies via abilities[].ref. Add a skill once → assign anywhere. effect numbers = DEMO PH (spec AB-### Draft).",
+  "abilities": {
+    "AB-001": { "kind": "enemy_melee",  "damage_mult": 1.0, "knockback_m": 0.5, "vfx": "" },
+    "AB-002": { "kind": "enemy_melee",  "damage_mult": 2.2, "knockback_m": 2.6, "vfx": "shield_bash" },
+    "AB-015": { "kind": "enemy_melee",  "damage_mult": 1.0, "knockback_m": 0.0, "vfx": "" },
+    "AB-016": { "kind": "enemy_ranged", "damage_mult": 1.0, "knockback_m": 0.0, "vfx": "projectile" },
+    "AB-010": { "kind": "enemy_poison", "telegraph_s": 0.4, "damage_mult": 0.5, "poison_dur_s": 4, "poison_dps": 8, "vfx": "projectile" },
+    "AB-011": { "kind": "enemy_stun",   "telegraph_s": 0.5, "damage_mult": 0.6, "stun_s": 1.4, "vfx": "shield_bash" },
+
+    "AB-020": { "kind": "shield_pulse", "cooldown_s": 8, "radius_m": 5, "shield_base": 120, "shield_per_enemy": 30, "shield_cap": 280, "shield_duration_s": 5, "threat_pulse": 60 },
+    "AB-024": { "kind": "cone_sweep",   "cooldown_s": 7, "range_m": 5, "cone_deg": 60, "hits": 3, "hit_interval_s": 0.25, "hit_damage_mult": 1.0 },
+    "AB-025": { "kind": "mark_burst",   "cooldown_s": 9, "range_m": 8, "mark_time_s": 0.5, "ruin_damage_mult": 12.0 },
+    "AB-026": { "kind": "radius_heal",  "cooldown_s": 6, "radius_m": 5, "heal_pct": 0.10, "ally_threshold_pct": 0.90, "tank_threshold_pct": 0.95 },
+
+    "AB-S01": { "kind": "sub_taunt",     "cooldown_s": 12, "radius_m": 6.5, "knockback_m": 3.0, "threat_amount": 1500, "shield": 220, "shield_duration_s": 5 },
+    "AB-S02": { "kind": "sub_lunge",     "cooldown_s": 8,  "targeted": true, "range_m": 9, "damage_mult": 5.0, "aoe_radius_m": 2.8 },
+    "AB-S03": { "kind": "sub_nova",      "cooldown_s": 14, "targeted": true, "range_m": 12, "radius_m": 5.5, "damage_mult": 3.0, "slow_factor": 0.4, "slow_duration_s": 4 },
+    "AB-S04": { "kind": "sub_sanctuary", "cooldown_s": 16, "radius_m": 6.5, "heal_pct": 0.40, "shield": 140, "shield_duration_s": 6 }
+  }
+}

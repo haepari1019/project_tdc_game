@@ -13,6 +13,14 @@ func _physics_process(delta: float) -> void:
 	var body := get_parent() as CharacterBody3D
 	if body == null:
 		return
+	# Downed or stunned (F-021): no input, halt in place.
+	if body.has_method("is_alive") and not body.is_alive():
+		body.velocity = Vector3.ZERO
+		return
+	if body.has_method("is_stunned") and body.is_stunned():
+		body.velocity = Vector3.ZERO
+		body.move_and_slide()
+		return
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := Vector3(input.x, 0, input.y)
 	if direction.length_squared() > 1.0:

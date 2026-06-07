@@ -7,6 +7,7 @@ const PlayerControl := preload("res://scripts/run/player_controller.gd")
 
 signal controlled_changed(member: CharacterBody3D)
 signal cohesion_changed(mode: int)
+signal formation_priority_changed(on: bool)
 
 const CLASS_COLORS: Dictionary = {
 	"Tank": Color(0.19, 0.44, 0.80),    # #3070CC Blue
@@ -17,7 +18,7 @@ const CLASS_COLORS: Dictionary = {
 
 ## Role-based mesh scale multiplier (relative to default 1.0)
 const CLASS_SCALES: Dictionary = {
-	"Tank": 1.25,
+	"Tank": 1.1,
 	"DPS": 1.0,
 	"Nuker": 0.95,
 	"Healer": 0.9,
@@ -27,6 +28,10 @@ const CLASS_SCALES: Dictionary = {
 
 var party_in_combat: bool = false
 var cohesion_mode: int = PartyCohesion.MODE_BOUND
+## Formation-priority toggle. OFF (default) = combat priority: in combat,
+## followers break formation and engage enemies. ON = hold slots even in combat.
+var _formation_priority: bool = false
+var _combat_engaging: bool = false
 
 var _members: Array[CharacterBody3D] = []
 var _controlled_index: int = 0
@@ -102,6 +107,10 @@ var _sv1_sep_max_mps: float = 9.0
 var _sv1_sep_deadzone_ratio: float = 0.85
 var _sv1_collinear_opposing_dot: float = -0.65
 var _sv1_bypass_strength: float = 5.5
+## Only bypass an ally that lies within this distance AHEAD along the path. A
+## far obstacle (e.g. the anchor at the center while orbiting) no longer triggers
+## a premature wide detour — near-range separation still prevents overlap.
+var _sv1_bypass_lookahead_m: float = 1.5
 var _sv1_arrive_extra: float = 0.45
 var _sv1_seek_gain: float = 4.0
 var _sv1_slot_proximity_damping_min: float = 0.2
@@ -115,6 +124,18 @@ var _sv1_noise_dir_deg: float = 6.0
 var _sv1_noise_dir_freq: float = 0.7
 var _sv1_noise_speed_pct: float = 0.12
 var _sv1_noise_speed_freq: float = 0.5
+## Slot target room-clamp: keep slot DIRECTION from anchor, clamp DISTANCE so the
+## point stays inside the anchor's line-of-sight (= same room). Kills the
+## "slot behind a wall" oscillation by making the target a continuous function
+## of geometry instead of a binary anchor/slot toggle.
+## Max speed a follower may travel directly AWAY from its slot. Caps only the
+## away-radial velocity component (toward-slot + sideways bypass are untouched),
+## so separation/bypass can't fling a member out of formation on a turn.
+var _sv1_away_speed_cap: float = 1.5
+var _sv1_slot_clamp_enabled: bool = true
+var _sv1_slot_clamp_margin: float = 0.4
+var _sv1_slot_clamp_angle_step_deg: float = 15.0
+var _sv1_slot_clamp_angle_max_deg: float = 60.0
 var _sv1_enabled: bool = false
 
 # --- Steering v1 per-member state ---
@@ -123,6 +144,14 @@ var _sv1_w_goal: Dictionary = {}
 var _sv1_wall_normals: Dictionary = {}
 var _sv1_noise: FastNoiseLite
 var _sv1_noise_seed_offset: Dictionary = {}
+## Per-member nav mode: true = NAVMESH mode (wall blocking path), false = DIRECT mode
+var _sv1_nav_mode: Dictionary = {}
+## Delay timer before exiting NAVMESH → DIRECT when path clears
+var _sv1_nav_exit_timer: Dictionary = {}
+const _SV1_NAV_EXIT_DELAY_S: float = 0.3
+## Per-member timer: seconds the member has been wall-separated from anchor
+var _sv1_separated_timer: Dictionary = {}
+const _SV1_REJOIN_AFTER_S: float = 0.8
 
 
 func _ready() -> void:
@@ -147,13 +176,20 @@ func get_member(index: int) -> CharacterBody3D:
 	return _members[index]
 
 
+func get_members() -> Array:
+	return _members.duplicate()
+
+
 func try_swap_to(index: int) -> bool:
 	if index < 0 or index >= _members.size():
 		return false
 	if index == _controlled_index:
 		return false
+	if not _members[index].is_alive():
+		print("[TDC] Swap ignored (target downed)")  # can't control a downed member
+		return false
 	if not _can_swap():
-		print("[TDC] Swap blocked (partyInCombat=%s)" % party_in_combat)
+		print("[TDC] Swap ignored (control locked)")  # F-001 §3.6 Control Lock / MIA
 		return false
 	_set_controlled_index(index)
 	return true
@@ -176,11 +212,23 @@ func spawn_at(world_pos: Vector3) -> void:
 	_place_party_at_anchor(world_pos)
 
 
+func _on_member_downed(member: CharacterBody3D) -> void:
+	if member != get_controlled():
+		return
+	# Controlled char went down — auto-swap to a living member so input isn't stuck.
+	for i in _members.size():
+		if _members[i] != member and _members[i].is_alive():
+			_set_controlled_index(i)
+			return
+	push_warning("[TDC] Party wiped — all members down")
+
+
 func _can_swap() -> bool:
+	# F-001 §3.3/§3.6: swap is NOT gated by combat (only Control Lock / MIA).
 	var run := get_parent().get_node_or_null("RunController")
 	if run and run.has_method("can_swap"):
 		return run.can_swap()
-	return not party_in_combat
+	return true
 
 
 func _set_controlled_index(index: int) -> void:
@@ -358,6 +406,7 @@ func _load_formation_config() -> void:
 		_sv1_sep_deadzone_ratio = float(sv1.get("sep_deadzone_ratio", 0.85))
 		_sv1_collinear_opposing_dot = float(sv1.get("collinear_opposing_dot", -0.65))
 		_sv1_bypass_strength = float(sv1.get("bypass_strength", 5.5))
+		_sv1_bypass_lookahead_m = float(sv1.get("bypass_lookahead_m", 1.5))
 		_sv1_arrive_extra = float(sv1.get("arrive_radius_extra_m", 0.45))
 		_sv1_seek_gain = float(sv1.get("seek_gain", 4.0))
 		_sv1_slot_proximity_damping_min = float(sv1.get("slot_proximity_damping_min", 0.2))
@@ -371,6 +420,11 @@ func _load_formation_config() -> void:
 		_sv1_noise_dir_freq = float(sv1.get("noise_dir_freq", 0.7))
 		_sv1_noise_speed_pct = float(sv1.get("noise_speed_pct", 0.12))
 		_sv1_noise_speed_freq = float(sv1.get("noise_speed_freq", 0.5))
+		_sv1_away_speed_cap = float(sv1.get("away_speed_cap_mps", 1.5))
+		_sv1_slot_clamp_enabled = bool(sv1.get("slot_clamp_enabled", true))
+		_sv1_slot_clamp_margin = float(sv1.get("slot_clamp_margin_m", 0.4))
+		_sv1_slot_clamp_angle_step_deg = float(sv1.get("slot_clamp_angle_step_deg", 15.0))
+		_sv1_slot_clamp_angle_max_deg = float(sv1.get("slot_clamp_angle_max_deg", 60.0))
 		_sv1_noise = FastNoiseLite.new()
 		_sv1_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
 		_sv1_noise.frequency = 1.0
@@ -437,6 +491,7 @@ func _spawn_party_from_data() -> void:
 		ctrl.name = "Control"
 		member.add_child(ctrl)
 		ctrl.set_physics_process(false)
+		member.downed.connect(_on_member_downed)
 		_members.append(member)
 		_sv1_noise_seed_offset[member] = float(i) * 100.0
 	if _members.is_empty():
@@ -582,14 +637,70 @@ func _update_formation_follow(delta: float) -> void:
 		_update_party_layout_origin(anchor, layout_axes, anchor_pos)
 	elif anchor_moving:
 		_update_party_layout_origin(anchor, layout_axes, anchor_pos)
+	# Combat: followers leave their slots and engage enemies autonomously —
+	# unless formation-priority is ON (hold slots), or combat ended / no enemies.
+	_combat_engaging = party_in_combat and not _formation_priority and _has_live_enemies()
 	var peer_slot_targets: Dictionary = {}
 	for m in _members:
-		var cid: String = String(m.get("class_id"))
-		peer_slot_targets[m] = _slot_world_target(cid, layout_axes, anchor_pos.y)
+		if _combat_engaging and m != anchor and not m.is_controlled():
+			peer_slot_targets[m] = _combat_engage_target(m)
+		else:
+			var cid: String = String(m.get("class_id"))
+			peer_slot_targets[m] = _slot_world_target(cid, layout_axes, anchor_pos.y)
 	if _sv1_enabled:
 		_sv1_update_follow(anchor, anchor_pos, layout_axes, peer_slot_targets, delta)
 	else:
 		_v0_update_follow(anchor, anchor_pos, layout_axes, peer_slot_targets, delta)
+
+
+## Formation-priority toggle (hotkey). ON = hold slots even in combat;
+## OFF = combat priority (followers engage enemies).
+func toggle_formation_priority() -> void:
+	_formation_priority = not _formation_priority
+	formation_priority_changed.emit(_formation_priority)
+	print("[TDC] Formation priority -> %s" % (
+		"ON (hold slots)" if _formation_priority else "OFF (fight)"
+	))
+
+
+func is_formation_priority() -> bool:
+	return _formation_priority
+
+
+func _has_live_enemies() -> bool:
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(e):
+			return true
+	return false
+
+
+## Goal point for an engaging follower: a spot just inside its attack range of
+## the nearest enemy (so it closes in, then the basic-attack loop fires).
+func _combat_engage_target(member: CharacterBody3D) -> Vector3:
+	var mp := member.global_position
+	var nearest: Node3D = null
+	var best := INF
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if not is_instance_valid(e):
+			continue
+		var d: float = mp.distance_squared_to(e.global_position)
+		if d < best:
+			best = d
+			nearest = e
+	if nearest == null:
+		return mp
+	# Stop well inside attack range (not at the edge) so separation jitter can't
+	# push the follower out of range — keeps it reliably attacking.
+	var br: float = float(member.get("basic_range_m"))
+	var reach: float = clampf(br - 0.6, 0.8, br)
+	var to := mp - nearest.global_position
+	to.y = 0.0
+	var dist := to.length()
+	if dist <= reach or dist < 0.001:
+		return Vector3(mp.x, nearest.global_position.y, mp.z)  # in range — hold & attack
+	var t := nearest.global_position + (to / dist) * reach
+	t.y = nearest.global_position.y
+	return t
 
 
 
@@ -605,6 +716,17 @@ func _sv1_update_follow(
 	peer_slot_targets: Dictionary,
 	delta: float
 ) -> void:
+	# Pass 0: project every slot target into the anchor's room — preserve the
+	# anchor→slot DIRECTION, clamp DISTANCE to line-of-sight. Resolved first for
+	# all members so separation/bypass use the in-room peer targets too.
+	# Skipped while engaging: combat targets are intentionally out at the enemies.
+	if _sv1_slot_clamp_enabled and not _combat_engaging:
+		for member in _members:
+			if member == anchor:
+				continue
+			peer_slot_targets[member] = _sv1_resolve_slot_target(
+				member, peer_slot_targets[member], anchor, anchor_pos
+			)
 	# Pass 1: compute all velocities (no position changes)
 	var planned: Dictionary = {}
 	for member in _members:
@@ -613,12 +735,32 @@ func _sv1_update_follow(
 			continue
 		if member.is_controlled():
 			continue
+		if member.has_method("is_alive") and not member.is_alive():
+			member.velocity = Vector3.ZERO
+			continue  # downed — stays where it fell
 		var slot_target: Vector3 = peer_slot_targets[member]
+		# Rejoin fallback (member-POV): the clamped slot is always in the anchor's
+		# room, so this only fires when the member itself is physically stuck in
+		# another room. Then path back to the anchor via navmesh instead of holding
+		# the unreachable slot. No longer a binary slot/anchor flip → no oscillation.
+		# Skipped while engaging — followers should head to enemies, not the anchor.
+		if not _combat_engaging:
+			var separated: bool = _sv1_path_blocked(member, anchor_pos)
+			if separated:
+				var t: float = _sv1_separated_timer.get(member, 0.0) + delta
+				_sv1_separated_timer[member] = t
+				if t >= _SV1_REJOIN_AFTER_S:
+					slot_target = anchor_pos
+					peer_slot_targets[member] = slot_target
+			else:
+				_sv1_separated_timer[member] = 0.0
 		planned[member] = _sv1_velocity(anchor, member, slot_target, anchor_pos, peer_slot_targets, delta)
 	# Pass 2: apply all velocities (anchor is handled by player_controller)
 	for member in _members:
 		if member == anchor or member.is_controlled():
 			continue
+		if not planned.has(member):
+			continue  # downed / skipped
 		var target_vel: Vector3 = planned.get(member, Vector3.ZERO)
 		if _follower_accel_mps2 > 0.0:
 			member.velocity = member.velocity.move_toward(target_vel, _follower_accel_mps2 * delta)
@@ -710,7 +852,7 @@ func _sv1_compute_sep_and_bypass(
 			var to_ally := other_pos - pos
 			to_ally.y = 0.0
 			var along: float = to_ally.dot(d_goal_dir)
-			if along > 0.0 and along < d_goal_len:
+			if along > 0.0 and along < minf(d_goal_len, _sv1_bypass_lookahead_m):
 				var perp_dist := (to_ally - d_goal_dir * along).length()
 				var check_r: float = _sv1_sep_zero_radius
 				if is_anchor_other:
@@ -761,6 +903,130 @@ func _sv1_clip_walls(vec: Vector3, member: CharacterBody3D) -> Vector3:
 			if into2 < 0.0:
 				vec -= n2 * into2
 	return vec
+
+
+
+## Project an ideal slot target into the same room as the anchor.
+## Keeps the anchor→slot DIRECTION; clamps DISTANCE so the result stays within
+## the anchor's line-of-sight (= same room, directly reachable). When the exact
+## bearing collapses against a wall, fans out by small angles to recover distance
+## while preserving the rough left/right/rear intent.
+func _sv1_resolve_slot_target(
+	member: CharacterBody3D,
+	ideal_slot: Vector3,
+	anchor: CharacterBody3D,
+	anchor_pos: Vector3
+) -> Vector3:
+	var dir := ideal_slot - anchor_pos
+	dir.y = 0.0
+	var dist := dir.length()
+	if dist < 0.05:
+		return ideal_slot
+	dir /= dist
+	# Primary: straight bearing from anchor toward the ideal slot.
+	var reach := _sv1_anchor_ray_reach(member, anchor, anchor_pos, dir, dist)
+	if reach >= dist:
+		return ideal_slot  # slot already visible from anchor → same room, keep it
+	if reach >= _sv1_slot_min_distance_anchor:
+		return _sv1_point_along(anchor_pos, dir, reach, ideal_slot.y)
+	# Bearing collapsed against a wall — fan out to recover distance.
+	var best_dir := dir
+	var best_reach := reach
+	var steps := int(_sv1_slot_clamp_angle_max_deg / maxf(_sv1_slot_clamp_angle_step_deg, 1.0))
+	for i in range(1, steps + 1):
+		var a := deg_to_rad(_sv1_slot_clamp_angle_step_deg * float(i))
+		for s: float in [1.0, -1.0]:
+			var cand_dir := dir.rotated(Vector3.UP, a * s)
+			var cand_reach := _sv1_anchor_ray_reach(member, anchor, anchor_pos, cand_dir, dist)
+			if cand_reach > best_reach:
+				best_reach = cand_reach
+				best_dir = cand_dir
+		if best_reach >= dist:
+			break
+	return _sv1_point_along(anchor_pos, best_dir, best_reach, ideal_slot.y)
+
+
+func _sv1_point_along(origin: Vector3, dir: Vector3, dist: float, ground_y: float) -> Vector3:
+	var p := origin + dir * dist
+	p.y = ground_y
+	return p
+
+
+## Distance the anchor can travel along `dir` before a wall, capped at `max_dist`.
+## Returns max_dist when clear; otherwise pulls the hit point back by the clamp
+## margin so the member doesn't end up embedded in the wall.
+func _sv1_anchor_ray_reach(
+	member: CharacterBody3D,
+	anchor: CharacterBody3D,
+	anchor_pos: Vector3,
+	dir: Vector3,
+	max_dist: float
+) -> float:
+	var space := member.get_world_3d().direct_space_state
+	if space == null:
+		return max_dist
+	var origin := anchor_pos + Vector3(0, 0.5, 0)
+	var dest := origin + dir * max_dist
+	var query := PhysicsRayQueryParameters3D.create(origin, dest, 1)
+	query.exclude = [member.get_rid(), anchor.get_rid()]
+	var result := space.intersect_ray(query)
+	if result.is_empty():
+		return max_dist
+	var hit: Vector3 = result.position
+	var reach: float = (Vector3(hit.x, origin.y, hit.z) - origin).length() - _sv1_slot_clamp_margin
+	return maxf(0.0, reach)
+
+
+## Returns true if a wall blocks the direct line from member to target.
+func _sv1_path_blocked(member: CharacterBody3D, target: Vector3) -> bool:
+	var space := member.get_world_3d().direct_space_state
+	if space == null:
+		return false
+	var origin := member.global_position + Vector3(0, 0.5, 0)
+	var dest := Vector3(target.x, origin.y, target.z)
+	var query := PhysicsRayQueryParameters3D.create(origin, dest, 1)
+	query.exclude = [member.get_rid()]
+	var result := space.intersect_ray(query)
+	return not result.is_empty()
+
+
+## Returns true if any wall is within proximity radius of the member.
+func _sv1_wall_nearby(member: CharacterBody3D) -> bool:
+	var space := member.get_world_3d().direct_space_state
+	if space == null:
+		return false
+	var origin := member.global_position + Vector3(0, 0.5, 0)
+	var radius: float = 1.2
+	for i in 4:
+		var angle := float(i) * TAU / 4.0
+		var d := Vector3(cos(angle), 0, sin(angle))
+		var query := PhysicsRayQueryParameters3D.create(origin, origin + d * radius, 1)
+		query.exclude = [member.get_rid()]
+		if not space.intersect_ray(query).is_empty():
+			return true
+	return false
+
+
+## Updates per-member nav mode state. Returns true if NAVMESH mode is active.
+func _sv1_update_nav_mode(member: CharacterBody3D, slot_target: Vector3, delta: float) -> bool:
+	var need_nav: bool = _sv1_path_blocked(member, slot_target) or _sv1_wall_nearby(member)
+	var in_nav: bool = _sv1_nav_mode.get(member, false)
+
+	if need_nav:
+		_sv1_nav_mode[member] = true
+		_sv1_nav_exit_timer[member] = 0.0
+		return true
+
+	if in_nav:
+		var timer: float = _sv1_nav_exit_timer.get(member, 0.0) + delta
+		if timer >= _SV1_NAV_EXIT_DELAY_S:
+			_sv1_nav_mode[member] = false
+			_sv1_nav_exit_timer[member] = 0.0
+			return false
+		_sv1_nav_exit_timer[member] = timer
+		return true
+
+	return false
 
 
 func _sv1_speed_seek(dist: float) -> float:
@@ -835,16 +1101,41 @@ func _sv1_velocity(
 	# Slot proximity damping
 	F_sep *= _sv1_slot_proximity_damping(pos, slot_target)
 
+	# While engaging, weaken inter-ally separation so a follower can push through
+	# the melee clump to reach its target (physics still prevents overlap).
+	if _combat_engaging:
+		F_sep *= 0.35
+
 	# Clip F_sep against walls
 	F_sep = _sv1_clip_walls(F_sep, member)
 
-	# Goal direction (weighted by w_goal)
+	# --- DIRECT / NAVMESH mode switch ---
+	var use_nav := _sv1_update_nav_mode(member, slot_target, delta)
+
 	var d_goal := Vector3.ZERO
 	if w > 0.0:
-		var to_slot := slot_target - pos
-		to_slot.y = 0.0
-		if to_slot.length_squared() > 0.01:
-			d_goal = to_slot.normalized()
+		if use_nav:
+			# NAVMESH mode: follow navmesh path only, zero separation
+			member.nav_set_target(slot_target)
+			var next_wp: Vector3 = member.nav_get_next_position()
+			var to_wp := next_wp - pos
+			to_wp.y = 0.0
+			if to_wp.length_squared() > 0.01:
+				d_goal = to_wp.normalized()
+			else:
+				# NavMesh has no valid path — fallback to straight line
+				var to_slot_fb := slot_target - pos
+				to_slot_fb.y = 0.0
+				if to_slot_fb.length_squared() > 0.01:
+					d_goal = to_slot_fb.normalized()
+			F_sep = Vector3.ZERO
+			F_bypass = Vector3.ZERO
+		else:
+			# DIRECT mode: straight line to slot, full separation
+			var to_slot := slot_target - pos
+			to_slot.y = 0.0
+			if to_slot.length_squared() > 0.01:
+				d_goal = to_slot.normalized()
 
 	# Compose direction
 	var raw_dir := d_goal * w + F_sep + F_bypass
@@ -852,8 +1143,13 @@ func _sv1_velocity(
 		return Vector3.ZERO
 	raw_dir = raw_dir.normalized()
 
-	# Direction smoothing
-	var dir := _sv1_smooth_direction(member, raw_dir, delta)
+	# Direction smoothing — skip in NAVMESH mode for instant path following
+	var dir: Vector3
+	if use_nav:
+		dir = raw_dir
+		_sv1_prev_dir[member] = raw_dir
+	else:
+		dir = _sv1_smooth_direction(member, raw_dir, delta)
 
 	# Speed — scale max with distance to slot
 	var to_slot_h := slot_target - pos
@@ -862,7 +1158,7 @@ func _sv1_velocity(
 	var speed := _sv1_speed_seek(dist)
 
 	if speed < 0.01:
-		# At slot — only separation force applies
+		# At slot — only separation
 		if F_sep.length_squared() > 0.01:
 			return _sv1_clip_walls(F_sep, member)
 		return Vector3.ZERO
@@ -879,16 +1175,22 @@ func _sv1_velocity(
 		var n_spd := _sv1_noise.get_noise_2d(t * _sv1_noise_speed_freq, seed_off + 50.0)
 		speed *= (1.0 + _sv1_noise_speed_pct * n_spd)
 
-	# Dampen speed when moving away from slot (party cohesion)
-	if dist > 0.01:
-		var slot_dir := to_slot_h / dist
-		var away_dot := -dir.dot(slot_dir)  # positive when moving away from slot
-		if away_dot > 0.0:
-			speed *= 1.0 - (away_dot * 0.75)
-
 	var v_target := dir * speed
 
-	# Final wall clip
+	# Party cohesion: never travel fast directly AWAY from the slot. Split the
+	# velocity into radial (toward/away slot) + tangential, and hard-cap only the
+	# away-radial part. Sideways bypass (tangential) is kept at full speed, so
+	# go-arounds still work but separation/bypass can't fling a follower out of
+	# formation on a direction change.
+	# Skip in NAVMESH mode — wall detours legitimately move away from the slot.
+	if not use_nav and dist > 0.01:
+		var slot_dir := to_slot_h / dist
+		var radial: float = v_target.dot(slot_dir)  # + toward slot, - away
+		if radial < -_sv1_away_speed_cap:
+			var tangential: Vector3 = v_target - slot_dir * radial
+			v_target = tangential - slot_dir * _sv1_away_speed_cap
+
+	# Final wall clip (safety net)
 	v_target = _sv1_clip_walls(v_target, member)
 	return v_target
 
@@ -963,6 +1265,9 @@ func _v0_update_follow(
 			member.move_and_slide()
 			continue
 		if member.is_controlled():
+			continue
+		if member.has_method("is_alive") and not member.is_alive():
+			member.velocity = Vector3.ZERO  # downed — stays where it fell
 			continue
 		var class_id: String = String(member.get("class_id"))
 		var slot_offset: Vector3 = _slot_offsets.get(class_id, Vector3.ZERO)
@@ -1313,5 +1618,5 @@ func _place_party_at_anchor(world_pos: Vector3) -> void:
 	for member in _members:
 		var member_class_id: String = String(member.get("class_id"))
 		member.global_position = _slot_world_target(member_class_id, layout_axes, world_pos.y)
-		member.global_position.y = world_pos.y + 1.2
+		member.global_position.y = world_pos.y  # feet-on-origin → rest on floor
 		member.velocity = Vector3.ZERO

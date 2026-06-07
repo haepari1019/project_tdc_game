@@ -15,7 +15,7 @@
   "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
   "encounters": {
     "P-ENTRY-01": "ENC-NORM-002",
-    "P-ADV-01": "ENC-NORM-001"
+    "P-ADV-01": "ENC-HARD-001"
   },
   "required_encounter_smoke": "ENC-NORM-001"
 }

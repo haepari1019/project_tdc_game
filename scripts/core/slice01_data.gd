@@ -8,6 +8,7 @@ const MANIFEST_PATH := SLICE01_DIR + "manifest.json"
 const REGISTRY_PATH := SLICE01_DIR + "id_registry.json"
 const IDENTITIES_PATH := SLICE01_DIR + "identities.json"
 const ENEMIES_PATH := SLICE01_DIR + "enemies.json"
+const ABILITIES_PATH := SLICE01_DIR + "abilities.json"
 const ROOMS_PATH := SLICE01_DIR + "rooms.json"
 const BLUEPRINT_PATH := SLICE01_DIR + "blueprint.json"
 
@@ -16,6 +17,7 @@ var _manifest: Dictionary = {}
 var _registry: Dictionary = {}
 var _identities: Array = []
 var _enemies: Dictionary = {}
+var _abilities: Dictionary = {}
 var _encounters: Dictionary = {}
 var _rooms: Dictionary = {}
 var _blueprint: Dictionary = {}
@@ -61,6 +63,33 @@ func get_encounter(encounter_id: String) -> Dictionary:
 	return {}
 
 
+## Demo placeholder defaults — merged when an enemy row omits a stat field.
+const _DEFAULT_ENEMY_STATS := {
+	"hp": 50.0, "move_speed": 3.5, "contact_damage": 6.0,
+	"attack_range_m": 1.6, "attack_interval_s": 1.2,
+}
+
+
+## Returns the enemy row with a fully-populated `stats` block (defaults merged).
+func get_enemy_row(enemy_id: String) -> Dictionary:
+	if not _enemies.has(enemy_id):
+		return {}
+	var row: Dictionary = _enemies[enemy_id].duplicate(true)
+	var stats: Dictionary = _DEFAULT_ENEMY_STATS.duplicate()
+	var raw_stats = row.get("stats", {})
+	if typeof(raw_stats) == TYPE_DICTIONARY:
+		stats.merge(raw_stats, true)
+	row["stats"] = stats
+	return row
+
+
+## Shared ability effect/params by id (party identity + enemy). {} if unknown.
+## Characters/units link to abilities by id — assign a skill once, use anywhere.
+func get_ability(ability_id: String) -> Dictionary:
+	var ab = _abilities.get(ability_id, {})
+	return ab.duplicate(true) if typeof(ab) == TYPE_DICTIONARY else {}
+
+
 func get_blueprint() -> Dictionary:
 	return _blueprint.duplicate(true)
 
@@ -97,6 +126,7 @@ func _load_and_validate() -> bool:
 	_registry = _read_json_dict(REGISTRY_PATH, "id_registry", errors)
 	var identities_doc := _read_json_dict(IDENTITIES_PATH, "identities", errors)
 	var enemies_doc := _read_json_dict(ENEMIES_PATH, "enemies", errors)
+	var abilities_doc := _read_json_dict(ABILITIES_PATH, "abilities", errors)
 	_rooms = _read_json_dict(ROOMS_PATH, "rooms", errors)
 	_blueprint = _read_json_dict(BLUEPRINT_PATH, "blueprint", errors)
 
@@ -104,6 +134,7 @@ func _load_and_validate() -> bool:
 		_validate_blueprint(errors)
 		_parse_identities(identities_doc, errors)
 		_parse_enemies(enemies_doc, errors)
+		_parse_abilities(abilities_doc, errors)
 		_validate_manifest(errors)
 		_load_encounters(errors)
 		_validate_rooms(errors)
@@ -175,6 +206,11 @@ func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:
 		var eid := String(row.get("enemy_id", ""))
 		IdValidate.require_id(eid, allowed, "enemy_id", errors)
 		_enemies[eid] = row
+
+
+func _parse_abilities(doc: Dictionary, _errors: Array[String]) -> void:
+	var raw = doc.get("abilities", {})
+	_abilities = raw if typeof(raw) == TYPE_DICTIONARY else {}
 
 
 func _validate_blueprint(errors: Array[String]) -> void:

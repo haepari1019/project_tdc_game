@@ -6,6 +6,8 @@ const RunPhase := preload("res://scripts/run/run_phase.gd")
 signal run_booted(state: Dictionary)
 signal run_phase_changed(phase: String)
 signal room_changed(room_ref: String)
+signal encounter_triggered(encounter_id: String, room_ref: String)
+signal run_ended(result: String)
 
 var blueprint_id: String = ""
 var map_id: String = ""
@@ -15,6 +17,9 @@ var run_phase: String = ""
 var current_room_ref: String = ""
 var third_faction_enabled: bool = false
 var party_in_combat: bool = false
+## GIMMICK-DEMO-01 objective state (F-007 풀 파이프라인 제외 — 스텁).
+var objective_complete: bool = false
+var run_over: bool = false
 
 var _phase_index: int = 0
 
@@ -55,8 +60,11 @@ func get_state() -> Dictionary:
 	}
 
 
+## F-001 §3.3: swap works in combat too. §3.6: only Control Lock / MIA block it
+## (neither implemented in slice-01) — so swap is always allowed for now.
+## partyInCombat tracks combat state for other systems, NOT for gating swap.
 func can_swap() -> bool:
-	return not party_in_combat
+	return true
 
 
 func on_player_entered_room(room_ref: String) -> void:
@@ -68,13 +76,36 @@ func on_player_entered_room(room_ref: String) -> void:
 	var pool := String(row.get("pool_slot", ""))
 	if not pool.is_empty():
 		var enc := Slice01Data.get_pool_encounter(pool)
-		print("[TDC] Pool %s -> %s (spawn deferred step 4+)" % [pool, enc])
-	if room_ref == "RM-OBJ-01" and run_phase == RunPhase.ADVANCE:
-		_set_phase(RunPhase.OBJECTIVE)
+		if not enc.is_empty():
+			encounter_triggered.emit(enc, room_ref)
+	if room_ref == "RM-OBJ-01":
+		if run_phase == RunPhase.ADVANCE:
+			_set_phase(RunPhase.OBJECTIVE)
+		complete_objective()
 	elif room_ref == "RM-ROUTE-01" and run_phase == RunPhase.OBJECTIVE:
 		_set_phase(RunPhase.ADVANCE_EXTRACTION)
 	elif room_ref == "RM-EXT-01":
 		_set_phase(RunPhase.EXTRACTION)
+
+
+func complete_objective() -> void:
+	if objective_complete:
+		return
+	objective_complete = true
+	print("[TDC] Objective GIMMICK-DEMO-01 complete (stub)")
+
+
+## ExtractionActivate at RM-EXT-01 / POINT-DEMO-01. Requires objective complete.
+func try_extract() -> bool:
+	if run_over:
+		return false
+	if not objective_complete:
+		print("[TDC] Extraction blocked — objective incomplete")
+		return false
+	run_over = true
+	print("[TDC] Run ended: Success (extraction stub — no haul, no Loss Bundle)")
+	run_ended.emit("Success")
+	return true
 
 
 func advance_phase_debug() -> void:

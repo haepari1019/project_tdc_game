@@ -1,0 +1,20 @@
+{
+  "encounter_id": "ENC-HARD-001",
+  "difficulty_profile": "Hard",
+  "risk_pattern_ref": "RP-02",
+  "group_size": 5,
+  "_note": "Demo Hard: Elite + fodder + CC(EN-006 stun) + Nuker(EN-005 poison). Phase-2 rear reinforcement (ENC-HARD-005 model).",
+  "units": [
+    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
+    { "enemy_id": "EN-006", "count": 1, "slot": "cc" },
+    { "enemy_id": "EN-005", "count": 1, "slot": "nuker" }
+  ],
+  "reinforcement": {
+    "delay_s": 13,
+    "units": [
+      { "enemy_id": "EN-005", "count": 1, "slot": "nuker" },
+      { "enemy_id": "EN-013", "count": 2, "slot": "fodder" }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 # Phase 1a (A′) Slice-01 — 작업 순서 & 체크리스트
 
 > **완료 정의 SSOT:** spec 레포 `docs/qa/QA-030_Slice01_PlayableContract.md`  
-> **핀:** `spec_ref.json` → commit `7a20da9` @ `staging`  
+> **핀:** `spec_ref.json` → commit `cd6009e` @ `staging`  
 > **용어:** README/AGENTS의 **Phase 1a** = 본 문서의 **Phase A′ Slice-01** (동일 스코프).
 
 ---
@@ -227,7 +227,7 @@ flowchart LR
 | 3.1 | 4인 파티 엔티티 | classId `Tank`/`DPS`/`Nuker`/`Healer` + `identitySkillId` 4종 | `QA-030` §2 |
 | 3.2 | Controlled vs 비조작 | 단일 조작 캐릭터, 나머지 NC | `F-001`, `F-004` |
 | 3.3 | 포메이션·Anchor | `F-003` 최소 모드 1종 (결속/비결속 스모크 가능 수준) | `QA-003` 핵심 1건 |
-| 3.4 | 스왑 | Entry·`partyInCombat=false`에서 비조작 슬롯으로 스왑 | `QA-030` §3.2, `F-001` |
+| 3.4 | 스왑 | 비조작 슬롯으로 즉시 스왑. **전투/비전투 무관 동작**(F-001 §3.3) — 차단은 Control Lock·MIA만(§3.6), partyInCombat 아님. QA-030 §3.2 테스트는 Entry 상황 예시일 뿐 | `F-001`, `QA-001`, `QA-030` §3.2 |
 | 3.5 | 던전 진입 전 로드아웃 UI 스텁 | `UI-005` — 4인 identity 확정 (**Control 테마만**, 스킨은 A4) | `F-020` §3.2.1 |
 | 3.6 | 파티 비주얼 | **코드 PH:** 원기둥 + 한색 계열 (역할별 색+크기) — **최종 메쉬는 A2에서 교체** | 4역할 즉시 구분 |
 
@@ -395,7 +395,7 @@ flowchart LR
 
 ---
 
-## Spec 참조 (pin `7a20da9`)
+## Spec 참조 (pin `cd6009e`)
 
 | Artifact | Path (spec repo) |
 |----------|------------------|
@@ -417,11 +417,11 @@ flowchart LR
 - [x] 1: `data/slice01/` + ID 검증
 - [x] 2: RunController + MAP 6룸 플레이스홀더 ([범위](#map-demo-001-범위-slice-01-고정))
 - [x] 3: 4인 + 스왑 + UI-005 로직 스텁 + steering v1
-- [ ] 4: 전투 코어 + 서브 auto 차단 ← **현재**
-- [ ] 5: 4 identity NC AI
-- [ ] 6: ENC-NORM-001 PASS (`T-ENC-NORM-001`, 도형 PH로 진행)
-- [ ] 7: Threat 로그 스모크
-- [ ] 8: Extraction Success 스텁
+- [x] 4: 전투 코어 + 서브 auto 차단 (스폰→전투→종료 게이트 PASS · 2026-06-07) — 상세 [PHASE4_COMBAT_CORE.md](./PHASE4_COMBAT_CORE.md)
+- [~] 5: 4 identity NC AI — **코어 완료**(4역할 자동+VFX+적 어빌리티). 폴리시 미완: 누커 표식 텔레그래프·DPS 3타 순차 시각·실드 지속 시각·역할 밴드 이동. 상세 [PHASE5_IDENTITY_AI.md](./PHASE5_IDENTITY_AI.md)
+- [ ] 6: ENC-NORM-001 PASS (`T-ENC-NORM-001`, 도형 PH로 진행) — 미검증
+- [x] 7: Threat 시스템(F-022) — Threat Table·피해/탱펄스 threat·타겟선택(히스테리시스)·기본어그로 UI(HP바 타겟 슬롯색 마커). 상세 [PHASE7_THREAT.md](./PHASE7_THREAT.md)
+- [x] 8: Objective(GIMMICK-DEMO-01) 자동완료 스텁 + RM-EXT-01/POINT-DEMO-01 도달→Run Success 스텁(배너). no haul·no Loss. `run_controller`(objective/try_extract/run_ended), `map_demo_layout`(get_extraction_position), `dungeon_run`(추출 트리거·배너)
 - [ ] 9: QA-030 §3.1~3.5 필수 PASS (**아트 교체 완료 후**)
 - [ ] 10: (선택) ENC-NORM-002, F-002
 
@@ -429,7 +429,7 @@ flowchart LR
 - [ ] A1: 데모 맵 (`RM-ADV-01` 전투장 18~28m급)
 - [ ] A2: 4인 Identity 메쉬
 - [ ] A3: ENC-NORM-001 적 5체 메쉬
-- [ ] A4: 데모 UI 스킨 (로드아웃·HUD·진입)
+- [~] A4: 데모 UI 스킨 (로드아웃·HUD·진입) — 인런 HUD 일부 기능 구현(최종 스킨 TBD): **파티 시트(UI-002)** 좌상단 4슬롯(역할색PH·HP바·조작강조·사망 그레이·**서브 쿨 라디얼**), 기본어그로(적 HP바 타겟마커), **조작 캐릭터 월드 표시(UI-001)** 발밑 디스크+머리 위 화살표, **조작 캐릭터 시트(UI-003)** 하단중앙 HP+액션바(Identity·서브 Q/E/R 쿨 라디얼), **버프/디버프 오버레이(UI-002 §3)** 파티 시트 HP바 옆 상태 핍(실드/스턴/독, 남은시간 라디얼), Run Success 배너. `party_sheet.gd`, `controlled_sheet.gd`, `radial_cooldown.gd`, `dungeon_run.gd`
 
 ---
 
