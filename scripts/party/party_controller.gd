@@ -136,7 +136,6 @@ var _sv1_slot_clamp_enabled: bool = true
 var _sv1_slot_clamp_margin: float = 0.4
 var _sv1_slot_clamp_angle_step_deg: float = 15.0
 var _sv1_slot_clamp_angle_max_deg: float = 60.0
-var _sv1_enabled: bool = false
 
 # --- Steering v1 per-member state ---
 var _sv1_prev_dir: Dictionary = {}
@@ -280,27 +279,11 @@ func _slot_formation_forward() -> Vector3:
 
 
 ## Shared party layout axes — same for every slot (do not vary per follower class).
-## v1: always use smoothed _formation_forward to prevent slot target jumps on brief taps.
-## v0: raw velocity override for responsiveness (inherit_velocity dampened the jump).
-func _layout_axes(anchor: CharacterBody3D) -> Dictionary:
-	var forward := _slot_formation_forward()
-	if not _sv1_enabled:
-		var vel := _anchor_velocity_h(anchor)
-		if vel.length() >= _formation_min_speed:
-			forward = vel
-	forward = forward.normalized()
+## Always use smoothed _formation_forward to prevent slot target jumps on brief taps.
+func _layout_axes(_anchor: CharacterBody3D) -> Dictionary:
+	var forward := _slot_formation_forward().normalized()
 	var right: Vector3 = forward.cross(Vector3.UP).normalized()
 	return {"forward": forward, "right": right}
-
-
-func _tank_steer_axes(anchor: CharacterBody3D) -> Dictionary:
-	var axes := _layout_axes(anchor)
-	var motion := _anchor_motion_forward(anchor)
-	if motion.length_squared() > 0.01 and motion.dot(axes.forward) >= _tank_motion_forward_dot:
-		if axes.forward.dot(motion) >= _tank_motion_forward_dot:
-			axes.forward = motion
-			axes.right = axes.forward.cross(Vector3.UP).normalized()
-	return axes
 
 
 func _axes_forward(axes: Dictionary) -> Vector3:
@@ -396,7 +379,6 @@ func _load_formation_config() -> void:
 	_player_decel_mps2 = float(doc.get("player_decel_mps2", 0.0))
 	var sv1 = doc.get("steering_v1", {})
 	if typeof(sv1) == TYPE_DICTIONARY and sv1.size() > 0:
-		_sv1_enabled = true
 		_sv1_sep_zero_radius = float(sv1.get("sep_zero_radius_m", 1.0))
 		_sv1_sep_zero_anchor_extra = float(sv1.get("sep_zero_anchor_extra_m", 0.2))
 		_sv1_sep_touch_radius = float(sv1.get("sep_touch_radius_m", 0.52))
@@ -462,8 +444,7 @@ func _load_formation_config() -> void:
 		var off: Array = slot.get("offset", [0, 0, 0])
 		if off.size() >= 3:
 			_slot_offsets[cid] = Vector3(float(off[0]), float(off[1]), float(off[2]))
-	if _sv1_enabled:
-		_sv1_enforce_slot_constraints()
+	_sv1_enforce_slot_constraints()
 
 
 func _spawn_party_from_data() -> void:
@@ -569,8 +550,6 @@ func _queue_reposition_start_delays() -> void:
 		else _reposition_delay_max
 	)
 	for member in _members:
-		if not _sv1_enabled and member.class_id == "Tank":
-			continue
 		var rng := RandomNumberGenerator.new()
 		rng.seed = hash("%s:%d" % [member.identity_skill_id, _formation_shift_counter])
 		var delay := rng.randf_range(_reposition_delay_min, delay_max)
