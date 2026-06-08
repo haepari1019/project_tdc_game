@@ -17,7 +17,8 @@
     {
       "room_ref": "RM-ADV-02",
       "connects": ["RM-ROUTE-01"],
-      "lighting_profile": "standard"
+      "lighting_profile": "standard",
+      "pool_slot": "P-ADV-02"
     },
     {
       "room_ref": "RM-OBJ-01",

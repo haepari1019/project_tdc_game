@@ -6,6 +6,7 @@ extends Node3D
 const WIDTH := 0.85
 const HEIGHT := 0.11
 const BORDER := 0.025
+const UiColors := preload("res://scripts/core/ui_colors.gd")
 
 var _fill: MeshInstance3D
 var _fill_mat: StandardMaterial3D
@@ -102,14 +103,7 @@ func _apply() -> void:
 		return
 	_fill.scale = Vector3(maxf(_ratio, 0.0001), 1.0, 1.0)
 	_fill.position.x = -WIDTH * 0.5 * (1.0 - _ratio)
-	var c: Color
-	if _ratio > 0.5:
-		c = Color(0.30, 0.85, 0.35)
-	elif _ratio > 0.25:
-		c = Color(0.95, 0.78, 0.20)
-	else:
-		c = Color(0.90, 0.25, 0.20)
-	_fill_mat.albedo_color = c
+	_fill_mat.albedo_color = UiColors.hp_color(_ratio)
 
 
 func _make_quad(color: Color, w: float, h: float, z: float) -> MeshInstance3D:

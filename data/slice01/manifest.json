@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "phase": "1a",
-  "contract": "QA-030",
+  "phase": "1b",
+  "contract": "QA-031",
   "blueprint_id": "DBP-DEMO-001",
   "map_id": "MAP-DEMO-001",
   "contract_id": "CONTRACT-DEMO-001",
@@ -15,7 +15,9 @@
   "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
   "encounters": {
     "P-ENTRY-01": "ENC-NORM-002",
-    "P-ADV-01": "ENC-HARD-001"
+    "P-ADV-01": "ENC-NORM-001",
+    "P-ADV-02": "ENC-HARD-001"
   },
-  "required_encounter_smoke": "ENC-NORM-001"
+  "required_encounter_smoke": "ENC-NORM-001",
+  "_note_encounters": "P-ADV-01 = spec-required ENC-NORM-001 (DBP-DEMO-001 §5.1, T-ENC-NORM-001 gate). P-ADV-02 = optional harder fight on the ADV-02 branch (DRIFT-004, pending QA-031 1b promotion)."
 }

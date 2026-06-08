@@ -4,6 +4,7 @@ extends Control
 ## (3 slots, Q·E·R; clock style). Final skin = A4. ref: docs/ui/UI-002.
 
 const RadialCooldown := preload("res://scripts/ui/radial_cooldown.gd")
+const UiColors := preload("res://scripts/core/ui_colors.gd")
 
 const SLOT_W := 204
 const PORTRAIT := 40
@@ -145,8 +146,4 @@ func _process(_delta: float) -> void:
 
 
 func _hp_color(r: float) -> Color:
-	if r > 0.5:
-		return Color(0.30, 0.85, 0.35)
-	elif r > 0.25:
-		return Color(0.92, 0.80, 0.22)
-	return Color(0.90, 0.25, 0.22)
+	return UiColors.hp_color(r)

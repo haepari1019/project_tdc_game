@@ -189,6 +189,9 @@ func _parse_identities(doc: Dictionary, errors: Array[String]) -> void:
 		IdValidate.require_id(iid, allowed_identity, "identity_skill_id", errors)
 		IdValidate.require_id(String(row.get("class_id", "")), allowed_class, "class_id", errors)
 		IdValidate.require_id(String(row.get("ability_id", "")), allowed_ability, "ability_id", errors)
+		var sub_id := String(row.get("sub_ability_id", ""))
+		if not sub_id.is_empty():
+			IdValidate.require_id(sub_id, allowed_ability, "sub_ability_id", errors)
 		IdValidate.require_id(String(row.get("pattern_id", "")), allowed_pattern, "pattern_id", errors)
 		_identities.append(row)
 
@@ -208,9 +211,13 @@ func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:
 		_enemies[eid] = row
 
 
-func _parse_abilities(doc: Dictionary, _errors: Array[String]) -> void:
+func _parse_abilities(doc: Dictionary, errors: Array[String]) -> void:
 	var raw = doc.get("abilities", {})
 	_abilities = raw if typeof(raw) == TYPE_DICTIONARY else {}
+	# DRIFT-006: enforce id_registry on the unified ability catalog (ENC-000 §8 spirit).
+	var allowed: Array = _registry_list("ability_ids")
+	for ab_id in _abilities.keys():
+		IdValidate.require_id(String(ab_id), allowed, "ability_id", errors)
 
 
 func _validate_blueprint(errors: Array[String]) -> void:

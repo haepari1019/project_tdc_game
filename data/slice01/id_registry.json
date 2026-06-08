@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "spec_commit_short": "cd6009e",
+  "spec_commit_short": "d70ed48",
   "encounter_ids": ["ENC-NORM-001", "ENC-NORM-002", "ENC-HARD-001"],
   "enemy_ids": ["EN-001", "EN-010", "EN-011", "EN-012", "EN-013", "EN-006", "EN-005"],
   "identity_skill_ids": [
@@ -9,7 +9,12 @@
     "nuker_mark_ruin",
     "healer_mend_circle"
   ],
-  "ability_ids": ["AB-020", "AB-024", "AB-025", "AB-026"],
+  "ability_ids": [
+    "AB-001", "AB-002", "AB-015", "AB-016", "AB-010", "AB-011",
+    "AB-020", "AB-024", "AB-025", "AB-026",
+    "AB-S01", "AB-S02", "AB-S03", "AB-S04"
+  ],
+  "_note_ability_ids": "AB-001/002/010/011/015/016 = enemy abilities in use. AB-S01..S04 = non-spec demo sub-skills (DRIFT-001), pending spec reconciliation to skillbook AB-### (F-009).",
   "pattern_ids": ["PT-010", "PT-020", "PT-021", "PT-022"],
   "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
   "blueprint_ids": ["DBP-DEMO-001"],
