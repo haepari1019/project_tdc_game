@@ -38,10 +38,29 @@ var _reinforce_room: String = ""
 var _reinforce_pending: bool = false
 var _reinforce_warned: bool = false
 
+## Ability kind -> handler Callable(actor, params, target_pos) -> bool. Built in setup().
+## Adding an ability kind = abilities.json data + one registry entry. ref: DEBT-CPL-DUCK.
+var _ability_handlers: Dictionary = {}
+
 
 func setup(party: Node3D, map: Node3D) -> void:
 	_party = party
 	_map = map
+	_build_ability_handlers()
+
+
+## Data-driven dispatch: kind -> handler. No match statement to grow per ability.
+func _build_ability_handlers() -> void:
+	_ability_handlers = {
+		"shield_pulse": _cast_anchor_guard,
+		"cone_sweep": _cast_press_line,
+		"mark_burst": _cast_mark_ruin,
+		"radius_heal": _cast_mend_circle,
+		"sub_taunt": _sub_taunt,
+		"sub_lunge": _sub_lunge,
+		"sub_nova": _sub_nova,
+		"sub_sanctuary": _sub_sanctuary,
+	}
 
 
 func _physics_process(delta: float) -> void:
@@ -101,21 +120,18 @@ func _tick_party_attacks(delta: float) -> void:
 ## Dispatch Identity skill by the LINKED ability's `kind` (not class) — any
 ## character with that ability_id gets the behavior. Returns true if cast.
 func _try_identity(m: CharacterBody3D) -> bool:
-	match String(m.identity_params.get("kind", "")):
-		"shield_pulse":
-			return _cast_anchor_guard(m)
-		"cone_sweep":
-			return _cast_press_line(m)
-		"mark_burst":
-			return _cast_mark_ruin(m)
-		"radius_heal":
-			return _cast_mend_circle(m)
+	var p: Dictionary = m.identity_params
+	var h: Callable = _ability_handlers.get(String(p.get("kind", "")), Callable())
+	if not h.is_valid():
+		return false
+	if h.call(m, p, Vector3.ZERO):
+		m.identity_cooldown_s = float(p.get("cooldown_s", 6.0))
+		return true
 	return false
 
 
 ## AB-020 — self shield + threat pulse when foes in radius. (threat = step 7 smoke)
-func _cast_anchor_guard(m: CharacterBody3D) -> bool:
-	var p: Dictionary = m.identity_params
+func _cast_anchor_guard(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
 	var foes := _enemies_in_radius(m.global_position, float(p.get("radius_m", 5.0)))
 	if foes.is_empty():
 		return false
@@ -130,15 +146,13 @@ func _cast_anchor_guard(m: CharacterBody3D) -> bool:
 		for e in foes:
 			e.add_threat(m, pulse)
 			e.set_threat_floor(m, TANK_PULSE_FLOOR)  # §3.10 temp threat floor
-	m.identity_cooldown_s = float(p.get("cooldown_s", 6.0))
 	SkillVfx.anchor_guard(self, m.global_position, float(p.get("radius_m", 5.0)))
 	print("[ID] %s Anchor Guard — shield %d (%d foes)" % [m.identity_skill_id, int(shield_val), foes.size()])
 	return true
 
 
 ## AB-024 — forward cone, 3-hit sweep AoE (v1: total applied at once).
-func _cast_press_line(m: CharacterBody3D) -> bool:
-	var p: Dictionary = m.identity_params
+func _cast_press_line(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
 	var range_m := float(p.get("range_m", 5.0))
 	var nearest := _nearest_enemy_in_range(m.global_position, range_m)
 	if nearest == null:
@@ -153,30 +167,26 @@ func _cast_press_line(m: CharacterBody3D) -> bool:
 	var total: float = float(p.get("hit_damage_mult", 0.35)) * int(p.get("hits", 3)) * m.basic_damage
 	for e in targets:
 		_deal_damage(e, m, total)
-	m.identity_cooldown_s = float(p.get("cooldown_s", 4.0))
 	SkillVfx.press_line(self, m.global_position, axis, range_m, float(p.get("cone_deg", 60.0)) * 0.5)
 	print("[ID] %s Press the Line — %d in cone, %d ea" % [m.identity_skill_id, targets.size(), int(total)])
 	return true
 
 
 ## AB-025 — single high-burst on lowest-HP enemy in range (fodder fallback; v1: no telegraph).
-func _cast_mark_ruin(m: CharacterBody3D) -> bool:
-	var p: Dictionary = m.identity_params
+func _cast_mark_ruin(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
 	var target := _lowest_hp_enemy_in_radius(m.global_position, float(p.get("range_m", 8.0)))
 	if target == null:
 		return false
 	var dmg: float = float(p.get("ruin_damage_mult", 7.0)) * m.basic_damage
 	var tpos: Vector3 = target.global_position
 	_deal_damage(target, m, dmg)
-	m.identity_cooldown_s = float(p.get("cooldown_s", 5.0))
 	SkillVfx.mark_ruin(self, tpos)
 	print("[ID] %s Mark & Ruin -> %s (%d dmg)" % [m.identity_skill_id, target.enemy_id, int(dmg)])
 	return true
 
 
 ## AB-026 — radius heal when any ally below threshold (Tank 90% / others 85%).
-func _cast_mend_circle(m: CharacterBody3D) -> bool:
-	var p: Dictionary = m.identity_params
+func _cast_mend_circle(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
 	var radius := float(p.get("radius_m", 4.0))
 	var allies := _allies_in_radius(m.global_position, radius)
 	var ally_t := float(p.get("ally_threshold_pct", 0.85))
@@ -193,7 +203,6 @@ func _cast_mend_circle(m: CharacterBody3D) -> bool:
 	for a in allies:
 		var eff: float = a.heal(a.max_hp * heal_pct)
 		_heal_threat(m, a, eff)
-	m.identity_cooldown_s = float(p.get("cooldown_s", 7.0))
 	SkillVfx.mend_circle(self, m.global_position, radius)
 	print("[ID] %s Mend Circle — %d allies healed" % [m.identity_skill_id, allies.size()])
 	return true
@@ -212,22 +221,13 @@ func cast_sub(member: CharacterBody3D, target_pos: Vector3 = Vector3.ZERO) -> vo
 	var p: Dictionary = member.sub_params
 	if p.is_empty():
 		return
-	var ok := false
-	match String(p.get("kind", "")):
-		"sub_taunt":
-			ok = _sub_taunt(member, p)
-		"sub_lunge":
-			ok = _sub_lunge(member, p, target_pos)
-		"sub_nova":
-			ok = _sub_nova(member, p, target_pos)
-		"sub_sanctuary":
-			ok = _sub_sanctuary(member, p)
-	if ok:
+	var h: Callable = _ability_handlers.get(String(p.get("kind", "")), Callable())
+	if h.is_valid() and h.call(member, p, target_pos):
 		member.sub_cooldown_s = float(p.get("cooldown_s", 10.0))
 
 
 ## Tank: knock back + force aggro on nearby foes + big self shield.
-func _sub_taunt(m: CharacterBody3D, p: Dictionary) -> bool:
+func _sub_taunt(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
 	var pos := m.global_position
 	var foes := _enemies_in_radius(pos, float(p.get("radius_m", 6.5)))
 	var kb := float(p.get("knockback_m", 3.0))
@@ -279,7 +279,7 @@ func _sub_nova(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
 
 
 ## Healer: big AoE heal + shield to nearby allies.
-func _sub_sanctuary(m: CharacterBody3D, p: Dictionary) -> bool:
+func _sub_sanctuary(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
 	var pos := m.global_position
 	var allies := _allies_in_radius(pos, float(p.get("radius_m", 6.5)))
 	var hp_pct := float(p.get("heal_pct", 0.4))
