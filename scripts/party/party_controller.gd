@@ -4,25 +4,11 @@ extends Node3D
 const PartyCohesion := preload("res://scripts/party/party_cohesion.gd")
 const MemberScene := preload("res://scenes/party/party_member.tscn")
 const PlayerControl := preload("res://scripts/run/player_controller.gd")
+const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
 signal controlled_changed(member: CharacterBody3D)
 signal cohesion_changed(mode: int)
 signal formation_priority_changed(on: bool)
-
-const CLASS_COLORS: Dictionary = {
-	"Tank": Color(0.19, 0.44, 0.80),    # #3070CC Blue
-	"DPS": Color(0.13, 0.63, 0.63),     # #20A0A0 Teal
-	"Nuker": Color(0.38, 0.25, 0.69),   # #6040B0 Indigo
-	"Healer": Color(0.19, 0.63, 0.31),  # #30A050 Green
-}
-
-## Role-based mesh scale multiplier (relative to default 1.0)
-const CLASS_SCALES: Dictionary = {
-	"Tank": 1.1,
-	"DPS": 1.0,
-	"Nuker": 0.95,
-	"Healer": 0.9,
-}
 
 @export var move_speed: float = 9.0
 
@@ -463,10 +449,10 @@ func _spawn_party_from_data() -> void:
 		member.setup(
 			row,
 			i,
-			CLASS_COLORS.get(class_id, Color.GRAY),
+			UnitVisuals.role_color(class_id),
 			_collision_radius,
 			_collision_height,
-			CLASS_SCALES.get(class_id, 1.0)
+			UnitVisuals.role_scale(class_id)
 		)
 		var ctrl := PlayerControl.new()
 		ctrl.name = "Control"

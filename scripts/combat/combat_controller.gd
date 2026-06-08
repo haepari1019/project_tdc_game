@@ -7,6 +7,7 @@ signal combat_ended(result: String, encounter_id: String)
 
 const EnemyScene := preload("res://scenes/combat/enemy_unit.tscn")
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
 const COMBAT_TIMEOUT_S := 120.0  # QA-030 §3.3 encounter timeout
 
@@ -19,17 +20,6 @@ const HEAL_THREAT_PER_HP := 0.5     # §3.9 healer threat per effective HP
 ## §3.6 target-switch hysteresis. Lower = aggro bounces more readily (harder).
 const SWITCH_RATIO := 1.02
 
-## PH visuals per enemy id — warm colors + relative box scale (WORK_ORDER §code PH).
-const ENEMY_VISUALS: Dictionary = {
-	"EN-001": {"color": Color(0.75, 0.19, 0.19), "scale": 1.30},  # Crimson, large (elite)
-	"EN-010": {"color": Color(0.82, 0.50, 0.13), "scale": 1.00},  # Orange
-	"EN-011": {"color": Color(0.75, 0.69, 0.19), "scale": 0.85},  # Yellow, small
-	"EN-012": {"color": Color(0.55, 0.25, 0.13), "scale": 1.25},  # Brown-red, large
-	"EN-013": {"color": Color(0.80, 0.74, 0.30), "scale": 0.90},  # Skitter
-	"EN-006": {"color": Color(0.86, 0.24, 0.42), "scale": 1.05},  # Bell Ringer (CC) — magenta
-	"EN-005": {"color": Color(0.82, 0.66, 0.16), "scale": 0.92},  # Gutter Stinger (poison) — amber
-}
-const _DEFAULT_VISUAL := {"color": Color(0.70, 0.40, 0.20), "scale": 1.00}
 
 var _party: Node3D
 var _map: Node3D
@@ -592,7 +582,7 @@ func _spawn_at(units: Array, center: Vector3) -> void:
 		var row := Slice01Data.get_enemy_row(eid)
 		if row.is_empty():
 			continue
-		var vis: Dictionary = ENEMY_VISUALS.get(eid, _DEFAULT_VISUAL)
+		var vis: Dictionary = UnitVisuals.enemy_visual(eid)
 		var s: float = vis["scale"]
 		for _c in count:
 			var unit: CharacterBody3D = EnemyScene.instantiate()
