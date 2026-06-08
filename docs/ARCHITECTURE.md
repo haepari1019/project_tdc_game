@@ -120,7 +120,7 @@
 ### 갓오브젝트 / 죽은 코드
 | ID | 항목 | 위치 | sev | 처리 |
 |----|------|------|-----|------|
-| DEBT-GOD | `party_controller.gd` 1623줄 = 스폰·스왑·결속·포메이션 상태머신·슬롯기하·스티어링×2·전투교전·설정로더. 추출 단위: `FormationConfig`(Resource) / `SteeringV1`(strategy) / `FormationForward`(상태머신) / `PartyRoster` | party_controller.gd:1-1623 | high | **defer (P6)** |
+| DEBT-GOD | 🔸 **부분(P6.1·6.2)** — v0 엔진·데드로직·팔레트 제거로 **1623→1235줄**. 잔여 추출 단위: `FormationConfig`(Resource) / `SteeringV1`(strategy) / `FormationForward`(상태머신) / `PartyRoster` (P6.3, 고위험·F5 동반) | party_controller.gd | high | **부분 DONE** |
 | DEBT-V0 | ✅ **해소(P6.1)** — 죽은 v0 추종엔진 349줄 삭제(party_controller 1623→1273), 데이터경로 확인(formation.json 항상 steering_v1)+에디터 임포트 검증. **잔여(P6.2):** 데드 `_sv1_enabled`·v0 전용 config vars·`_tank_steer_axes`·formation.json `follow_steering_deprecated` 정리 | scripts/party/party_controller.gd | med | **부분 DONE** |
 | DEBT-DEAD1 | `_sync_tank_follow_collision`이 이름과 달리 무조건 `set_party_member_collision(true)` — 사실상 no-op | party_controller.gd:1598-1600 | low | **now (P4)** |
 | DEBT-DEAD2 | `run_controller.can_swap()` 항상 true 스텁 + `party_in_combat` 이중관리(소비자 없음) | run_controller.gd:66, party_controller.gd:226 | low | now/defer |
@@ -128,7 +128,7 @@
 ### 중복
 | ID | 항목 | 위치 | sev | 처리 |
 |----|------|------|-----|------|
-| DEBT-DUP-COLOR | 역할→색/크기 테이블 분산: `CLASS_COLORS`/`CLASS_SCALES`(party) vs `ENEMY_VISUALS`(combat) vs 멤버 `_base_color`. 단일 팔레트 SSOT 없음 | party_controller.gd:12-25, combat_controller.gd:23-32, party_member.gd:237 | med | **now (P4)** → `scripts/core/unit_visuals.gd` |
+| DEBT-DUP-COLOR | ✅ **해소(P6.2b)** — `scripts/core/unit_visuals.gd` 단일 팔레트(role_color/role_scale/enemy_visual)로 통합, party+combat 호출 | scripts/core/unit_visuals.gd | med | **DONE** |
 | DEBT-DUP-HP | ✅ **해소(P4)** — 공유 `ui_colors.gd:hp_color(r)`로 단일화, 3파일 호출. (구: 노랑/빨강 값 갈라진 시각버그) | scripts/core/ui_colors.gd | med | **DONE** |
 | DEBT-DUP-SPATIAL | 반경/콘/최근접/y평탄화 쿼리가 5~6회 재구현 | combat_controller.gd:307-382, party_controller.gd:683-703, enemy_unit.gd:191 | low | **now (P4)** → 공간헬퍼 |
 | DEBT-DUP-MAT | StandardMaterial3D/메쉬 PH 빌더 중복(언셰이드+알파 디스크는 dungeon_run 안에서도 2회) | dungeon_run.gd:149-200, map_demo_layout.gd:235-298, party_member.gd:168, enemy_unit.gd:233 | low | **now (P4)** → 머티리얼 팩토리 |
