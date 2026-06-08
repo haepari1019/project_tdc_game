@@ -8,6 +8,7 @@ signal combat_ended(result: String, encounter_id: String)
 const EnemyScene := preload("res://scenes/combat/enemy_unit.tscn")
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
+const Spatial := preload("res://scripts/core/spatial.gd")
 
 const COMBAT_TIMEOUT_S := 120.0  # QA-030 §3.3 encounter timeout
 
@@ -73,11 +74,12 @@ func _physics_process(delta: float) -> void:
 	if not _combat_active:
 		return
 	_combat_timer_s += delta
+	# DEBT-EFF-GRP: fetch the party-member list once per tick, thread it through.
 	var targets := get_tree().get_nodes_in_group("party_member")
 	for enemy in _enemies:
 		if is_instance_valid(enemy):
 			_tick_enemy(enemy, targets, delta)
-	_tick_party_attacks(delta)
+	_tick_party_attacks(targets, delta)
 	_tick_reinforcement(delta)
 	# End conditions: all enemies down (and no reinforcement pending) or timeout.
 	if _enemies.is_empty() and not _reinforce_pending:
@@ -103,8 +105,8 @@ func _tick_reinforcement(delta: float) -> void:
 
 ## Step 5: each member auto-uses its Identity skill when usable, else basic
 ## attack (F-005 §3.8 fallback). NO sub/passive auto (QA-005 §2.6).
-func _tick_party_attacks(delta: float) -> void:
-	for m in get_tree().get_nodes_in_group("party_member"):
+func _tick_party_attacks(members: Array, delta: float) -> void:
+	for m in members:
 		if not is_instance_valid(m):
 			continue
 		if m.is_stunned():  # F-021: stunned members can't act
@@ -306,9 +308,7 @@ func _enemies_in_radius(pos: Vector3, r: float) -> Array:
 	for e in _enemies:
 		if not is_instance_valid(e):
 			continue
-		var off := pos - e.global_position
-		off.y = 0.0
-		if off.length_squared() <= r2:
+		if Spatial.h_dist2(pos, e.global_position) <= r2:
 			out.append(e)
 	return out
 
@@ -337,9 +337,7 @@ func _lowest_hp_enemy_in_radius(pos: Vector3, r: float) -> CharacterBody3D:
 	for e in _enemies:
 		if not is_instance_valid(e):
 			continue
-		var off := pos - e.global_position
-		off.y = 0.0
-		if off.length_squared() > r2:
+		if Spatial.h_dist2(pos, e.global_position) > r2:
 			continue
 		if e.hp < best_hp:
 			best_hp = e.hp
@@ -354,9 +352,7 @@ func _allies_in_radius(pos: Vector3, r: float) -> Array:
 		var ally := a as Node3D
 		if ally == null:
 			continue
-		var off: Vector3 = pos - ally.global_position
-		off.y = 0.0
-		if off.length_squared() <= r2:
+		if Spatial.h_dist2(pos, ally.global_position) <= r2:
 			out.append(ally)
 	return out
 
@@ -369,9 +365,7 @@ func _nearest_enemy_in_range(from: Vector3, range_m: float) -> CharacterBody3D:
 	for e in _enemies:
 		if not is_instance_valid(e):
 			continue
-		var off := from - e.global_position
-		off.y = 0.0
-		var d: float = off.length_squared()
+		var d: float = Spatial.h_dist2(from, e.global_position)
 		if d <= best_d:
 			best_d = d
 			best = e

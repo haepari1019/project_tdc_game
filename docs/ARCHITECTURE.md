@@ -130,7 +130,7 @@
 |----|------|------|-----|------|
 | DEBT-DUP-COLOR | ✅ **해소(P6.2b)** — `scripts/core/unit_visuals.gd` 단일 팔레트(role_color/role_scale/enemy_visual)로 통합, party+combat 호출 | scripts/core/unit_visuals.gd | med | **DONE** |
 | DEBT-DUP-HP | ✅ **해소(P4)** — 공유 `ui_colors.gd:hp_color(r)`로 단일화, 3파일 호출. (구: 노랑/빨강 값 갈라진 시각버그) | scripts/core/ui_colors.gd | med | **DONE** |
-| DEBT-DUP-SPATIAL | 반경/콘/최근접/y평탄화 쿼리가 5~6회 재구현 | combat_controller.gd:307-382, party_controller.gd:683-703, enemy_unit.gd:191 | low | **now (P4)** → 공간헬퍼 |
+| DEBT-DUP-SPATIAL | 🔸 **해소(④)** — `scripts/core/spatial.gd` `h_dist2`로 combat 4개 쿼리(radius/lowest-hp/allies/nearest) 통합. 잔여: party_controller `_combat_engage_target`(3D 메트릭, 의도적 보존)·enemy_unit pick_target | scripts/core/spatial.gd | low | 부분 DONE |
 | DEBT-DUP-MAT | StandardMaterial3D/메쉬 PH 빌더 중복(언셰이드+알파 디스크는 dungeon_run 안에서도 2회) | dungeon_run.gd:149-200, map_demo_layout.gd:235-298, party_member.gd:168, enemy_unit.gd:233 | low | **now (P4)** → 머티리얼 팩토리 |
 | DEBT-DUP-HPBAR | 2D HP바 위젯이 2곳에서 손수 재구현 | party_sheet.gd:83, controlled_sheet.gd:51 | low | now (P4, 선택) |
 | DEBT-DUP-CD | 쿨다운 비율식 `cd/params.cooldown_s` 인라인 복붙(div-by-zero 가드 포함) | party_sheet.gd:132, controlled_sheet.gd:97 | low | now (P4) → 멤버 `*_cd_ratio()` 접근자 |
@@ -138,7 +138,7 @@
 ### 비효율 (프레임당 핫패스)
 | ID | 항목 | 위치 | sev | 처리 |
 |----|------|------|-----|------|
-| DEBT-EFF-GRP | `get_nodes_in_group('party_member')` 프레임당 3회 재스캔(combat); `'enemy'` 그룹을 party가 O(추종자)회 재스캔 + 최근접식 중복 | combat_controller.gd:61,92,357; party_controller.gd:670-703 | med | **defer (P6)** — 전투 틱 순서 변경 |
+| DEBT-EFF-GRP | 🔸 **부분(⑤)** — combat의 party_member 중복 재스캔 제거(틱당 1회 fetch→스레딩). 잔여: party_controller의 `'enemy'` 그룹 O(추종자) 재스캔 + 추종자별 레이캐스트 (P6.3 분해와 함께) | party_controller.gd | med | 부분 DONE |
 | DEBT-EFF-RAY | 스티어링 v1이 추종자당 프레임당 레이캐스트 6~15회(벽/경로). 스로틀·캐시 없음 | party_controller.gd:914-1012 | med | **defer (P6)** |
 | DEBT-EFF-ALLOC | 프레임당 Dictionary/RNG 신규할당(`peer_slot_targets`, reposition RNG) | party_controller.gd:574,590,643,731 | low | defer (P6) |
 | DEBT-EFF-HPBAR | HP바마다 프레임당 카메라 조회 + 트랜스폼 재구성 | health_bar.gd:51-60 | low | now/선택 (빌보드 플래그) |
