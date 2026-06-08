@@ -4,8 +4,10 @@ extends CharacterBody3D
 
 signal died(unit: CharacterBody3D)
 
-const LAYER_ENEMY := 3
-## Collide with world(1) + party(2) + enemy(3) = bits 1|2|4 = 7
+## Layer 3 = bit value 4. (Was 3 = bits 1|2, which put enemies on the WORLD bit —
+## broke LOS raycasts and made steering wall-rays treat enemies as walls. Fixed 2026-06-08.)
+const LAYER_ENEMY := 4
+## Collide with world(1) + party(2) + enemy(4) = 1|2|4 = 7
 const MASK_WORLD_PARTY_ENEMY := 7
 
 ## Base box footprint at scale 1.0 — collision matches the visual mesh exactly.
@@ -82,6 +84,34 @@ func take_damage(amount: float) -> void:
 
 func is_alive() -> bool:
 	return hp > 0.0
+
+
+# --- Perceived visibility (party-union LOS occlusion; driven by EnemyVisibility) ---
+var _seen: bool = true
+var _seen_tw: Tween
+## Last position the party saw this enemy at — for a future last-seen marker. F-011 pre-step.
+var last_seen_pos: Vector3 = Vector3.ZERO
+const _SEEN_FADE_S := 0.18
+
+## Fade in/out by whether any party member has LOS. Stores last-seen pos on hide.
+func set_seen(seen: bool) -> void:
+	if seen == _seen:
+		return
+	_seen = seen
+	if not seen:
+		last_seen_pos = global_position
+	if _seen_tw and _seen_tw.is_valid():
+		_seen_tw.kill()
+	if _body_material == null:
+		visible = seen
+		return
+	_body_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if seen:
+		visible = true
+	_seen_tw = create_tween()
+	_seen_tw.tween_property(_body_material, "albedo_color:a", 1.0 if seen else 0.0, _SEEN_FADE_S)
+	if not seen:
+		_seen_tw.tween_callback(func() -> void: visible = false)
 
 
 # --- Threat Table (F-022) — per-enemy threat per party member ---

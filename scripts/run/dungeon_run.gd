@@ -2,6 +2,7 @@ extends Node3D
 ## Slice-01 demo dungeon — party + run (steps 2–3).
 
 const PartyCohesion := preload("res://scripts/party/party_cohesion.gd")
+const EnemyVisibility := preload("res://scripts/run/enemy_visibility.gd")
 
 @onready var _run: Node = $RunController
 @onready var _map: Node3D = $MapDemoLayout
@@ -30,6 +31,10 @@ var _ctrl_indicator: Node3D
 var _ctrl_arrow: MeshInstance3D
 var _ind_time: float = 0.0
 
+# Camera orbit: RMB + horizontal drag yaws the CameraPivot around the controlled char.
+const CAM_YAW_SENS := 0.006  # radians per pixel of horizontal drag
+var _cam_dragging: bool = false
+
 
 func _ready() -> void:
 	_map.room_entered.connect(_run.on_player_entered_room)
@@ -42,6 +47,9 @@ func _ready() -> void:
 	_party.formation_priority_changed.connect(_on_formation_priority_changed)
 	_combat.setup(_party, _map)
 	_party.bind_combat(_combat)
+	var enemy_vis := EnemyVisibility.new()
+	add_child(enemy_vis)
+	enemy_vis.setup(_party)
 	_run.encounter_triggered.connect(_combat.on_encounter_triggered)
 	_combat.combat_started.connect(_on_combat_started)
 	_combat.combat_ended.connect(_on_combat_ended)
@@ -53,6 +61,9 @@ func _ready() -> void:
 	_build_aim_marker()
 	_build_controlled_indicator()
 	_focus_camera()
+	# Face the dungeon's forward progression (+Z: Entry→Advance→Extraction) up-screen
+	# at entry, so W moves into the dungeon. RMB-drag rotates relative to this.
+	$CameraPivot.rotation.y = PI
 
 
 func _process(delta: float) -> void:
@@ -91,6 +102,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				_end_aim()
 			elif mb.button_index == MOUSE_BUTTON_RIGHT:
 				_end_aim()
+		return
+	# RMB + drag orbits the camera (reached only when NOT aiming — aim consumes RMB above).
+	if event is InputEventMouseButton:
+		var cam_btn := event as InputEventMouseButton
+		if cam_btn.button_index == MOUSE_BUTTON_RIGHT:
+			_cam_dragging = cam_btn.pressed
+			return
+	if event is InputEventMouseMotion and _cam_dragging:
+		$CameraPivot.rotate_y(-(event as InputEventMouseMotion).relative.x * CAM_YAW_SENS)
 		return
 	if event.is_action_pressed("use_sub"):
 		_on_sub_key()

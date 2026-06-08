@@ -70,14 +70,14 @@
 
   },
 
-  "controlled_move_speed_mps": 9.0,
+  "controlled_move_speed_mps": 6.0,
   "player_accel_mps2": 25.0,
-  "player_decel_mps2": 45.0,
+  "player_decel_mps2": 200.0,
 
-  "follower_move_speed_mps": 13.0,
-  "follower_move_speed_near_mps": 9.5,
+  "follower_move_speed_mps": 6.6,
+  "follower_move_speed_near_mps": 6.3,
   "follower_speed_far_distance_m": 5.0,
-  "follower_accel_mps2": 50.0,
+  "follower_accel_mps2": 70.0,
 
   "formation_arrive_distance_m": 0.5,
 

@@ -63,9 +63,46 @@ const PROFILE_COLORS: Dictionary = {
 	"dim": Color(0.22, 0.20, 0.25),
 }
 
+## 라이팅 옵션 오브젝트 — 방별 lighting_profile에 따라 배치되는 천장 광원 픽스처.
+## 어두운 던전(전역광 약화 + 어두운 ambient) 위에서 시야를 만든다. 시야 축소
+## dim/unlit 은 스펙 F-011(시야 축소 dim 0.85×·unlit 0.65×)과 직결.
+## energy=0 이면 광원 미배치(unlit). ref: data/slice01/rooms.json lighting_profile
+const LIGHT_PROFILES: Dictionary = {
+	"lit": {"energy": 3.0, "range_scale": 0.95, "color": Color(1.00, 0.90, 0.74)},
+	"standard": {"energy": 2.1, "range_scale": 0.90, "color": Color(0.96, 0.86, 0.70)},
+	"dim": {"energy": 1.1, "range_scale": 0.78, "color": Color(0.58, 0.60, 0.78)},
+	"unlit": {"energy": 0.0, "range_scale": 0.0, "color": Color(0.50, 0.50, 0.60)},
+}
+## 픽스처 1개가 담당하는 대략적 그리드 셀 크기(m). 길쭉한/큰 방은 여러 개로 분할
+## 해 중앙 falloff로 양끝이 희미해지는 현상을 막는다.
+const LIGHT_GRID_SPACING := 18.0
+
 const WALL_HEIGHT := 3.5
 const WALL_THICKNESS := 0.4
 const FLOOR_THICKNESS := 0.3
+
+## Cover obstacles — LOS blockers + navmesh holes (units route around). Heights
+## clear the party→enemy LOS ray so enemies behind them are occluded. F-011 pre-step.
+const OBSTACLE_TYPES: Dictionary = {
+	"pillar":  {"shape": "cyl", "radius": 2.0, "height": WALL_HEIGHT, "color": Color(0.30, 0.28, 0.26)},
+	"crates":  {"shape": "box", "size": Vector3(5.0, 2.4, 5.0), "color": Color(0.42, 0.32, 0.18)},
+	"barrier": {"shape": "box", "size": Vector3(8.0, 2.4, 1.6), "color": Color(0.34, 0.30, 0.27)},
+}
+## Per-room placement: pos = Vector2(local_x, local_z) from room center (ground).
+## Kept off openings / spawn cluster / PASS lane. Tunable.
+const OBSTACLE_SPECS: Dictionary = {
+	"RM-ADV-01": [
+		{"type": "pillar",  "pos": Vector2(-9, 2)},
+		{"type": "crates",  "pos": Vector2(10, -5)},
+		{"type": "barrier", "pos": Vector2(-2, 12)},
+		{"type": "pillar",  "pos": Vector2(-7, -11)},
+		{"type": "crates",  "pos": Vector2(8, 9)},
+	],
+	"RM-OBJ-01": [
+		{"type": "crates",  "pos": Vector2(-4, 2)},
+		{"type": "pillar",  "pos": Vector2(6, -4)},
+	],
+}
 
 @onready var _rooms_root: Node3D = $Rooms
 @onready var _markers_root: Node3D = $Markers
@@ -80,6 +117,13 @@ func _ready() -> void:
 	_compute_openings()
 	_build_map()
 	_bake_navigation()
+
+
+## lighting_profile of a room (lit/standard/dim/unlit). Consumed by PartyLight
+## to attenuate the party Character Light in dim/unlit rooms (F-011 §3.1).
+func get_room_profile(room_ref: String) -> String:
+	var spec: Dictionary = ROOM_SPECS.get(room_ref, {})
+	return String(spec.get("profile", "standard"))
 
 
 func get_spawn_position(room_ref: String = "RM-ENTRY-01") -> Vector3:
@@ -170,6 +214,12 @@ func _build_room(room_ref: String) -> void:
 	var openings: Array = _room_openings.get(room_ref, [])
 	_add_walls_with_openings(room_node, center, size, col, openings)
 
+	# Lighting option objects (per-room fixtures keyed by profile)
+	_add_room_lighting(room_node, center, size, profile)
+
+	# Cover obstacles — LOS blockers + navmesh holes (baked with the room)
+	_build_obstacles(room_node, room_ref, center)
+
 	# Room trigger volume
 	var area := Area3D.new()
 	area.name = "RoomVolume"
@@ -215,6 +265,41 @@ func _build_room(room_ref: String) -> void:
 		ext_mat.emission = Color(0.1, 0.6, 0.3)
 		ext.material_override = ext_mat
 		_markers_root.add_child(ext)
+
+
+## Places ceiling light fixtures for one room based on its lighting_profile.
+## Big rooms get a grid of fixtures so corners aren't left dark; small rooms get
+## a single central light. Fixtures are shadowless (cheap) — the party torch
+## carries the dramatic shadows. profile "unlit" (energy 0) places nothing.
+func _add_room_lighting(parent: Node3D, center: Vector3, size: Vector3, profile: String) -> void:
+	var prof: Dictionary = LIGHT_PROFILES.get(profile, LIGHT_PROFILES["standard"])
+	var energy: float = float(prof["energy"])
+	if energy <= 0.0:
+		return
+
+	var count_x: int = maxi(1, int(round(size.x / LIGHT_GRID_SPACING)))
+	var count_z: int = maxi(1, int(round(size.z / LIGHT_GRID_SPACING)))
+	var cell_x: float = size.x / float(count_x)
+	var cell_z: float = size.z / float(count_z)
+	var light_y: float = WALL_HEIGHT * 0.86
+	var fixture_range: float = clampf(maxf(cell_x, cell_z) * float(prof["range_scale"]) + 4.0, 7.0, 28.0)
+
+	var fixtures := Node3D.new()
+	fixtures.name = "Lighting"
+	parent.add_child(fixtures)
+
+	for ix in count_x:
+		for iz in count_z:
+			var lx: float = -size.x * 0.5 + cell_x * (float(ix) + 0.5)
+			var lz: float = -size.z * 0.5 + cell_z * (float(iz) + 0.5)
+			var omni := OmniLight3D.new()
+			omni.position = center + Vector3(lx, light_y, lz)
+			omni.omni_range = fixture_range
+			omni.omni_attenuation = 1.0  # 완만한 falloff → 방 전체 고른 밝기
+			omni.light_energy = energy
+			omni.light_color = prof["color"]
+			omni.shadow_enabled = false
+			fixtures.add_child(omni)
 
 
 func _add_floor(parent: Node3D, center: Vector3, size: Vector3, color: Color) -> void:
@@ -327,6 +412,58 @@ func _add_wall_segment(parent: Node3D, pos: Vector3, size: Vector3, color: Color
 	mesh.material_override = mat
 	body.add_child(mesh)
 
+	parent.add_child(body)
+
+
+func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void:
+	for obs in OBSTACLE_SPECS.get(room_ref, []):
+		var t: Dictionary = OBSTACLE_TYPES.get(obs.get("type", ""), {})
+		if t.is_empty():
+			continue
+		var p: Vector2 = obs["pos"]
+		var ground := center + Vector3(p.x, 0.0, p.y)
+		var mesh: Mesh
+		var shape: Shape3D
+		var height: float
+		if String(t.get("shape", "box")) == "cyl":
+			var r: float = float(t["radius"])
+			height = float(t["height"])
+			var cyl := CylinderMesh.new()
+			cyl.top_radius = r
+			cyl.bottom_radius = r
+			cyl.height = height
+			mesh = cyl
+			var cshape := CylinderShape3D.new()
+			cshape.radius = r
+			cshape.height = height
+			shape = cshape
+		else:
+			var size: Vector3 = t["size"]
+			height = size.y
+			var box := BoxMesh.new()
+			box.size = size
+			mesh = box
+			var bshape := BoxShape3D.new()
+			bshape.size = size
+			shape = bshape
+		_add_obstacle_body(parent, ground + Vector3(0, height * 0.5, 0), mesh, shape, t["color"])
+
+
+## StaticBody(layer 1) + mesh — LOS-blocks (raycast mask 1) and navmesh-bakes.
+func _add_obstacle_body(parent: Node3D, pos: Vector3, mesh: Mesh, shape: Shape3D, color: Color) -> void:
+	var body := StaticBody3D.new()
+	body.position = pos
+	body.collision_layer = 1
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	body.add_child(cs)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.roughness = 0.85
+	mi.material_override = mat
+	body.add_child(mi)
 	parent.add_child(body)
 
 

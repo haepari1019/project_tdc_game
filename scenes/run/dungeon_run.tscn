@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://coyhsprnj4v5r"]
+[gd_scene load_steps=10 format=3 uid="uid://coyhsprnj4v5r"]
 
 [ext_resource type="Script" uid="uid://cuqbfg4u0d1nq" path="res://scripts/run/dungeon_run.gd" id="1_dungeon"]
 [ext_resource type="Script" uid="uid://dsnhkmip7ejdr" path="res://scripts/run/run_controller.gd" id="2_run"]
@@ -7,9 +7,23 @@
 [ext_resource type="Script" path="res://scripts/combat/combat_controller.gd" id="5_combat"]
 [ext_resource type="Script" path="res://scripts/ui/party_sheet.gd" id="6_partysheet"]
 [ext_resource type="Script" path="res://scripts/ui/controlled_sheet.gd" id="7_ctrlsheet"]
+[ext_resource type="Script" path="res://scripts/run/party_light.gd" id="8_partylight"]
+
+[sub_resource type="Environment" id="Environment_dungeon"]
+background_mode = 1
+background_color = Color(0.02, 0.02, 0.035, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.1, 0.1, 0.14, 1)
+ambient_light_energy = 0.35
+tonemap_mode = 3
+tonemap_exposure = 1.0
+tonemap_white = 6.0
 
 [node name="DungeonRun" type="Node3D"]
 script = ExtResource("1_dungeon")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_dungeon")
 
 [node name="RunController" type="Node" parent="."]
 script = ExtResource("2_run")
@@ -38,7 +52,12 @@ fov = 84.0
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866025, -0.353553, 0.353553, 0, 0.707107, 0.707107, -0.5, -0.612372, 0.612372, 0, 12, 0)
-shadow_enabled = true
+light_color = Color(0.6, 0.65, 0.85, 1)
+light_energy = 0.12
+shadow_enabled = false
+
+[node name="PartyLight" type="Node3D" parent="."]
+script = ExtResource("8_partylight")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 

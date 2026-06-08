@@ -37,23 +37,6 @@ var _formation_forward: Vector3 = Vector3(0, 0, 1)
 var _last_formation_forward: Vector3 = Vector3(0, 0, 1)
 var _formation_forward_smooth: float = 12.0
 var _formation_min_speed: float = 0.2
-var _formation_update_angle_deg: float = 30.0
-var _formation_forward_hold_s: float = 0.08
-var _forward_hold_timer: float = 0.0
-var _backpedal_continuous_s: float = 0.0
-var _backpedal_stop_accum_s: float = 0.0
-var _commit_override_cooldown_s: float = 0.0
-var _commit_override_opposite_dot: float = -0.6
-var _commit_override_cooldown_duration: float = 0.75
-var _commit_backpedal_s_fast: float = 1.0
-var _commit_backpedal_s_slow: float = 2.5
-var _commit_opposite_s_fast: float = 0.65
-var _commit_opposite_s_slow: float = 2.4
-var _commit_speed_fast_mps: float = 6.5
-var _commit_speed_slow_mps: float = 2.8
-var _backpedal_reset_stop_fast: float = 0.12
-var _backpedal_reset_stop_slow: float = 0.35
-var _last_backpedal_speed: float = 0.0
 var _tank_correction_gain: float = 5.0
 var _tank_motion_forward_dot: float = 0.35
 var _tank_inherit_min_dot: float = 0.35
@@ -71,15 +54,9 @@ var _party_slot_target_separation_blend: float = 0.55
 var _party_separation_boost_moving: float = 1.35
 var _party_separation_max_mps_moving: float = 8.5
 var _anchor_path_clearance_extra_m: float = 0.45
-var _reposition_delay_min: float = 0.0
-var _reposition_delay_max: float = 0.16
-var _reposition_delay_large_max: float = 0.28
 var _swap_reposition_delay_min: float = 0.05
 var _swap_reposition_delay_max: float = 0.26
-var _layout_change_angle_deg: float = 25.0
-var _layout_change_large_angle_deg: float = 100.0
 var _formation_shift_counter: int = 0
-var _jitter_prev_forward: Vector3 = Vector3(0, 0, 1)
 var _party_layout_origin: Vector3 = Vector3.ZERO
 var _party_layout_origin_valid: bool = false
 
@@ -339,26 +316,6 @@ func _load_formation_config() -> void:
 	var fwd_cfg = doc.get("formation_forward", {})
 	if typeof(fwd_cfg) == TYPE_DICTIONARY:
 		_formation_min_speed = float(fwd_cfg.get("min_speed_mps", 0.2))
-		_formation_update_angle_deg = float(fwd_cfg.get("update_angle_deg", 30.0))
-		_formation_forward_hold_s = float(fwd_cfg.get("hold_s", 0.08))
-		_commit_backpedal_s_fast = float(
-			fwd_cfg.get("commit_override_backpedal_s_fast", fwd_cfg.get("commit_override_backpedal_s", 1.0))
-		)
-		_commit_backpedal_s_slow = float(fwd_cfg.get("commit_override_backpedal_s_slow", 2.5))
-		_commit_opposite_s_fast = float(
-			fwd_cfg.get("commit_override_opposite_s_fast", fwd_cfg.get("commit_override_opposite_s", 0.65))
-		)
-		_commit_opposite_s_slow = float(fwd_cfg.get("commit_override_opposite_s_slow", 2.4))
-		_commit_override_opposite_dot = float(fwd_cfg.get("commit_override_opposite_dot", -0.6))
-		_commit_speed_fast_mps = float(fwd_cfg.get("commit_speed_fast_mps", 6.5))
-		_commit_speed_slow_mps = float(fwd_cfg.get("commit_speed_slow_mps", 2.8))
-		_commit_override_cooldown_duration = float(
-			fwd_cfg.get("commit_override_cooldown_s", 0.75)
-		)
-		_backpedal_reset_stop_fast = float(
-			fwd_cfg.get("backpedal_timer_reset_stop_fast", fwd_cfg.get("backpedal_timer_reset_stop_s", 0.12))
-		)
-		_backpedal_reset_stop_slow = float(fwd_cfg.get("backpedal_timer_reset_stop_slow", 0.35))
 	var tank_follow = doc.get("tank_follow", {})
 	if typeof(tank_follow) == TYPE_DICTIONARY:
 		_tank_correction_gain = float(tank_follow.get("correction_gain", 5.0))
@@ -413,24 +370,6 @@ func _load_formation_config() -> void:
 		_sv1_noise.seed = randi()
 	var variation = doc.get("follow_variation", {})
 	if typeof(variation) == TYPE_DICTIONARY:
-		_reposition_delay_min = float(
-			variation.get("reposition_start_delay_min_s", variation.get("direction_change_delay_min_s", 0.0))
-		)
-		_reposition_delay_max = float(
-			variation.get("reposition_start_delay_max_s", variation.get("direction_change_delay_max_s", 0.16))
-		)
-		_reposition_delay_large_max = float(
-			variation.get(
-				"reposition_start_delay_large_max_s",
-				variation.get("direction_change_delay_large_max_s", 0.28)
-			)
-		)
-		_layout_change_angle_deg = float(
-			variation.get("layout_change_angle_deg", variation.get("direction_change_angle_deg", 25.0))
-		)
-		_layout_change_large_angle_deg = float(
-			variation.get("large_layout_change_angle_deg", variation.get("large_direction_change_angle_deg", 100.0))
-		)
 		_swap_reposition_delay_min = float(variation.get("swap_reposition_start_delay_min_s", 0.05))
 		_swap_reposition_delay_max = float(variation.get("swap_reposition_start_delay_max_s", 0.26))
 	var col = doc.get("collision", {})
@@ -482,78 +421,24 @@ func _spawn_party_from_data() -> void:
 	_set_controlled_index(0)
 
 
+## Formation front follows the CAMERA (screen-up), not movement direction — so
+## backpedal (S) never flips the formation and a 180° turn is a smooth camera
+## rotation. Replaces the old movement-reversal flip + commit-override machinery.
 func _update_formation_forward(delta: float) -> void:
-	var anchor := _get_anchor()
-	if anchor == null:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
 		return
-	if _commit_override_cooldown_s > 0.0:
-		_commit_override_cooldown_s = maxf(0.0, _commit_override_cooldown_s - delta)
-	var vel := _anchor_velocity_h(anchor)
-	var speed := vel.length()
-	if speed < _formation_min_speed:
-		if _formation_forward.length_squared() > 0.01:
-			_last_formation_forward = _formation_forward
-		_backpedal_stop_accum_s += delta
-		if _backpedal_stop_accum_s >= _backpedal_reset_stop_for_speed(_last_backpedal_speed):
-			_backpedal_continuous_s = 0.0
-		_forward_hold_timer = 0.0
+	var fwd := -cam.global_transform.basis.z
+	fwd.y = 0.0
+	if fwd.length_squared() < 0.0001:
 		return
-	_backpedal_stop_accum_s = 0.0
-	var move_dir := vel.normalized()
+	fwd = fwd.normalized()
 	if _formation_forward.length_squared() < 0.01:
-		_set_formation_forward(move_dir)
-		return
-	# F-003 §3.0.2 — backpedal: never flip formationForward while move opposes it.
-	if move_dir.dot(_formation_forward) < 0.0:
-		_forward_hold_timer = 0.0
-		_last_backpedal_speed = speed
-		_tick_backpedal_commit_override(delta, move_dir, speed)
-		return
-	_backpedal_continuous_s = 0.0
-	var angle_deg := rad_to_deg(acos(clampf(move_dir.dot(_formation_forward), -1.0, 1.0)))
-	if angle_deg <= _formation_update_angle_deg:
-		_blend_formation_forward_toward(move_dir, delta)
-		_forward_hold_timer = 0.0
-		return
-	_forward_hold_timer += delta
-	if _forward_hold_timer >= _formation_forward_hold_s:
-		_blend_formation_forward_toward(move_dir, delta)
-		_forward_hold_timer = 0.0
-	_queue_reposition_start_delays()
-
-
-func _set_formation_forward(dir: Vector3) -> void:
-	_formation_forward = dir.normalized()
+		_formation_forward = fwd
+	else:
+		var blend: float = 1.0 - exp(-_formation_forward_smooth * delta)
+		_formation_forward = _formation_forward.lerp(fwd, blend).normalized()
 	_last_formation_forward = _formation_forward
-	_queue_reposition_start_delays()
-
-
-func _blend_formation_forward_toward(desired: Vector3, delta: float) -> void:
-	var blend: float = 1.0 - exp(-_formation_forward_smooth * delta)
-	_formation_forward = _formation_forward.lerp(desired, blend).normalized()
-	_last_formation_forward = _formation_forward
-	_queue_reposition_start_delays()
-
-
-func _queue_reposition_start_delays() -> void:
-	var cur := _slot_formation_forward()
-	if _jitter_prev_forward.length_squared() < 0.01:
-		_jitter_prev_forward = cur
-		return
-	var angle_deg := rad_to_deg(acos(clampf(_jitter_prev_forward.dot(cur), -1.0, 1.0)))
-	_jitter_prev_forward = cur
-	if angle_deg < _layout_change_angle_deg:
-		return
-	_formation_shift_counter += 1
-	var delay_max := (
-		_reposition_delay_large_max if angle_deg >= _layout_change_large_angle_deg
-		else _reposition_delay_max
-	)
-	for member in _members:
-		var rng := RandomNumberGenerator.new()
-		rng.seed = hash("%s:%d" % [member.identity_skill_id, _formation_shift_counter])
-		var delay := rng.randf_range(_reposition_delay_min, delay_max)
-		_set_reposition_delay_s(member, maxf(_reposition_delay_s(member), delay))
 
 
 func _queue_swap_reposition_delays() -> void:
@@ -570,39 +455,6 @@ func _queue_swap_reposition_delays() -> void:
 		rng.seed = hash("swap:%s:%d" % [member.identity_skill_id, _formation_shift_counter])
 		var delay := rng.randf_range(_swap_reposition_delay_min, _swap_reposition_delay_max)
 		_set_reposition_delay_s(member, maxf(_reposition_delay_s(member), delay))
-
-
-func _commit_speed_blend(speed: float) -> float:
-	return clampf(
-		inverse_lerp(_commit_speed_slow_mps, _commit_speed_fast_mps, speed),
-		0.0,
-		1.0
-	)
-
-
-func _backpedal_commit_threshold(move_dir: Vector3, speed: float) -> float:
-	var blend := _commit_speed_blend(speed)
-	if move_dir.dot(_formation_forward) < _commit_override_opposite_dot:
-		return lerpf(_commit_opposite_s_slow, _commit_opposite_s_fast, blend)
-	return lerpf(_commit_backpedal_s_slow, _commit_backpedal_s_fast, blend)
-
-
-func _backpedal_reset_stop_for_speed(speed: float) -> float:
-	return lerpf(_backpedal_reset_stop_slow, _backpedal_reset_stop_fast, _commit_speed_blend(speed))
-
-
-func _tick_backpedal_commit_override(delta: float, move_dir: Vector3, speed: float) -> void:
-	if _in_combat:
-		_backpedal_continuous_s = 0.0
-		return
-	if _commit_override_cooldown_s > 0.0:
-		return
-	_backpedal_continuous_s += delta
-	var threshold := _backpedal_commit_threshold(move_dir, speed)
-	if _backpedal_continuous_s >= threshold:
-		_set_formation_forward(move_dir)
-		_backpedal_continuous_s = 0.0
-		_commit_override_cooldown_s = _commit_override_cooldown_duration
 
 
 func _update_formation_follow(delta: float) -> void:
