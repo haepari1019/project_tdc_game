@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "spec_commit_short": "d70ed48",
+  "spec_commit_short": "19f2af0",
   "encounter_ids": ["ENC-NORM-001", "ENC-NORM-002", "ENC-HARD-001"],
   "enemy_ids": ["EN-001", "EN-010", "EN-011", "EN-012", "EN-013", "EN-006", "EN-005"],
   "identity_skill_ids": [
