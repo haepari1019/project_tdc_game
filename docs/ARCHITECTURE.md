@@ -150,7 +150,7 @@
 | DEBT-CPL-DUCK | CombatController가 party_member 필드 ~20개를 가드 없이 덕타이핑; 스킬 'kind' 4종 하드코딩 | combat_controller.gd:91-123 | med | defer (P6) — 타입드 계약 + 테이블 디스패치 |
 | DEBT-CPL-HUD | dungeon_run이 HUD 라벨 11개 노드경로를 하드코딩·직접 set; 한글 상태문자열 .tscn과 중복 | dungeon_run.gd:10-20,230-261 | med | defer (P6) — `RunInfoPanel` 노드로 분리 |
 | DEBT-CPL-GROUP | controlled/alive/room-trigger 상태가 문자열 그룹으로 멀티플렉싱(member에서 mutate, 여러 시스템이 read) | party_member.gd:96-111,397 | med | defer (P6) |
-| DEBT-OTHER-AWAIT | 적 텔레그래프가 물리틱 중 `await create_timer` → 공격이 프레임 가로질러 해소(**비결정적**, ENC 테스트에 불리) | combat_controller.gd:435-472 | med | defer (P6) — 윈드업 상태머신 |
+| DEBT-OTHER-AWAIT | ✅ **해소(③)** — `await` 제거. 프레임 구동 윈드업 상태머신(`enemy.winding`/`windup_timer_s`, `_tick_enemy`에서 tick)로 전환. `_begin_enemy_attack`→`_resolve_enemy_attack`→`_apply_enemy_hit` 분리. 전투 결정론적 | combat_controller.gd, enemy_unit.gd | med | **DONE** |
 | DEBT-DM1 | `abilities.json` 로드 시 `require_id` 미수행 → "미등록 ID→abort" 규칙이 어빌리티만 무력화 | slice01_data.gd:211-213 | med | **now (P3)** — 코드 가드 버그 |
 | DEBT-DM2 | `ENEMY_VISUALS` 색/크기가 enemies.json과 분리(컨트롤러 리터럴) | combat_controller.gd:23-32 | low | now/선택 (PH 아트) |
 | DEBT-DM3 | 룸 기하가 `map_demo_layout` 상수 vs `rooms.json` 이중소유 → 드리프트 가능 | map_demo_layout.gd:10-75, rooms.json | med | defer |

@@ -28,6 +28,13 @@ var attack_cooldown_s: float = 0.0
 var abilities: Array = []
 var attack_count: int = 0
 
+## Telegraph wind-up state machine (frame-driven; driven by CombatController). ref: DEBT-OTHER-AWAIT.
+var winding: bool = false
+var windup_timer_s: float = 0.0
+var windup_eff: Dictionary = {}
+var windup_chosen: Dictionary = {}
+var windup_target: CharacterBody3D = null
+
 var _body_material: StandardMaterial3D
 var _base_albedo: Color = Color.WHITE
 var _hp_bar: Node3D

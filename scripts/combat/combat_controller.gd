@@ -401,6 +401,12 @@ func _tick_enemy(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# Smoothed knockback push takes over movement for its short duration.
 	if enemy.tick_knockback(delta):
 		return
+	# Frame-driven telegraph wind-up — strike resolves when its timer elapses
+	# (replaces an await; keeps the encounter deterministic). ref: DEBT-OTHER-AWAIT.
+	if enemy.winding:
+		enemy.windup_timer_s -= delta
+		if enemy.windup_timer_s <= 0.0:
+			_resolve_enemy_attack(enemy)
 	# F-022: target highest-threat party member; pre-threat fallback = nearest.
 	enemy.decay_threat(delta)
 	var target: CharacterBody3D = enemy.pick_target(_alive_members(targets), SWITCH_RATIO)
@@ -419,38 +425,55 @@ func _tick_enemy(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	else:
 		# In range: stop and attack on cooldown (data-driven ability).
 		enemy.velocity = Vector3.ZERO
-		if enemy.attack_cooldown_s <= 0.0:
-			_enemy_attack(enemy, target)
+		if enemy.attack_cooldown_s <= 0.0 and not enemy.winding:
+			_begin_enemy_attack(enemy, target)
 			enemy.attack_cooldown_s = enemy.attack_interval_s
 	enemy.move_and_slide()
 
 
-## Data-driven enemy attack: choose ability (every_n pattern > basic) and apply
-## damage*mult + knockback + cue from the shared ability_catalog. Extensible —
-## assign any ability to any unit via enemies.json abilities[].ref.
-func _enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> void:
+## Data-driven enemy attack: choose ability (every_n pattern > basic). Telegraphed
+## casts start a frame-driven wind-up (resolved in _tick_enemy); others hit now.
+## Extensible — assign any ability to any unit via enemies.json abilities[].ref.
+func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> void:
 	enemy.attack_count += 1
 	var chosen: Dictionary = _select_enemy_ability(enemy)
 	var eff: Dictionary = {}
 	if not chosen.is_empty():
 		eff = Slice01Data.get_ability(String(chosen.get("ref", "")))
-	var kind := String(eff.get("kind", "enemy_melee"))
-	var from := enemy.global_position
-	var tpos := target.global_position
-	# Telegraphed cast — warning VFX + wind-up; melee can be dodged out of range.
 	var tele: float = float(eff.get("telegraph_s", 0.0))
 	if tele > 0.0:
-		SkillVfx.telegraph(self, tpos, _telegraph_color(kind))
-		await get_tree().create_timer(tele).timeout
-		if not is_instance_valid(enemy) or not is_instance_valid(target) or not target.is_alive():
-			return
-		if kind == "enemy_stun":
-			var d := target.global_position - enemy.global_position
-			d.y = 0.0
-			if d.length() > enemy.attack_range_m + 0.6:
-				return  # dodged the wind-up
-		from = enemy.global_position
-		tpos = target.global_position
+		# Warning cue now; the strike resolves when the wind-up timer elapses.
+		enemy.winding = true
+		enemy.windup_timer_s = tele
+		enemy.windup_eff = eff
+		enemy.windup_chosen = chosen
+		enemy.windup_target = target
+		SkillVfx.telegraph(self, target.global_position, _telegraph_color(String(eff.get("kind", "enemy_melee"))))
+	else:
+		_apply_enemy_hit(enemy, target, eff, chosen)
+
+
+## Resolve a telegraphed strike at wind-up end. Re-validates target (+ stun dodge).
+func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
+	var eff: Dictionary = enemy.windup_eff
+	var chosen: Dictionary = enemy.windup_chosen
+	var target: CharacterBody3D = enemy.windup_target
+	enemy.winding = false
+	enemy.windup_target = null
+	if not is_instance_valid(target) or not target.is_alive():
+		return
+	if String(eff.get("kind", "")) == "enemy_stun":
+		var d := target.global_position - enemy.global_position
+		d.y = 0.0
+		if d.length() > enemy.attack_range_m + 0.6:
+			return  # dodged the wind-up
+	_apply_enemy_hit(enemy, target, eff, chosen)
+
+
+## Apply an enemy hit: damage + status/knockback + vfx (shared by instant & wind-up).
+func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+	var kind := String(eff.get("kind", "enemy_melee"))
+	var from := enemy.global_position
 	target.take_damage(enemy.contact_damage * float(eff.get("damage_mult", 1.0)))
 	match kind:
 		"enemy_poison":
@@ -463,7 +486,7 @@ func _enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> void:
 				target.apply_knockback(target.global_position - from, kb)
 	var vfx := String(eff.get("vfx", ""))
 	if vfx != "":
-		SkillVfx.enemy_vfx(vfx, self, from, tpos)
+		SkillVfx.enemy_vfx(vfx, self, from, target.global_position)
 	if String(chosen.get("trigger", "")) == "every_n" or kind in ["enemy_stun", "enemy_poison"]:
 		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), target.identity_skill_id])
 
