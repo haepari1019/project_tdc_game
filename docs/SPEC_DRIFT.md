@@ -40,7 +40,7 @@
 | 008 | AB-024 Press the Line 수치 + 3타 붕괴 | tuning/polish | 로깅; 3타 순차는 1b 폴리시 | LOGGED/BACKLOG |
 | 009 | AB-025 Mark & Ruin 수치 + 텔레그래프/환급 없음 | tuning/polish | 로깅; 텔레그래프는 1b | LOGGED/BACKLOG |
 | 010 | AB-026 Mend Circle 수치 | tuning | 로깅, 임계 재정렬 | LOGGED |
-| 011 | 적 HP/접촉뎀 인플레 | tuning | 로깅, ENC-NORM-001 기준 재산출 | LOGGED |
+| 011 | 적 HP/접촉뎀/**이속** 튜닝 | tuning | 로깅, ENC-NORM-001 기준 재산출 | LOGGED |
 | 012 | DIFFICULTY_OPTIONS EN-013 문서 오타 | code-bug(doc) | 재현 안 됨(파일에 EN-013 없음) | DROPPED |
 | 013 | 아군간 물리충돌 제거(MASK_PARTY) | (비위반) | 로깅만 | LOGGED |
 | 014 | 파티전멸=Run Failure 없음(F-007) | scope | 1b 갭(저비용 추가 권장) | BACKLOG |
@@ -80,6 +80,7 @@
 
 ### DRIFT-007~011 — 수치 드리프트 (tuning, 로깅만)
 - AB-020(cd6→8·base80→120·cap160→280·dur4→5·pulse90→60), AB-024(cd4→7·perhit0.35→1.0·3타 단발붕괴), AB-025(cd5→9·mult7→12·텔레그래프/환급 없음), AB-026(cd7→6·r4→5·heal12%→10%·임계 85/90→90/95), 적HP 인플레(EN-001 760 등).
+- **적 이속(2026-06-08):** 2.0~5.0 → **7.5~9.5** (조작 9.0 대비 near-equal). 이유: 적이 느려 무시·도망 전략이 통함 → 카이팅 차단. 아키타입 유지(Skitter 9.5·Front Rush 9.0 최속, Slow Bulk 7.5 최저). spec 무관(F-025 §11 tuning).
 - 스펙 어빌리티/적 수치는 모두 **"design example, runtime SSOT 아님"** → 위반 아님. ChangeProtocol §5-d: 튜닝은 마일스톤에서만 선택적 반영.
 - **로깅 사유:** 수치 인플레가 *과강한 자작 서브/Identity 보정*에서 비롯됨(PHASE5 §60/63). DRIFT-001/004 정리 후 ENC-NORM-001 기준으로 **재산출**할 것.
 
