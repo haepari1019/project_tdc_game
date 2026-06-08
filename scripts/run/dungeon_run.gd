@@ -40,8 +40,8 @@ func _ready() -> void:
 	_party.controlled_changed.connect(_on_controlled_changed)
 	_party.cohesion_changed.connect(_on_cohesion_changed)
 	_party.formation_priority_changed.connect(_on_formation_priority_changed)
-	_party.party_in_combat = _run.party_in_combat
 	_combat.setup(_party, _map)
+	_party.bind_combat(_combat)
 	_run.encounter_triggered.connect(_combat.on_encounter_triggered)
 	_combat.combat_started.connect(_on_combat_started)
 	_combat.combat_ended.connect(_on_combat_ended)
@@ -207,14 +207,10 @@ func _focus_camera() -> void:
 
 
 func _on_combat_started(_encounter_id: String) -> void:
-	_run.party_in_combat = true
-	_party.party_in_combat = true
 	print("[TDC] partyInCombat=true")  # state only — swap stays allowed (F-001 §3.3)
 
 
 func _on_combat_ended(result: String, _encounter_id: String) -> void:
-	_run.party_in_combat = false
-	_party.party_in_combat = false
 	print("[TDC] partyInCombat=false (%s)" % result)
 
 

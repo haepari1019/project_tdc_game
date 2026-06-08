@@ -63,6 +63,12 @@ func _build_ability_handlers() -> void:
 	}
 
 
+## Single source of truth for "are we in combat". Consumers subscribe to
+## combat_started/combat_ended or query this — no duplicated flags. ref: DEBT-CPL-COMBAT.
+func is_in_combat() -> bool:
+	return _combat_active
+
+
 func _physics_process(delta: float) -> void:
 	if not _combat_active:
 		return

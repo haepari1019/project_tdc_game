@@ -123,7 +123,7 @@
 | DEBT-GOD | 🔸 **부분(P6.1·6.2)** — v0 엔진·데드로직·팔레트 제거로 **1623→1235줄**. 잔여 추출 단위: `FormationConfig`(Resource) / `SteeringV1`(strategy) / `FormationForward`(상태머신) / `PartyRoster` (P6.3, 고위험·F5 동반) | party_controller.gd | high | **부분 DONE** |
 | DEBT-V0 | ✅ **해소(P6.1)** — 죽은 v0 추종엔진 349줄 삭제(party_controller 1623→1273), 데이터경로 확인(formation.json 항상 steering_v1)+에디터 임포트 검증. **잔여(P6.2):** 데드 `_sv1_enabled`·v0 전용 config vars·`_tank_steer_axes`·formation.json `follow_steering_deprecated` 정리 | scripts/party/party_controller.gd | med | **부분 DONE** |
 | DEBT-DEAD1 | `_sync_tank_follow_collision`이 이름과 달리 무조건 `set_party_member_collision(true)` — 사실상 no-op | party_controller.gd:1598-1600 | low | **now (P4)** |
-| DEBT-DEAD2 | `run_controller.can_swap()` 항상 true 스텁 + `party_in_combat` 이중관리(소비자 없음) | run_controller.gd:66, party_controller.gd:226 | low | now/defer |
+| DEBT-DEAD2 | 🔸 `party_in_combat` 이중관리 **해소(②)**. `run_controller.can_swap()` 항상 true 스텁은 Control Lock/MIA 미구현이라 **의도적 잔존** | run_controller.gd:66 | low | 부분 DONE |
 
 ### 중복
 | ID | 항목 | 위치 | sev | 처리 |
@@ -146,7 +146,7 @@
 ### 결합 / 데이터모델
 | ID | 항목 | 위치 | sev | 처리 |
 |----|------|------|-----|------|
-| DEBT-CPL-COMBAT | `party_in_combat`가 RunController·PartyController에 이중 + dungeon_run(글루)이 set. "전투 중?"의 단일 소유자 없음 → 전투 시작/종료 의미 변경 시 3파일 동시수정 | dungeon_run.gd:209-217, party_controller.gd:29, run_controller.gd:19 | med | **defer (P6)** — CombatController 단일소유 |
+| DEBT-CPL-COMBAT | ✅ **해소(②)** — CombatController가 단일 소유(`is_in_combat()` + combat_started/ended). PartyController는 `bind_combat()`로 **구독**해 `_in_combat` 캐시. run_controller 중복 제거, dungeon_run의 bool 포킹 제거. 1b 전투반응 시스템은 구독만 하면 됨 | combat_controller.gd, party_controller.gd | med | **DONE** |
 | DEBT-CPL-DUCK | CombatController가 party_member 필드 ~20개를 가드 없이 덕타이핑; 스킬 'kind' 4종 하드코딩 | combat_controller.gd:91-123 | med | defer (P6) — 타입드 계약 + 테이블 디스패치 |
 | DEBT-CPL-HUD | dungeon_run이 HUD 라벨 11개 노드경로를 하드코딩·직접 set; 한글 상태문자열 .tscn과 중복 | dungeon_run.gd:10-20,230-261 | med | defer (P6) — `RunInfoPanel` 노드로 분리 |
 | DEBT-CPL-GROUP | controlled/alive/room-trigger 상태가 문자열 그룹으로 멀티플렉싱(member에서 mutate, 여러 시스템이 read) | party_member.gd:96-111,397 | med | defer (P6) |

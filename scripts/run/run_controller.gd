@@ -16,7 +16,6 @@ var difficulty_profile: String = ""
 var run_phase: String = ""
 var current_room_ref: String = ""
 var third_faction_enabled: bool = false
-var party_in_combat: bool = false
 ## GIMMICK-DEMO-01 objective state (F-007 풀 파이프라인 제외 — 스텁).
 var objective_complete: bool = false
 var run_over: bool = false
@@ -56,7 +55,6 @@ func get_state() -> Dictionary:
 		"run_phase": run_phase,
 		"current_room_ref": current_room_ref,
 		"third_faction_enabled": third_faction_enabled,
-		"party_in_combat": party_in_combat,
 	}
 
 

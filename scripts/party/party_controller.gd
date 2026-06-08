@@ -12,7 +12,7 @@ signal formation_priority_changed(on: bool)
 
 @export var move_speed: float = 9.0
 
-var party_in_combat: bool = false
+var _in_combat: bool = false  ## set via combat signals (bind_combat). ref: DEBT-CPL-COMBAT
 var cohesion_mode: int = PartyCohesion.MODE_BOUND
 ## Formation-priority toggle. OFF (default) = combat priority: in combat,
 ## followers break formation and engage enemies. ON = hold slots even in combat.
@@ -163,6 +163,20 @@ func get_member(index: int) -> CharacterBody3D:
 
 func get_members() -> Array:
 	return _members.duplicate()
+
+
+## Subscribe to the combat-state owner (CombatController). ref: DEBT-CPL-COMBAT.
+func bind_combat(combat: Node) -> void:
+	combat.combat_started.connect(_on_combat_started)
+	combat.combat_ended.connect(_on_combat_ended)
+
+
+func _on_combat_started(_encounter_id: String) -> void:
+	_in_combat = true
+
+
+func _on_combat_ended(_result: String, _encounter_id: String) -> void:
+	_in_combat = false
 
 
 func try_swap_to(index: int) -> bool:
@@ -578,7 +592,7 @@ func _backpedal_reset_stop_for_speed(speed: float) -> float:
 
 
 func _tick_backpedal_commit_override(delta: float, move_dir: Vector3, speed: float) -> void:
-	if party_in_combat:
+	if _in_combat:
 		_backpedal_continuous_s = 0.0
 		return
 	if _commit_override_cooldown_s > 0.0:
@@ -604,7 +618,7 @@ func _update_formation_follow(delta: float) -> void:
 		_update_party_layout_origin(anchor, layout_axes, anchor_pos)
 	# Combat: followers leave their slots and engage enemies autonomously —
 	# unless formation-priority is ON (hold slots), or combat ended / no enemies.
-	_combat_engaging = party_in_combat and not _formation_priority and _has_live_enemies()
+	_combat_engaging = _in_combat and not _formation_priority and _has_live_enemies()
 	var peer_slot_targets: Dictionary = {}
 	for m in _members:
 		if _combat_engaging and m != anchor and not m.is_controlled():
