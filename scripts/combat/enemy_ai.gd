@@ -1,0 +1,337 @@
+extends Node3D
+## EnemyAI — per-enemy perception (휴식중: 시야콘+LOS+근접존) + combat behavior
+## (전투중: 위협타겟 추적·LOS 게이트 공격·시야상실 추격·텔레그래프 윈드업). Extracted
+## from CombatController to isolate enemy decision-making from spawning / threat /
+## ability dispatch (ARCHITECTURE DEBT-GOD2). A child of CombatController: shares the
+## world (LOS raycast) + parents enemy VFX, and calls back into the controller for
+## engage / grace / signals — combat state stays single-owned there.
+## ref: F-013 EnemyCombatAI · F-011 Vision · F-022 Threat.
+
+const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+
+# Line-of-sight raycast (perception + attack gating). Mask = world layer (1) only —
+# walls/cover block; party(2)/enemy(3,4) are ignored. ref: enemy_visibility.
+const LOS_MASK := 1
+const LOS_FROM_H := 1.1  # ray origin above the looker's feet
+const LOS_TO_H := 0.7    # aim at the target's center
+
+# Hybrid vision cone perception (Phase C2). F-011 partial impl; tuning → DRIFT log.
+const SIGHT_RANGE_M := 12.0     # max cone distance
+const FOV_DEG := 160.0          # cone full angle (blind behind ~200°)
+const PROXIMITY_M := 2.5        # 360° "right next to me" floor → combat zone
+const ALERT_ZONE_FRAC := 0.2    # outer 20% of range = 경계존 (alert); inner 80% = 전투존
+const INVESTIGATE_SPEED_FRAC := 0.35  # cautious, slow "huh? something there?" approach
+const INVESTIGATE_ARRIVE_M := 1.0    # reached last-seen point → give up the search
+## Pursuit speed once LOS is lost (engaged enemy heading to the last-seen spot).
+## Below party speed so a target that breaks line of sight can gain distance and
+## re-hide before the enemy re-acquires; grace then disengages it.
+const CHASE_BLIND_SPEED_FRAC := 0.55
+
+## F-022 §3.6 target-switch hysteresis. Lower = aggro bounces more readily (harder).
+const SWITCH_RATIO := 1.02
+
+# Camera damage feedback (피격, F-012). AB-DEFINED 스킬 피해만 — 평타·접촉뎀 제외.
+# trauma = (dmg/maxHP)*gain, 방향 킥 = 맞은 방향. 비조작 멤버 이벤트는 감쇄.
+const DMG_SHAKE_GAIN := 3.0
+const DMG_SHAKE_MIN_FRAC := 0.02  # 이 미만 피해비율 → 셰이크 없음(잔뎀 컷)
+const DMG_SHAKE_CAP := 0.65
+const DMG_KICK_M := 1.2           # 방향 킥 오프셋(m) @ trauma 1
+const SHAKE_NONCTRL_MULT := 0.4   # 비조작 멤버 이벤트 감쇄
+
+var _combat: Node3D  # CombatController — owns engage/grace/signals + spawning/threat
+
+
+func setup(combat: Node3D) -> void:
+	_combat = combat
+
+
+## Attach the dev-viz vision cone sized to this AI's perception (range / FOV / alert
+## zone) — called by the spawner so cone visuals always match the perception logic.
+func attach_vision_cone(unit: CharacterBody3D) -> void:
+	unit.build_vision_cone(SIGHT_RANGE_M, FOV_DEG, ALERT_ZONE_FRAC)
+
+
+## Clear line of sight between two nodes? Raycast masked to world geometry only —
+## walls/cover block it, units don't. Used for both attack gating and perception.
+func _has_los(from_node: Node3D, to_node: Node3D) -> bool:
+	var a: Vector3 = from_node.global_position + Vector3(0, LOS_FROM_H, 0)
+	var b: Vector3 = to_node.global_position + Vector3(0, LOS_TO_H, 0)
+	var q := PhysicsRayQueryParameters3D.create(a, b, LOS_MASK)
+	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+
+## Velocity toward `dest` following the navmesh — routes the enemy AROUND walls
+## instead of grinding straight into them. ZERO when arrived / no path.
+func _nav_move(enemy: CharacterBody3D, dest: Vector3, speed: float) -> Vector3:
+	enemy.nav_set_target(dest)
+	var wp: Vector3 = enemy.nav_get_next_position()
+	var to_wp := wp - enemy.global_position
+	to_wp.y = 0.0
+	var d := to_wp.length()
+	if d < 0.05:
+		return Vector3.ZERO
+	return (to_wp / d) * speed
+
+
+## Dormant tick (휴식중): hybrid vision cone perception. Scans party members within
+## the forward cone + LOS (or the 360° proximity floor) and splits the cone range
+## into 전투존 (inner 80% → '!' + wake the encounter) and 경계존 (outer 20% → '?' +
+## investigate: move toward the sighting). Sees nothing → idle scan in place.
+func _tick_dormant(enemy: CharacterBody3D, members: Array, delta: float) -> void:
+	enemy.winding = false  # cancel any wind-up carried over from a prior engagement
+	enemy.set_target_marker(null)
+	var ep: Vector3 = enemy.global_position
+	var facing: Vector3 = enemy.facing
+	var cos_half := cos(deg_to_rad(FOV_DEG * 0.5))
+	var combat_r := SIGHT_RANGE_M * (1.0 - ALERT_ZONE_FRAC)
+	var zone := 0
+	var seen: CharacterBody3D = null
+	var seen_d := INF
+	for m in members:
+		if not is_instance_valid(m) or (m.has_method("is_alive") and not m.is_alive()):
+			continue
+		var to: Vector3 = m.global_position - ep
+		to.y = 0.0
+		var dist := to.length()
+		if dist > SIGHT_RANGE_M:
+			continue
+		var in_prox := dist <= PROXIMITY_M
+		var in_cone := dist < 0.001 or to.normalized().dot(facing) >= cos_half
+		if not in_prox and not in_cone:
+			continue  # outside cone & proximity → skip the LOS raycast entirely
+		if not _has_los(enemy, m):
+			continue  # occluded by a wall → not perceived
+		var z := 2 if (in_prox or dist <= combat_r) else 1  # 전투존 vs 경계존
+		if dist < seen_d:
+			seen_d = dist
+			seen = m
+		zone = maxi(zone, z)
+	if zone == 2:  # 전투존 → engage this enemy + wake its squad (cohesion radius)
+		if seen != null:
+			enemy.face_toward(seen.global_position)
+		enemy.set_alert_mark(2)
+		enemy.has_investigate = false
+		_combat._engage_enemy(enemy, seen)  # target the member we actually saw
+		enemy.velocity = Vector3.ZERO
+		enemy.move_and_slide()
+		return
+	if zone == 1 and seen != null:  # 경계존 → record the sighting as last-seen
+		enemy.investigate_pos = seen.global_position
+		enemy.has_investigate = true
+	# Investigate: walk to the last place the party was perceived — even after the
+	# party slips out of cone/LOS — then give up on arrival. (Phase D: return to post.)
+	if enemy.has_investigate:
+		enemy.set_alert_mark(1)
+		enemy.face_toward(enemy.investigate_pos)
+		var to: Vector3 = enemy.investigate_pos - ep
+		to.y = 0.0
+		if to.length() <= INVESTIGATE_ARRIVE_M:
+			enemy.has_investigate = false  # reached last-seen, nothing there → give up
+			enemy.set_alert_mark(0)
+			enemy.velocity = Vector3.ZERO
+			enemy.move_and_slide()
+			return
+		# Navmesh toward the last-seen point — walk around walls, not into them.
+		enemy.velocity = _nav_move(enemy, enemy.investigate_pos, enemy.current_move_speed() * INVESTIGATE_SPEED_FRAC)
+		enemy.move_and_slide()
+		return
+	# Nothing perceived and no lead → idle scan, hold position.
+	enemy.set_alert_mark(0)
+	enemy.scan(delta)
+	enemy.velocity = Vector3.ZERO
+	enemy.move_and_slide()
+
+
+## Per-enemy tick entry. Dormant (휴식중) enemies perceive (see _tick_dormant);
+## engaged ones chase the highest-threat party member and attack at range (with LOS).
+func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
+	if not enemy.engaged:
+		_tick_dormant(enemy, targets, delta)
+		return
+	enemy.attack_cooldown_s = maxf(0.0, enemy.attack_cooldown_s - delta)
+	enemy.tick_slow(delta)
+	# Smoothed knockback push takes over movement for its short duration.
+	if enemy.tick_knockback(delta):
+		return
+	# Frame-driven telegraph wind-up — strike resolves when its timer elapses
+	# (replaces an await; keeps the encounter deterministic). ref: DEBT-OTHER-AWAIT.
+	if enemy.winding:
+		enemy.windup_timer_s -= delta
+		if enemy.windup_timer_s <= 0.0:
+			_resolve_enemy_attack(enemy)
+	# F-022: target highest-threat party member. With no threat, fall back to the
+	# nearest member the enemy can actually SEE (LOS) — NOT the global nearest — so a
+	# far, never-perceived group (e.g. the hidden 본대) is never chased. No threat and
+	# nobody visible → hold; grace will disengage it back to dormant.
+	enemy.decay_threat(delta)
+	var target: CharacterBody3D = enemy.pick_target(_alive_members(targets), SWITCH_RATIO)
+	if target == null or float(enemy.threat.get(target, 0.0)) <= 0.0:
+		target = _nearest_visible(enemy, targets)
+	if target == null:
+		enemy.velocity = Vector3.ZERO
+		enemy.move_and_slide()
+		return
+	enemy.set_target_marker(target)
+	enemy.set_alert_mark(2)  # 전투 (!)
+	var to := target.global_position - enemy.global_position
+	to.y = 0.0
+	var dist := to.length()
+	var has_los := _has_los(enemy, target)
+	if has_los:
+		_combat.refresh_engage_grace(enemy)               # still sees prey → stay engaged
+		enemy.investigate_pos = target.global_position    # remember the last-seen spot
+		enemy.has_investigate = true
+	if has_los and dist <= enemy.attack_range_m:
+		# In range with LOS: stop and attack on cooldown (data-driven ability).
+		enemy.face_toward(target.global_position)
+		enemy.velocity = Vector3.ZERO
+		if enemy.attack_cooldown_s <= 0.0 and not enemy.winding:
+			_begin_enemy_attack(enemy, target)
+			enemy.attack_cooldown_s = enemy.attack_interval_s
+	else:
+		# Seen → chase the live position at full speed. Lost sight → head to the
+		# LAST-SEEN spot at a reduced, cautious pace (so a fleeing target can break
+		# away and re-hide before re-acquisition; grace disengages it). Navmesh routes
+		# around walls either way.
+		var dest: Vector3 = target.global_position
+		var spd: float = enemy.current_move_speed()
+		if not has_los:
+			dest = enemy.investigate_pos
+			spd *= CHASE_BLIND_SPEED_FRAC
+		enemy.face_toward(dest)
+		enemy.velocity = _nav_move(enemy, dest, spd)
+	enemy.move_and_slide()
+
+
+## Data-driven enemy attack: choose ability (every_n pattern > basic). Telegraphed
+## casts start a frame-driven wind-up (resolved in tick); others hit now.
+## Extensible — assign any ability to any unit via enemies.json abilities[].ref.
+func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> void:
+	enemy.attack_count += 1
+	var chosen: Dictionary = _select_enemy_ability(enemy)
+	var eff: Dictionary = {}
+	if not chosen.is_empty():
+		eff = Slice01Data.get_ability(String(chosen.get("ref", "")))
+	var tele: float = float(eff.get("telegraph_s", 0.0))
+	if tele > 0.0:
+		# Warning cue now; the strike resolves when the wind-up timer elapses.
+		enemy.winding = true
+		enemy.windup_timer_s = tele
+		enemy.windup_eff = eff
+		enemy.windup_chosen = chosen
+		enemy.windup_target = target
+		SkillVfx.telegraph(self, target.global_position, _telegraph_color(String(eff.get("kind", "enemy_melee"))))
+	else:
+		_apply_enemy_hit(enemy, target, eff, chosen)
+
+
+## Resolve a telegraphed strike at wind-up end. Re-validates target (+ stun dodge).
+func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
+	var eff: Dictionary = enemy.windup_eff
+	var chosen: Dictionary = enemy.windup_chosen
+	var target: CharacterBody3D = enemy.windup_target
+	enemy.winding = false
+	enemy.windup_target = null
+	if not is_instance_valid(target) or not target.is_alive():
+		return
+	if not _has_los(enemy, target):
+		return  # target broke line of sight during the wind-up — strike fizzles
+	if String(eff.get("kind", "")) == "enemy_stun":
+		var d := target.global_position - enemy.global_position
+		d.y = 0.0
+		if d.length() > enemy.attack_range_m + 0.6:
+			return  # dodged the wind-up
+	_apply_enemy_hit(enemy, target, eff, chosen)
+
+
+## Apply an enemy hit: damage + status/knockback + vfx (shared by instant & wind-up).
+func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+	var kind := String(eff.get("kind", "enemy_melee"))
+	var from := enemy.global_position
+	var dmg: float = enemy.contact_damage * float(eff.get("damage_mult", 1.0))
+	target.take_damage(dmg)
+	_combat._engage_enemy(enemy)  # D-010 §4.1: keep engaged (target already has threat/LOS)
+	_combat.party_damaged.emit()  # follower formation-break trigger
+	# Camera damage feedback — AB-DEFINED SKILL hits only. `chosen` = the picked
+	# ability {ref:"AB-###", trigger}. AB-defined = ref 있음, 스킬 = trigger != "basic"
+	# (평타 ability·무-ability 접촉뎀 제외). 방향 킥 = 맞은 방향(위협 정보) + trauma.
+	var atk_ref: String = String(chosen.get("ref", ""))
+	var is_ab_skill: bool = not atk_ref.is_empty() and String(chosen.get("trigger", "basic")) != "basic"
+	if is_ab_skill:
+		var frac: float = dmg / maxf(float(target.max_hp), 1.0)
+		if frac >= DMG_SHAKE_MIN_FRAC:
+			var dt: float = clampf(frac * DMG_SHAKE_GAIN, 0.0, DMG_SHAKE_CAP)
+			if not target.is_controlled():
+				dt *= SHAKE_NONCTRL_MULT
+			var kdir: Vector3 = target.global_position - from
+			kdir.y = 0.0
+			kdir = kdir.normalized() if kdir.length() > 0.01 else Vector3.ZERO
+			_combat.camera_shake.emit(dt, kdir * (DMG_KICK_M * dt))
+	match kind:
+		"enemy_poison":
+			target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 5.0)))
+		"enemy_stun":
+			target.apply_stun(float(eff.get("stun_s", 1.0)))
+		_:
+			var kb: float = float(eff.get("knockback_m", 0.0))
+			if kb > 0.0:
+				target.apply_knockback(target.global_position - from, kb)
+	var vfx := String(eff.get("vfx", ""))
+	if vfx != "":
+		SkillVfx.enemy_vfx(vfx, self, from, target.global_position)
+	if String(chosen.get("trigger", "")) == "every_n" or kind in ["enemy_stun", "enemy_poison"]:
+		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), target.identity_skill_id])
+
+
+func _telegraph_color(kind: String) -> Color:
+	match kind:
+		"enemy_stun":
+			return Color(1.0, 0.85, 0.2, 0.5)
+		"enemy_poison":
+			return Color(0.4, 0.9, 0.3, 0.5)
+	return Color(0.9, 0.3, 0.2, 0.5)
+
+
+## Pattern ability (every_n match) takes priority; else the basic ability.
+func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
+	var basic: Dictionary = {}
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		var trig := String(ab.get("trigger", ""))
+		if trig == "every_n":
+			var n := int(ab.get("n", 0))
+			if n > 0 and enemy.attack_count % n == 0:
+				return ab
+		elif trig == "basic" and basic.is_empty():
+			basic = ab
+	return basic
+
+
+func _alive_members(nodes: Array) -> Array:
+	var out: Array = []
+	for n in nodes:
+		if is_instance_valid(n) and (not n.has_method("is_alive") or n.is_alive()):
+			out.append(n)
+	return out
+
+
+## Nearest living party member the enemy has clear line of sight to (null if none).
+## Used as the no-threat fallback so enemies never lock onto unseen, distant members.
+func _nearest_visible(enemy: CharacterBody3D, nodes: Array) -> CharacterBody3D:
+	var best: CharacterBody3D = null
+	var best_d := INF
+	var from: Vector3 = enemy.global_position
+	for n in nodes:
+		if not is_instance_valid(n):
+			continue
+		if n.has_method("is_alive") and not n.is_alive():
+			continue
+		var d: float = from.distance_squared_to(n.global_position)
+		if d >= best_d:
+			continue
+		if not _has_los(enemy, n):
+			continue
+		best_d = d
+		best = n
+	return best

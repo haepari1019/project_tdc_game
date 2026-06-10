@@ -111,34 +111,92 @@ var _room_areas: Dictionary = {}
 ## Per-room openings: room_ref -> Array of {side, pos_along, width}
 var _room_openings: Dictionary = {}
 var _nav_region: NavigationRegion3D
+## Data-driven interface table (decouples the map *contract* from how geometry is
+## made). room_ref -> {spawn: Vector3, size: Vector3}; + the extraction point. The
+## getters below read THIS, not ROOM_SPECS — so a real (Blender) map only has to
+## populate it (override _resolve_room_points / author markers) to reuse all callers.
+var _room_points: Dictionary = {}
+var _extraction_point: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
+	_resolve_room_points()
 	_compute_openings()
 	_build_map()
 	_bake_navigation()
 
 
-## lighting_profile of a room (lit/standard/dim/unlit). Consumed by PartyLight
-## to attenuate the party Character Light in dim/unlit rooms (F-011 §3.1).
+# ============================================================================
+# Map contract (interface) — read by combat/run/party. A real (Blender) map only
+# needs to satisfy THIS + collision layer 1 (walls, for LOS) + a baked
+# NavigationRegion3D + room Area3D triggers emitting `room_entered`. ref: ARCHITECTURE.
+# Geometry source is decoupled: getters read `_room_points` / rooms.json, not the
+# procedural ROOM_SPECS — so swapping the placeholder geometry touches no callers.
+# ============================================================================
+
+## lighting_profile of a room (lit/standard/dim/unlit). SSOT = `rooms.json`
+## (`Slice01Data`); ROOM_SPECS.profile is a build-time fallback only. F-011 §3.1.
 func get_room_profile(room_ref: String) -> String:
-	var spec: Dictionary = ROOM_SPECS.get(room_ref, {})
-	return String(spec.get("profile", "standard"))
+	return _room_profile(room_ref)
 
 
 func get_spawn_position(room_ref: String = "RM-ENTRY-01") -> Vector3:
-	# Floor top is y=0; units use a feet-on-origin convention, so spawn at ground
-	# (tiny epsilon avoids initial floor penetration).
-	var spec: Dictionary = ROOM_SPECS.get(room_ref, {})
-	var center: Vector3 = spec.get("center", Vector3.ZERO)
-	return center + Vector3(0, 0.02, 0)
+	# Floor top is y=0; units use a feet-on-origin convention (tiny y epsilon baked in).
+	var p: Dictionary = _room_points.get(room_ref, {})
+	return p.get("spawn", Vector3(0, 0.02, 0))
 
 
-## POINT-DEMO-01 extraction point (RM-EXT-01 center, ground).
+## A spawn point pushed toward the room's FAR interior, away from `away_from` (the
+## party's approach). Keeps enemies out of the start sightline/combat range until
+## the party advances in. Clamped inside the room with margin for spawn scatter.
+func get_deep_spawn_position(room_ref: String, away_from: Vector3) -> Vector3:
+	const MARGIN := 11.0  # reserve room for the spawn scatter ring + unit/wall size
+	var p: Dictionary = _room_points.get(room_ref, {})
+	var center: Vector3 = p.get("spawn", Vector3.ZERO)
+	var size: Vector3 = p.get("size", Vector3(8, 0, 8))
+	var dir := center - away_from
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return center
+	dir = dir.normalized()
+	var avail_x := maxf(0.0, size.x * 0.5 - MARGIN)
+	var avail_z := maxf(0.0, size.z * 0.5 - MARGIN)
+	var tx: float = avail_x / absf(dir.x) if absf(dir.x) > 0.001 else INF
+	var tz: float = avail_z / absf(dir.z) if absf(dir.z) > 0.001 else INF
+	var t := minf(tx, tz)
+	return center + dir * t
+
+
+## POINT-DEMO-01 extraction point (ground).
 func get_extraction_position() -> Vector3:
-	var spec: Dictionary = ROOM_SPECS.get("RM-EXT-01", {})
-	var center: Vector3 = spec.get("center", Vector3.ZERO)
-	return Vector3(center.x, 0.0, center.z)
+	return _extraction_point
+
+
+# --- Interface backing (placeholder = ROOM_SPECS; a Blender map overrides) -------
+
+## Room lighting profile — `rooms.json` (SSOT) first, ROOM_SPECS fallback. De-dups
+## the previous double-ownership (ARCHITECTURE DEBT-DM3).
+func _room_profile(room_ref: String) -> String:
+	var row: Dictionary = Slice01Data.get_room_row(room_ref)
+	if not row.is_empty() and row.has("lighting_profile"):
+		return String(row.get("lighting_profile", "standard"))
+	return String((ROOM_SPECS.get(room_ref, {}) as Dictionary).get("profile", "standard"))
+
+
+## Populate the runtime room-points table + extraction point. Placeholder derives
+## from ROOM_SPECS geometry. A real (Blender) map replaces this — e.g. read authored
+## Marker3D points per room_ref — and every getter above keeps working unchanged.
+func _resolve_room_points() -> void:
+	_room_points.clear()
+	for room_ref in ROOM_SPECS.keys():
+		var spec: Dictionary = ROOM_SPECS[room_ref]
+		var center: Vector3 = spec.get("center", Vector3.ZERO)
+		_room_points[String(room_ref)] = {
+			"spawn": center + Vector3(0, 0.02, 0),
+			"size": spec.get("size", Vector3(8, 0, 8)),
+		}
+		if spec.get("extraction", false):
+			_extraction_point = Vector3(center.x, 0.0, center.z)
 
 
 func _compute_openings() -> void:
@@ -197,7 +255,7 @@ func _build_room(room_ref: String) -> void:
 	var spec: Dictionary = ROOM_SPECS[room_ref]
 	var center: Vector3 = spec["center"]
 	var size: Vector3 = spec["size"]
-	var profile: String = spec.get("profile", "standard")
+	var profile: String = _room_profile(room_ref)  # SSOT = rooms.json
 
 	var room_node := Node3D.new()
 	room_node.name = room_ref

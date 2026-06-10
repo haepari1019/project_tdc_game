@@ -14,9 +14,12 @@ const EnemyVisibility := preload("res://scripts/run/enemy_visibility.gd")
 @onready var _hud_controlled: Label = $HUD/Panel/Margin/VBox/ControlledValue
 @onready var _hud_cohesion: Label = $HUD/Panel/Margin/VBox/CohesionValue
 @onready var _hud_formation: Label = $HUD/Panel/Margin/VBox/FormationValue
+@onready var _hud_state: Label = $HUD/Panel/Margin/VBox/StateValue
 @onready var _hud_sub: Label = $HUD/Panel/Margin/VBox/SubValue
 @onready var _hud_hint: Label = $HUD/Panel/Margin/VBox/Hint
 @onready var _banner: Label = $HUD/ResultBanner
+@onready var _extract_count: Label = $HUD/ExtractCount
+@onready var _camera_rig: Node3D = $CameraPivot  # camera_rig.gd: follow/glide/orbit/shake
 @onready var _party_sheet: Control = $HUD/PartySheet
 @onready var _controlled_sheet: Control = $HUD/ControlledSheet
 
@@ -31,9 +34,17 @@ var _ctrl_indicator: Node3D
 var _ctrl_arrow: MeshInstance3D
 var _ind_time: float = 0.0
 
-# Camera orbit: RMB + horizontal drag yaws the CameraPivot around the controlled char.
-const CAM_YAW_SENS := 0.006  # radians per pixel of horizontal drag
+# Camera orbit: RMB + horizontal drag yaws the camera rig. Follow/glide/shake live
+# in camera_rig.gd ($CameraPivot); dungeon_run only forwards input + swap focus here.
 var _cam_dragging: bool = false
+
+# F-007 ExtractionActivate — hold at the extraction point this long to complete.
+# Longer while partyInCombat (적이 붙어 있으면 탈출이 더 어렵다). Channel time is
+# "후속 UI/전투 SSOT" in F-007 §3.1.2 → tuning (game SPEC_DRIFT).
+const EXTRACT_HOLD_S := 5.0          # 비전투
+const EXTRACT_HOLD_COMBAT_S := 30.0  # 전투중(partyInCombat)
+const EXTRACT_RADIUS_M := 3.0
+var _extract_hold_s: float = 0.0
 
 
 func _ready() -> void:
@@ -45,41 +56,41 @@ func _ready() -> void:
 	_party.controlled_changed.connect(_on_controlled_changed)
 	_party.cohesion_changed.connect(_on_cohesion_changed)
 	_party.formation_priority_changed.connect(_on_formation_priority_changed)
+	_combat.engagement_changed.connect(_on_engagement_changed)
+	_combat.camera_shake.connect(_camera_rig.add_shake)
 	_combat.setup(_party, _map)
 	_party.bind_combat(_combat)
 	var enemy_vis := EnemyVisibility.new()
 	add_child(enemy_vis)
 	enemy_vis.setup(_party)
-	_run.encounter_triggered.connect(_combat.on_encounter_triggered)
-	_combat.combat_started.connect(_on_combat_started)
-	_combat.combat_ended.connect(_on_combat_ended)
 	_run.start_run("RM-ENTRY-01")
 	var spawn: Vector3 = _map.get_spawn_position("RM-ENTRY-01")
 	_party.spawn_at(spawn)
+	# Pre-spawn all encounters as dormant squads, pushed to each room's far side
+	# (away from the party) so the start-adjacent room isn't in range at spawn.
+	_combat.prespawn_encounters("RM-ENTRY-01")
 	_party_sheet.setup(_party.get_members())
 	_controlled_sheet.setup(_party)
 	_build_aim_marker()
 	_build_controlled_indicator()
-	_focus_camera()
-	# Face the dungeon's forward progression (+Z: Entry→Advance→Extraction) up-screen
-	# at entry, so W moves into the dungeon. RMB-drag rotates relative to this.
-	$CameraPivot.rotation.y = PI
+	_camera_rig.set_follow_target(_party.get_controlled())  # glide in from rig origin
 
 
 func _process(delta: float) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl:
-		$CameraPivot.global_position = ctrl.global_position
 		_hud_sub.text = "Ready" if ctrl.sub_cooldown_s <= 0.0 else "%.1fs" % ctrl.sub_cooldown_s
 		# UI-001: controlled indicator follows + bobbing arrow.
 		_ind_time += delta
 		_ctrl_indicator.visible = true
 		_ctrl_indicator.global_position = ctrl.global_position
 		_ctrl_arrow.position.y = 2.3 + sin(_ind_time * 3.0) * 0.12
-		# Extraction: reach POINT-DEMO-01 with objective done → Run Success.
-		if not _run.run_over and _run.objective_complete:
-			if ctrl.global_position.distance_to(_map.get_extraction_position()) < 3.0:
-				_run.try_extract()
+		# Extraction (F-007 ExtractionActivate): hold at POINT-DEMO-01 for
+		# EXTRACT_HOLD_S with the objective done → Run Success. Leaving the zone
+		# cancels (no failure — F-007: 미완료=런 지속). Big countdown UI ticks down.
+		var in_extract: bool = not _run.run_over and _run.objective_complete \
+				and ctrl.global_position.distance_to(_map.get_extraction_position()) < EXTRACT_RADIUS_M
+		_update_extraction(in_extract, delta)
 	elif _ctrl_indicator:
 		_ctrl_indicator.visible = false
 	if _aiming:
@@ -110,7 +121,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cam_dragging = cam_btn.pressed
 			return
 	if event is InputEventMouseMotion and _cam_dragging:
-		$CameraPivot.rotate_y(-(event as InputEventMouseMotion).relative.x * CAM_YAW_SENS)
+		_camera_rig.orbit_yaw((event as InputEventMouseMotion).relative.x)
 		return
 	if event.is_action_pressed("use_sub"):
 		_on_sub_key()
@@ -124,8 +135,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("swap_party_%d" % (i + 1)):
 			if _aiming:
 				_end_aim()
-			_party.try_swap_to(i)
-			_focus_camera()
+			_party.try_swap_to(i)  # success → controlled_changed → rig glides to new char
 
 
 func _on_sub_key() -> void:
@@ -220,18 +230,27 @@ func _ind_mat(color: Color, no_depth: bool) -> StandardMaterial3D:
 	return m
 
 
-func _focus_camera() -> void:
-	var ctrl: CharacterBody3D = _party.get_controlled()
-	if ctrl:
-		$CameraPivot.global_position = ctrl.global_position
-
-
-func _on_combat_started(_encounter_id: String) -> void:
-	print("[TDC] partyInCombat=true")  # state only — swap stays allowed (F-001 §3.3)
-
-
-func _on_combat_ended(result: String, _encounter_id: String) -> void:
-	print("[TDC] partyInCombat=false (%s)" % result)
+## ExtractionActivate hold-channel: accumulate while in the zone, complete at
+## EXTRACT_HOLD_S, cancel (reset) on leaving. Big countdown ticks high→low.
+func _update_extraction(in_zone: bool, delta: float) -> void:
+	if not in_zone:
+		if _extract_hold_s != 0.0:
+			_extract_hold_s = 0.0
+			_extract_count.visible = false
+		return
+	_extract_hold_s += delta
+	# 전투중이면 30s, 비전투면 5s 버텨야 완료 (매 프레임 현재 상태로 임계 판정).
+	var required := EXTRACT_HOLD_S
+	if _combat.is_engaged():
+		required = EXTRACT_HOLD_COMBAT_S
+	var remaining := required - _extract_hold_s
+	if remaining <= 0.0:
+		_extract_hold_s = 0.0
+		_extract_count.visible = false
+		_run.try_extract()  # → run_ended("Success") (F-007 §3.1.2 정산)
+		return
+	_extract_count.visible = true
+	_extract_count.text = "%d" % int(ceil(remaining))  # 30…/5… → 1
 
 
 func _on_run_ended(result: String) -> void:
@@ -253,6 +272,7 @@ func _on_room_changed(room_ref: String) -> void:
 
 func _on_controlled_changed(member: CharacterBody3D) -> void:
 	_hud_controlled.text = "%s (%s)" % [member.identity_skill_id, member.class_id]
+	_camera_rig.set_follow_target(member)  # glide to the new char (covers auto-swap too)
 
 
 func _on_cohesion_changed(mode: int) -> void:
@@ -265,6 +285,10 @@ func _on_formation_priority_changed(on: bool) -> void:
 	_hud_formation.text = "진형우선" if on else "전투우선"
 
 
+func _on_engagement_changed(engaged: bool) -> void:
+	_hud_state.text = "전투중" if engaged else "휴식중"
+
+
 func _refresh_hud(state: Dictionary) -> void:
 	_hud_phase.text = String(state.get("run_phase", "?"))
 	_hud_map.text = String(state.get("map_id", "?"))
@@ -274,4 +298,5 @@ func _refresh_hud(state: Dictionary) -> void:
 		_hud_controlled.text = "%s (%s)" % [ctrl.identity_skill_id, ctrl.class_id]
 	_hud_cohesion.text = "파티결속"
 	_hud_formation.text = "진형우선" if _party.is_formation_priority() else "전투우선"
+	_hud_state.text = "전투중" if _combat.is_engaged() else "휴식중"
 	_hud_hint.text = "WASD · 1-4 swap · Q skill · U cohesion · F 진형우선 · Esc menu"

@@ -5,6 +5,7 @@ const PartyCohesion := preload("res://scripts/party/party_cohesion.gd")
 const MemberScene := preload("res://scenes/party/party_member.tscn")
 const PlayerControl := preload("res://scripts/run/player_controller.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
+const CombatPositioning := preload("res://scripts/party/combat_positioning.gd")
 
 signal controlled_changed(member: CharacterBody3D)
 signal cohesion_changed(mode: int)
@@ -12,16 +13,34 @@ signal formation_priority_changed(on: bool)
 
 @export var move_speed: float = 9.0
 
-var _in_combat: bool = false  ## set via combat signals (bind_combat). ref: DEBT-CPL-COMBAT
+var _party_damaged: bool = false  ## latch: a party member was hit (formation-break trigger; cleared on disengage)
 var cohesion_mode: int = PartyCohesion.MODE_BOUND
-## Formation-priority toggle. OFF (default) = combat priority: in combat,
-## followers break formation and engage enemies. ON = hold slots even in combat.
+## Formation-priority toggle. OFF (default) = combat priority: followers may
+## break formation to engage — but ONLY after contact (party was hit, or an enemy
+## reached an ally's basic range; see CombatPositioning.enemy_in_party_basic_range), NOT on mere
+## encounter spawn or enemy aggro. ON = hold slots always; the player keeps full
+## positional command (regroup/reposition) without anyone peeling off. Either way
+## members auto-attack foes inside basic_range_m.
 var _formation_priority: bool = false
 var _combat_engaging: bool = false
+## Combat goal-point logic (child node): engage targets + healer positioning. DEBT-GOD.
+var _combat_pos: CombatPositioning
 
 var _members: Array[CharacterBody3D] = []
 var _controlled_index: int = 0
 var _leader_index: int = 0
+## F-003 §3.2: Party Subleader — backup anchor in 파티비결속 (must differ from leader;
+## UI-005 designation deferred → defaults to the first non-leader member).
+var _sub_leader_index: int = 1
+## F-003 §3.0.4: the 파티비결속 **Formation Rally Anchor** — where non-controlled members
+## form up each frame. Per the separation model, the *Command Holder* (= leader; the
+## Move-Ping/MIA target) is stable, but this rally anchor steps aside to a stand-in while
+## the leader is out (controlled=scouting, or walking back) and reverts once it returns.
+## (Ping/MIA aren't implemented yet, so holder==leader is implicit here.) -1 until resolved.
+var _command_holder_index: int = -1
+## Leader counts as "returned to formation" once within this of the stand-in anchor →
+## the anchor reverts to the leader (so it doesn't snap the party). ~slot offset + margin.
+const LEADER_RETURN_RADIUS_M := 5.0
 var _slot_offsets: Dictionary = {}
 var _follower_move_speed: float = 14.0
 var _follower_move_speed_near: float = 9.0
@@ -37,23 +56,8 @@ var _formation_forward: Vector3 = Vector3(0, 0, 1)
 var _last_formation_forward: Vector3 = Vector3(0, 0, 1)
 var _formation_forward_smooth: float = 12.0
 var _formation_min_speed: float = 0.2
-var _tank_correction_gain: float = 5.0
-var _tank_motion_forward_dot: float = 0.35
-var _tank_inherit_min_dot: float = 0.35
-var _tank_preferred_anchor_distance: float = 2.0
-var _tank_reversal_orbit_strength: float = 4.5
-var _tank_reversal_clear_radius: float = 2.8
-var _preferred_anchor_distance: float = 1.35
-var _lateral_approach_blend: float = 0.45
-var _slot_arrive_extra: float = 0.45
-var _party_separation_radius: float = 1.25
-var _party_separation_strength: float = 6.5
-var _party_separation_max_mps: float = 5.0
-var _party_separation_stationary_boost: float = 1.65
-var _party_slot_target_separation_blend: float = 0.55
-var _party_separation_boost_moving: float = 1.35
-var _party_separation_max_mps_moving: float = 8.5
-var _anchor_path_clearance_extra_m: float = 0.45
+# (DEBT-V0 정리 2026-06-10: 죽은 v0 스티어링 config 17종 제거 — tank_follow 보정/리버설,
+#  v0 separation, preferred_anchor/lateral_approach 등. sv1은 `_sv1_*` config 사용.)
 var _swap_reposition_delay_min: float = 0.05
 var _swap_reposition_delay_max: float = 0.26
 var _formation_shift_counter: int = 0
@@ -118,10 +122,14 @@ const _SV1_REJOIN_AFTER_S: float = 0.8
 
 func _ready() -> void:
 	_load_formation_config()
+	_combat_pos = CombatPositioning.new()
+	add_child(_combat_pos)
+	_combat_pos.setup(self)
 	_spawn_party_from_data()
 
 
 func _physics_process(delta: float) -> void:
+	_update_command_holder()  # 비결속 앵커: leader 정본 + 정찰/복귀 시 임시 stand-in
 	_update_formation_forward(delta)
 	_update_formation_follow(delta)
 
@@ -144,16 +152,19 @@ func get_members() -> Array:
 
 ## Subscribe to the combat-state owner (CombatController). ref: DEBT-CPL-COMBAT.
 func bind_combat(combat: Node) -> void:
-	combat.combat_started.connect(_on_combat_started)
-	combat.combat_ended.connect(_on_combat_ended)
+	combat.party_damaged.connect(_on_party_damaged)
+	combat.engagement_changed.connect(_on_engagement_changed)
 
 
-func _on_combat_started(_encounter_id: String) -> void:
-	_in_combat = true
+func _on_party_damaged() -> void:
+	_party_damaged = true
 
 
-func _on_combat_ended(_result: String, _encounter_id: String) -> void:
-	_in_combat = false
+## partyInCombat → false (all squads disengaged) clears the damage latch so
+## followers stop engaging and re-form. Re-arms on the next hit.
+func _on_engagement_changed(engaged: bool) -> void:
+	if not engaged:
+		_party_damaged = false
 
 
 func try_swap_to(index: int) -> bool:
@@ -174,10 +185,10 @@ func try_swap_to(index: int) -> bool:
 func toggle_cohesion_mode() -> void:
 	if cohesion_mode == PartyCohesion.MODE_BOUND:
 		cohesion_mode = PartyCohesion.MODE_UNBOUND
+		_update_command_holder()  # F-003 §3.4: pick the active anchor on entry
 	else:
 		cohesion_mode = PartyCohesion.MODE_BOUND
 	cohesion_changed.emit(cohesion_mode)
-	_sync_tank_follow_collision()
 	var label := "파티비결속" if cohesion_mode == PartyCohesion.MODE_UNBOUND else "파티결속"
 	print("[TDC] Cohesion -> %s (anchor=%s)" % [label, _get_anchor().name])
 
@@ -213,9 +224,15 @@ func _set_controlled_index(index: int) -> void:
 		var ctrl_script: Node = _members[i].get_node_or_null("Control")
 		if ctrl_script:
 			ctrl_script.set_physics_process(i == index)
+	var prev_controlled := _controlled_index  # the char that just detached (now far)
 	_controlled_index = index
+	# F-003 §3.4: on swap while 파티비결속, re-evaluate the anchor immediately (it's also
+	# maintained per-frame). The newly controlled char can't be the anchor, and the char
+	# that just detached must not become the stand-in (the party would chase it); if the
+	# leader is the one out, a stand-in holds until the leader walks back into formation.
+	if cohesion_mode == PartyCohesion.MODE_UNBOUND:
+		_update_command_holder(prev_controlled)
 	_apply_controlled_move_speeds()
-	_sync_tank_follow_collision()
 	_queue_swap_reposition_delays()
 	var member := _members[index]
 	controlled_changed.emit(member)
@@ -224,8 +241,76 @@ func _set_controlled_index(index: int) -> void:
 
 func _get_anchor() -> CharacterBody3D:
 	if cohesion_mode == PartyCohesion.MODE_UNBOUND:
-		return _members[_leader_index]
+		# Re-resolve if the holder died/MIA, or somehow ended up the controlled char
+		# (the controlled char must be free to move, so it can't also be the anchor).
+		if not _member_valid(_command_holder_index) or _command_holder_index == _controlled_index:
+			_update_command_holder()
+		if _member_valid(_command_holder_index):
+			return _members[_command_holder_index]
 	return get_controlled()
+
+
+func _member_valid(i: int) -> bool:
+	return i >= 0 and i < _members.size() and is_instance_valid(_members[i]) \
+			and (not _members[i].has_method("is_alive") or _members[i].is_alive())
+
+
+## F-003 §3.4: maintain the Command Holder (Active Anchor) for 파티비결속, re-evaluated
+## each frame. The LEADER is the canonical holder — the rally point the party forms
+## around, and the future Move-Ping target. It only steps aside while it's "out":
+##  • Leader controlled (scouting) → a stand-in holds so the party keeps its position.
+##  • Leader released but still walking back → KEEP the stand-in (don't snap the party to
+##    the leader's far position); the leader rejoins as a follower.
+##  • Leader back in formation (within LEADER_RETURN_RADIUS_M) → hand the anchor BACK to
+##    the leader. So the anchor doesn't drift to an arbitrary member — it returns home.
+## `avoid_scout` (set on swap = the member that just detached) is kept out of the
+## stand-in pick so the party doesn't rally on a char that just ran off.
+func _update_command_holder(avoid_scout: int = -1) -> void:
+	if cohesion_mode != PartyCohesion.MODE_UNBOUND:
+		return
+	var leader_free := _member_valid(_leader_index) and _leader_index != _controlled_index
+	if leader_free and _leader_returned():
+		_command_holder_index = _leader_index  # leader back & free → it's the anchor again
+		return
+	# Leader is scouting or returning → hold a stand-in. Keep the current one if it's
+	# still a valid, non-controlled, non-leader member (don't bounce the rally point).
+	if _member_valid(_command_holder_index) \
+			and _command_holder_index != _controlled_index \
+			and _command_holder_index != _leader_index:
+		return
+	# Pick a stand-in: exclude the leader (scouting/returning) AND the just-detached
+	# scout (far away). Fall back to allowing each if there's no other valid member.
+	var idx := _pick_command_holder(_leader_index, avoid_scout)
+	if idx < 0:
+		idx = _pick_command_holder(_leader_index)  # no spare → allow the just-detached
+	if idx < 0:
+		idx = _pick_command_holder(-1)             # tiny party → allow the leader too
+	if idx < 0:
+		cohesion_mode = PartyCohesion.MODE_BOUND  # §3.4 #4 — nobody valid → bound
+	else:
+		_command_holder_index = idx
+
+
+## Leader has walked back into formation? True when it's already the anchor, or within
+## return range of the current stand-in anchor (so the hand-back doesn't snap the party).
+func _leader_returned() -> bool:
+	if not _member_valid(_command_holder_index) or _command_holder_index == _leader_index:
+		return true
+	var d: Vector3 = _members[_leader_index].global_position - _members[_command_holder_index].global_position
+	d.y = 0.0
+	return d.length() <= LEADER_RETURN_RADIUS_M
+
+
+## A valid anchor that is none of: the controlled char, `avoid_a`, `avoid_b`. Prefer
+## leader, then subleader, then any member by index. -1 if none.
+func _pick_command_holder(avoid_a: int, avoid_b: int = -1) -> int:
+	for idx in [_leader_index, _sub_leader_index]:
+		if idx != _controlled_index and idx != avoid_a and idx != avoid_b and _member_valid(idx):
+			return idx
+	for i in _members.size():
+		if i != _controlled_index and i != avoid_a and i != avoid_b and _member_valid(i):
+			return i
+	return -1
 
 
 func _anchor_velocity_h(anchor: CharacterBody3D) -> Vector3:
@@ -316,16 +401,7 @@ func _load_formation_config() -> void:
 	var fwd_cfg = doc.get("formation_forward", {})
 	if typeof(fwd_cfg) == TYPE_DICTIONARY:
 		_formation_min_speed = float(fwd_cfg.get("min_speed_mps", 0.2))
-	var tank_follow = doc.get("tank_follow", {})
-	if typeof(tank_follow) == TYPE_DICTIONARY:
-		_tank_correction_gain = float(tank_follow.get("correction_gain", 5.0))
-		_tank_motion_forward_dot = float(tank_follow.get("motion_forward_dot", 0.35))
-		_tank_inherit_min_dot = float(tank_follow.get("inherit_min_dot", 0.35))
-		_tank_preferred_anchor_distance = float(
-			tank_follow.get("preferred_min_anchor_distance_m", 2.0)
-		)
-		_tank_reversal_orbit_strength = float(tank_follow.get("reversal_orbit_strength", 4.5))
-		_tank_reversal_clear_radius = float(tank_follow.get("reversal_clear_radius_m", 2.8))
+	# (DEBT-V0: formation.json "tank_follow" 블록은 죽은 v0 보정 config라 로드 안 함.)
 	if doc.has("controlled_move_speed_mps"):
 		move_speed = float(doc.get("controlled_move_speed_mps", move_speed))
 	_follower_move_speed = float(doc.get("follower_move_speed_mps", 14.0))
@@ -394,6 +470,9 @@ func _spawn_party_from_data() -> void:
 		if String(row.get("class_id", "")) == "Tank":
 			_leader_index = i
 			break
+	# Default subleader = first member that isn't the leader (UI-005 designation TBD).
+	_sub_leader_index = (_leader_index + 1) % maxi(1, rows.size())
+	_command_holder_index = _leader_index
 	for i in rows.size():
 		var row: Dictionary = rows[i]
 		var class_id := String(row.get("class_id", ""))
@@ -468,16 +547,22 @@ func _update_formation_follow(delta: float) -> void:
 		_update_party_layout_origin(anchor, layout_axes, anchor_pos)
 	elif anchor_moving:
 		_update_party_layout_origin(anchor, layout_axes, anchor_pos)
-	# Combat: followers leave their slots and engage enemies autonomously —
-	# unless formation-priority is ON (hold slots), or combat ended / no enemies.
-	_combat_engaging = _in_combat and not _formation_priority and _has_live_enemies()
+	# 전투우선 followers leave their slots to fight ONLY after contact — the party
+	# has been hit (_party_damaged), or an enemy reached an ally's basic range.
+	# Before that everyone holds their slot so nobody darts across the room toward a
+	# far enemy. Enemy perception/aggro does NOT trigger this (slot-break ≠ combat).
+	# 진형우선 forces hold regardless (the player's regroup/command). ref: F-004.
+	_combat_engaging = false
+	if not _formation_priority and _combat_pos.has_live_enemies():
+		_combat_engaging = _party_damaged or _combat_pos.enemy_in_party_basic_range()
 	var peer_slot_targets: Dictionary = {}
 	for m in _members:
+		var cid: String = String(m.get("class_id"))
+		var slot_target: Vector3 = _slot_world_target(cid, layout_axes, anchor_pos.y)
 		if _combat_engaging and m != anchor and not m.is_controlled():
-			peer_slot_targets[m] = _combat_engage_target(m)
+			peer_slot_targets[m] = _combat_pos.engage_target(m, slot_target)
 		else:
-			var cid: String = String(m.get("class_id"))
-			peer_slot_targets[m] = _slot_world_target(cid, layout_axes, anchor_pos.y)
+			peer_slot_targets[m] = slot_target
 	_sv1_update_follow(anchor, anchor_pos, layout_axes, peer_slot_targets, delta)
 
 
@@ -493,43 +578,6 @@ func toggle_formation_priority() -> void:
 
 func is_formation_priority() -> bool:
 	return _formation_priority
-
-
-func _has_live_enemies() -> bool:
-	for e in get_tree().get_nodes_in_group("enemy"):
-		if is_instance_valid(e):
-			return true
-	return false
-
-
-## Goal point for an engaging follower: a spot just inside its attack range of
-## the nearest enemy (so it closes in, then the basic-attack loop fires).
-func _combat_engage_target(member: CharacterBody3D) -> Vector3:
-	var mp := member.global_position
-	var nearest: Node3D = null
-	var best := INF
-	for e in get_tree().get_nodes_in_group("enemy"):
-		if not is_instance_valid(e):
-			continue
-		var d: float = mp.distance_squared_to(e.global_position)
-		if d < best:
-			best = d
-			nearest = e
-	if nearest == null:
-		return mp
-	# Stop well inside attack range (not at the edge) so separation jitter can't
-	# push the follower out of range — keeps it reliably attacking.
-	var br: float = float(member.get("basic_range_m"))
-	var reach: float = clampf(br - 0.6, 0.8, br)
-	var to := mp - nearest.global_position
-	to.y = 0.0
-	var dist := to.length()
-	if dist <= reach or dist < 0.001:
-		return Vector3(mp.x, nearest.global_position.y, mp.z)  # in range — hold & attack
-	var t := nearest.global_position + (to / dist) * reach
-	t.y = nearest.global_position.y
-	return t
-
 
 
 # ============================================================================
@@ -596,6 +644,26 @@ func _sv1_update_follow(
 			member.velocity = target_vel
 		member.move_and_slide()
 		_sv1_store_wall_normals(member)
+	# Pass 3: the anchor. Pass 1/2 skip it (they assume it's the player-driven
+	# character). When it is NOT controlled — e.g. the Tank leader in 파티비결속 — it
+	# would otherwise stand at the formation origin while everyone else engages, so
+	# drive it into combat here too. Outside combat it holds (the formation reference).
+	if not anchor.is_controlled() and (not anchor.has_method("is_alive") or anchor.is_alive()):
+		var av := Vector3.ZERO
+		if _combat_engaging:
+			var atgt: Vector3 = _combat_pos.engage_target(anchor, anchor.global_position)
+			anchor.nav_set_target(atgt)
+			var wp: Vector3 = anchor.nav_get_next_position()
+			var to_wp: Vector3 = wp - anchor.global_position
+			to_wp.y = 0.0
+			var d := to_wp.length()
+			if d > _arrive_distance:
+				av = (to_wp / d) * _follower_move_speed_near
+		if _follower_accel_mps2 > 0.0:
+			anchor.velocity = anchor.velocity.move_toward(av, _follower_accel_mps2 * delta)
+		else:
+			anchor.velocity = av
+		anchor.move_and_slide()
 
 
 func _sv1_effective_radius(member: CharacterBody3D) -> float:
@@ -1072,11 +1140,6 @@ func _sv1_enforce_slot_constraints() -> void:
 					fixed = false
 		if fixed:
 			break
-
-
-func _sync_tank_follow_collision() -> void:
-	for member in _members:
-		member.set_party_member_collision(true)
 
 
 func _apply_controlled_move_speeds() -> void:

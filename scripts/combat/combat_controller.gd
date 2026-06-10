@@ -2,105 +2,185 @@ extends Node3D
 ## Spawns & runs ENC encounters (box PH enemies). Combat loop added in CP4–5.
 ## ref: WORK_ORDER §4 · ENC-NORM-001 · QA-005 §2.6 (NC sub skillbook: NO auto).
 
-signal combat_started(encounter_id: String)
-signal combat_ended(result: String, encounter_id: String)
+## partyInCombat (전투중/휴식중) changed — true while ANY enemy is engaged. Derived
+## from per-enemy squad engagement; drives HUD + follower re-form. (see is_engaged)
+signal engagement_changed(engaged: bool)
+## A party member just took damage. Drives the follower formation-break trigger
+## (slot-break on being hit), separate from engagement/perception.
+signal party_damaged()
+## Camera feedback (dungeon_run): trauma 0..1 to add (trauma² shake), kick_world =
+## directional push in world XZ (ZERO for hit-feel). Controlled events full, others muted.
+signal camera_shake(trauma: float, kick_world: Vector3)
 
 const EnemyScene := preload("res://scenes/combat/enemy_unit.tscn")
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const Spatial := preload("res://scripts/core/spatial.gd")
+const EnemyAI := preload("res://scripts/combat/enemy_ai.gd")
+const AbilityDispatch := preload("res://scripts/combat/ability_dispatch.gd")
 
-const COMBAT_TIMEOUT_S := 120.0  # QA-030 §3.3 encounter timeout
+## D-010 §4.2 combat_exit_grace_s — an engaged enemy with no combat event and no
+## line of sight to the party for this long disengages (전투중 → dormant). Tuning.
+const COMBAT_EXIT_GRACE_S := 6.0
+## Squad cohesion: a newly-engaged enemy wakes squad-mates within this radius. A
+## strayed member (off investigating) is outside it, so killing it alone does NOT
+## wake the distant squad. Tuning.
+const SQUAD_PROP_RADIUS_M := 9.0
+## Lateral spacing between squads sharing one room (relocated start-room encounter
+## sits beside the room's own squad instead of overlapping it).
+const SQUAD_LANE_SPACING := 12.0
 
 # F-022 threat tuning (§3.2 Draft).
 const FIRST_ATTACK_BONUS := 120.0   # §3.4 first aggressor on the hit enemy
 const GROUP_PULL_BONUS := 60.0      # §3.7 group reacts to first aggressor
 const FIRST_AGGRESSOR_FLOOR := 25.0 # §3.5 first aggressor min threat
-const TANK_PULSE_FLOOR := 40.0      # §3.10 Anchor Guard temp floor
+const PERCEIVE_THREAT := 40.0       # threat seeded on the member an enemy perceives/hits (it targets who it saw)
 const HEAL_THREAT_PER_HP := 0.5     # §3.9 healer threat per effective HP
-## §3.6 target-switch hysteresis. Lower = aggro bounces more readily (harder).
-const SWITCH_RATIO := 1.02
 
 
 var _party: Node3D
 var _map: Node3D
 var _enemies: Array[CharacterBody3D] = []
-var _active_encounter: String = ""
-## Rooms whose encounter has already spawned (no re-spawn on re-entry).
-var _spawned_rooms: Dictionary = {}
-var _combat_active: bool = false
-var _combat_timer_s: float = 0.0
-## First party member to damage any enemy this encounter (§3.7 group pull source).
+## Squads (분대) — one per pre-spawned encounter group. Engagement is per-enemy
+## (enemy.engaged), but a squad's reinforcement ticks while any of its members is
+## engaged. partyInCombat = ANY enemy engaged (derived each tick).
+var _squads: Array = []  # [{id, room_ref, reinforce, pending, activated, timer, warned}]
+var _next_squad_id: int = 0
+var _room_squad_count: Dictionary = {}  # room_ref -> squads placed there (lateral lane offset)
+var _spawn_origin: Vector3 = Vector3.ZERO  # party start — squads spawn/face away from it
+var _party_in_combat: bool = false  # derived cache (emits engagement_changed on change)
+## First party member to damage any enemy (§3.7 group pull source).
 var _first_aggressor: CharacterBody3D = null
-# Phase-2 rear reinforcement (ENC-HARD-005 model).
-var _reinforce_units: Array = []
-var _reinforce_timer_s: float = 0.0
-var _reinforce_room: String = ""
-var _reinforce_pending: bool = false
-var _reinforce_warned: bool = false
 
-## Ability kind -> handler Callable(actor, params, target_pos) -> bool. Built in setup().
-## Adding an ability kind = abilities.json data + one registry entry. ref: DEBT-CPL-DUCK.
-var _ability_handlers: Dictionary = {}
+## Enemy perception/combat brain (child node). Per-enemy tick delegated here; it
+## calls back for engage/grace/signals (combat state stays owned here). DEBT-GOD2.
+var _enemy_ai: EnemyAI
+## Party Identity/Sub skill effects (child node). Calls back for spatial queries /
+## damage / heal-threat / camera shake (shared systems stay owned here). DEBT-GOD2.
+var _ability_dispatch: AbilityDispatch
 
 
 func setup(party: Node3D, map: Node3D) -> void:
 	_party = party
 	_map = map
-	_build_ability_handlers()
+	_enemy_ai = EnemyAI.new()
+	add_child(_enemy_ai)
+	_enemy_ai.setup(self)
+	_ability_dispatch = AbilityDispatch.new()
+	add_child(_ability_dispatch)
+	_ability_dispatch.setup(self)
 
 
-## Data-driven dispatch: kind -> handler. No match statement to grow per ability.
-func _build_ability_handlers() -> void:
-	_ability_handlers = {
-		"shield_pulse": _cast_anchor_guard,
-		"cone_sweep": _cast_press_line,
-		"mark_burst": _cast_mark_ruin,
-		"radius_heal": _cast_mend_circle,
-		"sub_taunt": _sub_taunt,
-		"sub_lunge": _sub_lunge,
-		"sub_nova": _sub_nova,
-		"sub_sanctuary": _sub_sanctuary,
-	}
+## partyInCombat: true while ANY enemy is engaged. Drives HUD + follower re-form.
+func is_engaged() -> bool:
+	return _party_in_combat
 
 
-## Single source of truth for "are we in combat". Consumers subscribe to
-## combat_started/combat_ended or query this — no duplicated flags. ref: DEBT-CPL-COMBAT.
-func is_in_combat() -> bool:
-	return _combat_active
+## Recompute the derived partyInCombat flag and emit on change.
+func _refresh_party_in_combat() -> void:
+	var any := false
+	for e in _enemies:
+		if is_instance_valid(e) and e.engaged:
+			any = true
+			break
+	if any != _party_in_combat:
+		_party_in_combat = any
+		engagement_changed.emit(any)
+
+
+## A combat event on one enemy (it dealt/took damage, or perceived the party):
+## engage it, refresh its grace, and wake squad-mates within cohesion radius. A
+## strayed member is outside that radius, so its distant squad stays dormant.
+func _engage_enemy(e: CharacterBody3D, target_member: CharacterBody3D = null) -> void:
+	if e == null or not is_instance_valid(e):
+		return
+	var has_target: bool = target_member != null and is_instance_valid(target_member)
+	var was: bool = e.engaged
+	e.engaged = true
+	e.engage_grace_s = COMBAT_EXIT_GRACE_S
+	if has_target:
+		e.add_threat(target_member, PERCEIVE_THREAT)  # target who we saw/were hit by
+	if was:
+		return
+	var r2 := SQUAD_PROP_RADIUS_M * SQUAD_PROP_RADIUS_M
+	for o in _enemies:
+		if o == e or not is_instance_valid(o) or o.engaged:
+			continue
+		if o.squad_id != e.squad_id:
+			continue
+		if Spatial.h_dist2(o.global_position, e.global_position) <= r2:
+			o.engaged = true
+			o.engage_grace_s = COMBAT_EXIT_GRACE_S
+			if has_target:
+				o.add_threat(target_member, PERCEIVE_THREAT)  # squad shares the target
+
+
+## EnemyAI calls this each frame an engaged enemy still has LOS to its prey —
+## refreshes the disengage grace (D-010 §4.2) without re-seeding threat.
+func refresh_engage_grace(e: CharacterBody3D) -> void:
+	e.engage_grace_s = COMBAT_EXIT_GRACE_S
 
 
 func _physics_process(delta: float) -> void:
-	if not _combat_active:
+	if _enemies.is_empty():
+		_refresh_party_in_combat()  # last enemy died → clear partyInCombat (휴식중)
 		return
-	_combat_timer_s += delta
 	# DEBT-EFF-GRP: fetch the party-member list once per tick, thread it through.
 	var targets := get_tree().get_nodes_in_group("party_member")
+	# Per-enemy disengage grace (D-010 §4.2): an engaged enemy reverts to dormant
+	# after the grace lapses (grace is refreshed by combat events + active LOS).
+	for enemy in _enemies:
+		if is_instance_valid(enemy) and enemy.engaged:
+			enemy.engage_grace_s -= delta
+			if enemy.engage_grace_s <= 0.0:
+				enemy.engaged = false
+	# Tick every enemy: dormant ones perceive/idle, engaged ones fight (EnemyAI).
 	for enemy in _enemies:
 		if is_instance_valid(enemy):
-			_tick_enemy(enemy, targets, delta)
+			_enemy_ai.tick(enemy, targets, delta)
+	# Party auto-attack runs always — attacking a foe is what commits the party.
 	_tick_party_attacks(targets, delta)
-	_tick_reinforcement(delta)
-	# End conditions: all enemies down (and no reinforcement pending) or timeout.
-	if _enemies.is_empty() and not _reinforce_pending:
-		_end_combat("victory")
-	elif _combat_timer_s >= COMBAT_TIMEOUT_S:
-		_end_combat("timeout")
+	# Per-squad reinforcement ticks while that squad has any engaged member.
+	for squad in _squads:
+		_tick_reinforcement(squad, delta)
+	# partyInCombat = any enemy engaged (derived); drives HUD + follower re-form.
+	_refresh_party_in_combat()
 
 
-## ENC-HARD-005: rear reinforcement arrives after delay, or instantly once the
-## first wave is cleared (so a fast clear still triggers the sandwich).
-func _tick_reinforcement(delta: float) -> void:
-	if not _reinforce_pending:
+## ENC-HARD-005: a squad's rear reinforcement arrives after delay (counted once the
+## squad first engages), or instantly once its initial wave is cleared.
+func _tick_reinforcement(squad: Dictionary, delta: float) -> void:
+	if not squad.get("pending", false):
 		return
-	_reinforce_timer_s -= delta
-	if not _reinforce_warned and (_reinforce_timer_s <= 2.0 or _enemies.is_empty()):
-		_reinforce_warned = true
+	if not squad.get("activated", false):
+		if _squad_engaged(squad["id"]):
+			squad["activated"] = true
+		else:
+			return  # squad still dormant — don't start the reinforcement clock
+	squad["timer"] = float(squad["timer"]) - delta
+	var cleared := _squad_alive_count(squad["id"]) == 0
+	if not squad.get("warned", false) and (float(squad["timer"]) <= 2.0 or cleared):
+		squad["warned"] = true
 		print("[TDC] Reinforcements incoming!")
-		SkillVfx.telegraph(self, _reinforce_center(), Color(0.95, 0.3, 0.2, 0.55))
-	if _reinforce_timer_s <= 0.0 or _enemies.is_empty():
-		_reinforce_pending = false
-		_spawn_reinforcement()
+		SkillVfx.telegraph(self, _reinforce_center(String(squad["room_ref"])), Color(0.95, 0.3, 0.2, 0.55))
+	if float(squad["timer"]) <= 0.0 or cleared:
+		squad["pending"] = false
+		_spawn_reinforcement(squad)
+
+
+func _squad_engaged(squad_id: int) -> bool:
+	for e in _enemies:
+		if is_instance_valid(e) and e.squad_id == squad_id and e.engaged:
+			return true
+	return false
+
+
+func _squad_alive_count(squad_id: int) -> int:
+	var n := 0
+	for e in _enemies:
+		if is_instance_valid(e) and e.squad_id == squad_id:
+			n += 1
+	return n
 
 
 ## Step 5: each member auto-uses its Identity skill when usable, else basic
@@ -114,192 +194,22 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 		m.attack_cooldown_s = maxf(0.0, m.attack_cooldown_s - delta)
 		m.identity_cooldown_s = maxf(0.0, m.identity_cooldown_s - delta)
 		# Identity (main) first; fall back to basic when not castable.
-		if m.identity_cooldown_s <= 0.0 and _try_identity(m):
+		if m.identity_cooldown_s <= 0.0 and _ability_dispatch.try_identity(m):
 			continue
 		if m.attack_cooldown_s > 0.0:
 			continue
 		var foe := _nearest_enemy_in_range(m.global_position, m.basic_range_m)
 		if foe == null:
 			continue
-		_deal_damage(foe, m, m.basic_damage)
+		_deal_damage(foe, m, m.basic_damage)  # basic 평타 → no camera shake
 		m.attack_cooldown_s = m.basic_interval_s
 
 
-## Dispatch Identity skill by the LINKED ability's `kind` (not class) — any
-## character with that ability_id gets the behavior. Returns true if cast.
-func _try_identity(m: CharacterBody3D) -> bool:
-	var p: Dictionary = m.identity_params
-	var h: Callable = _ability_handlers.get(String(p.get("kind", "")), Callable())
-	if not h.is_valid():
-		return false
-	if h.call(m, p, Vector3.ZERO):
-		m.identity_cooldown_s = float(p.get("cooldown_s", 6.0))
-		return true
-	return false
-
-
-## AB-020 — self shield + threat pulse when foes in radius. (threat = step 7 smoke)
-func _cast_anchor_guard(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
-	var foes := _enemies_in_radius(m.global_position, float(p.get("radius_m", 5.0)))
-	if foes.is_empty():
-		return false
-	var shield_val: float = minf(
-		float(p.get("shield_cap", 160.0)),
-		float(p.get("shield_base", 80.0)) + float(p.get("shield_per_enemy", 20.0)) * foes.size()
-	)
-	m.add_shield(shield_val, float(p.get("shield_duration_s", 4.0)))
-	# F-022 §3.10: threat pulse to affected foes — tank holds aggro w/o damage race.
-	var pulse: float = float(p.get("threat_pulse", 0.0))
-	if pulse > 0.0:
-		for e in foes:
-			e.add_threat(m, pulse)
-			e.set_threat_floor(m, TANK_PULSE_FLOOR)  # §3.10 temp threat floor
-	SkillVfx.anchor_guard(self, m.global_position, float(p.get("radius_m", 5.0)))
-	print("[ID] %s Anchor Guard — shield %d (%d foes)" % [m.identity_skill_id, int(shield_val), foes.size()])
-	return true
-
-
-## AB-024 — forward cone, 3-hit sweep AoE (v1: total applied at once).
-func _cast_press_line(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
-	var range_m := float(p.get("range_m", 5.0))
-	var nearest := _nearest_enemy_in_range(m.global_position, range_m)
-	if nearest == null:
-		return false
-	var axis := nearest.global_position - m.global_position
-	axis.y = 0.0
-	axis = axis.normalized()
-	var half := deg_to_rad(float(p.get("cone_deg", 60.0)) * 0.5)
-	var targets := _enemies_in_cone(m.global_position, axis, range_m, half)
-	if targets.is_empty():
-		return false
-	var total: float = float(p.get("hit_damage_mult", 0.35)) * int(p.get("hits", 3)) * m.basic_damage
-	for e in targets:
-		_deal_damage(e, m, total)
-	SkillVfx.press_line(self, m.global_position, axis, range_m, float(p.get("cone_deg", 60.0)) * 0.5)
-	print("[ID] %s Press the Line — %d in cone, %d ea" % [m.identity_skill_id, targets.size(), int(total)])
-	return true
-
-
-## AB-025 — single high-burst on lowest-HP enemy in range (fodder fallback; v1: no telegraph).
-func _cast_mark_ruin(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
-	var target := _lowest_hp_enemy_in_radius(m.global_position, float(p.get("range_m", 8.0)))
-	if target == null:
-		return false
-	var dmg: float = float(p.get("ruin_damage_mult", 7.0)) * m.basic_damage
-	var tpos: Vector3 = target.global_position
-	_deal_damage(target, m, dmg)
-	SkillVfx.mark_ruin(self, tpos)
-	print("[ID] %s Mark & Ruin -> %s (%d dmg)" % [m.identity_skill_id, target.enemy_id, int(dmg)])
-	return true
-
-
-## AB-026 — radius heal when any ally below threshold (Tank 90% / others 85%).
-func _cast_mend_circle(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
-	var radius := float(p.get("radius_m", 4.0))
-	var allies := _allies_in_radius(m.global_position, radius)
-	var ally_t := float(p.get("ally_threshold_pct", 0.85))
-	var tank_t := float(p.get("tank_threshold_pct", 0.90))
-	var should := false
-	for a in allies:
-		var t: float = tank_t if a.class_id == "Tank" else ally_t
-		if a.hp / a.max_hp < t:
-			should = true
-			break
-	if not should:
-		return false
-	var heal_pct := float(p.get("heal_pct", 0.12))
-	for a in allies:
-		var eff: float = a.heal(a.max_hp * heal_pct)
-		_heal_threat(m, a, eff)
-	SkillVfx.mend_circle(self, m.global_position, radius)
-	print("[ID] %s Mend Circle — %d allies healed" % [m.identity_skill_id, allies.size()])
-	return true
-
-
-# ============================================================================
-# Sub skills — PLAYER-activated on the controlled member (key 1). NC never auto.
-# ============================================================================
-
+## Player-activated SUB (key 1) on the controlled member — delegated to AbilityDispatch
+## (Identity auto-cast is dispatched there too, via _tick_party_attacks). NC never
+## auto-subs (QA-005 §2.6). dungeon_run calls this on the sub key.
 func cast_sub(member: CharacterBody3D, target_pos: Vector3 = Vector3.ZERO) -> void:
-	if member == null or not is_instance_valid(member) or not member.is_alive():
-		return
-	if member.sub_cooldown_s > 0.0:
-		print("[SUB] on cooldown (%.1fs)" % member.sub_cooldown_s)
-		return
-	var p: Dictionary = member.sub_params
-	if p.is_empty():
-		return
-	var h: Callable = _ability_handlers.get(String(p.get("kind", "")), Callable())
-	if h.is_valid() and h.call(member, p, target_pos):
-		member.sub_cooldown_s = float(p.get("cooldown_s", 10.0))
-
-
-## Tank: knock back + force aggro on nearby foes + big self shield.
-func _sub_taunt(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
-	var pos := m.global_position
-	var foes := _enemies_in_radius(pos, float(p.get("radius_m", 6.5)))
-	var kb := float(p.get("knockback_m", 3.0))
-	var amt := float(p.get("threat_amount", 1500.0))
-	for e in foes:
-		e.add_threat(m, amt)
-		if kb > 0.0:
-			e.apply_knockback(e.global_position - pos, kb)
-	m.add_shield(float(p.get("shield", 200.0)), float(p.get("shield_duration_s", 5.0)))
-	SkillVfx.sub_taunt(self, pos, float(p.get("radius_m", 6.5)))
-	print("[SUB] %s Taunt Slam — %d foes pulled" % [m.identity_skill_id, foes.size()])
-	return true
-
-
-## DPS: dash to the targeted ground point (clamped to range) + AoE strike there.
-func _sub_lunge(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
-	var from := m.global_position
-	var off := target_pos - from
-	off.y = 0.0
-	var dist := off.length()
-	var range_m := float(p.get("range_m", 9.0))
-	if dist > range_m:
-		off = off / dist * range_m
-	var dest := from + off
-	dest.y = from.y
-	m.global_position = dest
-	var dmg: float = float(p.get("damage_mult", 5.0)) * m.basic_damage
-	for e in _enemies_in_radius(dest, float(p.get("aoe_radius_m", 2.8))):
-		_deal_damage(e, m, dmg)
-	SkillVfx.sub_lunge(self, from, dest)
-	print("[SUB] %s Lunge (dash strike)" % m.identity_skill_id)
-	return true
-
-
-## Nuker: AoE burst + slow at the targeted ground point.
-func _sub_nova(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
-	var center := Vector3(target_pos.x, m.global_position.y, target_pos.z)
-	var radius := float(p.get("radius_m", 6.5))
-	var foes := _enemies_in_radius(center, radius)
-	var dmg: float = float(p.get("damage_mult", 3.0)) * m.basic_damage
-	var sf := float(p.get("slow_factor", 0.4))
-	var sd := float(p.get("slow_duration_s", 4.0))
-	for e in foes:
-		_deal_damage(e, m, dmg)
-		e.apply_slow(sf, sd)
-	SkillVfx.sub_nova(self, center, radius)
-	print("[SUB] %s Nova @target — %d foes" % [m.identity_skill_id, foes.size()])
-	return true
-
-
-## Healer: big AoE heal + shield to nearby allies.
-func _sub_sanctuary(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool:
-	var pos := m.global_position
-	var allies := _allies_in_radius(pos, float(p.get("radius_m", 6.5)))
-	var hp_pct := float(p.get("heal_pct", 0.4))
-	var sh := float(p.get("shield", 120.0))
-	var sdur := float(p.get("shield_duration_s", 6.0))
-	for a in allies:
-		var eff: float = a.heal(a.max_hp * hp_pct)
-		a.add_shield(sh, sdur)
-		_heal_threat(m, a, eff)
-	SkillVfx.sub_sanctuary(self, pos, float(p.get("radius_m", 6.5)))
-	print("[SUB] %s Sanctuary — %d allies" % [m.identity_skill_id, allies.size()])
-	return true
+	_ability_dispatch.cast_sub(member, target_pos)
 
 
 func _enemies_in_radius(pos: Vector3, r: float) -> Array:
@@ -372,170 +282,14 @@ func _nearest_enemy_in_range(from: Vector3, range_m: float) -> CharacterBody3D:
 	return best
 
 
-func _end_combat(result: String) -> void:
-	_combat_active = false
-	if result == "timeout":
-		_despawn_all()
-	combat_ended.emit(result, _active_encounter)
-	print("[TDC] Encounter %s ended: %s (%.1fs)" % [_active_encounter, result, _combat_timer_s])
-
-
-func _despawn_all() -> void:
-	for e in _enemies:
-		if is_instance_valid(e):
-			e.queue_free()
-	_enemies.clear()
-
-
-## CP4: chase only — approach the nearest party member, stop at attack range.
-## Contact damage intentionally omitted (damage comes from explicit attacks later).
-func _tick_enemy(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
-	enemy.attack_cooldown_s = maxf(0.0, enemy.attack_cooldown_s - delta)
-	enemy.tick_slow(delta)
-	# Smoothed knockback push takes over movement for its short duration.
-	if enemy.tick_knockback(delta):
-		return
-	# Frame-driven telegraph wind-up — strike resolves when its timer elapses
-	# (replaces an await; keeps the encounter deterministic). ref: DEBT-OTHER-AWAIT.
-	if enemy.winding:
-		enemy.windup_timer_s -= delta
-		if enemy.windup_timer_s <= 0.0:
-			_resolve_enemy_attack(enemy)
-	# F-022: target highest-threat party member; pre-threat fallback = nearest.
-	enemy.decay_threat(delta)
-	var target: CharacterBody3D = enemy.pick_target(_alive_members(targets), SWITCH_RATIO)
-	if target == null or float(enemy.threat.get(target, 0.0)) <= 0.0:
-		target = _nearest_alive(enemy.global_position, targets)
-	if target == null:
-		enemy.velocity = Vector3.ZERO
-		enemy.move_and_slide()
-		return
-	enemy.set_target_marker(target)
-	var to := target.global_position - enemy.global_position
-	to.y = 0.0
-	var dist := to.length()
-	if dist > enemy.attack_range_m:
-		enemy.velocity = (to / maxf(dist, 0.001)) * enemy.current_move_speed()
-	else:
-		# In range: stop and attack on cooldown (data-driven ability).
-		enemy.velocity = Vector3.ZERO
-		if enemy.attack_cooldown_s <= 0.0 and not enemy.winding:
-			_begin_enemy_attack(enemy, target)
-			enemy.attack_cooldown_s = enemy.attack_interval_s
-	enemy.move_and_slide()
-
-
-## Data-driven enemy attack: choose ability (every_n pattern > basic). Telegraphed
-## casts start a frame-driven wind-up (resolved in _tick_enemy); others hit now.
-## Extensible — assign any ability to any unit via enemies.json abilities[].ref.
-func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> void:
-	enemy.attack_count += 1
-	var chosen: Dictionary = _select_enemy_ability(enemy)
-	var eff: Dictionary = {}
-	if not chosen.is_empty():
-		eff = Slice01Data.get_ability(String(chosen.get("ref", "")))
-	var tele: float = float(eff.get("telegraph_s", 0.0))
-	if tele > 0.0:
-		# Warning cue now; the strike resolves when the wind-up timer elapses.
-		enemy.winding = true
-		enemy.windup_timer_s = tele
-		enemy.windup_eff = eff
-		enemy.windup_chosen = chosen
-		enemy.windup_target = target
-		SkillVfx.telegraph(self, target.global_position, _telegraph_color(String(eff.get("kind", "enemy_melee"))))
-	else:
-		_apply_enemy_hit(enemy, target, eff, chosen)
-
-
-## Resolve a telegraphed strike at wind-up end. Re-validates target (+ stun dodge).
-func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
-	var eff: Dictionary = enemy.windup_eff
-	var chosen: Dictionary = enemy.windup_chosen
-	var target: CharacterBody3D = enemy.windup_target
-	enemy.winding = false
-	enemy.windup_target = null
-	if not is_instance_valid(target) or not target.is_alive():
-		return
-	if String(eff.get("kind", "")) == "enemy_stun":
-		var d := target.global_position - enemy.global_position
-		d.y = 0.0
-		if d.length() > enemy.attack_range_m + 0.6:
-			return  # dodged the wind-up
-	_apply_enemy_hit(enemy, target, eff, chosen)
-
-
-## Apply an enemy hit: damage + status/knockback + vfx (shared by instant & wind-up).
-func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
-	var kind := String(eff.get("kind", "enemy_melee"))
-	var from := enemy.global_position
-	target.take_damage(enemy.contact_damage * float(eff.get("damage_mult", 1.0)))
-	match kind:
-		"enemy_poison":
-			target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 5.0)))
-		"enemy_stun":
-			target.apply_stun(float(eff.get("stun_s", 1.0)))
-		_:
-			var kb: float = float(eff.get("knockback_m", 0.0))
-			if kb > 0.0:
-				target.apply_knockback(target.global_position - from, kb)
-	var vfx := String(eff.get("vfx", ""))
-	if vfx != "":
-		SkillVfx.enemy_vfx(vfx, self, from, target.global_position)
-	if String(chosen.get("trigger", "")) == "every_n" or kind in ["enemy_stun", "enemy_poison"]:
-		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), target.identity_skill_id])
-
-
-func _telegraph_color(kind: String) -> Color:
-	match kind:
-		"enemy_stun":
-			return Color(1.0, 0.85, 0.2, 0.5)
-		"enemy_poison":
-			return Color(0.4, 0.9, 0.3, 0.5)
-	return Color(0.9, 0.3, 0.2, 0.5)
-
-
-## Pattern ability (every_n match) takes priority; else the basic ability.
-func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
-	var basic: Dictionary = {}
-	for ab in enemy.abilities:
-		if typeof(ab) != TYPE_DICTIONARY:
-			continue
-		var trig := String(ab.get("trigger", ""))
-		if trig == "every_n":
-			var n := int(ab.get("n", 0))
-			if n > 0 and enemy.attack_count % n == 0:
-				return ab
-		elif trig == "basic" and basic.is_empty():
-			basic = ab
-	return basic
-
-
-func _nearest_alive(from: Vector3, nodes: Array) -> CharacterBody3D:
-	var best: CharacterBody3D = null
-	var best_d := INF
-	for n in nodes:
-		if not is_instance_valid(n):
-			continue
-		if n.has_method("is_alive") and not n.is_alive():
-			continue
-		var d: float = from.distance_squared_to(n.global_position)
-		if d < best_d:
-			best_d = d
-			best = n
-	return best
-
-
-func _alive_members(nodes: Array) -> Array:
-	var out: Array = []
-	for n in nodes:
-		if is_instance_valid(n) and (not n.has_method("is_alive") or n.is_alive()):
-			out.append(n)
-	return out
-
-
 ## Party→enemy damage with F-022 threat: damage*mult, first-attack bonus,
 ## group-pull propagation, and first-aggressor floor.
 func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float) -> void:
+	# D-010 §4.1: damaging a foe engages it and wakes its squad (cohesion radius);
+	# group-pull threat below stays within the same squad so distant squads sleep.
+	# (Camera hit-feel is emitted ONCE per SUB cast — see AbilityDispatch._sub_hit_shake
+	# — not per damaged target, so AOE subs don't stack into a max-out shake.)
+	_engage_enemy(enemy)
 	enemy.add_threat(attacker, dmg * float(attacker.threat_mult))
 	if not enemy.first_hit:
 		enemy.first_hit = true
@@ -543,10 +297,10 @@ func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float)
 		enemy.set_threat_floor(attacker, FIRST_AGGRESSOR_FLOOR)
 		if _first_aggressor == null:
 			_first_aggressor = attacker
-			for e in _enemies:                                # §3.7 group pull
-				if is_instance_valid(e) and e != enemy:
-					e.add_threat(attacker, GROUP_PULL_BONUS)
-					e.set_threat_floor(attacker, FIRST_AGGRESSOR_FLOOR)
+		for e in _enemies:                                    # §3.7 group pull (same squad)
+			if is_instance_valid(e) and e != enemy and e.squad_id == enemy.squad_id:
+				e.add_threat(attacker, GROUP_PULL_BONUS)
+				e.set_threat_floor(attacker, FIRST_AGGRESSOR_FLOOR)
 	enemy.take_damage(dmg)
 
 
@@ -561,41 +315,89 @@ func _heal_threat(healer: CharacterBody3D, healed: Node, eff_heal: float) -> voi
 			e.add_threat(healer, amt)
 
 
-func on_encounter_triggered(encounter_id: String, room_ref: String) -> void:
-	if _spawned_rooms.has(room_ref):
-		return
+## Pre-spawn every room's bound encounter as a dormant squad at run start (instead
+## of spawning on room entry). Each encounter = one squad; enemies wait dormant deep
+## in their rooms (away from the start) — fog-of-war hides them until the party gains
+## LOS. Call once after the party has spawned (for base-facing + away-from origin).
+func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
+	# Deterministic "party origin" = the spawn room center (not the controlled
+	# char, whose transform may not be settled yet). Squads spawn on the far side
+	# of their rooms relative to this, and face away from it (see _init_enemy_perception).
+	if _map and _map.has_method("get_spawn_position"):
+		_spawn_origin = _map.get_spawn_position(spawn_room)
+	for row in Slice01Data.get_rooms_document().get("rooms", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var room_ref := String(row.get("room_ref", ""))
+		var enc_id := Slice01Data.get_pool_encounter(String(row.get("pool_slot", "")))
+		if enc_id.is_empty():
+			continue
+		# The start room's own encounter would spawn on the party — relocate it into
+		# the main combat room (the start room's connected room) as its own squad.
+		var target_room := room_ref
+		if room_ref == spawn_room:
+			target_room = _first_connected(spawn_room)
+			if target_room.is_empty():
+				continue
+		_spawn_squad(enc_id, target_room)
+
+
+## Spawn one encounter as a dormant squad, pushed toward the room's FAR side (away
+## from the party) so the start-adjacent room isn't in combat range at spawn.
+func _spawn_squad(encounter_id: String, room_ref: String) -> void:
 	var enc := Slice01Data.get_encounter(encounter_id)
 	var units: Array = enc.get("units", [])
 	if units.is_empty():
 		return
-	_spawned_rooms[room_ref] = true
-	_active_encounter = encounter_id
-	_first_aggressor = null
-	_spawn_units(units, room_ref)
-	# Phase-2 reinforcement (optional) — arrives after delay or when wave 1 cleared.
+	var squad_id := _next_squad_id
+	_next_squad_id += 1
+	# Lane = how many squads already share this room → lateral offset so co-located
+	# squads (e.g. relocated start-room encounter + the court's own) don't overlap.
+	var lane := int(_room_squad_count.get(room_ref, 0))
+	_room_squad_count[room_ref] = lane + 1
+	var center: Vector3 = _squad_spawn_center(room_ref, lane)
+	_spawn_at(units, center, squad_id, false)
 	var reinf: Dictionary = enc.get("reinforcement", {})
-	_reinforce_pending = not reinf.is_empty()
-	_reinforce_warned = false
-	if _reinforce_pending:
-		_reinforce_units = reinf.get("units", [])
-		_reinforce_timer_s = float(reinf.get("delay_s", 12.0))
-		_reinforce_room = room_ref
-	print("[TDC] Encounter %s spawned in %s (%d units)" % [
-		encounter_id, room_ref, _enemies.size()
-	])
-	_combat_timer_s = 0.0
-	_combat_active = true
-	combat_started.emit(encounter_id)
+	_squads.append({
+		"id": squad_id,
+		"room_ref": room_ref,
+		"reinforce": reinf,
+		"pending": not reinf.is_empty(),
+		"activated": false,
+		"timer": float(reinf.get("delay_s", 12.0)),
+		"warned": false,
+	})
+	print("[TDC] Squad %d (%s) spawned dormant in %s @ %s (origin %s)" % [squad_id, encounter_id, room_ref, center, _spawn_origin])
 
 
-func _spawn_units(units: Array, room_ref: String) -> void:
-	var center := Vector3.ZERO
-	if _map and _map.has_method("get_spawn_position"):
+## Far-interior spawn point for a squad — away from the party's start (_spawn_origin)
+## so start-adjacent rooms stay out of combat range until the party advances in.
+## `lane` shifts the spawn perpendicular so multiple squads in one room don't stack.
+func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
+	if _map == null:
+		return Vector3.ZERO
+	var center: Vector3 = Vector3.ZERO
+	if _map.has_method("get_deep_spawn_position"):
+		center = _map.get_deep_spawn_position(room_ref, _spawn_origin)
+	elif _map.has_method("get_spawn_position"):
 		center = _map.get_spawn_position(room_ref)
-	_spawn_at(units, center)
+	if lane > 0:
+		var dir := center - _spawn_origin
+		dir.y = 0.0
+		if dir.length() > 0.01:
+			dir = dir.normalized()
+			var perp := Vector3(dir.z, 0.0, -dir.x)  # 90° to the approach axis
+			center += perp * (float(lane) * SQUAD_LANE_SPACING)
+	return center
 
 
-func _spawn_at(units: Array, center: Vector3) -> void:
+## First room the given room opens onto (used to relocate the start-room encounter).
+func _first_connected(room_ref: String) -> String:
+	var conns: Array = Slice01Data.get_room_row(room_ref).get("connects", [])
+	return String(conns[0]) if not conns.is_empty() else ""
+
+
+func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool) -> void:
 	var index := 0
 	for u in units:
 		if typeof(u) != TYPE_DICTIONARY:
@@ -613,25 +415,44 @@ func _spawn_at(units: Array, center: Vector3) -> void:
 			# Box collision matches the visual mesh (scaled), so no corner overlap.
 			unit.setup(row, vis["color"], s)
 			unit.global_position = center + _spawn_offset(index)
+			unit.squad_id = squad_id
+			unit.engaged = engaged
+			if engaged:
+				unit.engage_grace_s = COMBAT_EXIT_GRACE_S
+			_init_enemy_perception(unit)
 			unit.died.connect(_on_enemy_died)
 			_enemies.append(unit)
 			index += 1
 
 
-## Rear point for reinforcements — behind the initial spawn (toward entrance).
-func _reinforce_center() -> Vector3:
+## Give a freshly placed enemy its vision cone (dev viz) + base facing AWAY from the
+## party's start (into the room). A straight approach from the entrance comes from
+## behind/blind, so combat doesn't trigger the instant you advance — you must flank,
+## get close (proximity), or wait out the scan. Keeps the start safe + scoutable.
+func _init_enemy_perception(unit: CharacterBody3D) -> void:
+	_enemy_ai.attach_vision_cone(unit)  # cone size = AI perception params
+	var dir := unit.global_position - _spawn_origin
+	dir.y = 0.0
+	if dir.length() > 0.5:
+		unit.set_base_facing(dir)
+
+
+## Rear point for a squad's reinforcements — behind its spawn (toward entrance).
+func _reinforce_center(room_ref: String) -> Vector3:
 	var c := Vector3.ZERO
 	if _map and _map.has_method("get_spawn_position"):
-		c = _map.get_spawn_position(_reinforce_room)
+		c = _map.get_spawn_position(room_ref)
 	return c + Vector3(0, 0, -8)
 
 
-func _spawn_reinforcement() -> void:
-	if _reinforce_units.is_empty():
+## Spawn a squad's reinforcement wave (already engaged — they arrive into the fight).
+func _spawn_reinforcement(squad: Dictionary) -> void:
+	var reinf: Dictionary = squad.get("reinforce", {})
+	var units: Array = reinf.get("units", [])
+	if units.is_empty():
 		return
-	_spawn_at(_reinforce_units, _reinforce_center())
-	print("[TDC] Reinforcement wave spawned (%d units)" % _enemies.size())
-	_reinforce_units = []
+	_spawn_at(units, _reinforce_center(String(squad["room_ref"])), int(squad["id"]), true)
+	print("[TDC] Squad %d reinforcement wave spawned" % int(squad["id"]))
 
 
 ## Deterministic scatter near room center, biased deeper (+Z, away from entrance).

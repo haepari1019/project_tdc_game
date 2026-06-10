@@ -3,7 +3,7 @@
 > **목적:** 코드가 "필요할 때마다 덧붙이기"로 쌓이는 것을 막기 위한 **단일 구조 지도**.
 > 각 스크립트의 책임·의존·핵심 심볼과, 알려진 **기술 부채**(중복/비효율/결합)를 한 곳에 적재한다.
 > **갱신 규칙:** 스크립트를 추가/이동/삭제하거나 책임이 바뀌면 이 문서를 같은 PR에서 갱신한다. 부채를 해소하면 §6 레지스터에서 항목을 지운다.
-> **최종 갱신:** 2026-06-08 · **기준 커밋:** `3b098d8` 이후 작업 트리 · 라인수는 작성 시점 기준.
+> **최종 갱신:** 2026-06-10 · **기준 커밋:** `bc53ee1` 이후 작업 트리(1b 카메라/적AI/탈출 작업) · 라인수는 작성 시점 기준.
 
 ---
 
@@ -32,8 +32,9 @@
        dungeon_run.tscn (dungeon_run.gd = 씬 오케스트레이터)
         ├─ RunController     : 런 상태머신(phase/room) · 시그널
         ├─ MapDemoLayout     : 6룸 절차생성 + navmesh + spawn/extraction 질의
-        ├─ PartyController    : 4인 스폰·스왑·결속 + 추종 스티어링(전 프레임)
-        ├─ CombatController   : 인카운터 스폰 + 전투 루프 + Identity/Sub 디스패치 + Threat(F-022)
+        ├─ PartyController    : 4인 스폰·스왑·결속 + 추종 스티어링(전 프레임) ⚠️갓오브젝트
+        ├─ CombatController   : 분대 스폰 + 전투 루프 + Threat(F-022) │ └ EnemyAI(적 perception/전투) · AbilityDispatch(Identity/Sub 스킬) 자식
+        ├─ CameraPivot        : CameraRig(추종/스왑글라이드/오르빗/셰이크) + Camera3D
         ├─ PartyLight         : F-011 시야 결합 조명 리그
         └─ HUD (CanvasLayer)  : PartySheet · ControlledSheet · 정보패널 · ResultBanner
 ```
@@ -48,7 +49,7 @@
 | 파일 | L | 책임 | 핵심 심볼 | 의존 |
 |------|--:|------|-----------|------|
 | [game_bootstrap.gd](../scripts/autoload/game_bootstrap.gd) | 48 | `spec_ref.json` 로드, 스펙 핀 요약 노출 | `get_spec_ref` `get_spec_pin_summary` | Slice01Data |
-| [core/slice01_data.gd](../scripts/core/slice01_data.gd) | 318 | `data/slice01/*` 전부 로드·검증·캐시, 타입드 게터 | `get_encounter` `get_enemy_row` `get_ability` `get_blueprint` `get_room_row` | IdValidate, JSON 파일 |
+| [core/slice01_data.gd](../scripts/core/slice01_data.gd) | 267 | `data/slice01/*` 전부 로드·검증·캐시, 타입드 게터 | `get_encounter` `get_enemy_row` `get_ability` `get_blueprint` `get_room_row` | IdValidate, JSON 파일 |
 | [core/validate_ids.gd](../scripts/core/validate_ids.gd) | 16 | id 레지스트리 멤버십 검증 + 표준 에러 문자열 | `contains_id` `require_id` `unknown_id_error` | (순수함수) |
 
 ### run — `scripts/run/`
@@ -56,8 +57,9 @@
 |------|--:|------|-----------|------|
 | [run_phase.gd](../scripts/run/run_phase.gd) | 16 | 5개 runPhase 문자열 상수 + 순서 | `ENTRY..EXTRACTION` `SEQUENCE` | — |
 | [run_controller.gd](../scripts/run/run_controller.gd) | 124 | 런 상태(phase/room/flags), 룸진입→인카운터 트리거, objective/extraction | `start_run` `on_player_entered_room` `try_extract` | RunPhase, Slice01Data |
-| [dungeon_run.gd](../scripts/run/dungeon_run.gd) | 261 | 씬 와이어링·카메라·조준UI·조작표시·HUD 라벨 갱신·입력 | `_ready` `_process` `_unhandled_input` `_on_*_changed` | 전 노드 트리, HUD 라벨경로 |
-| [map_demo_layout.gd](../scripts/run/map_demo_layout.gd) | 417 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크·spawn/extraction 질의 | `ROOM_SPECS` `get_spawn_position` `get_room_profile` | NavigationServer3D, group 'player' |
+| [dungeon_run.gd](../scripts/run/dungeon_run.gd) | 256 | 씬 와이어링·시그널 라우팅 + 조준UI + 조작표시 + 탈출홀드 + HUD 라벨 + 입력(카메라는 CameraRig로 위임) | `_ready` `_process` `_unhandled_input` `_update_extraction` `_on_*_changed` | 전 노드 트리, CameraRig, HUD 라벨경로 |
+| [camera_rig.gd](../scripts/run/camera_rig.gd) | 87 | 🟢 게임플레이 카메라 리그(추종/스왑글라이드 accel·decel/RMB 오르빗/trauma 셰이크). `CameraPivot` 노드에 부착 | `set_follow_target` `glide_to_current` `orbit_yaw` `add_shake` | Camera3D(자식) only |
+| [map_demo_layout.gd](../scripts/run/map_demo_layout.gd) | 471 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크·**데이터주도 인터페이스**(`_room_points`/profile=rooms.json) | `ROOM_SPECS` `get_spawn_position` `_resolve_room_points` `_room_profile` | NavigationServer3D, Slice01Data, group 'player' |
 | [player_controller.gd](../scripts/run/player_controller.gd) | 34 | 조작 캐릭터 WASD→velocity (가속모델 옵션) | `_physics_process` | 부모 CharacterBody3D, InputMap |
 | [party_light.gd](../scripts/run/party_light.gd) | 115 | F-011 시야결합 조명(멤버별 omni+spot)·플리커·룸감쇠 | `_build_rigs` `_on_room_changed` | PartyController/Map/Run (노드경로) |
 | [main.gd](../scripts/main.gd) | 34 | 허브/메뉴: 로드 게이트 + 로드아웃 + 던전 진입 | `_ready` `_on_start_pressed` | Slice01Data, GameBootstrap |
@@ -65,15 +67,18 @@
 ### party — `scripts/party/`
 | 파일 | L | 책임 | 핵심 심볼 | 의존 |
 |------|--:|------|-----------|------|
-| [party_controller.gd](../scripts/party/party_controller.gd) | **1623** | ⚠️ **갓오브젝트**: 스폰·스왑·결속 + 포메이션 상태머신 + 슬롯기하 + **스티어링 v1** + **폐기 v0** + 전투교전 + 설정로더 | `try_swap_to` `_sv1_update_follow` `_v0_update_follow` `_combat_engage_target` `CLASS_COLORS` | party_cohesion, party_member.tscn, player_controller, Slice01Data, formation.json, group 'enemy' |
-| [party_member.gd](../scripts/party/party_member.gd) | 401 | 단일 슬롯: 스탯·스킬파라미터·HP/실드/상태(F-021)·넉백·navmesh 캐시·조작비주얼 | `take_damage` `heal` `add_shield` `apply_stun/poison` `get_status_list` `nav_*` | health_bar, Slice01Data, groups 'party_member'/'player' |
+| [party_controller.gd](../scripts/party/party_controller.gd) | **1014** | ⚠️ **갓오브젝트**: 스폰·스왑·결속(command-holder) + 포메이션 상태머신 + 슬롯기하 + **스티어링 v1(~21 `_sv1_*`, ~530줄 지배덩어리)** + 설정로더 (전투교전·힐러무빙은 CombatPositioning 분리) | `try_swap_to` `_sv1_update_follow` `_update_command_holder` `_load_formation_config` | party_cohesion, CombatPositioning, party_member.tscn, player_controller, Slice01Data, formation.json |
+| [combat_positioning.gd](../scripts/party/combat_positioning.gd) | 111 | 🟢 전투우선 follower goal-point: 슬롯이탈 트리거(`enemy_in_party_basic_range`)·근접 attack-range 점·힐러 wounded 추종. PartyController 자식; `_members`만 백레퍼 | `has_live_enemies` `enemy_in_party_basic_range` `engage_target` | party_controller(`_members`), group 'enemy' |
+| [party_member.gd](../scripts/party/party_member.gd) | 336 | 단일 슬롯: 스탯·스킬파라미터·HP/실드/상태(F-021)·넉백·navmesh 캐시·조작비주얼 | `take_damage` `heal` `add_shield` `apply_stun/poison` `get_status_list` `nav_*` | health_bar, Slice01Data, groups 'party_member'/'player' |
 | [party_cohesion.gd](../scripts/party/party_cohesion.gd) | 8 | F-003 결속 모드 enum(BOUND/UNBOUND) | `Mode` `MODE_*` | — |
 
 ### combat — `scripts/combat/`
 | 파일 | L | 책임 | 핵심 심볼 | 의존 |
 |------|--:|------|-----------|------|
-| [combat_controller.gd](../scripts/combat/combat_controller.gd) | 638 | 인카운터 스폰·증원, 전 프레임 적AI+파티 자동공격, Identity 4 + Sub 4 디스패치, F-022 threat, 공간쿼리 | `on_encounter_triggered` `cast_sub` `_try_identity` `_cast_*` `_sub_*` `_deal_damage` `_heal_threat` `ENEMY_VISUALS` | Slice01Data, enemy_unit.tscn, skill_vfx, group 'party_member' |
-| [enemy_unit.gd](../scripts/combat/enemy_unit.gd) | 263 | 단일 적: 데이터 스탯·F-022 threat 테이블(히스테리시스)·slow/knockback·박스메쉬·HP바 | `setup` `add_threat` `pick_target` `apply_slow/knockback` | health_bar, group 'enemy' |
+| [combat_controller.gd](../scripts/combat/combat_controller.gd) | **408** | 🔸 코디네이터(적AI=EnemyAI·스킬=AbilityDispatch 분리): ①인카운터/분대 스폰·증원 ②파티 자동공격 루프(basic) ③F-022 threat + 공간쿼리 ④engage/grace 소유 + camera_shake 시그널 | `prespawn_encounters` `_spawn_squad` `_engage_enemy` `refresh_engage_grace` `_tick_party_attacks` `_deal_damage` `_enemies_in_*` | EnemyAI, AbilityDispatch, Slice01Data, enemy_unit.tscn, skill_vfx, unit_visuals, spatial |
+| [enemy_ai.gd](../scripts/combat/enemy_ai.gd) | 301 | 🟢 적 perception(시야콘+LOS+근접존)·전투행동(위협추적/LOS공격/시야상실추격/텔레그래프). CombatController 자식; engage/grace/시그널은 컨트롤러 콜백 | `tick` `_tick_dormant` `_begin_enemy_attack` `_apply_enemy_hit` `attach_vision_cone` | combat_controller(콜백), skill_vfx, Slice01Data |
+| [ability_dispatch.gd](../scripts/combat/ability_dispatch.gd) | 197 | 🟢 파티 Identity(자동) + Sub(조작 전용) 스킬 효과 — kind 기반 데이터 디스패치(AB-020/024/025/026 + sub 4). CombatController 자식; 공간쿼리/damage/heal-threat/셰이크는 컨트롤러 콜백 | `try_identity` `cast_sub` `_cast_*` `_sub_*` `_sub_hit_shake` | combat_controller(콜백), skill_vfx |
+| [enemy_unit.gd](../scripts/combat/enemy_unit.gd) | 406 | 단일 적: 데이터 스탯·F-022 threat·slow/knockback·**perception(facing/scan/cone VFX/alert ?!)·navmesh 캐시·investigate 상태**·박스메쉬·HP바 | `setup` `add_threat` `pick_target` `scan` `face_toward` `nav_*` `build_vision_cone` | health_bar, NavigationServer3D, group 'enemy' |
 | [health_bar.gd](../scripts/combat/health_bar.gd) | 129 | 아군/적 공용 빌보드 HP바(프레임/배경/필/타겟·임박 마커) | `set_ratio` `set_target` `set_imminent` | 카메라(프레임당 조회) |
 | [skill_vfx.gd](../scripts/combat/skill_vfx.gd) | 224 | 무상태 절차 PH VFX 라이브러리(역할별 자동소멸) | `anchor_guard` `press_line` `mark_ruin` `mend_circle` `sub_*` `enemy_vfx` | Godot 메쉬/트윈 only |
 
@@ -107,7 +112,7 @@
 - ID 1:1: 코드/데이터의 문자열 ID는 spec과 **그대로** (`tank_anchor_guard`, `ENC-NORM-001`, `P-ADV-01` …). 별칭 금지.
 - 미등록 ID → abort: 로드 시 `require_id`로 차단 (현재 abilities 도메인은 누락).
 - 규칙 SSOT 복사 금지: F/QA 전문을 주석에 붙이지 말고 `## ref:` 한 줄 + spec 경로만.
-- 단일 책임: 1 파일 = 1 책임. **현 편차:** `party_controller.gd`가 6+ 책임을 가짐(§6 DEBT-GOD).
+- 단일 책임: 1 파일 = 1 책임. **현 편차:** `party_controller.gd`(§6 DEBT-GOD — `CombatPositioning` 분리 + 데드 v0 정리로 1623→1014, 잔여 SteeringV1). 🔸 `combat_controller.gd`은 `EnemyAI`+`AbilityDispatch` 분리로 854→408줄(§6 DEBT-GOD2, 잔여: EncounterSpawner/Squad). ✅ `dungeon_run.gd`은 `CameraRig` 분리(326→256줄). (모두 2026-06-10)
 - 도메인 폴더: `core/run/party/combat/ui` (dev_templates의 `features/F###_*` per-feature 컨벤션과는 다름 — 의도적 단순화).
 
 ---
@@ -120,9 +125,10 @@
 ### 갓오브젝트 / 죽은 코드
 | ID | 항목 | 위치 | sev | 처리 |
 |----|------|------|-----|------|
-| DEBT-GOD | 🔸 **부분(P6.1·6.2)** — v0 엔진·데드로직·팔레트 제거로 **1623→1235줄**. 잔여 추출 단위: `FormationConfig`(Resource) / `SteeringV1`(strategy) / `FormationForward`(상태머신) / `PartyRoster` (P6.3, 고위험·F5 동반) | party_controller.gd | high | **부분 DONE** |
-| DEBT-V0 | ✅ **해소(P6.1)** — 죽은 v0 추종엔진 349줄 삭제(party_controller 1623→1273), 데이터경로 확인(formation.json 항상 steering_v1)+에디터 임포트 검증. **잔여(P6.2):** 데드 `_sv1_enabled`·v0 전용 config vars·`_tank_steer_axes`·formation.json `follow_steering_deprecated` 정리 | scripts/party/party_controller.gd | med | **부분 DONE** |
-| DEBT-DEAD1 | `_sync_tank_follow_collision`이 이름과 달리 무조건 `set_party_member_collision(true)` — 사실상 no-op | party_controller.gd:1598-1600 | low | **now (P4)** |
+| DEBT-GOD | 🔸 **부분(P6.1·6.2 + 2026-06-10)** — v0 엔진·데드로직·팔레트 제거 + **CombatPositioning 분리**(전투교전·힐러, `combat_positioning.gd` 111) + **데드 v0 config 17종 정리**(DEBT-V0)로 **1623→1014줄**. 잔여 추출 단위(우선순위): **①`SteeringV1`(~21 `_sv1_*`, ~530줄 — 최대 덩어리, 고위험·config 소유권 재설계 동반)** / `FormationConfig`(설정로더) / `FormationForward`(상태머신) | party_controller.gd | high | **부분 DONE** |
+| DEBT-GOD2 | 🔸 **대부분 해소(2026-06-10)** — **EnemyAI**(`enemy_ai.gd` 301) + **AbilityDispatch**(`ability_dispatch.gd` 197) 분리로 combat_controller **854→408줄(-446)**. 둘 다 자식 노드, 공유 시스템(engage/grace/threat/공간쿼리/셰이크)은 컨트롤러 단일소유 + 콜백. 잔여 추출 단위: `EncounterSpawner/SquadManager`(스폰·증원·분대 — `_squads` 상태 소유) | combat_controller.gd, enemy_ai.gd, ability_dispatch.gd | high | **부분 DONE** |
+| DEBT-V0 | ✅ **완전 해소(2026-06-10)** — 죽은 v0 추종엔진 삭제 + **잔여 데드 config 17종 제거**(tank_follow 보정/리버설 6 + v0 separation 7 + preferred_anchor/lateral/slot_arrive/path_clearance 4, 선언+로더). sv1은 `_sv1_*` config만 사용 | scripts/party/party_controller.gd | med | **DONE** |
+| DEBT-DEAD1 | ✅ **해소(2026-06-10)** — no-op `_sync_tank_follow_collision`(+호출 2곳) 제거. `set_party_member_collision(false)`가 어디서도 안 불려 스폰 기본값 재확인일 뿐이었음. (setter 자체는 1b 상태시스템용 API로 보존) | party_controller.gd | low | **DONE** |
 | DEBT-DEAD2 | 🔸 `party_in_combat` 이중관리 **해소(②)**. `run_controller.can_swap()` 항상 true 스텁은 Control Lock/MIA 미구현이라 **의도적 잔존** | run_controller.gd:66 | low | 부분 DONE |
 
 ### 중복
@@ -153,7 +159,7 @@
 | DEBT-OTHER-AWAIT | ✅ **해소(③)** — `await` 제거. 프레임 구동 윈드업 상태머신(`enemy.winding`/`windup_timer_s`, `_tick_enemy`에서 tick)로 전환. `_begin_enemy_attack`→`_resolve_enemy_attack`→`_apply_enemy_hit` 분리. 전투 결정론적 | combat_controller.gd, enemy_unit.gd | med | **DONE** |
 | DEBT-DM1 | `abilities.json` 로드 시 `require_id` 미수행 → "미등록 ID→abort" 규칙이 어빌리티만 무력화 | slice01_data.gd:211-213 | med | **now (P3)** — 코드 가드 버그 |
 | DEBT-DM2 | `ENEMY_VISUALS` 색/크기가 enemies.json과 분리(컨트롤러 리터럴) | combat_controller.gd:23-32 | low | now/선택 (PH 아트) |
-| DEBT-DM3 | 룸 기하가 `map_demo_layout` 상수 vs `rooms.json` 이중소유 → 드리프트 가능 | map_demo_layout.gd:10-75, rooms.json | med | defer |
+| DEBT-DM3 | 🔸 **부분 해소** — `lighting_profile`은 `rooms.json`(SSOT)로 통일(`_room_profile`), 맵 인터페이스(spawn/extraction/size)는 `_room_points` 런타임 테이블로 분리 → **Blender 실맵 교체 시 콜러 무수정**(getter가 ROOM_SPECS 직접참조 안 함). 잔여: 룸 **기하**(center/size)는 ROOM_SPECS 상수(placeholder, Blender가 대체 예정) | map_demo_layout.gd, rooms.json | med | **부분 DONE** |
 
 **가장 깨끗한 파일:** `skill_vfx.gd`(무상태·정적), `health_bar.gd`(단일책임·무결합), `party_cohesion.gd`. 신규 코드의 참고 모델.
 

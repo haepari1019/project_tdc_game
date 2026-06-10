@@ -30,12 +30,40 @@ var attack_cooldown_s: float = 0.0
 var abilities: Array = []
 var attack_count: int = 0
 
+## Squad (분대) = encounter group. Engagement is per-enemy but propagates only to
+## squad-mates within cohesion range, so a strayed member fighting alone doesn't
+## drag the distant squad into combat. ref: CombatController._engage_enemy.
+var squad_id: int = -1
+var engaged: bool = false       # this enemy is in active combat (vs dormant)
+var engage_grace_s: float = 0.0 # D-010 §4.2 per-enemy disengage countdown
+
 ## Telegraph wind-up state machine (frame-driven; driven by CombatController). ref: DEBT-OTHER-AWAIT.
 var winding: bool = false
 var windup_timer_s: float = 0.0
 var windup_eff: Dictionary = {}
 var windup_chosen: Dictionary = {}
 var windup_target: CharacterBody3D = null
+
+# --- Perception facing + vision cone (Phase C2: hybrid vision cone) ---
+const SCAN_HALF_DEG := 35.0   # dormant idle scan sweep amplitude
+const SCAN_PERIOD_S := 4.0     # full left-right sweep period
+var facing: Vector3 = Vector3(0, 0, 1)         # horizontal look direction
+var _base_facing: Vector3 = Vector3(0, 0, 1)   # scan pivots around this
+var _scan_t: float = 0.0
+## Perception memory: where this enemy last perceived the party. While investigating
+## it walks here even after losing sight, then gives up. (Distinct from last_seen_pos,
+## which is where the PARTY last saw this enemy — fog-of-war rendering.)
+var investigate_pos: Vector3 = Vector3.ZERO
+var has_investigate: bool = false
+
+## Cached navmesh path (mirrors party_member) — lets enemies route AROUND walls when
+## chasing/investigating instead of rubbing straight into them.
+var _nav_path: PackedVector3Array = PackedVector3Array()
+var _nav_path_idx: int = 0
+var _nav_target: Vector3 = Vector3.ZERO
+var _vision_cone: Node3D
+var _alert_label: Label3D
+var _alert_level: int = -1
 
 var _body_material: StandardMaterial3D
 var _base_albedo: Color = Color.WHITE
@@ -62,6 +90,7 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 	_apply_collision_size(box_size)
 	_build_box_mesh(color, box_size)
 	_build_hp_bar(box_size)
+	_build_alert_mark(box_size)
 	collision_layer = LAYER_ENEMY
 	collision_mask = MASK_WORLD_PARTY_ENEMY
 	add_to_group("enemy")
@@ -195,6 +224,161 @@ func set_target_marker(member: CharacterBody3D) -> void:
 func set_attention(high: bool) -> void:
 	if _hp_bar and _hp_bar.has_method("set_attention"):
 		_hp_bar.set_attention(high)
+
+
+# ===== Perception facing + tells (Phase C2: hybrid vision cone) =====
+
+## Base look direction (dormant scan pivots around this). Set at spawn toward the
+## party's entry so enemies "watch the door".
+func set_base_facing(dir: Vector3) -> void:
+	var d := dir
+	d.y = 0.0
+	if d.length() < 0.01:
+		return
+	_base_facing = d.normalized()
+	facing = _base_facing
+	_orient_cone()
+
+
+## Dormant idle: sweep facing left-right around the base so the cone moves and the
+## player gets windows to slip past.
+func scan(delta: float) -> void:
+	_scan_t += delta
+	var ang := deg_to_rad(SCAN_HALF_DEG) * sin(_scan_t * TAU / SCAN_PERIOD_S)
+	facing = _base_facing.rotated(Vector3.UP, ang)
+	_orient_cone()
+
+
+## Snap facing toward a world point (alert/engaged: look at the target/sighting).
+func face_toward(pos: Vector3) -> void:
+	var d := pos - global_position
+	d.y = 0.0
+	if d.length() < 0.01:
+		return
+	facing = d.normalized()
+	_orient_cone()
+
+
+## Alert mark above head: 0 none, 1 '?' (경계), 2 '!' (전투).
+func set_alert_mark(level: int) -> void:
+	if level == _alert_level or _alert_label == null:
+		return
+	_alert_level = level
+	if level <= 0:
+		_alert_label.visible = false
+		return
+	_alert_label.visible = true
+	if level == 1:
+		_alert_label.text = "?"
+		_alert_label.modulate = Color(1.0, 0.85, 0.2)
+	else:
+		_alert_label.text = "!"
+		_alert_label.modulate = Color(1.0, 0.25, 0.2)
+
+
+func _build_alert_mark(box_size: Vector3) -> void:
+	_alert_label = Label3D.new()
+	_alert_label.text = "?"
+	_alert_label.font_size = 48
+	_alert_label.position = Vector3(0, box_size.y + 1.15, 0)
+	_alert_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_alert_label.no_depth_test = true
+	_alert_label.modulate = Color(1.0, 0.85, 0.2)
+	_alert_label.visible = false
+	add_child(_alert_label)
+
+
+## Dev VFX: ground-projected vision cone (player would unlock this with a
+## consumable; forced on for now). Inner (1-alert_frac) = 전투존 (red), outer ring
+## = 경계존 (yellow). Oriented to `facing`.
+func build_vision_cone(range_m: float, fov_deg: float, alert_frac: float) -> void:
+	if _vision_cone != null:
+		_vision_cone.queue_free()
+	_vision_cone = Node3D.new()
+	_vision_cone.position.y = 0.04
+	add_child(_vision_cone)
+	var half := deg_to_rad(fov_deg * 0.5)
+	var combat_r := range_m * (1.0 - alert_frac)
+	_vision_cone.add_child(_sector_mesh(0.0, combat_r, half, Color(0.95, 0.25, 0.2, 0.06)))
+	_vision_cone.add_child(_sector_mesh(combat_r, range_m, half, Color(1.0, 0.85, 0.2, 0.05)))
+	_orient_cone()
+
+
+func _orient_cone() -> void:
+	if _vision_cone != null:
+		_vision_cone.rotation.y = atan2(facing.x, facing.z)
+
+
+## Flat ground sector (annulus r0..r1) spanning ±half around local +Z.
+func _sector_mesh(r0: float, r1: float, half: float, col: Color) -> MeshInstance3D:
+	var segs := 24
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	for i in segs:
+		var a0 := -half + (2.0 * half) * (float(i) / float(segs))
+		var a1 := -half + (2.0 * half) * (float(i + 1) / float(segs))
+		var d0 := Vector3(sin(a0), 0.0, cos(a0))
+		var d1 := Vector3(sin(a1), 0.0, cos(a1))
+		if r0 <= 0.001:
+			st.add_vertex(Vector3.ZERO)
+			st.add_vertex(d0 * r1)
+			st.add_vertex(d1 * r1)
+		else:
+			st.add_vertex(d0 * r0)
+			st.add_vertex(d0 * r1)
+			st.add_vertex(d1 * r1)
+			st.add_vertex(d0 * r0)
+			st.add_vertex(d1 * r1)
+			st.add_vertex(d1 * r0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Write depth so overlapping cones depth-reject each other instead of alpha-
+	# stacking — clustered enemies' cones no longer pile up into a darker blob.
+	# render_priority < 0 draws cones before other transparent VFX (which stay on top).
+	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
+	mat.render_priority = -1
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.material_override = mat
+	return mi
+
+
+# ===== Navmesh path (route around walls; mirrors party_member) =====
+
+func nav_set_target(target: Vector3) -> void:
+	if _nav_target.distance_squared_to(target) < 0.25:
+		return  # target hasn't moved enough to bother re-pathing
+	_nav_target = target
+	var maps := NavigationServer3D.get_maps()
+	var map_rid: RID = maps[0] if maps.size() > 0 else RID()
+	if not map_rid.is_valid():
+		_nav_path = PackedVector3Array()
+		return
+	var from := Vector3(global_position.x, 0, global_position.z)
+	var to := Vector3(target.x, 0, target.z)
+	_nav_path = NavigationServer3D.map_get_path(map_rid, from, to, true)
+	_nav_path_idx = 1  # skip path[0] (start position)
+
+
+func nav_get_next_position() -> Vector3:
+	if _nav_path.size() == 0:
+		return global_position
+	var pos_flat := Vector3(global_position.x, 0, global_position.z)
+	while _nav_path_idx < _nav_path.size():
+		var wp: Vector3 = _nav_path[_nav_path_idx]
+		if pos_flat.distance_to(wp) > 0.5:
+			return Vector3(wp.x, global_position.y, wp.z)
+		_nav_path_idx += 1
+	return global_position
+
+
+func nav_has_path() -> bool:
+	return _nav_path.size() > 1 and _nav_path_idx < _nav_path.size()
 
 
 func add_threat(member: CharacterBody3D, amount: float) -> void:

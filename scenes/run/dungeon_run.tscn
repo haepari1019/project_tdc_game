@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://coyhsprnj4v5r"]
+[gd_scene load_steps=11 format=3 uid="uid://coyhsprnj4v5r"]
 
 [ext_resource type="Script" uid="uid://cuqbfg4u0d1nq" path="res://scripts/run/dungeon_run.gd" id="1_dungeon"]
 [ext_resource type="Script" uid="uid://dsnhkmip7ejdr" path="res://scripts/run/run_controller.gd" id="2_run"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/ui/party_sheet.gd" id="6_partysheet"]
 [ext_resource type="Script" path="res://scripts/ui/controlled_sheet.gd" id="7_ctrlsheet"]
 [ext_resource type="Script" path="res://scripts/run/party_light.gd" id="8_partylight"]
+[ext_resource type="Script" path="res://scripts/run/camera_rig.gd" id="9_camrig"]
 
 [sub_resource type="Environment" id="Environment_dungeon"]
 background_mode = 1
@@ -44,6 +45,7 @@ script = ExtResource("4_party")
 script = ExtResource("5_combat")
 
 [node name="CameraPivot" type="Node3D" parent="."]
+script = ExtResource("9_camrig")
 
 [node name="Camera3D" type="Camera3D" parent="CameraPivot"]
 transform = Transform3D(1, 0, 0, 0, 0.438371, 0.898794, 0, -0.898794, 0.438371, 0, 20.5, 13.5)
@@ -147,6 +149,14 @@ text = "formation (F)"
 layout_mode = 2
 text = "전투우선"
 
+[node name="StateLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
+layout_mode = 2
+text = "party state"
+
+[node name="StateValue" type="Label" parent="HUD/Panel/Margin/VBox"]
+layout_mode = 2
+text = "휴식중"
+
 [node name="SubLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
 text = "sub skill (Q)"
@@ -175,5 +185,23 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_font_sizes/font_size = 56
 text = "★ RUN SUCCESS ★"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ExtractCount" type="Label" parent="HUD"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -140.0
+offset_top = -220.0
+offset_right = 140.0
+offset_bottom = -60.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 140
+text = "5"
 horizontal_alignment = 1
 vertical_alignment = 1
