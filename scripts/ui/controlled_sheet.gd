@@ -9,10 +9,23 @@ const UiColors := preload("res://scripts/core/ui_colors.gd")
 const SLOT := 42
 const HP_W := 230
 
+## Readable name + blurb per ability kind, for the hover tooltip (data has no prose).
+const SKILL_INFO := {
+	"shield_pulse":  {"name": "보호 파동", "desc": "자기 보호막 + 주변 적 위협 끌기"},
+	"cone_sweep":    {"name": "전방 휩쓸기", "desc": "전방 부채꼴을 연속 타격"},
+	"mark_burst":    {"name": "표식·파열", "desc": "대상에 표식 후 큰 폭발 피해"},
+	"radius_heal":   {"name": "치유 진영", "desc": "주변 아군 HP를 회복"},
+	"sub_taunt":     {"name": "도발 강타", "desc": "넉백 + 도발 + 자기 보호막"},
+	"sub_lunge":     {"name": "돌진 베기", "desc": "대상으로 돌진해 강타 (지정)"},
+	"sub_nova":      {"name": "노바 폭발", "desc": "지정 지점 광역 폭발 + 둔화"},
+	"sub_sanctuary": {"name": "성역", "desc": "주변 아군 회복 + 보호막"},
+}
+
 var _party: Node
 var _portrait: ColorRect
 var _name_lbl: Label
 var _hp_fill: ColorRect
+var _shield_fill: ColorRect  # AB-020 shield overlay (white, over HP)
 var _slots: Array = []  # {radial, kind}  kind: "identity" | "sub0" | "empty"
 
 
@@ -58,6 +71,12 @@ func setup(party: Node) -> void:
 	_hp_fill.anchor_right = 1.0
 	_hp_fill.anchor_bottom = 1.0
 	hp_bg.add_child(_hp_fill)
+	_shield_fill = ColorRect.new()  # white shield overlay, drawn over the HP fill
+	_shield_fill.color = Color(0.86, 0.92, 1.0, 0.72)
+	_shield_fill.anchor_right = 0.0
+	_shield_fill.anchor_bottom = 1.0
+	_shield_fill.visible = false
+	hp_bg.add_child(_shield_fill)
 
 	# Action bar: Identity(auto) + Q + E + R.
 	for d in [["auto", "identity"], ["Q", "sub0"], ["E", "empty"], ["R", "empty"]]:
@@ -91,17 +110,42 @@ func _process(_delta: float) -> void:
 	var hr: float = clampf(m.hp / maxf(m.max_hp, 1.0), 0.0, 1.0) if alive else 0.0
 	_hp_fill.anchor_right = hr
 	_hp_fill.color = _hp_color(hr)
+	var sr: float = (clampf(m.shield / maxf(m.max_hp, 1.0), 0.0, 1.0) if alive else 0.0)
+	_shield_fill.anchor_right = sr
+	_shield_fill.visible = sr > 0.001
 	for s in _slots:
 		match String(s.kind):
 			"identity":
 				s.radial.set_icon_color(rc)
 				var t: float = float(m.identity_params.get("cooldown_s", 0.0))
 				s.radial.set_cd(m.identity_cooldown_s / t if t > 0.0 else 0.0)
+				s.radial.tooltip_text = _skill_tip(m.identity_skill_id, m.identity_params, "주 스킬 (자동)")
 			"sub0":
 				s.radial.set_icon_color(rc.lightened(0.18))
 				var t2: float = float(m.sub_params.get("cooldown_s", 0.0))
 				s.radial.set_cd(m.sub_cooldown_s / t2 if t2 > 0.0 else 0.0)
+				s.radial.tooltip_text = _skill_tip(m.sub_ability_id, m.sub_params, "보조 스킬 (Q)")
 
 
 func _hp_color(r: float) -> Color:
 	return UiColors.hp_color(r)
+
+
+## Hover tooltip for a skill slot: header + readable name/blurb + cooldown (from data).
+func _skill_tip(skill_id: String, params: Dictionary, header: String) -> String:
+	if params.is_empty():
+		return "%s\n(미장착)" % header
+	var kind := String(params.get("kind", ""))
+	var info: Dictionary = SKILL_INFO.get(kind, {})
+	var name := String(info.get("name", kind))
+	var lines: Array = [header, "%s  ·  %s" % [name, skill_id] if not skill_id.is_empty() else name]
+	if info.has("desc"):
+		lines.append(String(info["desc"]))
+	var cd := float(params.get("cooldown_s", 0.0))
+	if cd > 0.0:
+		lines.append("쿨다운 %ss" % _num(cd))
+	return "\n".join(lines)
+
+
+func _num(v: float) -> String:
+	return "%d" % int(v) if is_equal_approx(v, floorf(v)) else "%.1f" % v

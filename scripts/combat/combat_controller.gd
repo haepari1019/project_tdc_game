@@ -11,6 +11,12 @@ signal party_damaged()
 ## Camera feedback (dungeon_run): trauma 0..1 to add (trauma² shake), kick_world =
 ## directional push in world XZ (ZERO for hit-feel). Controlled events full, others muted.
 signal camera_shake(trauma: float, kick_world: Vector3)
+## A party member took a directional hit — drives the screen-edge damage indicator.
+## from_dir_world = world XZ toward the attacker; severity 0..1; is_controlled gates the
+## (controlled-only) edge UI. Emitted for ALL hits above a chip threshold (incl. basic).
+signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool)
+## An enemy was defeated at world_pos — drives world item drops (loot). ref: F-010 loot.
+signal enemy_defeated(world_pos: Vector3)
 
 const EnemyScene := preload("res://scenes/combat/enemy_unit.tscn")
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
@@ -470,3 +476,5 @@ func _spawn_offset(i: int) -> Vector3:
 
 func _on_enemy_died(unit: CharacterBody3D) -> void:
 	_enemies.erase(unit)
+	if is_instance_valid(unit):
+		enemy_defeated.emit(unit.global_position)  # → dungeon_run spawns a loot drop

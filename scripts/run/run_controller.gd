@@ -79,7 +79,8 @@ func on_player_entered_room(room_ref: String) -> void:
 	if room_ref == "RM-OBJ-01":
 		if run_phase == RunPhase.ADVANCE:
 			_set_phase(RunPhase.OBJECTIVE)
-		complete_objective()
+		# Objective is NOT auto-completed on entry anymore — loot the key from the chest
+		# and open the RM-ROUTE-01→RM-EXT-01 door, which calls complete_objective(). (Door)
 	elif room_ref == "RM-ROUTE-01" and run_phase == RunPhase.OBJECTIVE:
 		_set_phase(RunPhase.ADVANCE_EXTRACTION)
 	elif room_ref == "RM-EXT-01":

@@ -38,6 +38,12 @@ const DMG_SHAKE_CAP := 0.65
 const DMG_KICK_M := 1.2           # 방향 킥 오프셋(m) @ trauma 1
 const SHAKE_NONCTRL_MULT := 0.4   # 비조작 멤버 이벤트 감쇄
 
+# Directional hit indicator (screen-edge red glow, F-011 info-war HUD). ALL hits above a
+# chip threshold (평타 포함) — less intrusive than shake, so broader gate. severity =
+# (dmg/maxHP)*gain. dungeon_run filters to the controlled member + converts to screen space.
+const HIT_INDICATOR_MIN_FRAC := 0.012  # 이 미만 피해비율 → 표시 없음(잔뎀 컷)
+const HIT_INDICATOR_GAIN := 4.0
+
 var _combat: Node3D  # CombatController — owns engage/grace/signals + spawning/threat
 
 
@@ -252,6 +258,13 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	target.take_damage(dmg)
 	_combat._engage_enemy(enemy)  # D-010 §4.1: keep engaged (target already has threat/LOS)
 	_combat.party_damaged.emit()  # follower formation-break trigger
+	# Directional hit indicator (screen-edge): ALL hits above a chip threshold (평타 포함).
+	# dir = toward the attacker; dungeon_run filters to controlled + converts to screen space.
+	var hit_frac: float = dmg / maxf(float(target.max_hp), 1.0)
+	if hit_frac >= HIT_INDICATOR_MIN_FRAC:
+		var src: Vector3 = from - target.global_position  # toward the attacker
+		src.y = 0.0
+		_combat.party_hit.emit(src, clampf(hit_frac * HIT_INDICATOR_GAIN, 0.2, 1.0), target.is_controlled())
 	# Camera damage feedback — AB-DEFINED SKILL hits only. `chosen` = the picked
 	# ability {ref:"AB-###", trigger}. AB-defined = ref 있음, 스킬 = trigger != "basic"
 	# (평타 ability·무-ability 접촉뎀 제외). 방향 킥 = 맞은 방향(위협 정보) + trauma.

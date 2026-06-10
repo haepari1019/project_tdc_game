@@ -10,6 +10,8 @@ const UiColors := preload("res://scripts/core/ui_colors.gd")
 
 var _fill: MeshInstance3D
 var _fill_mat: StandardMaterial3D
+var _shield: MeshInstance3D       # AB-020 shield overlay (white, over the fill)
+var _shield_ratio: float = 0.0
 var _marker: MeshInstance3D
 var _marker_mat: StandardMaterial3D
 var _marker2: MeshInstance3D  # §5.2 imminent next-target (pulsing)
@@ -33,6 +35,10 @@ func _ready() -> void:
 	# Force the fill to always draw in front of the bg — otherwise transparent
 	# depth-sorting can flip them frame-to-frame and the bar looks empty (0).
 	_fill_mat.render_priority = 1
+	# Shield overlay (AB-020): white bar over the fill, left-anchored, width = shield/maxHP.
+	_shield = _make_quad(Color(0.86, 0.92, 1.0, 0.72), WIDTH, HEIGHT, 0.02)
+	(_shield.material_override as StandardMaterial3D).render_priority = 2
+	_shield.visible = false
 	# Current-target marker (F-022 기본어그로): colored square left of the bar.
 	var box := HEIGHT + BORDER * 2.0
 	_marker = _make_quad(Color(1, 1, 1, 1), box, box, 0.0)
@@ -64,6 +70,22 @@ func _process(delta: float) -> void:
 func set_ratio(r: float) -> void:
 	_ratio = clampf(r, 0.0, 1.0)
 	_apply()
+
+
+## AB-020 shield as a fraction of max HP (0 = none) — white overlay over the fill.
+func set_shield_ratio(s: float) -> void:
+	var sr := clampf(s, 0.0, 1.0)
+	if absf(sr - _shield_ratio) < 0.002:
+		return
+	_shield_ratio = sr
+	if _shield == null:
+		return
+	if _shield_ratio <= 0.0001:
+		_shield.visible = false
+		return
+	_shield.visible = true
+	_shield.scale = Vector3(_shield_ratio, 1.0, 1.0)
+	_shield.position.x = -WIDTH * 0.5 * (1.0 - _shield_ratio)
 
 
 ## Show the current aggro target's slot color next to the bar (F-022 §5.2).

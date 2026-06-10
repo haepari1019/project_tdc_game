@@ -256,6 +256,8 @@ func _physics_process(delta: float) -> void:
 		shield_timer_s -= delta
 		if shield_timer_s <= 0.0:
 			shield = 0.0
+	if _hp_bar:
+		_hp_bar.set_shield_ratio(shield / maxf(max_hp, 1.0))  # white overlay on the HP bar
 	_tick_status(delta)
 
 

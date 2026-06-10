@@ -61,6 +61,91 @@
 - **전파(✅ 완료):** spec staging **f7739a1** · **DEC-20260610-002** — F-003 **§3.0.4** 신설로 **지휘권 보유자(리더 고정·핑/MIA 대상)↔포메이션 랠리 앵커(자동 stand-in/환원) 분리** SSOT화. 전파 중 §3.0/§3.10 "앵커 고정+UI-008 수동" 모델과의 충돌을 발견→사용자 결정으로 분리 모델 채택. 게임 코드는 랠리 앵커만(핑/MIA 미구현). `spec_ref.json` 재핀 6f0e534→f7739a1. DRIFT-021 MERGED.
 - **영향:** `scripts/party/party_controller.gd`(`_update_command_holder`/`_leader_returned`/`_pick_command_holder`/`_set_controlled_index`/`_get_anchor`/`_physics_process`), `spec_ref.json`, `docs/SPEC_DRIFT.md`. spec: `F-003`/`DecisionLog`/`SpecScopeTracker`/`TODO`.
 
+### IMPL-DEC-20260611-021 — 적 인스펙트 패널 (좌클릭 → 12시 적 정보)
+- **결정:** 적 **좌클릭** → 상단중앙 패널에 **초상화(적 색)+이름+HP(+상태 pip)** 표시(스킬/쿨 제외, 사용자 요청). `enemy_info.gd`(Control, top-center, 파티시트 슬롯 스타일 차용, mouse IGNORE로 클릭 비차단). dungeon_run이 비에임 시 LMB → `_select_enemy_under_mouse`(카메라 레이캐스트 mask=4 `LAYER_ENEMY`)로 적 피킹 → `set_enemy`, 빈 공간 클릭=clear. 적 사망(`hp<=0`/freed) 시 자동 clear. `enemy_unit.get_body_color()` 게터 추가.
+- **이유:** 사용자 요청(적 정보 노출). 파티시트(UI-002) 스타일 재사용.
+- **잔여:** 적은 **상태(버프/디버프) 시스템이 없어** 그 pip 영역은 현재 비어있음 — `get_status_list` 있으면 표시하도록 future-proof. LOS 무시(벽 뒤 적도 클릭되면 선택; 필요 시 world 마스크+first-hit 검증). 적 마커=`has_method("get_body_color")` 덕타이핑.
+- **영향:** `enemy_info.gd`(신규), `enemy_unit.gd`(`get_body_color`), `dungeon_run.gd`(EnemyInfo 생성·LMB 피킹).
+- **F5:** 적 좌클릭 → 상단중앙에 초상화/이름/체력, 다른 적 클릭=전환, 빈 곳 클릭=해제, 처치 시 사라짐.
+
+### IMPL-DEC-20260611-020 — 미니맵 (우상단)
+- **결정:** `minimap.gd`(Control, 우상단 286×160 @ top=12, 퀘스트 트래커 바로 위) — **고정 world-aligned**(+X 우, +Z 상) `_draw`: 룸 footprint(rect) + 탈출 마커(녹) + interactable 마커(상자/문/드롭, group `interactable`) + 플레이어 점(흰 링+시안)+속도 방향선. 맵의 **decoupled 인터페이스** `get_room_rects()`(신규, `_room_points`에서) 사용 → Blender 맵 교체 시 그대로. `_w2m`이 월드 AABB를 패널에 fit+센터. dungeon_run이 생성·`$HUD` 부착·setup.
+- **이유:** 사용자 요청(우상단 미니맵). 적은 미표시(정보전 컨셉 — 무료 적 정보 X).
+- **잔여/튜닝:** 고정 방향(카메라 회전 비추종); 회전추종·줌·룸 라벨·발견된 영역만 표시(fog)는 후속. 크기/색 tuning.
+- **영향:** `minimap.gd`(신규), `map_demo_layout.gd`(`get_room_rects` 게터), `dungeon_run.gd`(생성).
+- **F5:** 우상단 미니맵에 던전 룸 배치 + 탈출(녹)·상자/문(노랑) 마커 + 플레이어 점이 이동에 따라 움직임.
+
+### IMPL-DEC-20260611-019 — 보호막(AB-020) HP바 시각화 (흰색 오버레이)
+- **결정:** 보호막은 데미지 흡수·시간제로 **이미 동작**했으나 HP바엔 미표시(party_sheet 버프 pip만)였음 → **흰색 오버레이** 추가: ① **게임 내 머리 위 HP바**(`health_bar.gd` — fill 위 z=0.02 흰색 quad, 좌측정렬, 너비=shield/maxHP, `set_shield_ratio`) ② **컨트롤 시트 HP바**(`controlled_sheet.gd` — HP fill 위 흰색 ColorRect, anchor_right=shield/maxHP). `party_member._physics_process`가 매 프레임 `set_shield_ratio` 전달(적은 보호막 없어 미표시). 사용자 지적으로 발견: 툴팁에 보호막을 적었는데 바엔 안 보였음.
+- **이유:** "보호막이 HP 위에 흰색으로 오버레이되는" 표준 표기 요청.
+- **잔여:** party_sheet 로스터 HP바는 기존 버프 pip 유지(오버레이 미추가). 색/스타일·shield>maxHP 처리(현재 clamp 1.0)는 tuning. ref: AB-020 / UI-003.
+- **영향:** `health_bar.gd`(shield quad), `party_member.gd`(set_shield_ratio 호출), `controlled_sheet.gd`(shield ColorRect).
+- **F5:** 탱커 조작 + 전투/Q → HP바(머리 위 + 하단)에 흰색 보호막, 피격/만료 시 흰색 감소.
+
+### IMPL-DEC-20260611-018 — 호버 툴팁 (6시 스킬 슬롯 + 인벤 아이템)
+- **결정:** 내장 `tooltip_text`(호버 시 엔진 기본 오버레이)로 ① **스킬 슬롯**(`controlled_sheet.gd` UI-003 6시 — Identity/Q RadialCooldown): `_skill_tip`이 헤더(주/보조) + 읽기쉬운 이름·설명(`SKILL_INFO` kind→KR 매핑, 데이터엔 prose 없음) + 쿨다운을 매 프레임 조작캐 params에서 구성. ② **인벤 아이템**(`inventory_grid.gd` item Panel): `_item_tip`이 이름 + 설명(`ITEM_DESC`) + 크기 W×H를 `_make_node`에서 설정.
+- **이유:** 사용자 요청(스킬/아이템 호버 정보). 내장 툴팁 채택 = 저위험·일관(커스텀 오버레이는 위치/타이밍 리스크). 데이터에 표시명/설명이 없어 kind/id→KR 텍스트는 UI에 하드코딩(프레젠테이션).
+- **잔여/튜닝:** 기본 호버 지연(~0.5s); 더 즉각/리치하게 원하면 `gui/timers/tooltip_delay_sec` 축소 또는 `_make_custom_tooltip` 커스텀 패널. 스킬/아이템 명·설명의 데이터화는 후속(스펙 표시명 도입 시).
+- **영향:** `controlled_sheet.gd`(SKILL_INFO·_skill_tip·tooltip_text), `inventory_grid.gd`(ITEM_DESC·_item_tip·tooltip_text).
+- **F5:** 6시 스킬 슬롯 호버 → 이름/설명/쿨다운 툴팁 / 인벤 아이템 호버 → 이름/설명/크기 툴팁.
+
+### IMPL-DEC-20260611-017 — 퀘스트 트래커 UI (우상단, 실시간 진행)
+- **결정:** `quest_tracker.gd`(Control, 우상단 미니맵 공간 아래 고정 패널 286×156 @ top=178) — RichTextLabel BBCode로 **주 임무 — 탈출**(열쇠 획득→봉인문 개방→탈출 3목표) + **보조 — 보급 회수**(Cell n/6) 표시. 매 프레임 게임상태 폴링: 열쇠=`inventory_ui.backpack_has_key()`(래치), 문=`run.objective_complete`, 탈출=`run.run_over`, Cell=`inventory_ui.count_item("Cell")`. **완료 목표는 `[s]취소선[/s]`+✔**, 미완료는 •+카운트. dungeon_run이 생성·`$HUD` 부착·setup.
+- **이유:** 사용자 요청 — 데모 목표를 진행도에 맞춰 표기(카운트/취소선). 미니맵 자리는 비워둠.
+- **잔여/튜닝:** 미니맵 미구현(공간만 확보). 퀘스트는 코드 하드코딩(데이터화·다중 퀘스트·완료 알림은 후속). Cell 목표 6 = tuning. ref: F-006/F-010.
+- **영향:** `quest_tracker.gd`(신규), `inventory_ui.gd`(`count_item`), `dungeon_run.gd`(생성).
+- **F5:** 우상단 패널에 주/보조 임무 표시 → 열쇠 루팅 시 "열쇠 획득" 취소선, 문 개방 시 "봉인문 개방" 취소선, Cell 주울수록 (n/6) 증가, 6개면 취소선, 탈출 시 "탈출" 취소선.
+
+### IMPL-DEC-20260611-016 — 적 처치 아이템 드롭 + 줍기
+- **결정:** 적 사망 시 월드 아이템 드롭 — `combat_controller`에 `signal enemy_defeated(world_pos)`(`_on_enemy_died`에서 emit), `dungeon_run`이 받아 `LOOT_TABLE`(PH: Ammo/Medkit/Scrap/Cell)에서 1개 랜덤 → `item_drop.gd`(Node3D, 발광·회전 큐브, group `interactable`, **interact 레이어만**=이동 비차단) 스폰. 호버 라벨("이름\n[우클릭] 줍기")·우클릭 자동이동은 기존 시스템 재사용. 도착 시 `interact()`→`inventory_ui.add_to_backpack()`(백팩 첫 빈칸 배치) 성공이면 `queue_free`, 가득이면 드롭 유지.
+- **이유:** 사용자 요청(몬스터 처치 루팅). A 인벤 엔진 + 우클릭 자동이동 위에 얹음.
+- **튜닝/잔여:** 드롭률 현재 **100%**(처치마다), 로트 테이블/확률·아이템 데이터화·줍기 이펙트·백팩 가득 시 피드백은 후속. ref: F-010 loot.
+- **영향:** `item_drop.gd`(신규), `combat_controller.gd`(signal), `inventory_ui.gd`(`add_to_backpack`), `dungeon_run.gd`(LOOT_TABLE·연결·스폰).
+- **F5:** 적 처치 → 사망 위치에 발광 큐브 → 호버 라벨 → 우클릭 → 조작캐 걸어가 줍기 → `i`로 백팩에 추가 확인.
+
+### IMPL-DEC-20260610-015 — 월드 루프 B2: 키 게이트 문 + 탈출 objective 패치 + 우클릭 상호작용
+- **결정:** ① **문**(`door.gd` Node3D, group `interactable`) — `RM-ROUTE-01→RM-EXT-01` 개구부(27,0,77.25)에 박스 배리어(collision layer1, 6.4×3.2×0.9). interact: `_inv.backpack_has_key()`면 개방(콜리전·메시 제거 + group 이탈 + `_run.complete_objective()`), 아니면 "열쇠 필요" 프롬프트. ② **탈출 objective 패치** — `run_controller`의 RM-OBJ-01 진입 자동 `complete_objective()` **제거** → objective는 **문 개방 시**에만. extraction(`try_extract`)는 objective_complete 요구 그대로. ③ **상호작용 키 E→우클릭** — E는 서브스킬2 예약이라 충돌 회피. dungeon_run이 RMB **클릭(이동<8px) vs 드래그(카메라 회전)** 구분, 클릭이면 `_interaction.try_interact()`. `interact`(E) 입력액션 제거, 상자/문 프롬프트 `[우클릭]`.
+- **이유:** 사용자 요청 루프 완성 — 상자에서 키 → 문 개방 → 탈출방 진입 가능. 키 인식은 A의 컨테이너간 드래그(상자→백팩)로.
+- **흐름:** RM-OBJ-01 상자 우클릭 → 루트뷰 → Key를 백팩으로 → RM-ROUTE-01↔EXT 문 우클릭(키 보유) → 개방+objective → RM-EXT-01 진입 → 홀드 탈출.
+- **잔여:** 문 navmesh 미반영(베이크는 빌드 시 1회 — 적/팔로워 경로는 문 무시, 조작캐는 물리 차단으로 충분). 키 소모 안 함. 회전/스택/무게/저장은 후속.
+- **영향:** `door.gd`(신규), `run_controller.gd`(objective), `dungeon_run.gd`(문 생성·RMB 상호작용), `chest.gd`(프롬프트), `project.godot`(interact 제거).
+- **F5:** 상자 우클릭→키 루팅 / 문 우클릭(키 없으면 "열쇠 필요", 있으면 개방) / 문 개방 후 RM-EXT-01 진입→탈출 / RMB 드래그=카메라 회전 유지.
+
+### IMPL-DEC-20260610-014 — 월드 루프 B1: 상호작용 + 상자 + 키 + 루트뷰 (chest→key)
+- **결정:** ① **인벤 backpack/loot 모드** — `inventory_ui`가 영구 BACKPACK + 상자 열 때만 보이는 loot 그리드. `open_loot(chest)`(상자 items로 채움)·`_close`(남은 것 상자에 되쓰기)·`backpack_has_key()`(B2 문 게이트용). 숨은 grid는 드래그 라우팅 제외. grid에 `clear`/`export_items` 추가. ② **상자**(`chest.gd` Node3D, group `interactable`, 박스 메시+발광, items 보유) ③ **상호작용**(`interaction_controller.gd` — **마우스 호버 레이캐스트**(interact 콜리전 레이어 5; 상자/문은 world+interact 양쪽), **사거리 무관 항상** 오브젝트 **머리 위 라벨**(이름+키, `interact_anchor` 카메라 투영)로 "뭐가 열리는지" 먼저 보이게; **우클릭 = 호버 오브젝트로 조작캐 자동이동→도착 시 interact**(`player_controller.order_move_to`: 직선 seek+벽슬라이드, WASD로 취소, 막히면 0.5s 후 포기). 인벤 열리면 비활성) ④ `interact` 입력액션(E=69) ⑤ 상자를 RM-OBJ-01에 배치, **Key 1×1** 시드. ⑥ dungeon_run: 생성·E 라우팅·하단 프롬프트 라벨.
+- **이유:** 사용자 요청 루프(상자→키→문→탈출)의 전반부. A 청크(컨테이너간 드래그)로 키를 상자→백팩 이동.
+- **잔여(B2):** 문(Door) 3D 엔티티(탈출 경로 차단·키 게이트 `backpack_has_key`) + 탈출 objective 패치(RM-OBJ-01 자동완료 제거 → 문 개방 시 `complete_objective`).
+- **영향:** `inventory_ui.gd`·`inventory_grid.gd`(리팩토링/헬퍼), `chest.gd`·`interaction_controller.gd`(신규), `dungeon_run.gd`(배선), `project.godot`(interact). 전파: DRIFT-023(인벤)+신규 월드루프 → F-007/F-010/F-026 후보, B2 완료 후 묶어 정리.
+- **F5:** RM-OBJ-01의 상자 근처 → 하단 `[E] 유물함 열기` → E → 루트뷰(백팩+상자, Key) → Key를 백팩으로 드래그 → Esc/i 닫기 → 재오픈 시 상자 비어있음.
+
+### IMPL-DEC-20260610-013 — 백팩 아이템 메커닉 (가변 W×H + 드래그&드롭)
+- **결정:** 격자 로직을 `scripts/ui/inventory_grid.gd`(Control)로 분리 — **occupancy 맵**(rows×cols) + **가변 W×H 아이템**(PH 컬러 패널, id/크기 라벨) + **드래그&드롭**: 아이템 LMB로 픽업(자기 셀 free→자기차단 방지·앞으로·반투명), `_input`이 모션 추적하며 **셀 스냅 미리보기**(can_place: 경계+겹침 → 녹색/빨강 `_draw`), 드롭 시 유효하면 배치·무효면 원위치 복귀. inventory_ui는 창 chrome + 시드 아이템(Medkit 1×1·Pistol 2×1·Rifle 4×1·Armor 2×2·Cell 1×2·Ammo 1×1)만 담당.
+- **이유:** 사용자 요청(백팩식). IMPL-DEC-012의 빈 격자 토대 위에 아이템/드래그 메커닉 구현. 격자=고정 CELL 격자, 아이템=자식 노드 (col,row)×stride 배치 → 회전/스택/무게/아이콘 확장 용이.
+- **좌표:** 아이템은 grid Control 로컬좌표 자식, `get_local_mouse_position`로 드래그(창 이동해도 정합). occupancy init은 `setup()`(트리 진입 전 호출 가능하게 `_ready` 타이밍 무관).
+- **튜닝:** CELL 56·GAP 4 (격자), 아이템 정의는 데이터(현재 inventory_ui 시드).
+- **영향:** `scripts/ui/inventory_grid.gd`(신규), `scripts/ui/inventory_ui.gd`(격자 교체·시드). DRIFT-023 갱신.
+- **2차 확장(같은 날):** **코디네이터 모델**로 리팩토링 — grid는 occupancy/셀·비주얼만, `inventory_ui`(코디네이터)가 드래그·**회전(R, W↔H 스왑)**·**컨테이너 간 이동**(드래그 비주얼 + 커서 아래 grid 라우팅 + occupancy 이전, 무효 드롭 시 원래 방향·자리 복귀)을 소유. UI에 BACKPACK 5×8 + CONTAINER 5×5 두 컨테이너 표시(엔진 검증). grid item 비주얼의 `gui_input`이 `_coord._on_item_pressed`로 라우팅.
+- **잔여(후속):** 스택, 무게/용량, 아이템 아이콘·툴팁, 탈출 loss bundle(F-007) 연동, 저장/로드. **(B 청크: 키 아이템·상자·문·탈출 objective 패치.)**
+- **F5 검증:** `i`로 인벤 → 시드 아이템 6종 배치, 아이템 **드래그→스냅 미리보기(녹/빨)→유효시 배치/무효시 복귀**, 겹침·경계 막힘.
+
+### IMPL-DEC-20260610-012 — 인벤토리 UI 프로토타입 (5×8 그리드, `i` 토글)
+- **결정:** `scripts/ui/inventory_ui.gd`(Control) 신설 — COLS×ROWS(=5×8) **고정 셀 격자** 모달 오버레이, `i`(신규 input 액션 `toggle_inventory`=physical 73) 토글, Esc로 닫기. dim 배경 + **수동 중앙정렬**(CanvasLayer 자식은 size 0이라 CenterContainer가 좌상단행 → 루트=뷰포트 수동 사이즈 + `_center_window`) + **제목바 드래그 이동**(`_on_bar_input` 시작, `_input`이 모션/릴리스 추적, 화면 clamp) PanelContainer + GridContainer(40셀). dungeon_run이 생성·$HUD 부착·입력 배선, HUD 힌트에 `I 인벤` 추가.
+- **이유:** 사용자 요청. **백팩/테트리스식 가변 사이즈 아이템** 인벤(아이템이 여러 셀 차지)을 모방할 토대. 지금은 빈 격자(display-only).
+- **확장 대비:** 격자를 **고정 CELL 격자**로 두고, 후속 아이템 레이어가 (col,row)×CELL로 다중 셀 footprint를 위에 얹는 구조(주석 명시). 회전/스택/무게 등은 후속.
+- **튜닝:** COLS 5·ROWS 8·CELL 56·GAP 4(inventory_ui).
+- **영향:** `scripts/ui/inventory_ui.gd`(신규), `scripts/run/dungeon_run.gd`(생성·토글·Esc·힌트), `project.godot`([input] toggle_inventory).
+- **전파:** 신규 인벤토리 시스템 → **SPEC_DRIFT DRIFT-023**(F-010 Loadout / 신규 인벤 spec 후보). 가변사이즈 메커닉 확정 시 OPS_30.
+- **F5 검증:** `i`로 5×8 격자 열림/닫힘, Esc 닫힘, 모달(뒤 클릭 차단).
+
+### IMPL-DEC-20260610-011 — 방향 피격 인디케이터 (화면 가장자리 데미지 UX)
+- **결정:** 조작 캐릭이 피격 시, **공격자 방향으로 화면 가장자리 빨간 글로우**를 띄워 "맞음 + 방향"을 직접 인지. 신규 신호 `CombatController.party_hit(from_dir_world, severity, is_controlled)` — `enemy_ai._apply_enemy_hit`에서 **모든 피격(평타 포함) 칩뎀컷 위**로 emit(severity=dmg/maxHP*gain). dungeon_run이 **is_controlled만 필터** + 카메라 `unproject_position`으로 정확한 스크린 방향 산출 → 신규 `scripts/ui/damage_indicator.gd`(Control, 절차 draw 글로우, 동방향 debounce·페이드).
+- **이유:** 사용자 제안. 원거리 탑다운 + 회전카메라에서 오프스크린/주변시 위협·피격 사실 인지 강화(인포워). 기존 카메라 방향킥(AB 전용)을 보강하는 별도 레이어.
+- **설계 선택(권장안 채택):** ①표시 대상=조작 캐릭만(팔로워 오프스크린은 2단계, F-003 §3.9 정합 여지) ②트리거=모든 피격 severity 스케일+칩뎀컷(평타 누락 방지; camera_shake는 AB 전용이라 별도 신호) ③방향=카메라 unproject(yaw/pitch 무관 정확). 가독성 위해 동방향 debounce·강도 스케일·빠른 페이드.
+- **튜닝:** `HIT_INDICATOR_MIN_FRAC` 0.012·`HIT_INDICATOR_GAIN` 4.0(enemy_ai), 글로우 `SPREAD_DEG` 38·`DEPTH_FRAC` 0.16·`FADE_S` 0.7(damage_indicator).
+- **영향:** `combat_controller.gd`(신호), `enemy_ai.gd`(emit), `scripts/ui/damage_indicator.gd`(신규), `dungeon_run.gd`(생성·연결·스크린변환).
+- **전파:** 신규 인포워 HUD UX → **SPEC_DRIFT DRIFT-022**(F-011/UI 스펙 후보). F5 확인·튜닝 후 정합.
+- **F5 검증:** 피격 시 **공격자 방향**으로 가장자리 글로우(방향 정확한지 — 어긋나면 스크린벡터 부호), 큰 피해=진함/칩뎀=흐림or없음, 비조작 멤버 피격엔 안 뜸, 평타·스킬 모두 반응.
+
 ### IMPL-DEC-20260610-010 — CombatPositioning 분리 + 데드 v0 config 정리 (갓코드 정리 4단계, party_controller)
 - **결정:** ① party_controller의 전투우선 goal-point 로직(`_has_live_enemies`/`_enemy_in_party_basic_range`/`_combat_engage_target`/`_healer_support_target`/`_lowest_hp_ally_below_threshold`, ~104줄)을 **`scripts/party/combat_positioning.gd`(111줄)** 자식 노드로 추출(`_members`만 `_party` 백레퍼). ② **데드 v0 config 17종 제거**(DEBT-V0 잔재): tank_follow 보정/리버설 6 + v0 separation 7 + preferred_anchor/lateral_approach/slot_arrive/path_clearance 4 — 선언 + `_load_formation_config`의 tank_follow 로더 블록.
 - **이유:** 사용자 선택(party 갓코드 "깨끗한 것부터"). SteeringV1(~530줄)은 config 소유권·per-member 상태·라이브무빙에 **깊게 결합**돼 통째 추출 시 백레퍼 대량 + 최고위험이라, 저결합·저위험 단위부터. party_controller **1623→1014줄**(이번 -128: CombatPositioning -104, 데드config -24).

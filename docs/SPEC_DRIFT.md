@@ -51,6 +51,9 @@
 | 019 | 적 **분대(squad)** 단위 engage(분대 독립·분대원 근접전파 9m·stray 예외) + **미리 스폰(휴면)**·시작방 인카운터→메인전투방 이전·방 먼쪽 배치 + navmesh 추격 + **threat/시야기반 타겟**(미인지 대상 비타겟) | rule/scope | 신규 **F-013** enemy-AI 행동 루프로 SSOT화(분대=F-022 Encounter Group 구체화). 포스트복귀/리쉬는 F-013 §9 후속 | ✅ MERGED (staging 6f0e534 · DEC-20260610-001) |
 | 020 | 전투AI/인지 **튜닝수치**(FOV 160°·sight 12m·proximity 2.5m·alert_zone 0.2·scan ±35°/4s·investigate 0.35·chase_blind 0.55·squad_prop 9m·exit_grace 6s·lane 12m·cone alpha 0.05~0.06) | tuning | 로깅만(전파 금지). grace 6s는 D-010 §4.2와 정합 | LOGGED |
 | 021 | 비결속 지휘권 **분리 모델**: 지휘권 보유자(리더 고정·핑/MIA 대상) ↔ 포메이션 랠리 앵커(보유자 조작/복귀 중 stand-in 자동·복귀 시 환원) | rule | F-003 §3.0.4 신설로 SSOT화(보유자=리더 고정, 랠리 앵커만 자동). UI-008=리더 외 명시 지정 | ✅ MERGED (staging f7739a1 · DEC-20260610-002) |
+| 022 | **방향 피격 인디케이터** — 조작캐 피격 시 공격자 방향으로 화면 가장자리 빨간 글로우(인포워 HUD) | scope/idea | 신규 UX, **F-011 정보전 HUD / UI 스펙 후보**. F5·튜닝 후 OPS_30 정합 | IMPLEMENTED (전파 후보) |
+| 023 | **인벤토리 시스템**(5×8 백팩 + 컨테이너, `i` 토글·중앙·창드래그) + **백팩 아이템**(가변 W×H·occupancy·드래그&드롭·경계/겹침/스냅·**회전 R**·**컨테이너 간 이동**) | scope/idea | 신규 인벤 시스템, **F-010 Loadout / 신규 인벤 spec 후보**. 스택/무게/저장 확정 시 OPS_30 | IMPLEMENTED (전파 후보) |
+| 024 | **월드 루프**: 상자(키 보유, 우클릭 루팅) → 키 → **키 게이트 문**(탈출경로 차단) → 문 개방 시 objective → 탈출. RM-OBJ-01 진입 자동완료 **제거**. 상호작용=우클릭(E=서브스킬2 예약) | scope/rule | 데모 objective/extraction 흐름 변경 — **F-007(extraction)·F-026(레벨)·DBP-DEMO-001 / QA-030 objective 정합 후보**. F5·튜닝 후 OPS_30 | IMPLEMENTED (전파 후보) |
 
 > **비-드리프트(기존 spec 구현=정합, ImplDecisionLog 기록):** partyInCombat 진입/종료(D-010 §4.1 피해·공격·인지 / §4.2 grace), 비조작 안전우선 슬롯-이탈 트리거=피격/사거리(F-004 §3.1/§3.3), 힐러 포지셔닝(F-005), **지휘권 진입 핸드오프=서브리더 앵커(F-003 §3.4 #2)** — 진입 동작은 기존 spec 정합. 단 **스왑 중 지휘권/랠리 거동은 §3.0.4 분리 모델로 정제 → DRIFT-021(✅ MERGED f7739a1)**. 서브리더 지정(UI-005)·지휘권 전환 UX(UI-008)·Leader Move Ping(F-003 §3.5)은 **미구현(기본값/보류)**.
 > **아이디어(OPS_08):** "시야콘을 보이게 하는 소모품"(현재는 개발용 상시 표시) → 소모품/UI 아이디어로 등록 권장.
@@ -132,6 +135,11 @@
 - **구현(2026-06-10, 2차 정제):** `_update_command_holder()`를 **per-frame** 갱신으로 — **리더가 정본 앵커**(이동핑 명령 대상). 리더가 "나가 있는" 동안만 임시 위임: ① 리더 컨트롤(정찰) → stand-in 보유(파티 위치 유지) ② 리더 해제됐으나 복귀 중 → stand-in 유지(파티가 리더의 먼 위치로 안 끌려감) ③ **리더가 대열 복귀(stand-in 앵커 5m 내, `_leader_returned`) → 앵커를 리더로 환원**. stand-in 선정 시 **방금 떨어진 정찰자 제외**(`avoid_scout`)로 거울 케이스(서브 정찰→리더 스왑)도 처리. 결과: 떨어진 1명만 이탈, 나머지 대열 유지, 복귀자 슬롯 복귀, **앵커는 임의 멤버로 흘러가지 않고 리더로 돌아옴**.
 - **§3.4 관계:** 진입 핸드오프(리더 컨트롤→서브, §3.4 #2/#3)는 **그대로**. 추가: (a)리더=정본 앵커·복귀 시 환원 (b)정찰/복귀 중 임시 stand-in (c)stand-in 후보=leader/sub→전 멤버(2명으론 불충족)·정찰자 제외. 1차 시도(앵커가 stand-in으로 영구 drift)는 사용자 지적으로 폐기 — 앵커는 이동핑 대상이라 의미있는 역할이어야 함.
 - **전파 결과(✅ MERGED, staging f7739a1 · DEC-20260610-002):** 전파 단계에서 F-003 §3.0/§3.10이 "**앵커 고정 + UI-008 수동 전환**" 모델임을 발견 — 단순 확장이 아니라 **모델 충돌**. 사용자 결정으로 **분리 모델** 채택: **지휘권 보유자**(리더 고정·이동핑/MIA/합류 기준, UI-008로만 변경) ↔ **포메이션 랠리 앵커**(보유자 조작/복귀 중 stand-in 자동·복귀 시 환원, 정찰자 제외)를 **F-003 §3.0.4** 신설로 SSOT화. 게임 코드는 랠리 앵커만 구현(핑/MIA 미구현이라 보유자=리더는 개념상 동치). `leader_return_radius_m` 5m은 tuning. UI-008은 "리더 외 명시 지정"으로 재정의(후속). 게임 `spec_ref.json` 재핀 f7739a1.
+
+### DRIFT-022 — 방향 피격 인디케이터 (인포워 HUD, F-011/UI 후보) 🔸 IMPLEMENTED
+- **구현(2026-06-10):** 조작 캐릭 피격 시 **공격자 방향으로 화면 가장자리 빨간 글로우** — `CombatController.party_hit` 신호(모든 피격, 칩뎀컷, severity=dmg/maxHP) → dungeon_run이 조작캐만 필터 + 카메라 `unproject_position`으로 스크린 방향 산출 → `damage_indicator.gd`(Control, 절차 draw, 동방향 debounce·페이드). 기존 카메라 방향킥(AB 전용)을 보강.
+- **분류/전파:** scope/idea — 신규 인포워 HUD 피드백 UX. spec 미정의. **F-011**(Vision & Information War, 정보 제시) 또는 신규 **UI 문서**가 적합한 홈. F5 확인·튜닝(방향 부호·강도·페이드) 후 OPS_30 정합. 튜닝수치(MIN_FRAC 0.012·GAIN 4.0·SPREAD 38°·DEPTH 0.16·FADE 0.7s)는 전파 금지.
+- **확장(2단계):** 팔로워(비조작) 오프스크린 피격 표시 — F-003 §3.9 분리경고/PIP와 정합 여지. ImplDecisionLog IMPL-DEC-20260610-011.
 
 ### DRIFT-020 — 전투AI/인지 튜닝수치 (LOGGED, 전파금지)
 - FOV 160° · sight_range 12m · proximity 2.5m · alert_zone_frac 0.2 · scan ±35°/4s · investigate_speed 0.35 · chase_blind 0.55 · squad_prop_radius 9m · combat_exit_grace 6s · squad_lane 12m · cone alpha 0.05~0.06.

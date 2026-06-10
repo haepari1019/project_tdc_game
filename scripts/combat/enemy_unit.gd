@@ -295,7 +295,11 @@ func build_vision_cone(range_m: float, fov_deg: float, alert_frac: float) -> voi
 	if _vision_cone != null:
 		_vision_cone.queue_free()
 	_vision_cone = Node3D.new()
-	_vision_cone.position.y = 0.04
+	# Lifted well off the floor: at ~0.04 the cone was near-coplanar with the ground, so
+	# the far top-down camera's depth precision z-fought them (jitter). 0.3 separates them
+	# in depth while still reading as ground-level (cones share this Y → still mutually
+	# depth-reject, no alpha stacking). ref: vision cone z-fighting fix.
+	_vision_cone.position.y = 0.3
 	add_child(_vision_cone)
 	var half := deg_to_rad(fov_deg * 0.5)
 	var combat_r := range_m * (1.0 - alert_frac)
@@ -463,6 +467,11 @@ func _build_box_mesh(color: Color, box_size: Vector3) -> void:
 	_body_material.albedo_color = color
 	_body_material.roughness = 0.5
 	mesh_node.material_override = _body_material
+
+
+## Body (mesh) color — for the enemy info panel portrait (and an enemy marker for clicks).
+func get_body_color() -> Color:
+	return _base_albedo
 
 
 ## Floating HP bar (PH dev visibility — A4 replaces with real HUD).

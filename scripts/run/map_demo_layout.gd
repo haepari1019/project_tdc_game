@@ -172,6 +172,16 @@ func get_extraction_position() -> Vector3:
 	return _extraction_point
 
 
+## Each room's footprint for the minimap: [{center: Vector3, size: Vector3}] (XZ used).
+## Reads the decoupled _room_points interface, so a Blender map reuses it unchanged.
+func get_room_rects() -> Array:
+	var out: Array = []
+	for ref in _room_points:
+		var p: Dictionary = _room_points[ref]
+		out.append({"center": p["spawn"], "size": p["size"]})
+	return out
+
+
 # --- Interface backing (placeholder = ROOM_SPECS; a Blender map overrides) -------
 
 ## Room lighting profile — `rooms.json` (SSOT) first, ROOM_SPECS fallback. De-dups
