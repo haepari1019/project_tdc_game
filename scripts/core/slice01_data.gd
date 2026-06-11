@@ -11,6 +11,7 @@ const ENEMIES_PATH := SLICE01_DIR + "enemies.json"
 const ABILITIES_PATH := SLICE01_DIR + "abilities.json"
 const ROOMS_PATH := SLICE01_DIR + "rooms.json"
 const BLUEPRINT_PATH := SLICE01_DIR + "blueprint.json"
+const GEAR_PATH := SLICE01_DIR + "gear.json"
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -21,6 +22,8 @@ var _abilities: Dictionary = {}
 var _encounters: Dictionary = {}
 var _rooms: Dictionary = {}
 var _blueprint: Dictionary = {}
+var _gear: Array = []
+var _gear_by_id: Dictionary = {}
 
 
 func _ready() -> void:
@@ -55,6 +58,38 @@ func get_identity_skill_ids() -> PackedStringArray:
 		if row is Dictionary:
 			out.append(String(row.get("identity_skill_id", "")))
 	return out
+
+
+## Identity row (identities.json) by identity_skill_id. {} if unknown.
+func get_identity_row(identity_skill_id: String) -> Dictionary:
+	for row in _identities:
+		if typeof(row) == TYPE_DICTIONARY and String(row.get("identity_skill_id", "")) == identity_skill_id:
+			return row.duplicate(true)
+	return {}
+
+
+## Identity Gear masters (gear.json). Identity is gear-bound (F-008 §3.7).
+func get_gear_rows() -> Array:
+	var out: Array = []
+	for row in _gear:
+		if row is Dictionary:
+			out.append(row.duplicate(true))
+	return out
+
+
+func get_gear_master(base_gear_id: String) -> Dictionary:
+	var g = _gear_by_id.get(base_gear_id, {})
+	return g.duplicate(true) if typeof(g) == TYPE_DICTIONARY else {}
+
+
+## Starter gear whose bundled identity == identity_skill_id (1:1). {} if none.
+func get_starter_gear_for_identity(identity_skill_id: String) -> Dictionary:
+	for row in _gear:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		if bool(row.get("starter", false)) and String(row.get("bundled_identity_skill_id", "")) == identity_skill_id:
+			return row.duplicate(true)
+	return {}
 
 
 func get_encounter(encounter_id: String) -> Dictionary:
@@ -113,10 +148,11 @@ func get_pool_encounter(pool_slot: String) -> String:
 
 
 func get_summary() -> String:
-	return "slice01 manifest=%s encounters=%d identities=%d" % [
+	return "slice01 manifest=%s encounters=%d identities=%d gear=%d" % [
 		_manifest.get("contract", "?"),
 		_encounters.size(),
 		_identities.size(),
+		_gear.size(),
 	]
 
 
@@ -129,10 +165,12 @@ func _load_and_validate() -> bool:
 	var abilities_doc := _read_json_dict(ABILITIES_PATH, "abilities", errors)
 	_rooms = _read_json_dict(ROOMS_PATH, "rooms", errors)
 	_blueprint = _read_json_dict(BLUEPRINT_PATH, "blueprint", errors)
+	var gear_doc := _read_json_dict(GEAR_PATH, "gear", errors)
 
 	if errors.is_empty():
 		_validate_blueprint(errors)
 		_parse_identities(identities_doc, errors)
+		_parse_gear(gear_doc, errors)
 		_parse_enemies(enemies_doc, errors)
 		_parse_abilities(abilities_doc, errors)
 		_validate_manifest(errors)
@@ -194,6 +232,52 @@ func _parse_identities(doc: Dictionary, errors: Array[String]) -> void:
 			IdValidate.require_id(sub_id, allowed_ability, "sub_ability_id", errors)
 		IdValidate.require_id(String(row.get("pattern_id", "")), allowed_pattern, "pattern_id", errors)
 		_identities.append(row)
+
+
+const _GEAR_KINDS := ["WardGear", "Magitech"]
+const _RANGE_BANDS := ["Melee", "Mid", "Long"]
+const _UNLOCK_STATES := ["Locked", "Purchasable", "Owned"]
+
+
+## Identity Gear masters (F-008 §3.7). base_gear_id, bundled identity (-> identities),
+## basic attack profile, equip_classes (role gate). Validated against id_registry.
+func _parse_gear(doc: Dictionary, errors: Array[String]) -> void:
+	var raw = doc.get("gear", [])
+	if typeof(raw) != TYPE_ARRAY:
+		errors.append("gear.json: 'gear' must be an array")
+		return
+	_gear.clear()
+	_gear_by_id.clear()
+	var allowed_gear: Array = _registry_list("base_gear_ids")
+	var allowed_identity: Array = _registry_list("identity_skill_ids")
+	var allowed_class: Array = _registry_list("class_ids")
+	var allowed_ba: Array = _registry_list("basic_attack_profile_ids")
+	for row in raw:
+		if typeof(row) != TYPE_DICTIONARY:
+			errors.append("gear.json: each gear must be an object")
+			continue
+		var gid := String(row.get("base_gear_id", ""))
+		IdValidate.require_id(gid, allowed_gear, "base_gear_id", errors)
+		var bid := String(row.get("bundled_identity_skill_id", ""))
+		IdValidate.require_id(bid, allowed_identity, "bundled_identity_skill_id", errors)
+		IdValidate.require_id(String(row.get("basic_attack_profile_id", "")), allowed_ba, "basic_attack_profile_id", errors)
+		var classes = row.get("equip_classes", [])
+		if typeof(classes) != TYPE_ARRAY or classes.is_empty():
+			errors.append("gear.json %s: equip_classes must be a non-empty array" % gid)
+		else:
+			for c in classes:
+				IdValidate.require_id(String(c), allowed_class, "equip_classes", errors)
+		if not _GEAR_KINDS.has(String(row.get("gear_kind", ""))):
+			errors.append("gear.json %s: invalid gear_kind" % gid)
+		if not _RANGE_BANDS.has(String(row.get("range_band", ""))):
+			errors.append("gear.json %s: invalid range_band" % gid)
+		if not _UNLOCK_STATES.has(String(row.get("unlock_state", "Owned"))):
+			errors.append("gear.json %s: invalid unlock_state" % gid)
+		# 1:1 bundled identity must resolve to an identities.json row (F-008 §3.7, QA-008).
+		if not bid.is_empty() and get_identity_row(bid).is_empty():
+			errors.append("gear.json %s: bundled_identity_skill_id '%s' not in identities.json" % [gid, bid])
+		_gear.append(row)
+		_gear_by_id[gid] = row
 
 
 func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:

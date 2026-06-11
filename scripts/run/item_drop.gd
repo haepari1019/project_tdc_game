@@ -35,7 +35,13 @@ func interact_anchor() -> Vector3:
 func interact() -> void:
 	if _inv == null:
 		return
-	var ok: bool = _inv.add_to_backpack(String(item.id), int(item.w), int(item.h), item.color)
+	# Identity Gear loot (F-008 §3.3 / DEC-20260611-001): enters the run inventory as an
+	# At-Risk instance (Extraction Success → Owned; Run Failure → Loss Bundle candidate).
+	var ok: bool
+	if String(item.get("kind", "")) == "gear":
+		ok = _inv.add_gear_to_backpack(String(item.get("base_gear_id", "")), true)
+	else:
+		ok = _inv.add_to_backpack(String(item.id), int(item.w), int(item.h), item.color)
 	if ok:
 		queue_free()  # picked up — remove from the world
 	# else: backpack full — leave the drop so the player can free space first

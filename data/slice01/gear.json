@@ -1,0 +1,49 @@
+{
+  "_note": "Identity Gear masters (Slice-01 starter). SSOT: spec GEAR-COR-000 / F-008 §3.7. base_gear_id <-> bundled_identity_skill_id is 1:1. Identity (stats/skills) resolves via bundled_identity_skill_id -> identities.json. F-008/DEC-20260611-001: equipped=Safe, unequipped looted instance=At Risk (run-inventory, future Track B step 5).",
+  "gear": [
+    {
+      "base_gear_id": "gear_ward_tank_anchor_set",
+      "gear_kind": "WardGear",
+      "equip_classes": ["Tank"],
+      "bundled_identity_skill_id": "tank_anchor_guard",
+      "basic_attack_profile_id": "ba_tank_shield_tap",
+      "range_band": "Melee",
+      "display_name": "Ward Anchor Bulwark",
+      "unlock_state": "Owned",
+      "starter": true
+    },
+    {
+      "base_gear_id": "gear_ward_dps_press_set",
+      "gear_kind": "WardGear",
+      "equip_classes": ["DPS"],
+      "bundled_identity_skill_id": "dps_press_line",
+      "basic_attack_profile_id": "ba_dps_arc_bolt",
+      "range_band": "Mid",
+      "display_name": "Ward Press Rod",
+      "unlock_state": "Owned",
+      "starter": true
+    },
+    {
+      "base_gear_id": "gear_ward_nuker_ruin_set",
+      "gear_kind": "WardGear",
+      "equip_classes": ["Nuker"],
+      "bundled_identity_skill_id": "nuker_mark_ruin",
+      "basic_attack_profile_id": "ba_nuker_shard_shot",
+      "range_band": "Mid",
+      "display_name": "Ward Ruin Sight",
+      "unlock_state": "Owned",
+      "starter": true
+    },
+    {
+      "base_gear_id": "gear_ward_healer_mend_set",
+      "gear_kind": "WardGear",
+      "equip_classes": ["Healer"],
+      "bundled_identity_skill_id": "healer_mend_circle",
+      "basic_attack_profile_id": "ba_healer_pulse_bolt",
+      "range_band": "Long",
+      "display_name": "Ward Mend Lantern",
+      "unlock_state": "Owned",
+      "starter": true
+    }
+  ]
+}

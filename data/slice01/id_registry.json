@@ -17,6 +17,18 @@
   "_note_ability_ids": "AB-001/002/010/011/015/016 = enemy abilities in use. AB-S01..S04 = non-spec demo sub-skills (DRIFT-001), pending spec reconciliation to skillbook AB-### (F-009).",
   "pattern_ids": ["PT-010", "PT-020", "PT-021", "PT-022"],
   "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
+  "base_gear_ids": [
+    "gear_ward_tank_anchor_set",
+    "gear_ward_dps_press_set",
+    "gear_ward_nuker_ruin_set",
+    "gear_ward_healer_mend_set"
+  ],
+  "basic_attack_profile_ids": [
+    "ba_tank_shield_tap",
+    "ba_dps_arc_bolt",
+    "ba_nuker_shard_shot",
+    "ba_healer_pulse_bolt"
+  ],
   "blueprint_ids": ["DBP-DEMO-001"],
   "map_ids": ["MAP-DEMO-001"],
   "contract_ids": ["CONTRACT-DEMO-001"],

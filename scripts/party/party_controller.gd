@@ -476,10 +476,16 @@ func _spawn_party_from_data() -> void:
 	for i in rows.size():
 		var row: Dictionary = rows[i]
 		var class_id := String(row.get("class_id", ""))
+		# Identity is gear-bound (F-008 §3.7): resolve the starter gear for this
+		# identity and let the member derive its identity from the equipped gear.
+		var gear: Dictionary = Slice01Data.get_starter_gear_for_identity(String(row.get("identity_skill_id", "")))
+		if gear.is_empty():
+			push_error("[TDC] No starter gear for identity '%s'" % row.get("identity_skill_id", ""))
+			continue
 		var member: CharacterBody3D = MemberScene.instantiate()
 		$Members.add_child(member)
 		member.setup(
-			row,
+			gear,
 			i,
 			UnitVisuals.role_color(class_id),
 			_collision_radius,

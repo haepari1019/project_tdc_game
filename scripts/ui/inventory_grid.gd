@@ -91,10 +91,18 @@ func _mark(item: Dictionary, value: Variant) -> void:
 
 ## Add an item at the first free spot. Returns false if no room.
 func add_item(id: String, w: int, h: int, color: Color) -> bool:
+	return add_item_dict({"id": id, "w": w, "h": h, "color": color})
+
+
+## Add a pre-built item dict (preserving extra fields like gear metadata: kind,
+## base_gear_id, at_risk) at the first free spot. Returns false if no room.
+func add_item_dict(item: Dictionary) -> bool:
+	var w := int(item.get("w", 1))
+	var h := int(item.get("h", 1))
 	for row in rows:
 		for col in cols:
 			if can_place(w, h, col, row):
-				place({"id": id, "w": w, "h": h, "col": col, "row": row, "color": color}, col, row)
+				place(item, col, row)
 				return true
 	return false
 
@@ -171,6 +179,8 @@ func _make_node(item: Dictionary) -> Panel:
 func _item_tip(item: Dictionary) -> String:
 	var id := String(item.id)
 	var lines: Array = [id]
+	if String(item.get("kind", "")) == "gear":
+		lines.append("장비 (Identity Gear) · %s" % ("At Risk" if bool(item.get("at_risk", false)) else "Safe"))
 	var desc := String(ITEM_DESC.get(id, ""))
 	if not desc.is_empty():
 		lines.append(desc)

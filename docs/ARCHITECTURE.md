@@ -49,7 +49,7 @@
 | 파일 | L | 책임 | 핵심 심볼 | 의존 |
 |------|--:|------|-----------|------|
 | [game_bootstrap.gd](../scripts/autoload/game_bootstrap.gd) | 48 | `spec_ref.json` 로드, 스펙 핀 요약 노출 | `get_spec_ref` `get_spec_pin_summary` | Slice01Data |
-| [core/slice01_data.gd](../scripts/core/slice01_data.gd) | 267 | `data/slice01/*` 전부 로드·검증·캐시, 타입드 게터 | `get_encounter` `get_enemy_row` `get_ability` `get_blueprint` `get_room_row` | IdValidate, JSON 파일 |
+| [core/slice01_data.gd](../scripts/core/slice01_data.gd) | 326 | `data/slice01/*`(gear 포함) 전부 로드·검증·캐시, 타입드 게터 | `get_encounter` `get_enemy_row` `get_ability` `get_gear_master` `get_starter_gear_for_identity` `get_identity_row` | IdValidate, JSON 파일 |
 | [core/validate_ids.gd](../scripts/core/validate_ids.gd) | 16 | id 레지스트리 멤버십 검증 + 표준 에러 문자열 | `contains_id` `require_id` `unknown_id_error` | (순수함수) |
 
 ### run — `scripts/run/`
@@ -69,7 +69,7 @@
 |------|--:|------|-----------|------|
 | [party_controller.gd](../scripts/party/party_controller.gd) | **1014** | ⚠️ **갓오브젝트**: 스폰·스왑·결속(command-holder) + 포메이션 상태머신 + 슬롯기하 + **스티어링 v1(~21 `_sv1_*`, ~530줄 지배덩어리)** + 설정로더 (전투교전·힐러무빙은 CombatPositioning 분리) | `try_swap_to` `_sv1_update_follow` `_update_command_holder` `_load_formation_config` | party_cohesion, CombatPositioning, party_member.tscn, player_controller, Slice01Data, formation.json |
 | [combat_positioning.gd](../scripts/party/combat_positioning.gd) | 111 | 🟢 전투우선 follower goal-point: 슬롯이탈 트리거(`enemy_in_party_basic_range`)·근접 attack-range 점·힐러 wounded 추종. PartyController 자식; `_members`만 백레퍼 | `has_live_enemies` `enemy_in_party_basic_range` `engage_target` | party_controller(`_members`), group 'enemy' |
-| [party_member.gd](../scripts/party/party_member.gd) | 336 | 단일 슬롯: 스탯·스킬파라미터·HP/실드/상태(F-021)·넉백·navmesh 캐시·조작비주얼 | `take_damage` `heal` `add_shield` `apply_stun/poison` `get_status_list` `nav_*` | health_bar, Slice01Data, groups 'party_member'/'player' |
+| [party_member.gd](../scripts/party/party_member.gd) | 369 | 단일 슬롯: **Identity Gear 바인딩(gear→identity, F-008 §3.7)**·스탯·스킬파라미터·HP/실드/상태(F-021)·넉백·navmesh 캐시·조작비주얼 | `setup` `_bind_gear` `equip_gear` `can_equip_gear` `take_damage` `heal` `nav_*` | health_bar, Slice01Data, groups 'party_member'/'player' |
 | [party_cohesion.gd](../scripts/party/party_cohesion.gd) | 8 | F-003 결속 모드 enum(BOUND/UNBOUND) | `Mode` `MODE_*` | — |
 
 ### combat — `scripts/combat/`
@@ -101,6 +101,7 @@
 
 - `manifest.json` (phase/contract/pool→encounter 바인딩) · `id_registry.json` (허용 ID) · `blueprint.json` · `rooms.json` · `formation.json`
 - `identities.json` (역할→`ability_id`/`sub_ability_id`) · `enemies.json` (적→`abilities[].ref`) · `abilities.json` (**통합 카탈로그**, AB-### → kind/효과) · `encounters/ENC-*.json`
+- `gear.json` (**Identity Gear 마스터**: `base_gear_id` → `bundled_identity_skill_id` → identities; F-008 §3.7 · `DEC-20260611-001`) — 캐릭터 **identity는 장착 gear에서 파생**(`party_member._bind_gear`). 미장착 looted gear = run-inventory At Risk(인벤 `kind:"gear"`).
 - 캐릭터/유닛은 **ID로 어빌리티를 링크**한다(인라인 정의 금지). "한 번 정의 → 어디서나 할당".
 
 > ⚠️ `abilities.json`은 현재 `id_registry`와 대조 **검증되지 않는다**(§6 DEBT-DM1). 다른 도메인(enemies 등)은 `require_id`로 검증됨.

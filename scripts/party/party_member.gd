@@ -18,6 +18,15 @@ const CONTROLLED_SCALE := 1.15
 const CONTROLLED_EMISSION := 0.55
 const HealthBar := preload("res://scripts/combat/health_bar.gd")
 
+# --- Identity Gear (F-008 §3.7 / DEC-20260611-001): gear is the source of identity ---
+## base_gear_id -> bundled_identity_skill_id -> identities.json row -> the identity fields below.
+var equipped_gear: Dictionary = {}
+var base_gear_id: String = ""
+var gear_kind: String = ""
+var basic_attack_profile_id: String = ""
+var equip_classes: Array = []
+
+# --- Identity (resolved from equipped_gear's bundled identity) ---
 var identity_skill_id: String = ""
 var class_id: String = ""
 var ability_id: String = ""
@@ -70,24 +79,13 @@ var _nav_path_idx: int = 0
 var _nav_target: Vector3 = Vector3.ZERO
 
 
-func setup(row: Dictionary, index: int, color: Color, collision_radius: float = -1.0, collision_height: float = -1.0, role_scale: float = 1.0) -> void:
-	identity_skill_id = String(row.get("identity_skill_id", ""))
-	class_id = String(row.get("class_id", ""))
-	ability_id = String(row.get("ability_id", ""))
+## Spawn a party member from its Identity Gear master (F-008 §3.7): the gear's
+## bundled_identity_skill_id resolves the identity row that drives stats + skills.
+func setup(gear: Dictionary, index: int, color: Color, collision_radius: float = -1.0, collision_height: float = -1.0, role_scale: float = 1.0) -> void:
 	slot_index = index
 	_base_color = color
 	_role_scale = role_scale
-	var combat: Dictionary = row.get("combat", {})
-	max_hp = float(combat.get("hp", 100.0))
-	hp = max_hp
-	basic_damage = float(combat.get("basic_damage", 8.0))
-	basic_range_m = float(combat.get("basic_range_m", 2.0))
-	basic_interval_s = float(combat.get("basic_interval_s", 1.0))
-	threat_mult = float(combat.get("threat_mult", 1.0))  # F-022 damageThreatMultiplier
-	# Identity + sub skill params are LINKED by id (abilities.json catalog).
-	identity_params = Slice01Data.get_ability(ability_id)
-	sub_ability_id = String(row.get("sub_ability_id", ""))
-	sub_params = Slice01Data.get_ability(sub_ability_id)
+	_bind_gear(gear, true)
 	name = identity_skill_id
 	_apply_collision_size(collision_radius, collision_height)
 	_build_cylinder_mesh(color, role_scale)
@@ -96,6 +94,50 @@ func setup(row: Dictionary, index: int, color: Color, collision_radius: float = 
 	add_to_group("party_member")
 	_apply_controlled_visual(false)
 	_build_hp_bar()
+
+
+## Resolve identity from an Identity Gear master and apply it to this member.
+## base_gear_id -> bundled_identity_skill_id -> identities.json row -> stats/skills.
+## reset_hp=true on spawn; false on mid-run swap (keep current HP, clamp to new max).
+func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
+	equipped_gear = gear
+	base_gear_id = String(gear.get("base_gear_id", ""))
+	gear_kind = String(gear.get("gear_kind", ""))
+	basic_attack_profile_id = String(gear.get("basic_attack_profile_id", ""))
+	equip_classes = gear.get("equip_classes", [])
+	identity_skill_id = String(gear.get("bundled_identity_skill_id", ""))
+	var row: Dictionary = Slice01Data.get_identity_row(identity_skill_id)
+	class_id = String(row.get("class_id", ""))
+	ability_id = String(row.get("ability_id", ""))
+	var combat: Dictionary = row.get("combat", {})
+	max_hp = float(combat.get("hp", 100.0))
+	hp = max_hp if reset_hp else minf(hp, max_hp)
+	basic_damage = float(combat.get("basic_damage", 8.0))
+	basic_range_m = float(combat.get("basic_range_m", 2.0))
+	basic_interval_s = float(combat.get("basic_interval_s", 1.0))
+	threat_mult = float(combat.get("threat_mult", 1.0))  # F-022 damageThreatMultiplier
+	# Identity + sub skill params are LINKED by id (abilities.json catalog).
+	identity_params = Slice01Data.get_ability(ability_id)
+	sub_ability_id = String(row.get("sub_ability_id", ""))
+	sub_params = Slice01Data.get_ability(sub_ability_id)
+	identity_cooldown_s = 0.0
+	sub_cooldown_s = 0.0
+
+
+## Role gate (F-008 §3.4, strict): a member may only equip gear for its own class.
+func can_equip_gear(gear: Dictionary) -> bool:
+	var classes = gear.get("equip_classes", [])
+	return typeof(classes) == TYPE_ARRAY and classes.has(class_id)
+
+
+## Mid-run / hub gear swap (F-008 §3.2): caller enforces partyInCombat==false.
+## Returns false (no change) on cross-role gear. Re-syncs identity to the new gear.
+func equip_gear(gear: Dictionary) -> bool:
+	if not can_equip_gear(gear):
+		return false
+	_bind_gear(gear, false)
+	name = identity_skill_id
+	return true
 
 
 func set_controlled(active: bool) -> void:

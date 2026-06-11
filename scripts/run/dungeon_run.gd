@@ -12,6 +12,7 @@ const ItemDrop := preload("res://scripts/run/item_drop.gd")
 const QuestTracker := preload("res://scripts/ui/quest_tracker.gd")
 const Minimap := preload("res://scripts/ui/minimap.gd")
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")
+const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
 ## PH loot table — a defeated enemy drops one of these as a world pickup. ref: F-010.
 const LOOT_TABLE: Array = [
@@ -20,6 +21,12 @@ const LOOT_TABLE: Array = [
 	{"id": "Scrap", "w": 1, "h": 1, "color": Color(0.55, 0.58, 0.62)},
 	{"id": "Cell", "w": 1, "h": 2, "color": Color(0.62, 0.45, 0.82)},
 ]
+
+## PH gear-loot pool — dungeon-dropped Identity Gear (F-008 §3.3 / DEC-20260611-001;
+## looted = At Risk). A same-role set (Tank) the player can equip + a cross-role set
+## (Healer) to show the equipClasses gate reject. Masters live in gear.json.
+const GEAR_LOOT: Array = ["gear_ward_tank_anchor_set", "gear_ward_healer_mend_set"]
+const GEAR_DROP_CHANCE := 0.4
 
 @onready var _run: Node = $RunController
 @onready var _map: Node3D = $MapDemoLayout
@@ -109,6 +116,7 @@ func _ready() -> void:
 	$HUD.add_child(_damage_indicator)
 	_inventory_ui = InventoryUI.new()
 	$HUD.add_child(_inventory_ui)
+	_inventory_ui.setup_party(_party, _combat)  # party gear equip slots (F-008 §3.2)
 	# World loop — chest (holding the extraction key) in the objective room.
 	var chest := Chest.new()
 	chest.title = "유물함"
@@ -369,11 +377,29 @@ func _select_enemy_under_mouse() -> void:
 
 ## CombatController.enemy_defeated → spawn a PH loot drop at the death position.
 func _on_enemy_loot(world_pos: Vector3) -> void:
-	var def: Dictionary = LOOT_TABLE[randi() % LOOT_TABLE.size()]
+	var def: Dictionary
+	if randf() < GEAR_DROP_CHANCE and not GEAR_LOOT.is_empty():
+		def = _make_gear_drop_def(String(GEAR_LOOT[randi() % GEAR_LOOT.size()]))
+	else:
+		def = (LOOT_TABLE[randi() % LOOT_TABLE.size()] as Dictionary).duplicate()
 	var drop := ItemDrop.new()
-	drop.setup(_inventory_ui, def.duplicate())
+	drop.setup(_inventory_ui, def)
 	drop.position = Vector3(world_pos.x, 0.0, world_pos.z)
 	add_child(drop)
+
+
+## Build an ItemDrop def for an Identity Gear master (gear.json), colored by its role.
+func _make_gear_drop_def(base_gear_id: String) -> Dictionary:
+	var m: Dictionary = Slice01Data.get_gear_master(base_gear_id)
+	var classes: Array = m.get("equip_classes", [])
+	var cid := String(classes[0]) if not classes.is_empty() else "Tank"
+	return {
+		"id": String(m.get("display_name", base_gear_id)),
+		"w": 2, "h": 2,
+		"color": UnitVisuals.role_color(cid),
+		"kind": "gear",
+		"base_gear_id": base_gear_id,
+	}
 
 
 ## Floating interaction label (name + key) positioned ABOVE the hovered object by
