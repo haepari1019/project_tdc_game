@@ -107,13 +107,6 @@ func try_extract() -> bool:
 	return true
 
 
-func advance_phase_debug() -> void:
-	if _phase_index >= RunPhase.SEQUENCE.size() - 1:
-		return
-	_phase_index += 1
-	_set_phase(RunPhase.SEQUENCE[_phase_index])
-
-
 func _set_phase(phase: String) -> void:
 	if run_phase == phase:
 		return

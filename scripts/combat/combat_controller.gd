@@ -16,7 +16,7 @@ signal camera_shake(trauma: float, kick_world: Vector3)
 ## (controlled-only) edge UI. Emitted for ALL hits above a chip threshold (incl. basic).
 signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool)
 ## An enemy was defeated at world_pos — drives world item drops (loot). ref: F-010 loot.
-signal enemy_defeated(world_pos: Vector3)
+signal enemy_defeated(world_pos: Vector3, ability_refs: Array)
 
 const EnemyScene := preload("res://scenes/combat/enemy_unit.tscn")
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
@@ -216,6 +216,10 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 ## auto-subs (QA-005 §2.6). dungeon_run calls this on the sub key.
 func cast_sub(member: CharacterBody3D, target_pos: Vector3 = Vector3.ZERO) -> void:
 	_ability_dispatch.cast_sub(member, target_pos)
+
+
+func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
+	_ability_dispatch.cast_skillbook(member, slot_index, target_pos)
 
 
 func _enemies_in_radius(pos: Vector3, r: float) -> Array:
@@ -477,4 +481,8 @@ func _spawn_offset(i: int) -> Vector3:
 func _on_enemy_died(unit: CharacterBody3D) -> void:
 	_enemies.erase(unit)
 	if is_instance_valid(unit):
-		enemy_defeated.emit(unit.global_position)  # → dungeon_run spawns a loot drop
+		var refs: Array = []  # the enemy's own ability refs (dungeon_run filters lootable)
+		for a in unit.abilities:
+			if typeof(a) == TYPE_DICTIONARY:
+				refs.append(String(a.get("ref", "")))
+		enemy_defeated.emit(unit.global_position, refs)  # → dungeon_run rolls per-kill loot

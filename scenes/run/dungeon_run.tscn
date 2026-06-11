@@ -135,7 +135,7 @@ text = "—"
 
 [node name="CohesionLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
-text = "cohesion"
+text = "cohesion (U)"
 
 [node name="CohesionValue" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
@@ -143,7 +143,7 @@ text = "파티결속"
 
 [node name="FormationLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
-text = "formation (F)"
+text = "formation (CapsLk)"
 
 [node name="FormationValue" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
@@ -159,7 +159,7 @@ text = "휴식중"
 
 [node name="SubLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
-text = "sub skill (Q)"
+text = "sub skills (Q/E/R)"
 
 [node name="SubValue" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
@@ -167,7 +167,7 @@ text = "Ready"
 
 [node name="Hint" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
-text = "WASD · 1-4 swap · U cohesion"
+text = "WASD 이동 · 1-4 스왑 · RMB·F 상호작용 · I 인벤토리 · Esc 메뉴"
 autowrap_mode = 2
 
 [node name="ResultBanner" type="Label" parent="HUD"]

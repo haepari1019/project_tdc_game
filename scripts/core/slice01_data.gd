@@ -12,6 +12,8 @@ const ABILITIES_PATH := SLICE01_DIR + "abilities.json"
 const ROOMS_PATH := SLICE01_DIR + "rooms.json"
 const BLUEPRINT_PATH := SLICE01_DIR + "blueprint.json"
 const GEAR_PATH := SLICE01_DIR + "gear.json"
+const SKILLBOOKS_PATH := SLICE01_DIR + "skillbooks.json"
+const CONSUMABLES_PATH := SLICE01_DIR + "consumables.json"
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -24,6 +26,10 @@ var _rooms: Dictionary = {}
 var _blueprint: Dictionary = {}
 var _gear: Array = []
 var _gear_by_id: Dictionary = {}
+var _skillbooks: Array = []
+var _skillbook_by_ability: Dictionary = {}
+var _consumables: Array = []
+var _consumable_by_id: Dictionary = {}
 
 
 func _ready() -> void:
@@ -92,6 +98,35 @@ func get_starter_gear_for_identity(identity_skill_id: String) -> Dictionary:
 	return {}
 
 
+## Skillbook masters (skillbooks.json). Looted per-kill from an enemy's lootable AB
+## (F-009 / DEC-20260611-002). Keyed by base_ability_id (Shared AB).
+func get_skillbook_rows() -> Array:
+	var out: Array = []
+	for row in _skillbooks:
+		if row is Dictionary:
+			out.append(row.duplicate(true))
+	return out
+
+
+func get_skillbook_master(base_ability_id: String) -> Dictionary:
+	var s = _skillbook_by_ability.get(base_ability_id, {})
+	return s.duplicate(true) if typeof(s) == TYPE_DICTIONARY else {}
+
+
+## Consumable masters (consumables.json). Z/X/C hotkey items (F-010).
+func get_consumable_rows() -> Array:
+	var out: Array = []
+	for row in _consumables:
+		if row is Dictionary:
+			out.append(row.duplicate(true))
+	return out
+
+
+func get_consumable_master(consumable_id: String) -> Dictionary:
+	var c = _consumable_by_id.get(consumable_id, {})
+	return c.duplicate(true) if typeof(c) == TYPE_DICTIONARY else {}
+
+
 func get_encounter(encounter_id: String) -> Dictionary:
 	if _encounters.has(encounter_id):
 		return _encounters[encounter_id].duplicate(true)
@@ -148,11 +183,12 @@ func get_pool_encounter(pool_slot: String) -> String:
 
 
 func get_summary() -> String:
-	return "slice01 manifest=%s encounters=%d identities=%d gear=%d" % [
+	return "slice01 manifest=%s encounters=%d identities=%d gear=%d skillbooks=%d" % [
 		_manifest.get("contract", "?"),
 		_encounters.size(),
 		_identities.size(),
 		_gear.size(),
+		_skillbooks.size(),
 	]
 
 
@@ -166,11 +202,15 @@ func _load_and_validate() -> bool:
 	_rooms = _read_json_dict(ROOMS_PATH, "rooms", errors)
 	_blueprint = _read_json_dict(BLUEPRINT_PATH, "blueprint", errors)
 	var gear_doc := _read_json_dict(GEAR_PATH, "gear", errors)
+	var skillbooks_doc := _read_json_dict(SKILLBOOKS_PATH, "skillbooks", errors)
+	var consumables_doc := _read_json_dict(CONSUMABLES_PATH, "consumables", errors)
 
 	if errors.is_empty():
 		_validate_blueprint(errors)
 		_parse_identities(identities_doc, errors)
 		_parse_gear(gear_doc, errors)
+		_parse_skillbooks(skillbooks_doc, errors)
+		_parse_consumables(consumables_doc, errors)
 		_parse_enemies(enemies_doc, errors)
 		_parse_abilities(abilities_doc, errors)
 		_validate_manifest(errors)
@@ -278,6 +318,63 @@ func _parse_gear(doc: Dictionary, errors: Array[String]) -> void:
 			errors.append("gear.json %s: bundled_identity_skill_id '%s' not in identities.json" % [gid, bid])
 		_gear.append(row)
 		_gear_by_id[gid] = row
+
+
+## Skillbook masters (F-009 §3.2 / DEC-20260611-002). base_ability_id (Shared AB,
+## D-016), equip_classes (role gate), charges_max (탄수), player-cast effect (cast).
+func _parse_skillbooks(doc: Dictionary, errors: Array[String]) -> void:
+	var raw = doc.get("skillbooks", [])
+	if typeof(raw) != TYPE_ARRAY:
+		errors.append("skillbooks.json: 'skillbooks' must be an array")
+		return
+	_skillbooks.clear()
+	_skillbook_by_ability.clear()
+	var allowed_ability: Array = _registry_list("ability_ids")
+	var allowed_class: Array = _registry_list("class_ids")
+	for row in raw:
+		if typeof(row) != TYPE_DICTIONARY:
+			errors.append("skillbooks.json: each skillbook must be an object")
+			continue
+		var aid := String(row.get("base_ability_id", ""))
+		IdValidate.require_id(aid, allowed_ability, "base_ability_id", errors)
+		var classes = row.get("equip_classes", [])
+		if typeof(classes) != TYPE_ARRAY or classes.is_empty():
+			errors.append("skillbooks.json %s: equip_classes must be a non-empty array" % aid)
+		else:
+			for c in classes:
+				IdValidate.require_id(String(c), allowed_class, "equip_classes", errors)
+		if not _RANGE_BANDS.has(String(row.get("range_band", ""))):
+			errors.append("skillbooks.json %s: invalid range_band" % aid)
+		if int(row.get("charges_max", 0)) <= 0:
+			errors.append("skillbooks.json %s: charges_max must be > 0" % aid)
+		var cast = row.get("cast", {})
+		if typeof(cast) != TYPE_DICTIONARY or String(cast.get("kind", "")).is_empty():
+			errors.append("skillbooks.json %s: cast.kind required" % aid)
+		_skillbooks.append(row)
+		_skillbook_by_ability[aid] = row
+
+
+## Consumable masters (F-010 / D-020). consumable_id, effect, max_stack, usable_in_combat.
+func _parse_consumables(doc: Dictionary, errors: Array[String]) -> void:
+	var raw = doc.get("consumables", [])
+	if typeof(raw) != TYPE_ARRAY:
+		errors.append("consumables.json: 'consumables' must be an array")
+		return
+	_consumables.clear()
+	_consumable_by_id.clear()
+	var allowed: Array = _registry_list("consumable_ids")
+	for row in raw:
+		if typeof(row) != TYPE_DICTIONARY:
+			errors.append("consumables.json: each consumable must be an object")
+			continue
+		var cid := String(row.get("consumable_id", ""))
+		IdValidate.require_id(cid, allowed, "consumable_id", errors)
+		if String(row.get("effect", "")).is_empty():
+			errors.append("consumables.json %s: effect required" % cid)
+		if int(row.get("max_stack", 0)) <= 0:
+			errors.append("consumables.json %s: max_stack must be > 0" % cid)
+		_consumables.append(row)
+		_consumable_by_id[cid] = row
 
 
 func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:

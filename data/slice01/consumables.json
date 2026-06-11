@@ -1,0 +1,13 @@
+{
+  "_note": "Consumables (F-010 / D-020 demo). Revive scroll: use 1 OUT OF COMBAT to revive a downed ally. Stacks to max_stack. Bound to Z/X/C hotkeys. In-run revive = SPEC_DRIFT (F-007 §3.6.1 tension), 전파 후보.",
+  "consumables": [
+    {
+      "consumable_id": "con_revive_scroll",
+      "display_name": "부활 스크롤",
+      "effect": "revive_ally",
+      "max_stack": 3,
+      "usable_in_combat": false,
+      "color": [0.55, 0.85, 0.55]
+    }
+  ]
+}

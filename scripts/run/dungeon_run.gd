@@ -13,6 +13,8 @@ const QuestTracker := preload("res://scripts/ui/quest_tracker.gd")
 const Minimap := preload("res://scripts/ui/minimap.gd")
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
+const ConsumableBar := preload("res://scripts/ui/consumable_bar.gd")
+const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
 
 ## PH loot table — a defeated enemy drops one of these as a world pickup. ref: F-010.
 const LOOT_TABLE: Array = [
@@ -26,7 +28,11 @@ const LOOT_TABLE: Array = [
 ## looted = At Risk). A same-role set (Tank) the player can equip + a cross-role set
 ## (Healer) to show the equipClasses gate reject. Masters live in gear.json.
 const GEAR_LOOT: Array = ["gear_ward_tank_anchor_set", "gear_ward_healer_mend_set"]
-const GEAR_DROP_CHANCE := 0.4
+## Gear drops are RARE (per-kill, after the skillbook roll) — ~1-2 per run. (tuning)
+const GEAR_DROP_CHANCE := 0.08
+## Per-kill skillbook drop (F-009 / DEC-20260611-002): only on enemies that USE a lootable
+## AB; that enemy's own AB drops. High so those enemies almost always drop a book. (tuning)
+const SKILLBOOK_DROP_CHANCE := 0.85
 
 @onready var _run: Node = $RunController
 @onready var _map: Node3D = $MapDemoLayout
@@ -50,6 +56,11 @@ const GEAR_DROP_CHANCE := 0.4
 # Ground-targeted sub (DPS/Nuker): press sub key → aim → click to cast at mouse.
 var _aiming: bool = false
 var _aim_member: CharacterBody3D = null
+var _aim_slot: int = -1  # which skillbook slot the aim will cast
+# Revive consumable — hotkey → target a downed ally (corpse / portrait) → channel + revive.
+var _reviving: bool = false
+var _revive_cid: String = ""
+var _revive_prompt: Label
 var _aim_marker: MeshInstance3D
 var _aim_mat: StandardMaterial3D
 
@@ -117,6 +128,10 @@ func _ready() -> void:
 	_inventory_ui = InventoryUI.new()
 	$HUD.add_child(_inventory_ui)
 	_inventory_ui.setup_party(_party, _combat)  # party gear equip slots (F-008 §3.2)
+	var consumable_bar := ConsumableBar.new()  # Z/X/C consumable hotkeys above the char sheet
+	$HUD.add_child(consumable_bar)
+	_inventory_ui.setup_consumable_bar(consumable_bar)
+	_inventory_ui.consumable_use_requested.connect(_on_consumable_use_requested)
 	# World loop — chest (holding the extraction key) in the objective room.
 	var chest := Chest.new()
 	chest.title = "유물함"
@@ -146,6 +161,16 @@ func _ready() -> void:
 	# Enemy inspect panel (top-center), shown on left-click of an enemy.
 	_enemy_info = EnemyInfo.new()
 	$HUD.add_child(_enemy_info)
+	_revive_prompt = Label.new()  # revive targeting prompt / toast (top-center)
+	_revive_prompt.visible = false
+	_revive_prompt.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_revive_prompt.offset_top = 92
+	_revive_prompt.offset_bottom = 120
+	_revive_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_revive_prompt.add_theme_font_size_override("font_size", 18)
+	_revive_prompt.modulate = Color(0.6, 1.0, 0.7)
+	_revive_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$HUD.add_child(_revive_prompt)
 	_camera_rig.set_follow_target(_party.get_controlled())  # glide in from rig origin
 
 
@@ -174,6 +199,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if _inventory_ui.is_open():
 			_inventory_ui.toggle()  # Esc closes the inventory first
+		elif _reviving:
+			_cancel_revive_targeting()
 		elif _aiming:
 			_end_aim()
 		else:
@@ -184,12 +211,22 @@ func _unhandled_input(event: InputEvent) -> void:
 			_end_aim()
 		_inventory_ui.toggle()
 		return
+	# Revive targeting: click a downed ally (world corpse or party portrait) to channel; RMB cancels.
+	if _reviving and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		var rb := event as InputEventMouseButton
+		if rb.button_index == MOUSE_BUTTON_LEFT:
+			var tgt := _pick_downed_target()
+			if tgt != null:
+				_begin_revive_channel(tgt)
+		elif rb.button_index == MOUSE_BUTTON_RIGHT:
+			_cancel_revive_targeting()
+		return
 	# Aiming a ground-targeted sub: left click = cast, right click = cancel.
 	if _aiming and event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed:
 			if mb.button_index == MOUSE_BUTTON_LEFT:
-				_combat.cast_sub(_aim_member, _mouse_ground_pos())
+				_combat.cast_skillbook(_aim_member, _aim_slot, _mouse_ground_pos())
 				_end_aim()
 			elif mb.button_index == MOUSE_BUTTON_RIGHT:
 				_end_aim()
@@ -219,13 +256,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		_camera_rig.orbit_yaw(mm.relative.x)
 		return
 	if event.is_action_pressed("use_sub"):
-		_on_sub_key()
-	if event.is_action_pressed("debug_advance_phase"):
-		_run.advance_phase_debug()
+		_on_sub_key(0)  # Q → skillbook slot 0
+	if event.is_action_pressed("use_sub_e"):
+		_on_sub_key(1)  # E → skillbook slot 1
+	if event.is_action_pressed("use_sub_r"):
+		_on_sub_key(2)  # R → skillbook slot 2
+	if event.is_action_pressed("use_consumable_z"):
+		_on_consumable_key(0)
+	if event.is_action_pressed("use_consumable_x"):
+		_on_consumable_key(1)
+	if event.is_action_pressed("use_consumable_c"):
+		_on_consumable_key(2)
 	if event.is_action_pressed("toggle_cohesion"):
 		_party.toggle_cohesion_mode()
 	if event.is_action_pressed("toggle_formation_priority"):
 		_party.toggle_formation_priority()
+	if event.is_action_pressed("interact"):
+		_interaction.interact_nearest()  # F → nearest interactable to the player (mouse-independent)
 	for i in 4:
 		if event.is_action_pressed("swap_party_%d" % (i + 1)):
 			if _aiming:
@@ -233,20 +280,130 @@ func _unhandled_input(event: InputEvent) -> void:
 			_party.try_swap_to(i)  # success → controlled_changed → rig glides to new char
 
 
-func _on_sub_key() -> void:
+func _on_sub_key(slot_index: int) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
-	if ctrl == null or not ctrl.is_alive() or ctrl.is_stunned() or ctrl.sub_cooldown_s > 0.0:
+	if ctrl == null or not ctrl.is_alive() or ctrl.is_stunned():
 		return
-	if bool(ctrl.sub_params.get("targeted", false)):
-		_start_aim(ctrl)
+	var inst = ctrl.get_skillbook(slot_index)
+	if inst == null:
+		return
+	if int(inst.charges) <= 0 or float(inst.cooldown_s) > 0.0:
+		return  # depleted or on cooldown — no aim marker, no cast
+	# Targeted subs (DPS lunge / Nuker nova) → aim mode: left-click a ground point to cast.
+	# Self-centered subs (taunt/sanctuary/skillbook strike/poison/stun) → instant.
+	if bool(inst.params.get("targeted", false)):
+		_start_aim(ctrl, slot_index, inst)
 	else:
-		_combat.cast_sub(ctrl)
+		_combat.cast_skillbook(ctrl, slot_index, ctrl.global_position)
 
 
-func _start_aim(member: CharacterBody3D) -> void:
+# --- consumables: hotkey use + targeted revive channel --------------------------
+
+func _on_consumable_key(slot: int) -> void:
+	if _inventory_ui.is_open():
+		return  # inventory consumes Z/X/C (hotkey assign) when open
+	var cid := _inventory_ui.get_hotkey(slot)
+	if cid.is_empty():
+		return
+	var master: Dictionary = Slice01Data.get_consumable_master(cid)
+	if master.is_empty():
+		return
+	if String(master.get("effect", "")) == "revive_ally":
+		_start_revive_targeting(cid, master)
+	else:
+		_inventory_ui.use_consumable(slot)  # instant consumables
+
+
+## Right-click a consumable in the inventory → close it and use the consumable (revive
+## → targeting; needs the inventory closed so the player can click the world target).
+func _on_consumable_use_requested(cid: String) -> void:
+	if _inventory_ui.is_open():
+		_inventory_ui.toggle()
+	var master: Dictionary = Slice01Data.get_consumable_master(cid)
+	if master.is_empty():
+		return
+	if String(master.get("effect", "")) == "revive_ally":
+		_start_revive_targeting(cid, master)
+
+
+func _start_revive_targeting(cid: String, master: Dictionary) -> void:
+	if _reviving:
+		_cancel_revive_targeting()  # re-press → toggle off
+		return
+	if not bool(master.get("usable_in_combat", true)) and _combat.is_engaged():
+		_revive_toast("전투 중 사용 불가")
+		return
+	if _inventory_ui.consumable_count(cid) <= 0:
+		_revive_toast("보유 없음")
+		return
+	var has_downed := false
+	for m in _party.get_members():
+		if not (m as Node).is_alive():
+			has_downed = true
+			break
+	if not has_downed:
+		_revive_toast("다운된 아군 없음")
+		return
+	_reviving = true
+	_revive_cid = cid
+	_revive_prompt.text = "부활: 죽은 아군(시체/초상화) 클릭 · 우클릭 취소"
+	_revive_prompt.visible = true
+
+
+## The downed party member under the cursor — party-sheet portrait first, then world ray.
+func _pick_downed_target() -> Node:
+	var mouse := get_viewport().get_mouse_position()
+	var pm: Node = _party_sheet.portrait_member_under(mouse)
+	if pm != null and not pm.is_alive():
+		return pm
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return null
+	var from := cam.project_ray_origin(mouse)
+	var to := from + cam.project_ray_normal(mouse) * 1000.0
+	var q := PhysicsRayQueryParameters3D.create(from, to, 1 << 1)  # LAYER_PARTY
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if not hit.is_empty():
+		var n: Node = hit.collider
+		if n != null and n.has_method("is_alive") and not n.is_alive():
+			return n
+	return null
+
+
+func _begin_revive_channel(member: Node) -> void:
+	_reviving = false
+	_revive_prompt.visible = false
+	SkillVfx.revive_pillar(self, (member as Node3D).global_position, 1.5)
+	get_tree().create_timer(1.5).timeout.connect(_finish_revive.bind(member, _revive_cid))
+
+
+func _finish_revive(member: Node, cid: String) -> void:
+	if is_instance_valid(member) and not member.is_alive() and _inventory_ui.consume_consumable(cid):
+		member.revive(0.5)
+
+
+func _cancel_revive_targeting() -> void:
+	_reviving = false
+	_revive_prompt.visible = false
+
+
+func _revive_toast(msg: String) -> void:
+	_revive_prompt.text = msg
+	_revive_prompt.visible = true
+	get_tree().create_timer(1.2).timeout.connect(_hide_revive_toast)
+
+
+func _hide_revive_toast() -> void:
+	if not _reviving:
+		_revive_prompt.visible = false
+
+
+func _start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> void:
 	_aiming = true
 	_aim_member = member
-	var r: float = float(member.sub_params.get("radius_m", member.sub_params.get("aoe_radius_m", 3.0)))
+	_aim_slot = slot_index
+	var p: Dictionary = inst.params
+	var r: float = float(p.get("radius_m", p.get("aoe_radius_m", 3.0)))
 	_aim_marker.scale = Vector3(r, 1.0, r)
 	var cc: Color = member.get_class_color()
 	_aim_mat.albedo_color = Color(cc.r, cc.g, cc.b, 0.35)
@@ -256,6 +413,7 @@ func _start_aim(member: CharacterBody3D) -> void:
 func _end_aim() -> void:
 	_aiming = false
 	_aim_member = null
+	_aim_slot = -1
 	_aim_marker.visible = false
 
 
@@ -376,16 +534,42 @@ func _select_enemy_under_mouse() -> void:
 
 
 ## CombatController.enemy_defeated → spawn a PH loot drop at the death position.
-func _on_enemy_loot(world_pos: Vector3) -> void:
-	var def: Dictionary
-	if randf() < GEAR_DROP_CHANCE and not GEAR_LOOT.is_empty():
-		def = _make_gear_drop_def(String(GEAR_LOOT[randi() % GEAR_LOOT.size()]))
-	else:
-		def = (LOOT_TABLE[randi() % LOOT_TABLE.size()] as Dictionary).duplicate()
+func _on_enemy_loot(world_pos: Vector3, ability_refs: Array) -> void:
+	var def: Dictionary = _roll_loot_def(ability_refs)
+	if def.is_empty():
+		return
 	var drop := ItemDrop.new()
 	drop.setup(_inventory_ui, def)
 	drop.position = Vector3(world_pos.x, 0.0, world_pos.z)
 	add_child(drop)
+
+
+## Per-kill loot roll: (1) skillbook — if this enemy USES a lootable AB, roll for that
+## AB (F-009/DEC-20260611-002); (2) else gear; (3) else generic item.
+func _roll_loot_def(ability_refs: Array) -> Dictionary:
+	var lootable: Array = []
+	for r in ability_refs:
+		if not Slice01Data.get_skillbook_master(String(r)).is_empty():
+			lootable.append(String(r))
+	if not lootable.is_empty() and randf() < SKILLBOOK_DROP_CHANCE:
+		return _make_skillbook_drop_def(String(lootable[randi() % lootable.size()]))
+	if randf() < GEAR_DROP_CHANCE and not GEAR_LOOT.is_empty():
+		return _make_gear_drop_def(String(GEAR_LOOT[randi() % GEAR_LOOT.size()]))
+	return (LOOT_TABLE[randi() % LOOT_TABLE.size()] as Dictionary).duplicate()
+
+
+## Build an ItemDrop def for a skillbook looted from an enemy's lootable AB.
+func _make_skillbook_drop_def(base_ability_id: String) -> Dictionary:
+	var m: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
+	var classes: Array = m.get("equip_classes", [])
+	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
+	return {
+		"id": String(m.get("display_name", base_ability_id)),
+		"w": 1, "h": 1,
+		"color": UnitVisuals.role_color(cid).lightened(0.15),
+		"kind": "skillbook",
+		"base_ability_id": base_ability_id,
+	}
 
 
 ## Build an ItemDrop def for an Identity Gear master (gear.json), colored by its role.
@@ -488,4 +672,4 @@ func _refresh_hud(state: Dictionary) -> void:
 	_hud_cohesion.text = "파티결속"
 	_hud_formation.text = "진형우선" if _party.is_formation_priority() else "전투우선"
 	_hud_state.text = "전투중" if _combat.is_engaged() else "휴식중"
-	_hud_hint.text = "WASD · 1-4 swap · Q skill · U cohesion · F 진형우선 · I 인벤 · Esc menu"
+	_hud_hint.text = "WASD 이동 · 1-4 스왑 · RMB·F 상호작용 · I 인벤토리 · Esc 메뉴"

@@ -147,3 +147,12 @@ func _process(_delta: float) -> void:
 
 func _hp_color(r: float) -> Color:
 	return UiColors.hp_color(r)
+
+
+## The party member whose portrait is under the cursor (for revive-target clicks). null if none.
+func portrait_member_under(mouse: Vector2) -> Node:
+	for i in mini(_slots.size(), _members.size()):
+		var port: Control = _slots[i].portrait
+		if is_instance_valid(port) and port.get_global_rect().has_point(mouse):
+			return _members[i]
+	return null

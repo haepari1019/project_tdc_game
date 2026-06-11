@@ -165,7 +165,7 @@ func _make_node(item: Dictionary) -> Panel:
 	sb.set_corner_radius_all(4)
 	p.add_theme_stylebox_override("panel", sb)
 	var lbl := Label.new()
-	lbl.text = "%s\n%d×%d" % [item.id, int(item.w), int(item.h)]
+	lbl.text = _node_label(item)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -175,12 +175,33 @@ func _make_node(item: Dictionary) -> Panel:
 	return p
 
 
+## Item tile caption: consumables show the stack count; others show their footprint.
+func _node_label(item: Dictionary) -> String:
+	if String(item.get("kind", "")) == "consumable":
+		return "%s\nx%d" % [String(item.id), int(item.get("count", 1))]
+	return "%s\n%d×%d" % [String(item.id), int(item.w), int(item.h)]
+
+
+## Refresh a placed item's caption in-place (e.g. after a consumable stack changes).
+func refresh_item_label(item: Dictionary) -> void:
+	if not (item.has("node") and is_instance_valid(item.node)):
+		return
+	for c in item.node.get_children():
+		if c is Label:
+			c.text = _node_label(item)
+			return
+
+
 ## Hover tooltip for an item: name + optional blurb + footprint size.
 func _item_tip(item: Dictionary) -> String:
 	var id := String(item.id)
 	var lines: Array = [id]
 	if String(item.get("kind", "")) == "gear":
 		lines.append("장비 (Identity Gear) · %s" % ("At Risk" if bool(item.get("at_risk", false)) else "Safe"))
+	elif String(item.get("kind", "")) == "skillbook":
+		lines.append("스킬북 (서브) · 탄 %d/%d · At Risk" % [int(item.get("charges", 0)), int(item.get("charges_max", 0))])
+	elif String(item.get("kind", "")) == "consumable":
+		lines.append("소모품 · 보유 x%d · 호버+Z/X/C 또는 드래그로 핫키 등록" % int(item.get("count", 1)))
 	var desc := String(ITEM_DESC.get(id, ""))
 	if not desc.is_empty():
 		lines.append(desc)

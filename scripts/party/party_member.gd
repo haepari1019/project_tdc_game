@@ -49,9 +49,13 @@ var _alive: bool = true
 var identity_params: Dictionary = {}
 var identity_cooldown_s: float = 0.0
 ## Player-activated sub skill (key 1 on the controlled member). NC never auto-uses.
+## (legacy single-sub fields — kept empty; subs now come from skillbook_slots below.)
 var sub_ability_id: String = ""
 var sub_params: Dictionary = {}
 var sub_cooldown_s: float = 0.0
+## Sub skillbook slots Q/E/R (F-009 §3.1 / DEC-20260611-002). Each = null or an instance:
+## {base_ability_id, display_name, params, charges, charges_max, cooldown_s, equip_classes, color}.
+var skillbook_slots: Array = [null, null, null]
 ## Damage-absorbing shield (consumed before HP). AB-020 Shield Policy.
 var shield: float = 0.0
 var shield_timer_s: float = 0.0
@@ -86,6 +90,7 @@ func setup(gear: Dictionary, index: int, color: Color, collision_radius: float =
 	_base_color = color
 	_role_scale = role_scale
 	_bind_gear(gear, true)
+	_init_starter_skillbook()
 	name = identity_skill_id
 	_apply_collision_size(collision_radius, collision_height)
 	_build_cylinder_mesh(color, role_scale)
@@ -118,10 +123,11 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	threat_mult = float(combat.get("threat_mult", 1.0))  # F-022 damageThreatMultiplier
 	# Identity + sub skill params are LINKED by id (abilities.json catalog).
 	identity_params = Slice01Data.get_ability(ability_id)
-	sub_ability_id = String(row.get("sub_ability_id", ""))
-	sub_params = Slice01Data.get_ability(sub_ability_id)
+	# Sub skills come from looted skillbooks (F-009 §3.1), NOT the identity/gear — the
+	# Q/E/R slots start empty and fill by equipping skillbooks. (was: innate AB-S01..S04)
+	sub_ability_id = ""
+	sub_params = {}
 	identity_cooldown_s = 0.0
-	sub_cooldown_s = 0.0
 
 
 ## Role gate (F-008 §3.4, strict): a member may only equip gear for its own class.
@@ -138,6 +144,60 @@ func equip_gear(gear: Dictionary) -> bool:
 	_bind_gear(gear, false)
 	name = identity_skill_id
 	return true
+
+
+## Remove the equipped gear (drag-out to inventory). Identity skill goes inactive until
+## a same-role gear is re-equipped; basic stats persist. Returns the removed master ({} if none).
+func unequip_gear() -> Dictionary:
+	var prev: Dictionary = equipped_gear
+	equipped_gear = {}
+	base_gear_id = ""
+	identity_params = {}
+	return prev
+
+
+## Sub skillbook slots (F-009 §3.1). Role gate = equipClasses on the skillbook master.
+func can_equip_skillbook(master: Dictionary) -> bool:
+	var classes = master.get("equip_classes", [])
+	return typeof(classes) == TYPE_ARRAY and classes.has(class_id)
+
+
+func get_skillbook(slot_index: int):
+	if slot_index < 0 or slot_index >= skillbook_slots.size():
+		return null
+	return skillbook_slots[slot_index]
+
+
+## Put `inst` (or null) in slot; returns whatever it displaced (null if empty).
+func set_skillbook(slot_index: int, inst):
+	if slot_index < 0 or slot_index >= skillbook_slots.size():
+		return null
+	var prev = skillbook_slots[slot_index]
+	skillbook_slots[slot_index] = inst
+	return prev
+
+
+## Seed the identity's themed sub (legacy AB-S0x) into Q at spawn, as a skillbook
+## instance — so play starts with the role's sub equipped, not empty (user request).
+func _init_starter_skillbook() -> void:
+	var row: Dictionary = Slice01Data.get_identity_row(identity_skill_id)
+	var said := String(row.get("sub_ability_id", ""))
+	if said.is_empty():
+		return
+	var master: Dictionary = Slice01Data.get_skillbook_master(said)
+	if master.is_empty():
+		return
+	var cmax := int(master.get("charges_max", 30))
+	skillbook_slots[0] = {
+		"base_ability_id": said,
+		"display_name": String(master.get("display_name", said)),
+		"params": master.get("cast", {}),
+		"charges": cmax,
+		"charges_max": cmax,
+		"cooldown_s": 0.0,
+		"equip_classes": master.get("equip_classes", [class_id]),
+		"color": _base_color,
+	}
 
 
 func set_controlled(active: bool) -> void:
@@ -275,6 +335,24 @@ func is_alive() -> bool:
 	return _alive
 
 
+## Revive a downed member (revival consumable). Restores alive state + HP; re-adds to
+## the party_member group and un-dims the body. No-op (false) if already alive.
+func revive(hp_fraction: float = 0.5) -> bool:
+	if _alive:
+		return false
+	_alive = true
+	hp = clampf(max_hp * hp_fraction, 1.0, max_hp)
+	if not is_in_group("party_member"):
+		add_to_group("party_member")
+	if _body_material:
+		_body_material.albedo_color = _base_color
+		_body_material.emission_enabled = true
+	if _hp_bar:
+		_hp_bar.set_ratio(hp / max_hp)
+	_apply_controlled_visual(_controlled)
+	return true
+
+
 ## Party slot color (for aggro markers etc.).
 func get_class_color() -> Color:
 	return _base_color
@@ -294,6 +372,9 @@ func apply_knockback(dir: Vector3, dist: float) -> void:
 func _physics_process(delta: float) -> void:
 	if sub_cooldown_s > 0.0:
 		sub_cooldown_s -= delta
+	for s in skillbook_slots:
+		if s != null and float(s.cooldown_s) > 0.0:
+			s.cooldown_s = float(s.cooldown_s) - delta
 	if shield_timer_s > 0.0:
 		shield_timer_s -= delta
 		if shield_timer_s <= 0.0:

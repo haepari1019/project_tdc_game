@@ -69,7 +69,7 @@
 |------|--:|------|-----------|------|
 | [party_controller.gd](../scripts/party/party_controller.gd) | **1014** | ⚠️ **갓오브젝트**: 스폰·스왑·결속(command-holder) + 포메이션 상태머신 + 슬롯기하 + **스티어링 v1(~21 `_sv1_*`, ~530줄 지배덩어리)** + 설정로더 (전투교전·힐러무빙은 CombatPositioning 분리) | `try_swap_to` `_sv1_update_follow` `_update_command_holder` `_load_formation_config` | party_cohesion, CombatPositioning, party_member.tscn, player_controller, Slice01Data, formation.json |
 | [combat_positioning.gd](../scripts/party/combat_positioning.gd) | 111 | 🟢 전투우선 follower goal-point: 슬롯이탈 트리거(`enemy_in_party_basic_range`)·근접 attack-range 점·힐러 wounded 추종. PartyController 자식; `_members`만 백레퍼 | `has_live_enemies` `enemy_in_party_basic_range` `engage_target` | party_controller(`_members`), group 'enemy' |
-| [party_member.gd](../scripts/party/party_member.gd) | 369 | 단일 슬롯: **Identity Gear 바인딩(gear→identity, F-008 §3.7)**·스탯·스킬파라미터·HP/실드/상태(F-021)·넉백·navmesh 캐시·조작비주얼 | `setup` `_bind_gear` `equip_gear` `can_equip_gear` `take_damage` `heal` `nav_*` | health_bar, Slice01Data, groups 'party_member'/'player' |
+| [party_member.gd](../scripts/party/party_member.gd) | 405 | 단일 슬롯: **Identity Gear 바인딩(gear→identity, F-008)** · **서브 스킬북 슬롯 Q/E/R(F-009)** · 스탯·스킬파라미터·HP/실드/상태(F-021)·넉백·navmesh·조작비주얼 | `setup` `_bind_gear` `equip_gear` `get_skillbook` `set_skillbook` `can_equip_skillbook` `take_damage` | health_bar, Slice01Data, groups 'party_member'/'player' |
 | [party_cohesion.gd](../scripts/party/party_cohesion.gd) | 8 | F-003 결속 모드 enum(BOUND/UNBOUND) | `Mode` `MODE_*` | — |
 
 ### combat — `scripts/combat/`
@@ -77,7 +77,7 @@
 |------|--:|------|-----------|------|
 | [combat_controller.gd](../scripts/combat/combat_controller.gd) | **408** | 🔸 코디네이터(적AI=EnemyAI·스킬=AbilityDispatch 분리): ①인카운터/분대 스폰·증원 ②파티 자동공격 루프(basic) ③F-022 threat + 공간쿼리 ④engage/grace 소유 + camera_shake 시그널 | `prespawn_encounters` `_spawn_squad` `_engage_enemy` `refresh_engage_grace` `_tick_party_attacks` `_deal_damage` `_enemies_in_*` | EnemyAI, AbilityDispatch, Slice01Data, enemy_unit.tscn, skill_vfx, unit_visuals, spatial |
 | [enemy_ai.gd](../scripts/combat/enemy_ai.gd) | 301 | 🟢 적 perception(시야콘+LOS+근접존)·전투행동(위협추적/LOS공격/시야상실추격/텔레그래프). CombatController 자식; engage/grace/시그널은 컨트롤러 콜백 | `tick` `_tick_dormant` `_begin_enemy_attack` `_apply_enemy_hit` `attach_vision_cone` | combat_controller(콜백), skill_vfx, Slice01Data |
-| [ability_dispatch.gd](../scripts/combat/ability_dispatch.gd) | 197 | 🟢 파티 Identity(자동) + Sub(조작 전용) 스킬 효과 — kind 기반 데이터 디스패치(AB-020/024/025/026 + sub 4). CombatController 자식; 공간쿼리/damage/heal-threat/셰이크는 컨트롤러 콜백 | `try_identity` `cast_sub` `_cast_*` `_sub_*` `_sub_hit_shake` | combat_controller(콜백), skill_vfx |
+| [ability_dispatch.gd](../scripts/combat/ability_dispatch.gd) | 290 | 🟢 파티 Identity(자동) + **Sub=스킬북**(조작 전용) 스킬 효과 — kind 기반 디스패치(Identity 4 + **skillbook 3: strike/poison/stun = 적 Shared AB** F-009). CombatController 자식; 공간쿼리/damage/셰이크는 컨트롤러 콜백 | `try_identity` `cast_skillbook` `_cast_*` `_sb_*` | combat_controller(콜백), skill_vfx |
 | [enemy_unit.gd](../scripts/combat/enemy_unit.gd) | 406 | 단일 적: 데이터 스탯·F-022 threat·slow/knockback·**perception(facing/scan/cone VFX/alert ?!)·navmesh 캐시·investigate 상태**·박스메쉬·HP바 | `setup` `add_threat` `pick_target` `scan` `face_toward` `nav_*` `build_vision_cone` | health_bar, NavigationServer3D, group 'enemy' |
 | [health_bar.gd](../scripts/combat/health_bar.gd) | 129 | 아군/적 공용 빌보드 HP바(프레임/배경/필/타겟·임박 마커) | `set_ratio` `set_target` `set_imminent` | 카메라(프레임당 조회) |
 | [skill_vfx.gd](../scripts/combat/skill_vfx.gd) | 224 | 무상태 절차 PH VFX 라이브러리(역할별 자동소멸) | `anchor_guard` `press_line` `mark_ruin` `mend_circle` `sub_*` `enemy_vfx` | Godot 메쉬/트윈 only |
@@ -102,6 +102,8 @@
 - `manifest.json` (phase/contract/pool→encounter 바인딩) · `id_registry.json` (허용 ID) · `blueprint.json` · `rooms.json` · `formation.json`
 - `identities.json` (역할→`ability_id`/`sub_ability_id`) · `enemies.json` (적→`abilities[].ref`) · `abilities.json` (**통합 카탈로그**, AB-### → kind/효과) · `encounters/ENC-*.json`
 - `gear.json` (**Identity Gear 마스터**: `base_gear_id` → `bundled_identity_skill_id` → identities; F-008 §3.7 · `DEC-20260611-001`) — 캐릭터 **identity는 장착 gear에서 파생**(`party_member._bind_gear`). 미장착 looted gear = run-inventory At Risk(인벤 `kind:"gear"`).
+- `skillbooks.json` (**Skillbook 마스터**: `base_ability_id`(적 lootable AB Shared) → 탄수·`equip_classes`·player-cast; F-009 · `DEC-20260611-002`) — **서브 Q/E/R = 루팅 스킬북**(`party_member.skillbook_slots`); 적 처치 **per-kill** 드랍 → run-inventory At-Risk(인벤 `kind:"skillbook"`).
+- `consumables.json` (**소모품 마스터**: `consumable_id` → `effect`·`max_stack`·`usable_in_combat`; F-010 / D-020) — 인벤 스택 아이템(`kind:"consumable"`) + **Z/X/C 핫키**(`ui/consumable_bar.gd`, 6시 시트 위); 부활 스크롤=다운 아군 부활(휴식중, `party_member.revive`). 인-런 부활=SPEC_DRIFT-027(전파 후보).
 - 캐릭터/유닛은 **ID로 어빌리티를 링크**한다(인라인 정의 금지). "한 번 정의 → 어디서나 할당".
 
 > ⚠️ `abilities.json`은 현재 `id_registry`와 대조 **검증되지 않는다**(§6 DEBT-DM1). 다른 도메인(enemies 등)은 `require_id`로 검증됨.

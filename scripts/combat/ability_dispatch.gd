@@ -38,6 +38,9 @@ func _build_ability_handlers() -> void:
 		"sub_lunge": _sub_lunge,
 		"sub_nova": _sub_nova,
 		"sub_sanctuary": _sub_sanctuary,
+		"skillbook_strike": _sb_strike,
+		"skillbook_poison": _sb_poison,
+		"skillbook_stun": _sb_stun,
 	}
 
 
@@ -226,4 +229,79 @@ func _sub_sanctuary(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> 
 		_combat._heal_threat(m, a, eff)
 	SkillVfx.sub_sanctuary(self, pos, float(p.get("radius_m", 6.5)))
 	print("[SUB] %s Sanctuary — %d allies" % [m.identity_skill_id, allies.size()])
+	return true
+
+
+# ============================================================================
+# Skillbook subs — PLAYER-cast looted enemy ABs (Shared, F-009 §1.1). Self-centered
+# AoE around the controlled caster; charges + cooldown owned by the slot instance.
+# ============================================================================
+
+## Player-cast a sub skillbook from slot Q/E/R. Charges + cooldown gated; on success
+## -1 charge + set the slot's cooldown. Effect = the Shared AB applied to enemies.
+func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
+	if member == null or not is_instance_valid(member) or not member.is_alive():
+		return
+	var inst = member.get_skillbook(slot_index)
+	if inst == null:
+		return
+	if int(inst.charges) <= 0:
+		print("[SB] %s depleted" % inst.get("display_name", "?"))
+		return
+	if float(inst.cooldown_s) > 0.0:
+		return
+	var p: Dictionary = inst.params
+	# target_pos = aimed ground point (targeted subs) or caster position (self-centered).
+	# Self-centered handlers (taunt/sanctuary/skillbook_*) ignore it and use member.position.
+	var h: Callable = _ability_handlers.get(String(p.get("kind", "")), Callable())
+	if h.is_valid() and h.call(member, p, target_pos):
+		inst.charges = int(inst.charges) - 1
+		inst.cooldown_s = float(p.get("cooldown_s", 6.0))
+
+
+## AB-002 Shield Bash — AoE strike + knockback on nearby foes.
+func _sb_strike(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
+	var foes: Array = _combat._enemies_in_radius(m.global_position, float(p.get("radius_m", 4.0)))
+	if foes.is_empty():
+		return false
+	var dmg: float = float(p.get("damage_mult", 2.0)) * m.basic_damage
+	var kb := float(p.get("knockback_m", 0.0))
+	for e in foes:
+		_combat._deal_damage(e, m, dmg)
+		if kb > 0.0:
+			e.apply_knockback(e.global_position - m.global_position, kb)
+	_sub_hit_shake(p)
+	SkillVfx.sub_taunt(self, m.global_position, float(p.get("radius_m", 4.0)))
+	print("[SB] %s Shield Bash — %d foes" % [m.class_id, foes.size()])
+	return true
+
+
+## AB-010 Venom Spit — AoE poison burst (dps×dur upfront) + slow (enemy DoT not modeled).
+func _sb_poison(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
+	var foes: Array = _combat._enemies_in_radius(m.global_position, float(p.get("radius_m", 5.0)))
+	if foes.is_empty():
+		return false
+	var dmg: float = float(p.get("damage_mult", 0.5)) * m.basic_damage \
+			+ float(p.get("poison_dps", 0.0)) * float(p.get("poison_dur_s", 0.0))
+	for e in foes:
+		_combat._deal_damage(e, m, dmg)
+		e.apply_slow(0.6, float(p.get("poison_dur_s", 3.0)))
+	_sub_hit_shake(p)
+	SkillVfx.sub_nova(self, m.global_position, float(p.get("radius_m", 5.0)))
+	print("[SB] %s Venom Spit — %d foes" % [m.class_id, foes.size()])
+	return true
+
+
+## AB-011 Toll Stun — AoE strike + near-freeze slow (stun proxy; enemy stun not modeled).
+func _sb_stun(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
+	var foes: Array = _combat._enemies_in_radius(m.global_position, float(p.get("radius_m", 4.5)))
+	if foes.is_empty():
+		return false
+	var dmg: float = float(p.get("damage_mult", 0.6)) * m.basic_damage
+	for e in foes:
+		_combat._deal_damage(e, m, dmg)
+		e.apply_slow(0.05, float(p.get("stun_s", 1.4)))
+	_sub_hit_shake(p)
+	SkillVfx.sub_taunt(self, m.global_position, float(p.get("radius_m", 4.5)))
+	print("[SB] %s Toll Stun — %d foes" % [m.class_id, foes.size()])
 	return true

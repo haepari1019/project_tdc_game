@@ -35,13 +35,29 @@ func _ready() -> void:
 
 
 func set_enemy(e: Node) -> void:
+	_disconnect_died()
 	_enemy = e
 	visible = e != null
 	if e != null:
+		if e.has_signal("died") and not e.died.is_connected(_on_enemy_died):
+			e.died.connect(_on_enemy_died)
 		_refresh()
 
 
 func clear() -> void:
+	_disconnect_died()
+	_enemy = null
+	visible = false
+
+
+func _disconnect_died() -> void:
+	if _enemy != null and is_instance_valid(_enemy) and _enemy.has_signal("died") \
+			and _enemy.died.is_connected(_on_enemy_died):
+		_enemy.died.disconnect(_on_enemy_died)
+
+
+## The inspected enemy died → hide immediately (event-driven; no stale sliver-HP panel).
+func _on_enemy_died(_unit: Variant = null) -> void:
 	_enemy = null
 	visible = false
 

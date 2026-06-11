@@ -78,21 +78,19 @@ func setup(party: Node) -> void:
 	_shield_fill.visible = false
 	hp_bg.add_child(_shield_fill)
 
-	# Action bar: Identity(auto) + Q + E + R.
-	for d in [["auto", "identity"], ["Q", "sub0"], ["E", "empty"], ["R", "empty"]]:
+	# Action bar: Identity(auto) + sub skillbooks Q/E/R (F-009 §3.1).
+	for d in [["auto", "identity"], ["Q", "sub0"], ["E", "sub1"], ["R", "sub2"]]:
 		var sv := VBoxContainer.new()
 		sv.add_theme_constant_override("separation", 2)
 		hb.add_child(sv)
 		var r := RadialCooldown.new()
 		r.custom_minimum_size = Vector2(SLOT, SLOT)
-		if String(d[1]) == "empty":
-			r.set_empty(true)
 		sv.add_child(r)
 		var kl := Label.new()
 		kl.text = String(d[0])
 		kl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sv.add_child(kl)
-		_slots.append({"radial": r, "kind": String(d[1])})
+		_slots.append({"radial": r, "kind": String(d[1]), "key": kl})
 
 
 func _process(_delta: float) -> void:
@@ -114,17 +112,29 @@ func _process(_delta: float) -> void:
 	_shield_fill.anchor_right = sr
 	_shield_fill.visible = sr > 0.001
 	for s in _slots:
-		match String(s.kind):
-			"identity":
-				s.radial.set_icon_color(rc)
-				var t: float = float(m.identity_params.get("cooldown_s", 0.0))
-				s.radial.set_cd(m.identity_cooldown_s / t if t > 0.0 else 0.0)
-				s.radial.tooltip_text = _skill_tip(m.identity_skill_id, m.identity_params, "주 스킬 (자동)")
-			"sub0":
-				s.radial.set_icon_color(rc.lightened(0.18))
-				var t2: float = float(m.sub_params.get("cooldown_s", 0.0))
-				s.radial.set_cd(m.sub_cooldown_s / t2 if t2 > 0.0 else 0.0)
-				s.radial.tooltip_text = _skill_tip(m.sub_ability_id, m.sub_params, "보조 스킬 (Q)")
+		var k := String(s.kind)
+		if k == "identity":
+			s.radial.set_empty(false)
+			s.radial.set_icon_color(rc)
+			var t: float = float(m.identity_params.get("cooldown_s", 0.0))
+			s.radial.set_cd(m.identity_cooldown_s / t if t > 0.0 else 0.0)
+			s.radial.tooltip_text = _skill_tip(m.identity_skill_id, m.identity_params, "주 스킬 (자동)")
+		elif k.begins_with("sub"):
+			var idx := int(k.substr(3))
+			var inst = m.get_skillbook(idx)
+			var key: String = ["Q", "E", "R"][idx]
+			if inst == null:
+				s.radial.set_empty(true)
+				s.radial.set_cd(0.0)
+				s.key.text = key
+				s.radial.tooltip_text = "보조 (%s)\n(빈 슬롯 — 스킬북 장착)" % key
+			else:
+				s.radial.set_empty(false)
+				s.radial.set_icon_color(inst.color)
+				var cdmax: float = float(inst.params.get("cooldown_s", 0.0))
+				s.radial.set_cd(float(inst.cooldown_s) / cdmax if cdmax > 0.0 else 0.0)
+				s.key.text = "%s·%d" % [key, int(inst.charges)]
+				s.radial.tooltip_text = "%s (%s)\n탄 %d/%d · 쿨 %ss" % [String(inst.display_name), key, int(inst.charges), int(inst.charges_max), _num(cdmax)]
 
 
 func _hp_color(r: float) -> Color:

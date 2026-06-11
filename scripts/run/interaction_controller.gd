@@ -12,6 +12,7 @@ extends Node
 const INTERACT_MASK := 1 << 4   # collision layer 5 = interactable (chest/door also on world)
 const LABEL_GAP_PX := 12.0
 const ARRIVE_DIST := 2.0        # how close the auto-move stops to the object
+const INTERACT_RANGE := 4.0     # F-key reach to the nearest interactable (mouse-independent)
 
 var _party: Node3D = null
 var _label: Label = null
@@ -53,6 +54,28 @@ func try_interact() -> void:
 		pc.order_move_to((it as Node3D).global_position, Callable(it, "interact"), ARRIVE_DIST)
 	else:
 		it.interact()
+
+
+## F-key interaction: interact with the nearest interactable within range of the
+## controlled member, regardless of where the mouse points.
+func interact_nearest() -> void:
+	if _inv != null and _inv.is_open():
+		return
+	var ctrl: Node3D = _party.get_controlled()
+	if ctrl == null:
+		return
+	var nearest: Node = null
+	var best := INTERACT_RANGE * INTERACT_RANGE
+	for n in get_tree().get_nodes_in_group("interactable"):
+		if not (n is Node3D):
+			continue
+		var d := (n as Node3D).global_position.distance_squared_to(ctrl.global_position)
+		if d < best:
+			best = d
+			nearest = n
+	if nearest == null:
+		return
+	nearest.interact()  # already in range → interact immediately (works while moving, no auto-walk)
 
 
 ## The interactable under the mouse cursor that is within range of the controlled member.

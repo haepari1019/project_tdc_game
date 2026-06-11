@@ -2,7 +2,7 @@
 
 > **무엇:** 구현이 spec(SSOT)과 달라진 지점의 **단일 추적 대장**. 발견 즉시 `DRIFT-###`로 기록하고, 분류·결정·상태를 유지한다.
 > **규칙:** [AGENTS.md](../AGENTS.md) §Spec drift & propagation. 튜닝수치=로깅만 / 아이디어=`OPS_08·I-002` / 규칙변경=spec repo `OPS_30` 전파 후 `spec_ref.json` 재핀.
-> **최종 갱신:** 2026-06-10 · **스펙 핀:** `spec_ref.json` @ `staging` `f7739a1` (DRIFT-021 전파 — F-003 §3.0.4 지휘권 보유자↔랠리 앵커 분리, DEC-20260610-002. 이전 018/019=F-013, 6f0e534).
+> **최종 갱신:** 2026-06-11 · **스펙 핀:** `spec_ref.json` @ `staging` `c795fee` (DEC-20260611-001 Identity Gear 던전 루팅·교체 / DEC-20260611-002 스킬북 per-kill 드랍 전파. 이전 DRIFT-021=f7739a1).
 > **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조 검증).
 
 ## 범례
@@ -54,6 +54,9 @@
 | 022 | **방향 피격 인디케이터** — 조작캐 피격 시 공격자 방향으로 화면 가장자리 빨간 글로우(인포워 HUD) | scope/idea | 신규 UX, **F-011 정보전 HUD / UI 스펙 후보**. F5·튜닝 후 OPS_30 정합 | IMPLEMENTED (전파 후보) |
 | 023 | **인벤토리 시스템**(5×8 백팩 + 컨테이너, `i` 토글·중앙·창드래그) + **백팩 아이템**(가변 W×H·occupancy·드래그&드롭·경계/겹침/스냅·**회전 R**·**컨테이너 간 이동**) | scope/idea | 신규 인벤 시스템, **F-010 Loadout / 신규 인벤 spec 후보**. 스택/무게/저장 확정 시 OPS_30 | IMPLEMENTED (전파 후보) |
 | 024 | **월드 루프**: 상자(키 보유, 우클릭 루팅) → 키 → **키 게이트 문**(탈출경로 차단) → 문 개방 시 objective → 탈출. RM-OBJ-01 진입 자동완료 **제거**. 상호작용=우클릭(E=서브스킬2 예약) | scope/rule | 데모 objective/extraction 흐름 변경 — **F-007(extraction)·F-026(레벨)·DBP-DEMO-001 / QA-030 objective 정합 후보**. F5·튜닝 후 OPS_30 | IMPLEMENTED (전파 후보) |
+| 025 | **Identity Gear**(F-008): 던전 루팅 gear → 장비 슬롯 장착·교체(equipClasses)·장착 Safe/미장착 At-Risk | rule(전파됨) | 던전 루팅 정식 채택, DEC-20260611-001 전파(4281981) | ✅ MERGED (c795fee) |
+| 026 | **스킬북 시스템 B**: 적 lootable AB(AB-002/010/011) per-kill 드랍 → 백팩 At-Risk 1×1 / Q·E·R 3슬롯 장착(클래스 게이트·드래그·우클릭·녹적 프리뷰)·탄수 소모·전투 외 교체 / Identity 고정서브(AB-S01~04) 제거 | rule(전파됨)+tuning | per-kill·서브3슬롯=spec(DEC-20260611-002, c795fee). charges 8/10/6·드랍률 0.5·독/스턴 프록시=tuning/impl | IMPLEMENTED |
+| 027 | **소모품 시스템 + 부활 스크롤**: consumables.json·스택(max 3)·Z/X/C 핫키(호버+키/드래그 등록, 6시 시트 위 바)·**인-런 부활**(휴식중만, 소모1→다운 아군 부활 HP50%) | scope/idea | F-010 소모품 + **인-런 부활은 F-007 §3.6.1("부활경제 미도입")과 결 다름**·D-020 미등재. 데모, 전파 후보 | IMPLEMENTED (전파 후보) |
 
 > **비-드리프트(기존 spec 구현=정합, ImplDecisionLog 기록):** partyInCombat 진입/종료(D-010 §4.1 피해·공격·인지 / §4.2 grace), 비조작 안전우선 슬롯-이탈 트리거=피격/사거리(F-004 §3.1/§3.3), 힐러 포지셔닝(F-005), **지휘권 진입 핸드오프=서브리더 앵커(F-003 §3.4 #2)** — 진입 동작은 기존 spec 정합. 단 **스왑 중 지휘권/랠리 거동은 §3.0.4 분리 모델로 정제 → DRIFT-021(✅ MERGED f7739a1)**. 서브리더 지정(UI-005)·지휘권 전환 UX(UI-008)·Leader Move Ping(F-003 §3.5)은 **미구현(기본값/보류)**.
 > **아이디어(OPS_08):** "시야콘을 보이게 하는 소모품"(현재는 개발용 상시 표시) → 소모품/UI 아이디어로 등록 권장.
@@ -140,6 +143,24 @@
 - **구현(2026-06-10):** 조작 캐릭 피격 시 **공격자 방향으로 화면 가장자리 빨간 글로우** — `CombatController.party_hit` 신호(모든 피격, 칩뎀컷, severity=dmg/maxHP) → dungeon_run이 조작캐만 필터 + 카메라 `unproject_position`으로 스크린 방향 산출 → `damage_indicator.gd`(Control, 절차 draw, 동방향 debounce·페이드). 기존 카메라 방향킥(AB 전용)을 보강.
 - **분류/전파:** scope/idea — 신규 인포워 HUD 피드백 UX. spec 미정의. **F-011**(Vision & Information War, 정보 제시) 또는 신규 **UI 문서**가 적합한 홈. F5 확인·튜닝(방향 부호·강도·페이드) 후 OPS_30 정합. 튜닝수치(MIN_FRAC 0.012·GAIN 4.0·SPREAD 38°·DEPTH 0.16·FADE 0.7s)는 전파 금지.
 - **확장(2단계):** 팔로워(비조작) 오프스크린 피격 표시 — F-003 §3.9 분리경고/PIP와 정합 여지. ImplDecisionLog IMPL-DEC-20260610-011.
+
+### DRIFT-025 — Identity Gear 던전 루팅·교체 (rule, 전파됨) ✅ MERGED (staging 4281981→c795fee)
+- **결정/전파:** 장비 identity-bound + **던전 루팅 정식 채택**(per F-008). 장착 gear=Safe / 미장착 looted=At-Risk(결정 B) / `equipClasses` 동일역할 교체. `DEC-20260611-001` 전파(F-008/D-019/F-007/D-011/D-015/F-010/QA-008/HUB-COR-000/Terms + DataMap), staging `4281981`, 게임 재핀.
+- **구현:** `gear.json` 4 스타터 master, `party_member._bind_gear`(gear→identity), 인벤 PARTY GEAR 슬롯(드래그/우클릭·녹적 프리뷰·게이트), 던전 gear 루팅(~40%). 게임 커밋 da46e13.
+- **잔여:** 추출 정산(At-Risk→Owned/Loss) F-007 배선 미구현(표시/플래그까지). 풀 D-019 인스턴스(unlockState·blacksmith·Magitech) 보류. 미장착 Owned Protected 승격=귀속(bind) 모델 후속(F-008 OQ-7).
+
+### DRIFT-026 — 스킬북 시스템 (Track B 구현; per-kill 전파 MERGED) 🔸 IMPLEMENTED
+- **구현(2026-06-11):** F-009 스킬북 경제 게임 구현. `skillbooks.json` 3종(`AB-002` Shield Bash/Tank · `AB-010` Venom Spit/Nuker·Healer · `AB-011` Toll Stun/Tank·DPS = 적 lootable AB **Shared**). 적 처치 시 그 적의 lootable AB 확률 드랍(`enemy_defeated` AB refs 전파 → `dungeon_run._roll_loot_def`) → 백팩 **At-Risk** 1×1. `party_member.skillbook_slots[3]`(Q/E/R), `ability_dispatch.cast_skillbook`(탄수−1·쿨다운, 자기중심 AoE), Q/E/R 입력. 인벤 SUB 슬롯 UI(조작캐 3슬롯·클래스 게이트·드래그/우클릭·녹적 프리뷰·탄수 표시), `controlled_sheet` 탄수/쿨 표시. **Identity 고정서브 제거**(`_bind_gear` sub 바인딩 삭제) → 서브 전부 스킬북(F-009 §3.1).
+- **전파/분류:** 드랍 트리거 **per-kill** + 서브 3슬롯은 **rule = 전파됨**(`DEC-20260611-002`, staging `c795fee`; D-018 §7.4 per-kill·F-009 §3.6·QA-009 §2.5). equip이어도 At-Risk(§3.7)·클래스 게이트(§3.2.1)·탄수(D-018)는 기존 spec 정합.
+- **tuning/impl(전파금지):** `charges_max` 8/10/6 (spec 권장 50~80 — "제약적" 데모 체감 위해 하향, ChangeProtocol §5-d). `SKILLBOOK_DROP_CHANCE` 0.85 · `GEAR_DROP_CHANCE` 0.08(던전런 ~2회) (spec 예 8~15% — 데모 밸런스). cast 효과 **프록시**: 적 poison/stun 미모델 → poison=업프론트 버스트+slow, stun=near-freeze slow(`apply_slow(0.05, stun_s)`). 캐스트는 지면조준 없이 자기중심 AoE(데모 단순화).
+- **DRIFT-001 관계:** 자작 서브 `AB-S01~04`는 이제 **미사용**(서브=스킬북 구동, spec 모델 정합). DRIFT-001 "AB-S0x→spec 서브 정합" 과제는 본 구현으로 **실질 대체**(Shared 적 AB 3종 사용); AB-S01~04 정의는 abilities.json에 잔존(orphan, 후속 정리 가능).
+- **잔여:** 추출 정산이 At-Risk 스킬북을 실제 Safe/Loss로 처리하는 F-007 배선 미구현(장비와 동일). 분석·상점·affix·tier(F-009 §3.3/§3.5)는 허브 메타 후속. 풀 D-018 인스턴스(instanceId·affix)·Range/Family 게이트 미구현.
+
+### DRIFT-027 — 소모품 시스템 + 부활 스크롤 (인-런 부활, F-007 결 다름) 🔸 IMPLEMENTED (전파 후보)
+- **구현(2026-06-11):** F-010 소모품 데모. `consumables.json` 1종(`con_revive_scroll` 부활 스크롤, `max_stack` 3, `usable_in_combat` false, `effect` revive_ally). 인벤 1×1 **스택 아이템**(시드 3장=1스택), **Z/X/C 핫키**(party-shared) — 등록: 인벤에서 **소모품 호버 + Z/X/C** 또는 **바에 드래그**. **6시 캐릭터 시트 위 `ConsumableBar`**(3슬롯, 할당 소모품+보유수 표시). **부활(타겟+채널)**: Z/X/C → **타겟팅**(죽은 아군 **월드 시체 ray** 또는 **파티시트 초상화** 클릭, 우클릭/Esc 취소·재입력 토글) → **1.5s 빛기둥 채널**(`SkillVfx.revive_pillar`) → `party_member.revive(0.5)`(HP 50%)+소모1. **휴식중(`not is_engaged()`)만**. 핫키 **유니크**(1슬롯)·호버+동일키 토글해제·바슬롯 드래그(다른슬롯 이동/밖 해제). 인벤 열림 중 Z/X/C=핫키 등록(use와 분리).
+- **분류/전파:** scope/idea — **인-런 부활은 spec과 결이 다름**: `F-007` §3.6.1은 "`AwaitingRevive`/`ReviveOffer` 부활 경제를 소유하지 않으며 도입하지 않는다"(추출 정산 `ExtractCasualty` 한정). 본 구현은 hub/추출 경제가 아니라 **런 중 다운→소모품 부활**이라 직접 위반은 아니나 정합 필요. `con_revive_scroll`은 `D-020` 카탈로그 미등재. **PENDING-PROP 후보** → F-010(소모품 use 입력·효과)/D-020(부활 소모품)/F-007(인-런 부활 경계) 정합 시 OPS_30. 인벤/월드루프(DRIFT-023/024)와 동급의 "신규 시스템 데모 → 전파 후보".
+- **tuning/impl:** 부활 HP 50%·스택 3·핫키 Z/X/C·바 위치(시트 위 ~110px)는 데모값. 드래그-프리뷰 미구현(호버+키/드롭 등록만). 게임 사용 피드백은 콘솔 print(전투중/대상없음).
+- **잔여:** 다른 소모품(회복/해독 등 `D-020`)·전투 중 사용 입력(F-010 §3.7.1 2단 루트)·소모품 At-Risk/추출 정산 미구현.
 
 ### DRIFT-020 — 전투AI/인지 튜닝수치 (LOGGED, 전파금지)
 - FOV 160° · sight_range 12m · proximity 2.5m · alert_zone_frac 0.2 · scan ±35°/4s · investigate_speed 0.35 · chase_blind 0.55 · squad_prop_radius 9m · combat_exit_grace 6s · squad_lane 12m · cone alpha 0.05~0.06.

@@ -34,6 +34,34 @@ static func telegraph(parent: Node3D, pos: Vector3, color: Color) -> void:
 	_ground_pulse(parent, pos, 1.9, color, 0.5)
 
 
+## Revive channel — a green light pillar rising on a downed ally for `duration`s, then fades.
+static func revive_pillar(parent: Node3D, pos: Vector3, duration: float) -> void:
+	var mi := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.42
+	cyl.bottom_radius = 0.58
+	cyl.height = 4.0
+	mi.mesh = cyl
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.5, 1.0, 0.62, 0.55)
+	mat.emission_enabled = true
+	mat.emission = Color(0.45, 1.0, 0.6)
+	mat.emission_energy_multiplier = 2.2
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = mat
+	mi.position = pos + Vector3(0, 2.0, 0)
+	parent.add_child(mi)
+	_ground_pulse(parent, pos, 1.4, Color(0.4, 1.0, 0.55, 0.45), duration)
+	var tw := mi.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale:y", 1.15, duration).from(0.35)
+	tw.tween_property(mat, "albedo_color:a", 0.0, duration).from(0.55).set_ease(Tween.EASE_IN)
+	tw.set_parallel(false)
+	tw.tween_callback(mi.queue_free)
+
+
 # --- sub skills (player) — bigger / emissive ---
 
 static func sub_taunt(parent: Node3D, pos: Vector3, radius: float) -> void:

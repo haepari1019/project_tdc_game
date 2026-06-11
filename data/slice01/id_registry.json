@@ -29,6 +29,7 @@
     "ba_nuker_shard_shot",
     "ba_healer_pulse_bolt"
   ],
+  "consumable_ids": ["con_revive_scroll"],
   "blueprint_ids": ["DBP-DEMO-001"],
   "map_ids": ["MAP-DEMO-001"],
   "contract_ids": ["CONTRACT-DEMO-001"],

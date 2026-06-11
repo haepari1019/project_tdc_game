@@ -8,6 +8,8 @@ extends Control
 const InventoryGrid := preload("res://scripts/ui/inventory_grid.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
+signal consumable_use_requested(consumable_id: String)  # right-click a consumable → use it
+
 const CELL := 48
 const GAP := 4
 const BAR_H := 30
@@ -28,6 +30,7 @@ var _orig: Dictionary = {}
 var _drag_vis: Panel = null
 var _grab_off := Vector2.ZERO
 var _rotated := false
+var _drag_src: Dictionary = {}  # {kind: grid|gear|sub, char, slot} — where the drag began
 
 # Window move (title bar).
 var _win_drag := false
@@ -44,6 +47,12 @@ var _equip_slots: Array = []     # Panel per character (the slot frame = drop ta
 var _equip_tiles: Array = []     # Label inside each slot (equipped gear name)
 var _equip_overlays: Array = []  # ColorRect per slot (green/red drag preview)
 var _equip_msg: Label = null     # transient feedback (combat/role reject)
+# Sub skillbook slots (Q/E/R) for the CONTROLLED character (F-009 §3.1).
+var _sub_box: VBoxContainer = null
+var _sub_slots: Array = []  # entries: {panel, tile, overlay, char, slot} — 4 chars × Q/E/R
+# Consumable Z/X/C hotkeys (party-shared; F-010). Each = consumable_id or "".
+var _hotkeys: Array = ["", "", ""]
+var _consumable_bar: Node = null
 
 
 func _ready() -> void:
@@ -106,6 +115,11 @@ func backpack_has_key() -> bool:
 func _open() -> void:
 	visible = true
 	_win_drag = false
+	if _party != null:  # reflect current equip/charge state + the now-controlled char's subs
+		_refresh_equip_slots()
+		_refresh_sub_slots()
+	if _consumable_bar != null and _consumable_bar.has_method("set_interactive"):
+		_consumable_bar.set_interactive(true)  # bar slots become draggable while inventory open
 	_relayout()
 	call_deferred("_relayout")  # re-fit once the HBox re-sorts after toggling the loot column
 
@@ -116,6 +130,8 @@ func _close() -> void:
 		_loot.clear()
 		_loot_box.visible = false
 		_chest = null
+	if _consumable_bar != null and _consumable_bar.has_method("set_interactive"):
+		_consumable_bar.set_interactive(false)
 	visible = false
 	_win_drag = false
 
@@ -129,6 +145,8 @@ func setup_party(party: Node, combat: Node) -> void:
 	_combat = combat
 	_build_equip_column()
 	_refresh_equip_slots()
+	_build_sub_column()
+	_refresh_sub_slots()
 
 
 ## Add a looted Identity Gear instance to the backpack as an At-Risk run-inventory
@@ -152,6 +170,225 @@ func _gear_item(master: Dictionary, at_risk: bool) -> Dictionary:
 		"base_gear_id": String(master.get("base_gear_id", "")),
 		"at_risk": at_risk,
 	}
+
+
+## Add a looted skillbook to the backpack as an At-Risk run-inventory item. Skillbooks
+## stay At-Risk even when equipped (F-009 §3.7). Returns false if the backpack is full.
+func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool) -> bool:
+	var m: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
+	if m.is_empty():
+		return false
+	return _backpack.add_item_dict(_skillbook_item(m, at_risk))
+
+
+## Build a backpack item dict from a skillbook master (1x1, role-tinted, full charges).
+func _skillbook_item(master: Dictionary, at_risk: bool) -> Dictionary:
+	var classes: Array = master.get("equip_classes", [])
+	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
+	var cmax := int(master.get("charges_max", 0))
+	return {
+		"id": String(master.get("display_name", master.get("base_ability_id", "Skillbook"))),
+		"w": 1, "h": 1,
+		"color": UnitVisuals.role_color(cid).lightened(0.15),
+		"kind": "skillbook",
+		"base_ability_id": String(master.get("base_ability_id", "")),
+		"charges": cmax,
+		"charges_max": cmax,
+		"at_risk": at_risk,
+	}
+
+
+# --- consumables (stacking + Z/X/C hotkeys — F-010) -----------------------------
+
+func _consumable_color(master: Dictionary) -> Color:
+	var ca: Array = master.get("color", [0.6, 0.85, 0.6])
+	return Color(float(ca[0]), float(ca[1]), float(ca[2])) if ca.size() >= 3 else Color(0.6, 0.85, 0.6)
+
+
+func _consumable_item(master: Dictionary, count: int) -> Dictionary:
+	return {
+		"id": String(master.get("display_name", master.get("consumable_id", "Item"))),
+		"w": 1, "h": 1,
+		"color": _consumable_color(master),
+		"kind": "consumable",
+		"consumable_id": String(master.get("consumable_id", "")),
+		"count": count,
+		"max_stack": int(master.get("max_stack", 1)),
+	}
+
+
+## Add `amount` of a consumable, filling existing stacks (≤ max_stack) then new tiles.
+func add_consumable_to_backpack(consumable_id: String, amount: int) -> int:
+	var master := Slice01Data.get_consumable_master(consumable_id)
+	if master.is_empty() or amount <= 0:
+		return 0
+	var max_stack := int(master.get("max_stack", 1))
+	var remaining := amount
+	for it in _backpack.items:
+		if remaining <= 0:
+			break
+		if String(it.get("kind", "")) == "consumable" and String(it.get("consumable_id", "")) == consumable_id:
+			var room := max_stack - int(it.get("count", 0))
+			if room > 0:
+				var add := mini(room, remaining)
+				it.count = int(it.count) + add
+				remaining -= add
+				_backpack.refresh_item_label(it)
+	while remaining > 0:
+		var n := mini(max_stack, remaining)
+		if not _backpack.add_item_dict(_consumable_item(master, n)):
+			break
+		remaining -= n
+	_refresh_consumable_ui()
+	return amount - remaining
+
+
+func consumable_count(consumable_id: String) -> int:
+	var n := 0
+	for it in _backpack.items:
+		if String(it.get("kind", "")) == "consumable" and String(it.get("consumable_id", "")) == consumable_id:
+			n += int(it.get("count", 0))
+	return n
+
+
+func _find_consumable_stack(consumable_id: String):
+	for it in _backpack.items:
+		if String(it.get("kind", "")) == "consumable" and String(it.get("consumable_id", "")) == consumable_id and int(it.get("count", 0)) > 0:
+			return it
+	return null
+
+
+## The consumable item under the cursor (for hover + Z/X/C hotkey assign).
+func _consumable_under(mouse: Vector2):
+	for it in _backpack.items:
+		if String(it.get("kind", "")) == "consumable" and it.has("node") and is_instance_valid(it.node):
+			if (it.node as Control).get_global_rect().has_point(mouse):
+				return it
+	return null
+
+
+func setup_consumable_bar(bar: Node) -> void:
+	_consumable_bar = bar
+	if bar.has_signal("slot_grabbed") and not bar.slot_grabbed.is_connected(_begin_hotkey_drag):
+		bar.slot_grabbed.connect(_begin_hotkey_drag)
+	_refresh_consumable_ui()
+
+
+## Drag a hotkey assignment OUT of a bar slot — to another slot (move) or away (unassign).
+func _begin_hotkey_drag(slot: int) -> void:
+	if not _drag.is_empty():
+		return
+	var cid := get_hotkey(slot)
+	if cid.is_empty():
+		return
+	var master := Slice01Data.get_consumable_master(cid)
+	var item := {
+		"id": String(master.get("display_name", cid)), "w": 1, "h": 1,
+		"color": _consumable_color(master), "kind": "hotkey", "consumable_id": cid, "src_slot": slot,
+	}
+	_drag = item
+	_from = null
+	_drag_src = {"kind": "hotkey", "slot": slot}
+	_rotated = false
+	_orig = {"w": 1, "h": 1, "col": 0, "row": 0}
+	_grab_off = Vector2(CELL * 0.5, CELL * 0.5)
+	_drag_vis = _make_drag_vis(item)
+	add_child(_drag_vis)
+	_update_drag()
+
+
+func get_hotkey(slot: int) -> String:
+	return String(_hotkeys[slot]) if slot >= 0 and slot < _hotkeys.size() else ""
+
+
+func assign_hotkey(slot: int, consumable_id: String) -> void:
+	if slot < 0 or slot >= _hotkeys.size():
+		return
+	for i in _hotkeys.size():  # uniqueness: the same consumable lives in only one slot
+		if i != slot and String(_hotkeys[i]) == consumable_id:
+			_hotkeys[i] = ""
+	_hotkeys[slot] = consumable_id
+	_refresh_consumable_ui()
+	var nm := String(Slice01Data.get_consumable_master(consumable_id).get("display_name", consumable_id))
+	_msg("%s → %s 핫키 등록" % [["Z", "X", "C"][slot], nm])
+
+
+func _unassign_hotkey(slot: int) -> void:
+	if slot < 0 or slot >= _hotkeys.size():
+		return
+	_hotkeys[slot] = ""
+	_refresh_consumable_ui()
+	_msg("%s 핫키 해제" % ["Z", "X", "C"][slot])
+
+
+func _refresh_consumable_ui() -> void:
+	if _consumable_bar == null or not is_instance_valid(_consumable_bar) or not _consumable_bar.has_method("refresh"):
+		return
+	var data: Array = []
+	for s in 3:
+		var cid := String(_hotkeys[s])
+		if cid.is_empty():
+			data.append({})
+		else:
+			var m := Slice01Data.get_consumable_master(cid)
+			data.append({"name": String(m.get("display_name", cid)), "count": consumable_count(cid), "color": _consumable_color(m)})
+	_consumable_bar.refresh(data)
+
+
+func _consumable_bar_slot_under(mouse: Vector2) -> int:
+	if _consumable_bar != null and is_instance_valid(_consumable_bar) and _consumable_bar.has_method("slot_under"):
+		return _consumable_bar.slot_under(mouse)
+	return -1
+
+
+## Gameplay use (Z/X/C while playing). Returns a status string for HUD feedback ("" = no-op).
+func use_consumable(slot: int) -> String:
+	var cid := get_hotkey(slot)
+	if cid.is_empty():
+		return ""
+	var master := Slice01Data.get_consumable_master(cid)
+	if master.is_empty():
+		return ""
+	if not bool(master.get("usable_in_combat", true)) and _combat != null and _combat.is_engaged():
+		return "전투 중 사용 불가: %s" % master.get("display_name", cid)
+	var stack = _find_consumable_stack(cid)
+	if stack == null:
+		return "보유 없음: %s" % master.get("display_name", cid)
+	if not _apply_consumable(master):
+		return "대상 없음: %s" % master.get("display_name", cid)
+	stack.count = int(stack.count) - 1
+	if int(stack.count) <= 0:
+		_backpack.lift(stack)
+	else:
+		_backpack.refresh_item_label(stack)
+	_refresh_consumable_ui()
+	return "%s 사용" % master.get("display_name", cid)
+
+
+func _apply_consumable(master: Dictionary) -> bool:
+	match String(master.get("effect", "")):
+		"revive_ally":
+			if _party == null:
+				return false
+			for m in _party.get_members():
+				if not (m as Node).is_alive():
+					return (m as Node).revive(0.5)
+			return false
+	return false
+
+
+## Consume 1 of a consumable (external callers, e.g. dungeon_run after a revive channel).
+func consume_consumable(consumable_id: String) -> bool:
+	var stack = _find_consumable_stack(consumable_id)
+	if stack == null:
+		return false
+	stack.count = int(stack.count) - 1
+	if int(stack.count) <= 0:
+		_backpack.lift(stack)
+	else:
+		_backpack.refresh_item_label(stack)
+	_refresh_consumable_ui()
+	return true
 
 
 func _build_equip_column() -> void:
@@ -181,9 +418,10 @@ func _build_equip_column() -> void:
 		head.add_theme_font_size_override("font_size", 11)
 		head.modulate = UnitVisuals.role_color(cname)
 		_equip_box.add_child(head)
-		var slot := Panel.new()  # the slot frame = drop target (gear sits inside)
+		var slot := Panel.new()  # slot frame = drop target + drag source (gear)
 		slot.custom_minimum_size = Vector2(176, 50)
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP
+		slot.gui_input.connect(_on_gear_slot_input.bind(i))
 		var tile := Label.new()
 		tile.set_anchors_preset(Control.PRESET_FULL_RECT)
 		tile.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -312,18 +550,309 @@ func _clear_slot_previews() -> void:
 ## class or in combat). Non-gear drags clear all slot previews.
 func _update_slot_previews(mouse: Vector2) -> void:
 	_clear_slot_previews()
-	if String(_drag.get("kind", "")) != "gear":
-		return
-	var si := _equip_slot_under(mouse)
-	if si < 0:
-		return
-	var master: Dictionary = Slice01Data.get_gear_master(String(_drag.get("base_gear_id", "")))
-	_set_slot_preview(si, _can_equip_now(_party.get_member(si), master))
+	_clear_sub_previews()
+	var kind := String(_drag.get("kind", ""))
+	if kind == "gear":
+		var si := _equip_slot_under(mouse)
+		if si >= 0:
+			var master: Dictionary = Slice01Data.get_gear_master(String(_drag.get("base_gear_id", "")))
+			_set_slot_preview(si, _can_equip_now(_party.get_member(si), master))
+	elif kind == "skillbook":
+		var si := _sub_slot_under(mouse)
+		if si >= 0:
+			var master: Dictionary = Slice01Data.get_skillbook_master(String(_drag.get("base_ability_id", "")))
+			_set_sub_preview(si, _can_equip_sub_now(si, master))
 
 
 func _msg(text: String) -> void:
 	if _equip_msg != null:
 		_equip_msg.text = text
+
+
+# --- sub skillbook slots (per-character Q/E/R — F-009 §3.1) ---------------------
+
+func _build_sub_column() -> void:
+	if _content_row == null or _party == null:
+		return
+	if _sub_box != null and is_instance_valid(_sub_box):
+		_sub_box.queue_free()
+	_sub_slots.clear()
+	_sub_box = VBoxContainer.new()
+	_sub_box.add_theme_constant_override("separation", 6)
+	var title := Label.new()
+	title.text = "SUB SKILLS (캐릭터별 Q/E/R)"
+	title.add_theme_font_size_override("font_size", 14)
+	_sub_box.add_child(title)
+	var members: Array = _party.get_members()
+	for ci in members.size():
+		var cname := String((members[ci] as Node).class_id)
+		var crow := HBoxContainer.new()
+		crow.add_theme_constant_override("separation", 5)
+		var clabel := Label.new()
+		clabel.text = cname
+		clabel.custom_minimum_size = Vector2(50, 0)
+		clabel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		clabel.modulate = UnitVisuals.role_color(cname)
+		clabel.add_theme_font_size_override("font_size", 11)
+		crow.add_child(clabel)
+		for si in 3:
+			var slot := Panel.new()
+			slot.custom_minimum_size = Vector2(96, 44)
+			slot.mouse_filter = Control.MOUSE_FILTER_STOP
+			slot.gui_input.connect(_on_sub_slot_input.bind(_sub_slots.size()))
+			var tile := Label.new()
+			tile.set_anchors_preset(Control.PRESET_FULL_RECT)
+			tile.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tile.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tile.add_theme_font_size_override("font_size", 9)
+			slot.add_child(tile)
+			var ov := ColorRect.new()
+			ov.set_anchors_preset(Control.PRESET_FULL_RECT)
+			ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			ov.visible = false
+			slot.add_child(ov)
+			crow.add_child(slot)
+			_sub_slots.append({"panel": slot, "tile": tile, "overlay": ov, "char": ci, "slot": si})
+		_sub_box.add_child(crow)
+	_content_row.add_child(_sub_box)
+	_content_row.move_child(_sub_box, 1)  # after the gear column
+
+
+func _refresh_sub_slots() -> void:
+	if _party == null:
+		return
+	var members: Array = _party.get_members()
+	for e in _sub_slots:
+		if int(e.char) >= members.size():
+			continue
+		var inst = (members[int(e.char)] as Node).get_skillbook(int(e.slot))
+		var key: String = ["Q", "E", "R"][int(e.slot)]
+		var col: Color
+		if inst == null:
+			e.tile.text = "%s\n—" % key
+			col = Color(0.28, 0.31, 0.38)
+		else:
+			e.tile.text = "%s %s\n탄%d" % [key, _short(String(inst.display_name)), int(inst.charges)]
+			col = Color(0.40, 0.55, 0.85)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(col.r, col.g, col.b, 0.30)
+		sb.border_color = col.lightened(0.3)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(4)
+		e.panel.add_theme_stylebox_override("panel", sb)
+
+
+func _short(s: String) -> String:
+	return s if s.length() <= 10 else s.substr(0, 9) + "…"
+
+
+func _sub_slot_under(mouse: Vector2) -> int:
+	for i in _sub_slots.size():
+		var p: Panel = _sub_slots[i].panel
+		if p.is_visible_in_tree() and p.get_global_rect().has_point(mouse):
+			return i
+	return -1
+
+
+## Can the slot's owner char equip this skillbook now? combat gate + equipClasses.
+func _can_equip_sub_now(flat_index: int, master: Dictionary) -> bool:
+	if master.is_empty() or flat_index < 0 or flat_index >= _sub_slots.size():
+		return false
+	if _combat != null and _combat.is_engaged():
+		return false
+	var m: Node = _party.get_member(int(_sub_slots[flat_index].char)) if _party != null else null
+	return m != null and m.can_equip_skillbook(master)
+
+
+## Slot instance from a backpack skillbook item + its master (carries current charges).
+func _skillbook_inst(master: Dictionary, item: Dictionary) -> Dictionary:
+	var classes: Array = master.get("equip_classes", [])
+	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
+	return {
+		"base_ability_id": String(master.get("base_ability_id", "")),
+		"display_name": String(master.get("display_name", "")),
+		"params": master.get("cast", {}),
+		"charges": int(item.get("charges", master.get("charges_max", 0))),
+		"charges_max": int(master.get("charges_max", 0)),
+		"cooldown_s": 0.0,
+		"equip_classes": classes,
+		"color": item.get("color", UnitVisuals.role_color(cid)),
+	}
+
+
+## Backpack item from a displaced slot instance (preserves remaining charges; At-Risk).
+func _skillbook_item_from_inst(inst: Dictionary) -> Dictionary:
+	return {
+		"id": String(inst.display_name),
+		"w": 1, "h": 1,
+		"color": inst.get("color", Color(0.5, 0.6, 0.85)),
+		"kind": "skillbook",
+		"base_ability_id": String(inst.base_ability_id),
+		"charges": int(inst.charges),
+		"charges_max": int(inst.charges_max),
+		"at_risk": true,
+	}
+
+
+func _commit_sub_equip(m: Node, slot_index: int, item: Dictionary, master: Dictionary) -> void:
+	var inst := _skillbook_inst(master, item)
+	var displaced = m.set_skillbook(slot_index, inst)
+	if displaced != null:
+		if not _backpack.add_item_dict(_skillbook_item_from_inst(displaced)):
+			push_warning("[TDC] Backpack full — displaced skillbook had nowhere to go")
+	_refresh_sub_slots()
+	_msg("%s %s → %s 장착" % [String(m.class_id), ["Q", "E", "R"][slot_index], String(master.get("display_name", ""))])
+
+
+## Drag-drop equip a skillbook onto the sub slot at `flat_index` (item already lifted).
+func _try_equip_sub(flat_index: int, item: Dictionary) -> bool:
+	if flat_index < 0 or flat_index >= _sub_slots.size():
+		return false
+	var e = _sub_slots[flat_index]
+	var m: Node = _party.get_member(int(e.char)) if _party != null else null
+	var master: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
+	if m == null or master.is_empty():
+		return false
+	if _combat != null and _combat.is_engaged():
+		_msg("전투 중에는 스킬북 교체 불가 (F-009 §3.4)")
+		return false
+	if not m.can_equip_skillbook(master):
+		_msg("역할 불일치 — %s 전용 스킬북" % String((master.get("equip_classes", ["?"]) as Array)[0]))
+		return false
+	_commit_sub_equip(m, int(e.slot), item, master)
+	return true
+
+
+## Right-click equip: first matching-class char with an empty slot (else that char's Q).
+func _equip_sub_to_first(grid: Node, item: Dictionary) -> void:
+	var master: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
+	if master.is_empty():
+		return
+	if _combat != null and _combat.is_engaged():
+		_msg("전투 중에는 스킬북 교체 불가 (F-009 §3.4)")
+		return
+	var members: Array = _party.get_members() if _party != null else []
+	var fb_char := -1
+	for ci in members.size():
+		var m: Node = members[ci]
+		if not m.can_equip_skillbook(master):
+			continue
+		if fb_char < 0:
+			fb_char = ci
+		for si in 3:
+			if m.get_skillbook(si) == null:
+				grid.lift(item)
+				_commit_sub_equip(m, si, item, master)
+				return
+	if fb_char < 0:
+		_msg("착용 가능한 %s 캐릭터 없음" % String((master.get("equip_classes", ["?"]) as Array)[0]))
+		return
+	grid.lift(item)
+	_commit_sub_equip(members[fb_char], 0, item, master)
+
+
+func _set_sub_preview(i: int, ok: bool) -> void:
+	if i < 0 or i >= _sub_slots.size():
+		return
+	_sub_slots[i].overlay.color = SLOT_OK if ok else SLOT_BAD
+	_sub_slots[i].overlay.visible = true
+
+
+func _clear_sub_previews() -> void:
+	for e in _sub_slots:
+		e.overlay.visible = false
+
+
+# --- drag OUT of an equip / sub slot (unequip to inventory, or move slot↔slot) --
+
+func _on_gear_slot_input(event: InputEvent, char_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and _drag.is_empty():
+		_begin_gear_slot_drag(char_index)
+		accept_event()
+
+
+func _on_sub_slot_input(event: InputEvent, flat_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and _drag.is_empty():
+		_begin_sub_slot_drag(flat_index)
+		accept_event()
+
+
+func _begin_gear_slot_drag(char_index: int) -> void:
+	var m: Node = _party.get_member(char_index) if _party != null else null
+	if m == null or (m.equipped_gear as Dictionary).is_empty():
+		return
+	if _combat != null and _combat.is_engaged():
+		_msg("전투 중에는 장비 해제 불가 (F-008 §4.2)")
+		return
+	if float(m.identity_cooldown_s) > 0.0:
+		_msg("Identity 스킬 쿨다운 중 — 장비 해제 불가")
+		return
+	var item := _gear_item(m.equipped_gear, true)  # unequipped → At-Risk in inventory
+	m.unequip_gear()
+	_refresh_equip_slots()
+	_start_drag_from_slot(item, {"kind": "gear", "char": char_index})
+
+
+func _begin_sub_slot_drag(flat_index: int) -> void:
+	if flat_index < 0 or flat_index >= _sub_slots.size():
+		return
+	var e = _sub_slots[flat_index]
+	var m: Node = _party.get_member(int(e.char)) if _party != null else null
+	if m == null:
+		return
+	var inst = m.get_skillbook(int(e.slot))
+	if inst == null:
+		return
+	if _combat != null and _combat.is_engaged():
+		_msg("전투 중에는 스킬북 해제 불가 (F-009 §3.4)")
+		return
+	if float(inst.cooldown_s) > 0.0:
+		_msg("스킬북 쿨다운 중 — 해제 불가")
+		return
+	var item := _skillbook_item_from_inst(inst)
+	m.set_skillbook(int(e.slot), null)
+	_refresh_sub_slots()
+	_start_drag_from_slot(item, {"kind": "sub", "char": int(e.char), "slot": int(e.slot)})
+
+
+func _start_drag_from_slot(item: Dictionary, src: Dictionary) -> void:
+	_drag = item
+	_from = null
+	_drag_src = src
+	_rotated = false
+	_orig = {"w": int(item.w), "h": int(item.h), "col": 0, "row": 0}
+	_grab_off = Vector2(int(item.w) * CELL * 0.5, int(item.h) * CELL * 0.5)
+	_drag_vis = _make_drag_vis(item)
+	add_child(_drag_vis)
+	_update_drag()
+
+
+## Restore the drag to where it began (grid spot / gear slot / sub slot).
+func _revert_drag() -> void:
+	match String(_drag_src.get("kind", "grid")):
+		"gear":
+			var m: Node = _party.get_member(int(_drag_src.char))
+			if m != null:
+				m.equip_gear(Slice01Data.get_gear_master(String(_drag.get("base_gear_id", ""))))
+			_refresh_equip_slots()
+		"sub":
+			var m: Node = _party.get_member(int(_drag_src.char))
+			if m != null:
+				var master := Slice01Data.get_skillbook_master(String(_drag.get("base_ability_id", "")))
+				m.set_skillbook(int(_drag_src.slot), _skillbook_inst(master, _drag))
+			_refresh_sub_slots()
+		_:
+			if _from != null:
+				_drag.w = _orig.w
+				_drag.h = _orig.h
+				_from.place(_drag, int(_orig.col), int(_orig.row))
 
 
 # --- layout --------------------------------------------------------------------
@@ -397,6 +926,7 @@ func _build() -> void:
 	_backpack = bp_box[1]
 	_backpack.add_item("Pistol", 2, 1, Color(0.45, 0.55, 0.85))
 	_backpack.add_item("Armor", 2, 2, Color(0.82, 0.70, 0.35))
+	add_consumable_to_backpack("con_revive_scroll", 3)  # seed: 3 revive scrolls (1 stack)
 
 	# Loot container (shown only while looting a chest).
 	var lt_box := _make_container(row, "CONTAINER", 5, 5)
@@ -433,14 +963,31 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 	if mb.button_index == MOUSE_BUTTON_LEFT:
 		_begin_drag(grid, item)
 		accept_event()
-	elif mb.button_index == MOUSE_BUTTON_RIGHT and String(item.get("kind", "")) == "gear":
-		_equip_to_matching(grid, item)  # right-click → auto-equip to matching class
+	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if grid == _loot:
+			_stow_to_backpack(grid, item)  # chest → backpack: auto-stow to free space
+		elif String(item.get("kind", "")) == "gear":
+			_equip_to_matching(grid, item)  # right-click → auto-equip to matching class
+		elif String(item.get("kind", "")) == "skillbook":
+			_equip_sub_to_first(grid, item)  # right-click → first matching sub slot
+		elif String(item.get("kind", "")) == "consumable":
+			consumable_use_requested.emit(String(item.get("consumable_id", "")))  # → use (revive targeting)
 		accept_event()
+
+
+## Right-click in a loot container → move the item to the backpack's first free spot.
+func _stow_to_backpack(grid: InventoryGrid, item: Dictionary) -> void:
+	if grid == _backpack:
+		return
+	grid.lift(item)
+	if not _backpack.add_item_dict(item):
+		grid.place(item, int(item.col), int(item.row))  # no room — leave it in the chest
 
 
 func _begin_drag(grid: InventoryGrid, item: Dictionary) -> void:
 	_drag = item
 	_from = grid
+	_drag_src = {"kind": "grid"}
 	_rotated = false
 	_orig = {"w": item.w, "h": item.h, "col": item.col, "row": item.row}
 	var node: Control = item.node
@@ -520,10 +1067,30 @@ func _drop() -> void:
 		var si := _equip_slot_under(mouse)
 		if si >= 0:
 			if not _try_equip(si, _drag):
-				_drag.w = _orig.w
-				_drag.h = _orig.h
-				_from.place(_drag, int(_orig.col), int(_orig.row))
+				_revert_drag()
 			placed = true
+	elif String(_drag.get("kind", "")) == "skillbook":
+		var ssi := _sub_slot_under(mouse)
+		if ssi >= 0:
+			if not _try_equip_sub(ssi, _drag):
+				_revert_drag()
+			placed = true
+	elif String(_drag.get("kind", "")) == "consumable":
+		var bi := _consumable_bar_slot_under(mouse)
+		if bi >= 0:
+			assign_hotkey(bi, String(_drag.get("consumable_id", "")))
+			_revert_drag()  # assigning doesn't consume — return the stack to the backpack
+			placed = true
+	elif String(_drag.get("kind", "")) == "hotkey":
+		var hbi := _consumable_bar_slot_under(mouse)
+		var src := int(_drag.get("src_slot", -1))
+		if hbi == src:
+			pass  # dropped back on its own slot → keep
+		elif hbi >= 0:
+			assign_hotkey(hbi, String(_drag.get("consumable_id", "")))  # move (uniqueness clears src)
+		else:
+			_unassign_hotkey(src)  # dropped away → unassign
+		placed = true
 	if not placed:
 		var target := _grid_under(mouse)
 		if target != null:
@@ -531,20 +1098,36 @@ func _drop() -> void:
 			if target.can_place(int(_drag.w), int(_drag.h), c.x, c.y):
 				target.place(_drag, c.x, c.y)
 				placed = true
-		if not placed:  # revert: restore original orientation + spot in the source grid
-			_drag.w = _orig.w
-			_drag.h = _orig.h
-			_from.place(_drag, int(_orig.col), int(_orig.row))
+		if not placed:  # revert to where it began (grid spot / gear slot / sub slot)
+			_revert_drag()
 	for g: InventoryGrid in _grids:
 		g.clear_preview()
 	_clear_slot_previews()
+	_clear_sub_previews()
 	_drag_vis.queue_free()
 	_drag_vis = null
 	_drag = {}
 	_from = null
+	_drag_src = {}
 
 
 func _input(event: InputEvent) -> void:
+	# Z/X/C while the inventory is open → assign the hovered consumable to that hotkey.
+	if visible and _drag.is_empty():
+		var hk := -1
+		if event.is_action_pressed("use_consumable_z"): hk = 0
+		elif event.is_action_pressed("use_consumable_x"): hk = 1
+		elif event.is_action_pressed("use_consumable_c"): hk = 2
+		if hk >= 0:
+			var it = _consumable_under(get_viewport().get_mouse_position())
+			if it != null:
+				var cid := String(it.consumable_id)
+				if String(_hotkeys[hk]) == cid:
+					_unassign_hotkey(hk)  # hover the item on its own slot's key → toggle off
+				else:
+					assign_hotkey(hk, cid)
+			get_viewport().set_input_as_handled()
+			return
 	if not _drag.is_empty():
 		if event is InputEventMouseMotion:
 			_update_drag()
