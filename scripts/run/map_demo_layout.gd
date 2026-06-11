@@ -120,6 +120,7 @@ var _extraction_point: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
+	add_to_group("navmap")  # fatal zones call rebake_navigation on this group when they carve
 	_resolve_room_points()
 	_compute_openings()
 	_build_map()
@@ -536,9 +537,10 @@ func _add_obstacle_body(parent: Node3D, pos: Vector3, mesh: Mesh, shape: Shape3D
 
 
 func _bake_navigation() -> void:
-	_nav_region = NavigationRegion3D.new()
-	_nav_region.name = "NavRegion"
-	add_child(_nav_region)
+	if _nav_region == null:
+		_nav_region = NavigationRegion3D.new()
+		_nav_region.name = "NavRegion"
+		add_child(_nav_region)
 	var navmesh := NavigationMesh.new()
 	navmesh.agent_radius = 0.4
 	navmesh.agent_height = 1.2
@@ -548,13 +550,32 @@ func _bake_navigation() -> void:
 	navmesh.agent_max_slope = 45.0
 	navmesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	navmesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
-	_nav_region.navigation_mesh = navmesh
 	# Parse geometry from the Rooms subtree directly via NavigationServer3D
 	var source_geo := NavigationMeshSourceGeometryData3D.new()
 	NavigationServer3D.parse_source_geometry_data(navmesh, source_geo, _rooms_root)
+	# Carve active fatal zones so navigation routes AROUND them (impassable, like walls).
+	for z in get_tree().get_nodes_in_group("fatal_zone"):
+		if z.is_active():
+			_carve_zone(source_geo, z.global_position, float(z.radius))
 	NavigationServer3D.bake_from_source_geometry_data(navmesh, source_geo)
 	_nav_region.navigation_mesh = navmesh
 	print("[MAP] NavMesh baked: %d polygons" % navmesh.get_polygon_count())
+
+
+## Re-bake the navmesh (e.g. when a fatal zone spawns/clears) so pathing reflects it.
+func rebake_navigation() -> void:
+	_bake_navigation()
+
+
+## Carve a circular impassable column into the nav source geometry (fatal zone = wall),
+## so map_get_path routes around it (or finds no path when it severs a corridor).
+func _carve_zone(geo: NavigationMeshSourceGeometryData3D, center: Vector3, radius: float) -> void:
+	var verts := PackedVector3Array()
+	var segs := 14
+	for i in segs:
+		var a := float(i) * TAU / float(segs)
+		verts.append(Vector3(center.x + cos(a) * radius, 0.0, center.z + sin(a) * radius))
+	geo.add_projected_obstruction(verts, -1.0, 4.0, true)  # elevation, height, carve=true
 
 
 func _on_body_entered(body: Node3D, room_ref: String) -> void:

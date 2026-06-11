@@ -132,12 +132,151 @@ func _physics_process(delta: float) -> void:
 	_update_command_holder()  # 비결속 앵커: leader 정본 + 정찰/복귀 시 임시 stand-in
 	_update_formation_forward(delta)
 	_update_formation_follow(delta)
+	_update_mia(delta)
 
 
 func get_controlled() -> CharacterBody3D:
 	if _members.is_empty():
 		return null
 	return _members[_controlled_index]
+
+
+## MIA — two spec entry paths converge here (F-003 §3.6.2 "OR"):
+##  • Unbound distance leash (§3.3.1): in 파티비결속, straight distance to the anchor
+##    (지휘권 보유자) > 12 m → warning + 12 m return ring at 1 s → MIA at 3 s. Applies to
+##    the controlled scout too — on MIA, control is forced to the anchor.
+##  • Rejoin failure (§3.6.2 / F-004 §3.3): a non-controlled member's nav PATH to the
+##    anchor is too long / severed (fatal zones are carved out of the navmesh) → MIA.
+## MIA blocks swap (F-001 §3.6) + holds. Combat freezes distance-MIA (§3.3.1). Clears the
+## instant the member is back within range / reachable.
+const _UNBOUND_ANCHOR_MAX_M: float = 20.0  # leash (demo tuning; §3.3.1 example 12 m)
+const _WARN_AFTER_S: float = 1.0           # §3.3.1 t_unbound_separation_warn
+const _MIA_AFTER_S: float = 5.0            # 경고 후 여유 (demo tuning; §3.3.1 t_mia 3.0)
+const _MIA_DISTANCE_M: float = 20.0        # rejoin-failure nav-path leash (matches the leash)
+const _MIA_RECHECK_S: float = 0.2          # throttle nav-path queries
+var _mia_timer: Dictionary = {}
+var _mia_dist_cache: Dictionary = {}
+var _mia_recheck: float = 0.0
+var _leash_ring: MeshInstance3D = null
+
+func _update_mia(delta: float) -> void:
+	_mia_recheck -= delta
+	var recompute: bool = _mia_recheck <= 0.0
+	if recompute:
+		_mia_recheck = _MIA_RECHECK_S
+	var anchor := _get_anchor()
+	var unbound: bool = cohesion_mode == PartyCohesion.MODE_UNBOUND
+	var ring_at := Vector3.ZERO
+	var show_ring := false
+	for member in _members:
+		if anchor == null or member == anchor or not member.is_alive():
+			_clear_member_sep(member)
+			continue
+		if _combat_engaging:
+			continue  # §3.3.1: combat doesn't distance-(de)MIA — freeze current warn/MIA
+		# Path B — unbound straight-distance leash (the controlled scout counts too).
+		var leash_sep := false
+		if unbound:
+			var dx := member.global_position.x - anchor.global_position.x
+			var dz := member.global_position.z - anchor.global_position.z
+			leash_sep = dx * dx + dz * dz > _UNBOUND_ANCHOR_MAX_M * _UNBOUND_ANCHOR_MAX_M
+		# Path A — rejoin failure: non-controlled member can't reach the anchor (nav path).
+		var reach_sep := false
+		if not member.is_controlled():
+			if recompute:
+				_mia_dist_cache[member] = _reachable_dist(member, anchor.global_position)
+			reach_sep = float(_mia_dist_cache.get(member, 0.0)) > _MIA_DISTANCE_M
+		if leash_sep or reach_sep:
+			if leash_sep:
+				show_ring = true  # boundary ring appears the instant you cross 20 m
+				ring_at = anchor.global_position
+			var t: float = float(_mia_timer.get(member, 0.0)) + delta
+			_mia_timer[member] = t
+			if t >= _MIA_AFTER_S:
+				member.set_warn(false)
+				if not member.is_mia() and member.is_controlled():
+					_force_control_off(member)  # hand control to the anchor, then lock out
+				member.set_mia(true)
+			elif t >= _WARN_AFTER_S:
+				member.set_warn(true)
+		else:
+			_clear_member_sep(member)
+	_update_leash_ring(show_ring, ring_at)
+
+
+func _clear_member_sep(member: CharacterBody3D) -> void:
+	_mia_timer.erase(member)
+	_mia_dist_cache.erase(member)
+	member.set_warn(false)
+	member.set_mia(false)
+
+
+## A controlled member going MIA → force control to the anchor (or any living non-MIA
+## member), so the player isn't left driving a stranded character. F-003 §3.3.1.
+func _force_control_off(member: CharacterBody3D) -> void:
+	var target := -1
+	if _member_valid(_command_holder_index):
+		var h: CharacterBody3D = _members[_command_holder_index]
+		if h != member and h.is_alive() and not h.is_mia():
+			target = _command_holder_index
+	if target < 0:
+		for i in _members.size():
+			var c: CharacterBody3D = _members[i]
+			if c != member and c.is_alive() and not c.is_mia():
+				target = i
+				break
+	if target >= 0:
+		_set_controlled_index(target)
+		print("[TDC] %s went MIA (leash) — control forced to the anchor" % member.class_id)
+
+
+## The 12 m return ring around the anchor, shown during a separation warning.
+func _update_leash_ring(show: bool, anchor_pos: Vector3) -> void:
+	if not show:
+		if _leash_ring != null:
+			_leash_ring.visible = false
+		return
+	if _leash_ring == null:
+		if _members.is_empty():
+			return
+		_leash_ring = MeshInstance3D.new()
+		var torus := TorusMesh.new()
+		torus.inner_radius = _UNBOUND_ANCHOR_MAX_M - 0.12  # thin boundary outline only
+		torus.outer_radius = _UNBOUND_ANCHOR_MAX_M
+		torus.rings = 96         # main-circle smoothness (was 3 → triangle + edges far inside)
+		torus.ring_segments = 8  # tube cross-section (thin)
+		_leash_ring.mesh = torus  # TorusMesh already lies flat in the XZ plane — no rotation
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(1.0, 0.82, 0.2, 0.7)
+		mat.emission_enabled = true
+		mat.emission = Color(1.0, 0.72, 0.1)
+		mat.emission_energy_multiplier = 1.5
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.render_priority = 2
+		_leash_ring.material_override = mat
+		_members[0].get_parent().add_child(_leash_ring)
+	_leash_ring.visible = true
+	_leash_ring.global_position = Vector3(anchor_pos.x, 0.25, anchor_pos.z)
+
+
+## Navmesh PATH distance from a member to the anchor. Fatal zones are carved out of the
+## navmesh (map_demo_layout), so the path routes AROUND them; INF if there's no path or it
+## can't actually reach the anchor (a corridor severed). ref: F-004 §3.3 (거리 = nav path
+## length; 경로 단절/우회 → reachable distance; 도달 불가 → hold/MIA).
+func _reachable_dist(member: CharacterBody3D, anchor_pos: Vector3) -> float:
+	var map: RID = member.get_world_3d().navigation_map
+	if not map.is_valid():
+		return 0.0
+	var path: PackedVector3Array = NavigationServer3D.map_get_path(map, member.global_position, anchor_pos, true)
+	if path.size() < 2:
+		return INF
+	if path[path.size() - 1].distance_to(anchor_pos) > 2.5:
+		return INF  # path ends short of the anchor → severed (carved zone) → unreachable
+	var total := 0.0
+	for i in range(1, path.size()):
+		total += path[i].distance_to(path[i - 1])
+	return total
 
 
 func get_member(index: int) -> CharacterBody3D:
@@ -174,6 +313,9 @@ func try_swap_to(index: int) -> bool:
 		return false
 	if not _members[index].is_alive():
 		print("[TDC] Swap ignored (target downed)")  # can't control a downed member
+		return false
+	if _members[index].has_method("is_mia") and _members[index].is_mia():
+		print("[TDC] Swap ignored (target MIA — cut off by a hazard)")  # F-001 §3.6
 		return false
 	if not _can_swap():
 		print("[TDC] Swap ignored (control locked)")  # F-001 §3.6 Control Lock / MIA
@@ -315,6 +457,35 @@ func _pick_command_holder(avoid_a: int, avoid_b: int = -1) -> int:
 
 func _anchor_velocity_h(anchor: CharacterBody3D) -> Vector3:
 	return Vector3(anchor.velocity.x, 0.0, anchor.velocity.z)
+
+
+## Followers / non-controlled anchor won't walk INTO an active fatal zone — strip the
+## velocity component crossing the boundary so they hold at the edge (F-004 Fatal
+## avoidance). The controlled member is player-driven and NOT clamped (player may enter).
+func _clamp_fatal(member: CharacterBody3D, delta: float) -> void:
+	const STANDOFF := 1.6  # hold this far OUTSIDE the lethal edge — no edge-riding bleed
+	const FLEE_SPEED := 4.5  # gentle bounded back-off (never a launch)
+	var pos := member.global_position
+	for z in get_tree().get_nodes_in_group("fatal_zone"):
+		if not z.is_active():
+			continue
+		var to_c: Vector3 = z.global_position - pos
+		to_c.y = 0.0
+		var dist := to_c.length()
+		if dist < 0.01:
+			continue
+		var n := to_c / dist                       # unit vector toward the zone center
+		var keep: float = z.radius + STANDOFF
+		if dist < keep:
+			# inside the stand-off band — OVERRIDE with a gentle outward drift that eases to
+			# zero at the ring, so the follower settles off the edge (no launch, no oscillation,
+			# and the seek's up-to-14 m/s can't compound into an eject).
+			var t := clampf((keep - dist) / STANDOFF, 0.0, 1.0)
+			member.velocity = -n * (FLEE_SPEED * t)
+		elif z.contains_point(pos + member.velocity * delta, STANDOFF):
+			var into := member.velocity.dot(n)
+			if into > 0.0:
+				member.velocity -= n * into  # about to enter the band — strip the inward component
 
 
 func _reposition_delay_s(member: CharacterBody3D) -> float:
@@ -620,6 +791,9 @@ func _sv1_update_follow(
 		if member.has_method("is_alive") and not member.is_alive():
 			member.velocity = Vector3.ZERO
 			continue  # downed — stays where it fell
+		if member.has_method("is_mia") and member.is_mia():
+			member.velocity = Vector3.ZERO
+			continue  # MIA — holds in place for player regroup (F-004 §3.4)
 		var slot_target: Vector3 = peer_slot_targets[member]
 		# Rejoin fallback (member-POV): the clamped slot is always in the anchor's
 		# room, so this only fires when the member itself is physically stuck in
@@ -648,6 +822,7 @@ func _sv1_update_follow(
 			member.velocity = member.velocity.move_toward(target_vel, _follower_accel_mps2 * delta)
 		else:
 			member.velocity = target_vel
+		_clamp_fatal(member, delta)
 		member.move_and_slide()
 		_sv1_store_wall_normals(member)
 	# Pass 3: the anchor. Pass 1/2 skip it (they assume it's the player-driven
@@ -669,6 +844,7 @@ func _sv1_update_follow(
 			anchor.velocity = anchor.velocity.move_toward(av, _follower_accel_mps2 * delta)
 		else:
 			anchor.velocity = av
+		_clamp_fatal(anchor, delta)
 		anchor.move_and_slide()
 
 

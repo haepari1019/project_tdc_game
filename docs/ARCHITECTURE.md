@@ -59,15 +59,18 @@
 | [run_controller.gd](../scripts/run/run_controller.gd) | 124 | 런 상태(phase/room/flags), 룸진입→인카운터 트리거, objective/extraction | `start_run` `on_player_entered_room` `try_extract` | RunPhase, Slice01Data |
 | [dungeon_run.gd](../scripts/run/dungeon_run.gd) | 256 | 씬 와이어링·시그널 라우팅 + 조준UI + 조작표시 + 탈출홀드 + HUD 라벨 + 입력(카메라는 CameraRig로 위임) | `_ready` `_process` `_unhandled_input` `_update_extraction` `_on_*_changed` | 전 노드 트리, CameraRig, HUD 라벨경로 |
 | [camera_rig.gd](../scripts/run/camera_rig.gd) | 87 | 🟢 게임플레이 카메라 리그(추종/스왑글라이드 accel·decel/RMB 오르빗/trauma 셰이크). `CameraPivot` 노드에 부착 | `set_follow_target` `glide_to_current` `orbit_yaw` `add_shake` | Camera3D(자식) only |
-| [map_demo_layout.gd](../scripts/run/map_demo_layout.gd) | 471 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크·**데이터주도 인터페이스**(`_room_points`/profile=rooms.json) | `ROOM_SPECS` `get_spawn_position` `_resolve_room_points` `_room_profile` | NavigationServer3D, Slice01Data, group 'player' |
+| [map_demo_layout.gd](../scripts/run/map_demo_layout.gd) | 492 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크 + **fatal 장판 carve 재bake**·**데이터주도 인터페이스**(`_room_points`/profile=rooms.json) | `get_spawn_position` `rebake_navigation` `_carve_zone` `_resolve_room_points` | NavigationServer3D, Slice01Data, group 'player'/'navmap' |
 | [player_controller.gd](../scripts/run/player_controller.gd) | 34 | 조작 캐릭터 WASD→velocity (가속모델 옵션) | `_physics_process` | 부모 CharacterBody3D, InputMap |
 | [party_light.gd](../scripts/run/party_light.gd) | 115 | F-011 시야결합 조명(멤버별 omni+spot)·플리커·룸감쇠 | `_build_rigs` `_on_room_changed` | PartyController/Map/Run (노드경로) |
+| [hazard_zone.gd](../scripts/run/hazard_zone.gd) | 112 | 🟢 치명 장판: 텔레그래프→치사 지속데미지(피아무구분 F-021)·`fatal_zone` 그룹. 스폰/소거 시 `navmap` carve 재bake 트리거 | `setup` `clear_zone` `contains_point` `blocks_segment` | groups, call_group('navmap') |
+| [trap.gd](../scripts/run/trap.gd) | 86 | 🟢 초크포인트 압력판: 조작멤버 통과→뒤에 HazardZone 스폰(분리)·`reset()`=소거+재무장 (F-006 트랩) | `reset` `has_active_zone` | HazardZone, group 'party_member' |
+| [lever.gd](../scripts/run/lever.gd) | 75 | 🟢 상호작용 레버: `trap.reset()`=함정 회복(장판 해제·통로 재개) | `interact` `setup` | Trap |
 | [main.gd](../scripts/main.gd) | 34 | 허브/메뉴: 로드 게이트 + 로드아웃 + 던전 진입 | `_ready` `_on_start_pressed` | Slice01Data, GameBootstrap |
 
 ### party — `scripts/party/`
 | 파일 | L | 책임 | 핵심 심볼 | 의존 |
 |------|--:|------|-----------|------|
-| [party_controller.gd](../scripts/party/party_controller.gd) | **1014** | ⚠️ **갓오브젝트**: 스폰·스왑·결속(command-holder) + 포메이션 상태머신 + 슬롯기하 + **스티어링 v1(~21 `_sv1_*`, ~530줄 지배덩어리)** + 설정로더 (전투교전·힐러무빙은 CombatPositioning 분리) | `try_swap_to` `_sv1_update_follow` `_update_command_holder` `_load_formation_config` | party_cohesion, CombatPositioning, party_member.tscn, player_controller, Slice01Data, formation.json |
+| [party_controller.gd](../scripts/party/party_controller.gd) | **1130** | ⚠️ **갓오브젝트**: 스폰·스왑·결속(command-holder) + 포메이션 상태머신 + 슬롯기하 + **스티어링 v1(~21 `_sv1_*`, ~530줄 지배덩어리)** + 설정로더 + **MIA**(비결속 leash·복귀실패·강제이전·경계링)·fatal 회피 (전투교전·힐러무빙은 CombatPositioning 분리) | `try_swap_to` `_update_command_holder` `_update_mia` `_clamp_fatal` `_reachable_dist` | party_cohesion, CombatPositioning, party_member.tscn, player_controller, Slice01Data, NavigationServer3D, group 'fatal_zone' |
 | [combat_positioning.gd](../scripts/party/combat_positioning.gd) | 111 | 🟢 전투우선 follower goal-point: 슬롯이탈 트리거(`enemy_in_party_basic_range`)·근접 attack-range 점·힐러 wounded 추종. PartyController 자식; `_members`만 백레퍼 | `has_live_enemies` `enemy_in_party_basic_range` `engage_target` | party_controller(`_members`), group 'enemy' |
 | [party_member.gd](../scripts/party/party_member.gd) | 405 | 단일 슬롯: **Identity Gear 바인딩(gear→identity, F-008)** · **서브 스킬북 슬롯 Q/E/R(F-009)** · 스탯·스킬파라미터·HP/실드/상태(F-021)·넉백·navmesh·조작비주얼 | `setup` `_bind_gear` `equip_gear` `get_skillbook` `set_skillbook` `can_equip_skillbook` `take_damage` | health_bar, Slice01Data, groups 'party_member'/'player' |
 | [party_cohesion.gd](../scripts/party/party_cohesion.gd) | 8 | F-003 결속 모드 enum(BOUND/UNBOUND) | `Mode` `MODE_*` | — |

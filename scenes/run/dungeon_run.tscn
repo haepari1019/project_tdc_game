@@ -143,7 +143,7 @@ text = "파티결속"
 
 [node name="FormationLabel" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2
-text = "formation (CapsLk)"
+text = "formation (G)"
 
 [node name="FormationValue" type="Label" parent="HUD/Panel/Margin/VBox"]
 layout_mode = 2

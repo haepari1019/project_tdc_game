@@ -44,6 +44,9 @@ var attack_cooldown_s: float = 0.0
 ## F-022 damageThreatMultiplier — Tank amplifies its damage-threat to hold aggro.
 var threat_mult: float = 1.0
 var _alive: bool = true
+var _mia: bool = false
+var _warn: bool = false
+var _mia_marker: Label3D = null
 
 # --- Identity skill (from `identity` block) + shield (AB-020) ---
 var identity_params: Dictionary = {}
@@ -335,6 +338,38 @@ func is_alive() -> bool:
 	return _alive
 
 
+func is_mia() -> bool:
+	return _mia
+
+
+func is_warn() -> bool:
+	return _warn
+
+
+## Separation warning (anchor leash, before MIA) — party_sheet tints the portrait.
+func set_warn(on: bool) -> void:
+	_warn = on
+
+
+## Missing-In-Action — cut off from the party by a hazard (driven by party_controller).
+## Shows a world marker; swap is blocked while MIA (F-001 §3.6). Clears on rejoin.
+func set_mia(on: bool) -> void:
+	if _mia == on:
+		return
+	_mia = on
+	if on and _mia_marker == null:
+		_mia_marker = Label3D.new()
+		_mia_marker.text = "⚠ MIA"
+		_mia_marker.font_size = 44
+		_mia_marker.modulate = Color(1.0, 0.5, 0.15)
+		_mia_marker.position = Vector3(0, 2.7, 0)
+		_mia_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_mia_marker.no_depth_test = true
+		add_child(_mia_marker)
+	if _mia_marker != null:
+		_mia_marker.visible = on
+
+
 ## Revive a downed member (revival consumable). Restores alive state + HP; re-adds to
 ## the party_member group and un-dims the body. No-op (false) if already alive.
 func revive(hp_fraction: float = 0.5) -> bool:
@@ -517,6 +552,7 @@ func _flash() -> void:
 
 func _go_down() -> void:
 	_alive = false
+	set_mia(false)  # a downed member is not MIA
 	if _flash_tw and _flash_tw.is_valid():
 		_flash_tw.kill()
 	remove_from_group("party_member")

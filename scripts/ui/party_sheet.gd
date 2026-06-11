@@ -125,10 +125,14 @@ func _process(_delta: float) -> void:
 		var controlled: bool = m.is_controlled()
 		s.sb.set_border_width_all(3 if controlled else 0)
 		s.panel.modulate.a = 1.0 if controlled else 0.6
-		if alive:
-			s.portrait.color = m.get_class_color()
-		else:
+		if not alive:
 			s.portrait.color = Color(0.32, 0.32, 0.34)
+		elif m.has_method("is_mia") and m.is_mia():
+			s.portrait.color = Color(0.95, 0.5, 0.15)   # MIA — cut off / out of leash
+		elif m.has_method("is_warn") and m.is_warn():
+			s.portrait.color = Color(0.95, 0.82, 0.2)   # separation warning — return to anchor
+		else:
+			s.portrait.color = m.get_class_color()
 		# Sub slot 0 = equipped sub cooldown (remaining / total). Slots 1·2 empty.
 		var total: float = float(m.sub_params.get("cooldown_s", 0.0))
 		s.radials[0].set_cd(m.sub_cooldown_s / total if total > 0.0 else 0.0)

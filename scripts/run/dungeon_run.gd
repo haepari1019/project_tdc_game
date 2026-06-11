@@ -9,6 +9,8 @@ const Chest := preload("res://scripts/run/chest.gd")
 const InteractionController := preload("res://scripts/run/interaction_controller.gd")
 const Door := preload("res://scripts/run/door.gd")
 const ItemDrop := preload("res://scripts/run/item_drop.gd")
+const Trap := preload("res://scripts/run/trap.gd")
+const Lever := preload("res://scripts/run/lever.gd")
 const QuestTracker := preload("res://scripts/ui/quest_tracker.gd")
 const Minimap := preload("res://scripts/ui/minimap.gd")
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")
@@ -144,6 +146,15 @@ func _ready() -> void:
 	door.setup(_inventory_ui, _run)
 	door.position = Vector3(27.0, 0.0, 77.25)
 	add_child(door)
+	# Corridor trap (RM-ROUTE-01 chokepoint, 6m wide): the controlled member crossing the
+	# plate spawns a fatal zone behind them → followers cut off (split). Far lever clears it.
+	var trap := Trap.new()
+	trap.position = Vector3(27.0, 0.0, 71.0)    # plate north; zone spawns 7m south (z≈64)
+	add_child(trap)
+	var lever := Lever.new()
+	lever.setup(trap)
+	lever.position = Vector3(29.2, 0.0, 74.0)   # front side (north of zone), against the east wall
+	add_child(lever)
 	# Proximity interaction prompt + controller.
 	_interact_prompt = _make_interact_prompt()
 	$HUD.add_child(_interact_prompt)
