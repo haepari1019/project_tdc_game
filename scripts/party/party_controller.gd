@@ -10,6 +10,8 @@ const CombatPositioning := preload("res://scripts/party/combat_positioning.gd")
 signal controlled_changed(member: CharacterBody3D)
 signal cohesion_changed(mode: int)
 signal formation_priority_changed(on: bool)
+signal party_alert(text: String, level: int)  # UI-006 separation/MIA warning (0=warn, 1=MIA)
+signal pip_targets(members: Array)             # UI-006 §7 PIP camera targets (empty = close)
 
 @export var move_speed: float = 9.0
 
@@ -158,6 +160,7 @@ var _mia_timer: Dictionary = {}
 var _mia_dist_cache: Dictionary = {}
 var _mia_recheck: float = 0.0
 var _leash_ring: MeshInstance3D = null
+var _pip_list: Array = []
 
 func _update_mia(delta: float) -> void:
 	_mia_recheck -= delta
@@ -193,15 +196,29 @@ func _update_mia(delta: float) -> void:
 			var t: float = float(_mia_timer.get(member, 0.0)) + delta
 			_mia_timer[member] = t
 			if t >= _MIA_AFTER_S:
+				if not member.is_mia():  # transition into MIA (UI-006 MIAEntered)
+					if member.is_controlled():
+						_force_control_off(member)  # hand control to the anchor, then lock out
+					else:
+						party_alert.emit("%s MIA — 집합 필요" % member.class_id, 1)
 				member.set_warn(false)
-				if not member.is_mia() and member.is_controlled():
-					_force_control_off(member)  # hand control to the anchor, then lock out
 				member.set_mia(true)
 			elif t >= _WARN_AFTER_S:
+				if not member.is_warn() and not member.is_mia():  # transition into warning
+					party_alert.emit("%s 이탈 — 파티 범위로 복귀하세요" % member.class_id, 0)
 				member.set_warn(true)
 		else:
 			_clear_member_sep(member)
 	_update_leash_ring(show_ring, ring_at)
+	# UI-006 §7 / §7.8 — PIP shows MIA members (after control transferred off them). Collect
+	# all MIA members so the PIP can show a count + cycle when 2+ are stranded.
+	var mia_list: Array = []
+	for member in _members:
+		if member.is_mia():
+			mia_list.append(member)
+	if mia_list != _pip_list:
+		_pip_list = mia_list.duplicate()
+		pip_targets.emit(mia_list)
 
 
 func _clear_member_sep(member: CharacterBody3D) -> void:
@@ -227,6 +244,7 @@ func _force_control_off(member: CharacterBody3D) -> void:
 				break
 	if target >= 0:
 		_set_controlled_index(target)
+		party_alert.emit("%s MIA — 조작 전환 → %s" % [member.class_id, _members[target].class_id], 1)
 		print("[TDC] %s went MIA (leash) — control forced to the anchor" % member.class_id)
 
 
@@ -392,9 +410,12 @@ func _get_anchor() -> CharacterBody3D:
 	return get_controlled()
 
 
+## Valid as a command holder / rally anchor / stand-in. A MIA member is stranded, so it
+## can NEVER be the anchor — else the rally point drifts onto a cut-off char (tangle).
 func _member_valid(i: int) -> bool:
 	return i >= 0 and i < _members.size() and is_instance_valid(_members[i]) \
-			and (not _members[i].has_method("is_alive") or _members[i].is_alive())
+			and (not _members[i].has_method("is_alive") or _members[i].is_alive()) \
+			and not (_members[i].has_method("is_mia") and _members[i].is_mia())
 
 
 ## F-003 §3.4: maintain the Command Holder (Active Anchor) for 파티비결속, re-evaluated
@@ -428,7 +449,11 @@ func _update_command_holder(avoid_scout: int = -1) -> void:
 	if idx < 0:
 		idx = _pick_command_holder(-1)             # tiny party → allow the leader too
 	if idx < 0:
-		cohesion_mode = PartyCohesion.MODE_BOUND  # §3.4 #4 — nobody valid → bound
+		# No valid (non-MIA) stand-in. If the others are MIA (stranded, not dead), STAY
+		# unbound — _get_anchor() falls back to the controlled char so the leash keeps the
+		# MIA members held; switching to bound drops the leash and auto-rejoins everyone.
+		if not _has_living_noncontrolled():
+			cohesion_mode = PartyCohesion.MODE_BOUND  # §3.4 #4 — no living member to anchor
 	else:
 		_command_holder_index = idx
 
@@ -453,6 +478,18 @@ func _pick_command_holder(avoid_a: int, avoid_b: int = -1) -> int:
 		if i != _controlled_index and i != avoid_a and i != avoid_b and _member_valid(i):
 			return i
 	return -1
+
+
+## Any non-controlled member still alive? MIA counts as alive (stranded, not dead) — so
+## an all-MIA party keeps a living member and stays unbound (leash holds the MIA chars).
+func _has_living_noncontrolled() -> bool:
+	for i in _members.size():
+		if i == _controlled_index:
+			continue
+		var mm: CharacterBody3D = _members[i]
+		if is_instance_valid(mm) and (not mm.has_method("is_alive") or mm.is_alive()):
+			return true
+	return false
 
 
 func _anchor_velocity_h(anchor: CharacterBody3D) -> Vector3:

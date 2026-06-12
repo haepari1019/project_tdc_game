@@ -13,6 +13,7 @@ const Trap := preload("res://scripts/run/trap.gd")
 const Lever := preload("res://scripts/run/lever.gd")
 const Barrel := preload("res://scripts/run/barrel.gd")
 const QuestTracker := preload("res://scripts/ui/quest_tracker.gd")
+const PipCamera := preload("res://scripts/ui/pip_camera.gd")
 const Minimap := preload("res://scripts/ui/minimap.gd")
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
@@ -64,6 +65,8 @@ var _aim_slot: int = -1  # which skillbook slot the aim will cast
 var _reviving: bool = false
 var _revive_cid: String = ""
 var _revive_prompt: Label
+var _alert_banner: Label   # UI-006 central separation/MIA warning overlay
+var _alert_token: int = 0
 var _aim_marker: MeshInstance3D
 var _aim_mat: StandardMaterial3D
 
@@ -188,6 +191,19 @@ func _ready() -> void:
 	_revive_prompt.modulate = Color(0.6, 1.0, 0.7)
 	_revive_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	$HUD.add_child(_revive_prompt)
+	_alert_banner = Label.new()  # UI-006 central separation/MIA warning (icon + text, auto-hide)
+	_alert_banner.visible = false
+	_alert_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_alert_banner.offset_top = 50
+	_alert_banner.offset_bottom = 84
+	_alert_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_alert_banner.add_theme_font_size_override("font_size", 22)
+	_alert_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$HUD.add_child(_alert_banner)
+	_party.party_alert.connect(_on_party_alert)
+	var pip := PipCamera.new()  # UI-006 §7 PIP camera (bottom-left, MIA/separation target)
+	$HUD.add_child(pip)
+	_party.pip_targets.connect(pip.set_targets)
 	_camera_rig.set_follow_target(_party.get_controlled())  # glide in from rig origin
 
 
@@ -413,6 +429,20 @@ func _revive_toast(msg: String) -> void:
 func _hide_revive_toast() -> void:
 	if not _reviving:
 		_revive_prompt.visible = false
+
+
+## UI-006 — central separation/MIA warning overlay (non-blocking, brief, anti-spam).
+func _on_party_alert(text: String, level: int) -> void:
+	_alert_banner.text = "⚠ " + text
+	_alert_banner.modulate = Color(0.98, 0.85, 0.25) if level == 0 else Color(1.0, 0.45, 0.3)
+	_alert_banner.visible = true
+	_alert_token += 1
+	get_tree().create_timer(2.8).timeout.connect(_hide_alert.bind(_alert_token))
+
+
+func _hide_alert(tok: int) -> void:
+	if tok == _alert_token:
+		_alert_banner.visible = false
 
 
 func _start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> void:
