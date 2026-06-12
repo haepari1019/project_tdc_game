@@ -43,6 +43,8 @@ func _physics_process(delta: float) -> void:
 		_drive_to_target(body, delta)
 		return
 	var v_target := _target_velocity(input)
+	if body.has_method("move_speed_mult"):
+		v_target *= body.move_speed_mult()  # Oil slick etc.
 	if use_accel_model:
 		var a: float = accel_mps2 if v_target.length_squared() > 0.01 else decel_mps2
 		body.velocity = body.velocity.move_toward(v_target, a * delta)
@@ -107,6 +109,8 @@ func _drive_to_target(body: CharacterBody3D, delta: float) -> void:
 			_move_cb.call()
 		return
 	var v_target := (to / dist) * move_speed
+	if body.has_method("move_speed_mult"):
+		v_target *= body.move_speed_mult()
 	if use_accel_model:
 		body.velocity = body.velocity.move_toward(v_target, accel_mps2 * delta)
 	else:

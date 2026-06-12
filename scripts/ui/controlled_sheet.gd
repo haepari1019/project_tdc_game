@@ -127,14 +127,18 @@ func _process(_delta: float) -> void:
 				s.radial.set_empty(true)
 				s.radial.set_cd(0.0)
 				s.key.text = key
+				s.key.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92))
 				s.radial.tooltip_text = "보조 (%s)\n(빈 슬롯 — 스킬북 장착)" % key
 			else:
 				s.radial.set_empty(false)
 				s.radial.set_icon_color(inst.color)
 				var cdmax: float = float(inst.params.get("cooldown_s", 0.0))
 				s.radial.set_cd(float(inst.cooldown_s) / cdmax if cdmax > 0.0 else 0.0)
-				s.key.text = "%s·%d" % [key, int(inst.charges)]
-				s.radial.tooltip_text = "%s (%s)\n탄 %d/%d · 쿨 %ss" % [String(inst.display_name), key, int(inst.charges), int(inst.charges_max), _num(cdmax)]
+				var _classes: Array = inst.get("equip_classes", [])
+				var _pen: bool = not _classes.is_empty() and String(m.class_id) != String(_classes[0])
+				s.key.add_theme_color_override("font_color", Color(1.0, 0.5, 0.25) if _pen else Color(0.92, 0.92, 0.92))
+				s.key.text = "%s·%d%s" % [key, int(inst.charges), ("▼" if _pen else "")]
+				s.radial.tooltip_text = "%s (%s)\n탄 %d/%d · 쿨 %ss%s" % [String(inst.display_name), key, int(inst.charges), int(inst.charges_max), _num(cdmax), (("\n⚠ 비주력 -10%") if _pen else "")]
 
 
 func _hp_color(r: float) -> Color:

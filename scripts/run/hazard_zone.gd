@@ -1,44 +1,66 @@
 extends Node3D
-## Fatal hazard zone — a persistent ground area that ticks lethal damage to ANY unit
-## (party or enemy) standing in it (피아무구분, F-021). Spawned by a Trap; cleared by a
-## Lever (reset). Party AI treats an active zone as do-not-cross (F-004 Fatal avoidance),
-## so a zone across a chokepoint splits the party. ref: F-006 hazard severity / F-021 ZONE.
+## Ground hazard zone — a persistent circular ground area with a STATUS (Fatal / Oil /
+## Fire / ToxicGas). Optionally ticks damage to ANY unit inside (피아무구분, F-021).
+## Impassable zones (Fatal) join group "fatal_zone" → carved out of the navmesh + avoided
+## by party AI (split). Passable zones (Oil/Fire/ToxicGas) only join "ground_zone" — you
+## can walk on/through them, but they're hazardous / flammable (reactions). ref: F-006 /
+## F-021 ZONE / F-027 (ZONE-OIL, RX-OIL-FIRE).
 ##
-## Registered in group "fatal_zone"; query via `contains_point()` / `blocks_segment()`.
+## Query: group "ground_zone" (all) / "fatal_zone" (impassable). `contains_point()`,
+## `blocks_segment()`, `status`.
 
 const TICK_S := 0.2
 const UNIT_GROUPS := ["party_member", "enemy"]
 
+## Per-status visual (albedo, emission). Fatal/Fire warm, Oil dark, ToxicGas green.
+const STATUS_COLORS := {
+	"Fatal":    {"albedo": Color(0.95, 0.18, 0.12, 0.5),  "emit": Color(0.95, 0.22, 0.10)},
+	"Oil":      {"albedo": Color(0.09, 0.07, 0.05, 0.80), "emit": Color(0.18, 0.12, 0.04)},
+	"Fire":     {"albedo": Color(1.0, 0.45, 0.10, 0.55),  "emit": Color(1.0, 0.40, 0.05)},
+	"ToxicGas": {"albedo": Color(0.45, 0.85, 0.25, 0.40), "emit": Color(0.40, 0.85, 0.15)},
+}
+const WARN_COLOR := {"albedo": Color(0.98, 0.62, 0.12, 0.42), "emit": Color(0.95, 0.55, 0.10)}
+
 var radius: float = 3.0
-var dps: float = 90.0          # fatal tier — lethal in ~1-2s of standing in it
-var _telegraph_s: float = 0.0  # warning phase: in group (avoidance) but non-lethal
-var _lethal: bool = true
+var dps: float = 0.0
+var slow_factor: float = 0.0   # >0 = slows units inside (e.g. Oil slick); refreshed per tick
+var status: String = "Fatal"
+var impassable: bool = true     # Fatal → navmesh carve + party avoidance
+var ttl: float = -1.0           # -1 = persists; >0 = auto-despawn after ttl seconds
+var _telegraph_s: float = 0.0
+var _lethal: bool = true        # damage gate (telegraph phase = false until it goes lethal)
 var _active: bool = true
 var _tick_accum: float = 0.0
+var _age: float = 0.0
 var _mesh: MeshInstance3D
 var _mat: StandardMaterial3D
 
 
-func setup(p_radius: float, p_dps: float, p_telegraph_s: float = 0.0) -> void:
+func setup(p_radius: float, p_dps: float, p_telegraph_s: float = 0.0, p_status: String = "Fatal", p_impassable: bool = true, p_ttl: float = -1.0, p_slow: float = 0.0) -> void:
 	radius = p_radius
 	dps = p_dps
 	_telegraph_s = p_telegraph_s
+	status = p_status
+	impassable = p_impassable
+	ttl = p_ttl
+	slow_factor = p_slow
 
 
 func _ready() -> void:
-	add_to_group("fatal_zone")  # in group from spawn so party AI avoids/flees during telegraph
+	add_to_group("ground_zone")
+	if impassable:
+		add_to_group("fatal_zone")  # carve + avoidance only for impassable (lethal) zones
 	if _telegraph_s > 0.0:
 		_lethal = false
 		get_tree().create_timer(_telegraph_s).timeout.connect(_go_lethal)
 	_build()
-	get_tree().call_group("navmap", "rebake_navigation")  # carve this zone into the navmesh
+	if impassable:
+		get_tree().call_group("navmap", "rebake_navigation")  # carve into the navmesh
 
 
 func _go_lethal() -> void:
 	_lethal = true
-	if _mat:
-		_mat.albedo_color = Color(0.95, 0.18, 0.12, 0.5)
-		_mat.emission = Color(0.95, 0.22, 0.10)
+	_apply_color(false)
 
 
 func is_active() -> bool:
@@ -53,8 +75,7 @@ func contains_point(p: Vector3, pad: float = 0.0) -> bool:
 	return d.length() <= radius + pad
 
 
-## Does the segment a→b pass through the zone (with padding)? Used by follower avoidance
-## so a member won't path *across* a fatal zone to rejoin.
+## Does the segment a→b pass through the zone (with padding)? Used by follower avoidance.
 func blocks_segment(a: Vector3, b: Vector3, pad: float = 0.6) -> bool:
 	if not _active:
 		return false
@@ -67,13 +88,15 @@ func blocks_segment(a: Vector3, b: Vector3, pad: float = 0.6) -> bool:
 	return (c - nearest).length() <= radius + pad
 
 
-## Lever reset — fade out and free, re-opening the path.
+## Clear/despawn — fade out and free. Un-carves the navmesh if it was impassable.
 func clear_zone() -> void:
 	if not _active:
 		return
 	_active = false
-	remove_from_group("fatal_zone")
-	get_tree().call_group("navmap", "rebake_navigation")  # un-carve → the path reopens
+	remove_from_group("ground_zone")
+	if impassable:
+		remove_from_group("fatal_zone")
+		get_tree().call_group("navmap", "rebake_navigation")
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(_mat, "albedo_color:a", 0.0, 0.4)
@@ -83,17 +106,44 @@ func clear_zone() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not _active or not _lethal:
-		return  # inactive, or telegraph phase (avoidance only, no damage yet)
+	if not _active:
+		return
+	if ttl > 0.0:
+		_age += delta
+		if _age >= ttl:
+			clear_zone()
+			return
+	if not _lethal:
+		return  # telegraph phase — no effect yet
+	if dps <= 0.0 and slow_factor <= 0.0:
+		return  # inert zone
 	_tick_accum += delta
 	if _tick_accum < TICK_S:
 		return
 	var dmg := dps * _tick_accum
 	_tick_accum = 0.0
+	var is_dot := status == "Fire" or status == "ToxicGas"
 	for g in UNIT_GROUPS:
 		for u in get_tree().get_nodes_in_group(g):
-			if u is Node3D and u.has_method("take_damage") and contains_point((u as Node3D).global_position):
-				u.take_damage(dmg)
+			if not (u is Node3D) or not contains_point((u as Node3D).global_position):
+				continue
+			if dps > 0.0:
+				# DoT zones (Fire/ToxicGas) apply a status so it reads on the party sheet;
+				# Fatal (and units w/o apply_poison, e.g. enemies) take raw damage.
+				if is_dot and u.has_method("apply_poison"):
+					u.apply_poison(TICK_S * 2.5, dps)
+				elif u.has_method("take_damage"):
+					u.take_damage(dmg)
+			if slow_factor > 0.0 and u.has_method("apply_slow"):
+				u.apply_slow(slow_factor, TICK_S * 2.5)  # refreshed while standing in it
+
+
+func _apply_color(warn: bool) -> void:
+	if _mat == null:
+		return
+	var c: Dictionary = WARN_COLOR if warn else STATUS_COLORS.get(status, STATUS_COLORS["Fatal"])
+	_mat.albedo_color = c["albedo"]
+	_mat.emission = c["emit"]
 
 
 func _build() -> void:
@@ -105,19 +155,18 @@ func _build() -> void:
 	cyl.radial_segments = 32
 	_mesh.mesh = cyl
 	_mat = StandardMaterial3D.new()
-	var warn := not _lethal  # telegraph = orange warning until it goes lethal red
-	_mat.albedo_color = Color(0.98, 0.62, 0.12, 0.42) if warn else Color(0.95, 0.18, 0.12, 0.5)
 	_mat.emission_enabled = true
-	_mat.emission = Color(0.95, 0.55, 0.10) if warn else Color(0.95, 0.22, 0.10)
 	_mat.emission_energy_multiplier = 1.6
 	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mat.render_priority = 2   # draw after enemy vision cones (priority -1, depth-writing)
+	_apply_color(not _lethal)
 	_mesh.material_override = _mat
 	_mesh.position.y = 0.4      # above the vision cone (y=0.3) so the cone can't occlude it
 	add_child(_mesh)
-	# warning pulse so the lethal floor reads at a glance
-	var tw := create_tween().set_loops()
-	tw.tween_property(_mat, "emission_energy_multiplier", 2.6, 0.6).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(_mat, "emission_energy_multiplier", 1.4, 0.6).set_trans(Tween.TRANS_SINE)
+	# emissive pulse so an active hazard reads — skip for inert Oil (it just sits, dark).
+	if status != "Oil":
+		var tw := create_tween().set_loops()
+		tw.tween_property(_mat, "emission_energy_multiplier", 2.6, 0.6).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(_mat, "emission_energy_multiplier", 1.4, 0.6).set_trans(Tween.TRANS_SINE)

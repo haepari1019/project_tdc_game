@@ -60,6 +60,14 @@
       "charges_max": 30,
       "starter": true,
       "cast": { "kind": "sub_sanctuary", "cooldown_s": 16, "radius_m": 6.5, "heal_pct": 0.40, "shield": 140, "shield_duration_s": 6 }
+    },
+    {
+      "base_ability_id": "AB-037",
+      "display_name": "Ember Lance",
+      "equip_classes": ["DPS", "Nuker"],
+      "range_band": "Mid",
+      "charges_max": 8,
+      "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 12, "radius_m": 3.0, "damage_mult": 1.8 }
     }
   ]
 }

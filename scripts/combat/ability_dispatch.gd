@@ -8,8 +8,21 @@ extends Node3D
 ## ref: F-005 (NC main-skill rules) · QA-005 §2.6 (no sub auto) · AB-020/024/025/026 + sub.
 
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+const HazardZone := preload("res://scripts/run/hazard_zone.gd")
 
 const TANK_PULSE_FLOOR := 40.0    # F-022 §3.10 Anchor Guard temp threat floor
+
+# RX-OIL-FIRE-001 — oil ignition chain (F-021 depth-limited).
+const FIRE_DPS := 14.0
+const FIRE_TTL := 4.0
+const GAS_DPS := 8.0
+const GAS_TTL := 5.0
+const EXPLOSION_DMG := 60.0
+const MAX_CHAIN_DEPTH := 2
+
+# F-009 §3.2.1 Family Mismatch Penalty — off-main-class (sub) skillbook use. Demo
+# heuristic: main class = first equip class; others equip+use but at this coeff. Spec −10%.
+const SUB_CLASS_COEFF := 0.9
 
 # Camera hit-feel for player SUB skills — ONE shake per cast (not per AOE target).
 const SUB_SHAKE_MULT_REF := 8.0   # 타격감: trauma = sub damage_mult/ref
@@ -41,6 +54,7 @@ func _build_ability_handlers() -> void:
 		"skillbook_strike": _sb_strike,
 		"skillbook_poison": _sb_poison,
 		"skillbook_stun": _sb_stun,
+		"skillbook_fire": _sb_fire,
 	}
 
 
@@ -165,6 +179,7 @@ func _sub_taunt(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3) -> bool
 		if kb > 0.0:
 			e.apply_knockback(e.global_position - pos, kb)
 	m.add_shield(float(p.get("shield", 200.0)), float(p.get("shield_duration_s", 5.0)))
+	_damage_destructibles(pos, float(p.get("radius_m", 6.5)), m.basic_damage * 2.5)  # slam breaks barrels
 	SkillVfx.sub_taunt(self, pos, float(p.get("radius_m", 6.5)))
 	print("[SUB] %s Taunt Slam — %d foes pulled" % [m.identity_skill_id, foes.size()])
 	return true
@@ -191,8 +206,10 @@ func _sub_lunge(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
 	dest.y = from.y
 	m.global_position = dest
 	var dmg: float = float(p.get("damage_mult", 5.0)) * m.basic_damage
-	for e in _combat._enemies_in_radius(dest, float(p.get("aoe_radius_m", 2.8))):
+	var aoe := float(p.get("aoe_radius_m", 2.8))
+	for e in _combat._enemies_in_radius(dest, aoe):
 		_combat._deal_damage(e, m, dmg)
+	_damage_destructibles(dest, aoe, dmg)  # break barrels at the dash target
 	_sub_hit_shake(p)  # 서브 타격감: 캐스트당 1회(타깃 수와 무관)
 	SkillVfx.sub_lunge(self, from, dest)
 	print("[SUB] %s Lunge (dash strike)" % m.identity_skill_id)
@@ -210,6 +227,7 @@ func _sub_nova(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
 	for e in foes:
 		_combat._deal_damage(e, m, dmg)
 		e.apply_slow(sf, sd)
+	_damage_destructibles(center, radius, dmg)  # break barrels in the nova radius
 	_sub_hit_shake(p)  # 서브 타격감: 캐스트당 1회(타깃 수와 무관)
 	SkillVfx.sub_nova(self, center, radius)
 	print("[SUB] %s Nova @target — %d foes" % [m.identity_skill_id, foes.size()])
@@ -251,6 +269,9 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	if float(inst.cooldown_s) > 0.0:
 		return
 	var p: Dictionary = inst.params
+	# F-009 §3.2.1 — off-main-class (sub) use is penalized; main = first equip class.
+	var classes: Array = inst.get("equip_classes", [])
+	p["_coeff"] = SUB_CLASS_COEFF if not classes.is_empty() and String(member.class_id) != String(classes[0]) else 1.0
 	# target_pos = aimed ground point (targeted subs) or caster position (self-centered).
 	# Self-centered handlers (taunt/sanctuary/skillbook_*) ignore it and use member.position.
 	var h: Callable = _ability_handlers.get(String(p.get("kind", "")), Callable())
@@ -259,12 +280,26 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		inst.cooldown_s = float(p.get("cooldown_s", 6.0))
 
 
+## AoE also breaks barrels / destructibles (ENT-BARREL) in range. Returns true if any hit.
+func _damage_destructibles(center: Vector3, radius: float, dmg: float) -> bool:
+	var hit := false
+	for d in _combat.get_tree().get_nodes_in_group("destructible"):
+		if d is Node3D and d.has_method("take_damage"):
+			var off := Vector2(d.global_position.x - center.x, d.global_position.z - center.z)
+			if off.length() <= radius:
+				d.take_damage(dmg)
+				hit = true
+	return hit
+
+
 ## AB-002 Shield Bash — AoE strike + knockback on nearby foes.
 func _sb_strike(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
-	var foes: Array = _combat._enemies_in_radius(m.global_position, float(p.get("radius_m", 4.0)))
-	if foes.is_empty():
+	var radius := float(p.get("radius_m", 4.0))
+	var dmg: float = float(p.get("damage_mult", 2.0)) * m.basic_damage * float(p.get("_coeff", 1.0))
+	var foes: Array = _combat._enemies_in_radius(m.global_position, radius)
+	var broke := _damage_destructibles(m.global_position, radius, dmg)
+	if foes.is_empty() and not broke:
 		return false
-	var dmg: float = float(p.get("damage_mult", 2.0)) * m.basic_damage
 	var kb := float(p.get("knockback_m", 0.0))
 	for e in foes:
 		_combat._deal_damage(e, m, dmg)
@@ -278,11 +313,13 @@ func _sb_strike(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
 
 ## AB-010 Venom Spit — AoE poison burst (dps×dur upfront) + slow (enemy DoT not modeled).
 func _sb_poison(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
-	var foes: Array = _combat._enemies_in_radius(m.global_position, float(p.get("radius_m", 5.0)))
-	if foes.is_empty():
+	var radius := float(p.get("radius_m", 5.0))
+	var dmg: float = (float(p.get("damage_mult", 0.5)) * m.basic_damage \
+			+ float(p.get("poison_dps", 0.0)) * float(p.get("poison_dur_s", 0.0))) * float(p.get("_coeff", 1.0))
+	var foes: Array = _combat._enemies_in_radius(m.global_position, radius)
+	var broke := _damage_destructibles(m.global_position, radius, dmg)
+	if foes.is_empty() and not broke:
 		return false
-	var dmg: float = float(p.get("damage_mult", 0.5)) * m.basic_damage \
-			+ float(p.get("poison_dps", 0.0)) * float(p.get("poison_dur_s", 0.0))
 	for e in foes:
 		_combat._deal_damage(e, m, dmg)
 		e.apply_slow(0.6, float(p.get("poison_dur_s", 3.0)))
@@ -294,10 +331,12 @@ func _sb_poison(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
 
 ## AB-011 Toll Stun — AoE strike + near-freeze slow (stun proxy; enemy stun not modeled).
 func _sb_stun(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
-	var foes: Array = _combat._enemies_in_radius(m.global_position, float(p.get("radius_m", 4.5)))
-	if foes.is_empty():
+	var radius := float(p.get("radius_m", 4.5))
+	var dmg: float = float(p.get("damage_mult", 0.6)) * m.basic_damage * float(p.get("_coeff", 1.0))
+	var foes: Array = _combat._enemies_in_radius(m.global_position, radius)
+	var broke := _damage_destructibles(m.global_position, radius, dmg)
+	if foes.is_empty() and not broke:
 		return false
-	var dmg: float = float(p.get("damage_mult", 0.6)) * m.basic_damage
 	for e in foes:
 		_combat._deal_damage(e, m, dmg)
 		e.apply_slow(0.05, float(p.get("stun_s", 1.4)))
@@ -305,3 +344,67 @@ func _sb_stun(m: CharacterBody3D, p: Dictionary, _t: Vector3) -> bool:
 	SkillVfx.sub_taunt(self, m.global_position, float(p.get("radius_m", 4.5)))
 	print("[SB] %s Toll Stun — %d foes" % [m.class_id, foes.size()])
 	return true
+
+
+# ============================================================================
+# Fire skillbook + RX-OIL-FIRE-001 ignition chain (F-027 / F-021). Ember Lance lays a
+# fire hit; an Oil zone (from a broken Barrel) under it ignites → explosion + Fire zone +
+# ToxicGas, chaining to adjacent oil (depth-limited).
+# ============================================================================
+
+## AB-037 Ember Lance — aimed fire bolt: AoE fire damage + breaks barrels + ignites Oil.
+func _sb_fire(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
+	var center := Vector3(target_pos.x, m.global_position.y, target_pos.z)
+	var radius := float(p.get("radius_m", 3.0))
+	var dmg: float = float(p.get("damage_mult", 1.8)) * m.basic_damage * float(p.get("_coeff", 1.0))
+	for e in _combat._enemies_in_radius(center, radius):
+		_combat._deal_damage(e, m, dmg)
+	_damage_destructibles(center, radius, dmg)
+	_fire_hit(center, radius, 0)  # FireDamageHit → ignite any Oil here (RX-OIL-FIRE)
+	_sub_hit_shake(p)
+	SkillVfx.telegraph(self, center, Color(1.0, 0.45, 0.1))  # orange fire impact
+	print("[SB] %s Ember Lance @target" % m.class_id)
+	return true
+
+
+## A fire damage hit at a point — ignites any overlapping Oil zone (RX-OIL-FIRE-001).
+func _fire_hit(center: Vector3, radius: float, depth: int) -> void:
+	for z in get_tree().get_nodes_in_group("ground_zone"):
+		if z.is_active() and String(z.status) == "Oil":
+			var d := Vector2(z.global_position.x - center.x, z.global_position.z - center.z)
+			if d.length() <= radius + float(z.radius):
+				_ignite_oil(z, depth)
+
+
+## RX-OIL-FIRE-001 — consume the oil → explosion + Fire zone + ToxicGas, then chain to
+## adjacent oil (depth-limited; F-021 §3.2.1 depth 1 center / 2 rare / 3+ forbidden).
+func _ignite_oil(oil: Node, depth: int) -> void:
+	var parent := oil.get_parent()
+	var pos: Vector3 = oil.global_position
+	var r: float = float(oil.radius)
+	oil.clear_zone()  # consume the oil (removed from group immediately → no re-ignite)
+	_explosion(pos, r + 1.0, EXPLOSION_DMG)
+	var fire := HazardZone.new()
+	fire.setup(r, FIRE_DPS, 0.0, "Fire", false, FIRE_TTL)
+	fire.position = pos
+	parent.add_child(fire)
+	var gas := HazardZone.new()
+	gas.setup(r + 1.5, GAS_DPS, 0.0, "ToxicGas", false, GAS_TTL)
+	gas.position = pos
+	parent.add_child(gas)
+	print("[RX] Oil ignited (depth %d) → explosion + fire + toxic gas" % depth)
+	if depth < MAX_CHAIN_DEPTH:
+		_fire_hit(pos, r + 1.5, depth + 1)  # explosion reaches adjacent oil → chain +1
+
+
+## AoE explosion — damage ALL units (피아무구분, F-021 §3.3.1) + destructibles + shake.
+func _explosion(pos: Vector3, radius: float, dmg: float) -> void:
+	for g in ["party_member", "enemy"]:
+		for u in get_tree().get_nodes_in_group(g):
+			if u is Node3D and u.has_method("take_damage"):
+				var d := Vector2(u.global_position.x - pos.x, u.global_position.z - pos.z)
+				if d.length() <= radius:
+					u.take_damage(dmg)
+	_damage_destructibles(pos, radius, dmg)
+	_combat.camera_shake.emit(HIT_SHAKE_CAP, Vector3.ZERO)
+	SkillVfx.telegraph(self, pos, Color(1.0, 0.55, 0.12))

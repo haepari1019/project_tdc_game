@@ -11,6 +11,7 @@ const Door := preload("res://scripts/run/door.gd")
 const ItemDrop := preload("res://scripts/run/item_drop.gd")
 const Trap := preload("res://scripts/run/trap.gd")
 const Lever := preload("res://scripts/run/lever.gd")
+const Barrel := preload("res://scripts/run/barrel.gd")
 const QuestTracker := preload("res://scripts/ui/quest_tracker.gd")
 const Minimap := preload("res://scripts/ui/minimap.gd")
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")
@@ -155,6 +156,11 @@ func _ready() -> void:
 	lever.setup(trap)
 	lever.position = Vector3(29.2, 0.0, 74.0)   # front side (north of zone), against the east wall
 	add_child(lever)
+	# Breakable oil barrels (ENT-BARREL) in the combat court — AoE breaks them → oil pool.
+	for bpos in [Vector3(7.0, 0.0, 28.0), Vector3(-8.0, 0.0, 34.0), Vector3(10.0, 0.0, 40.0)]:
+		var barrel := Barrel.new()
+		barrel.position = bpos
+		add_child(barrel)
 	# Proximity interaction prompt + controller.
 	_interact_prompt = _make_interact_prompt()
 	$HUD.add_child(_interact_prompt)

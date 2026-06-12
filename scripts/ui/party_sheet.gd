@@ -134,8 +134,17 @@ func _process(_delta: float) -> void:
 		else:
 			s.portrait.color = m.get_class_color()
 		# Sub slot 0 = equipped sub cooldown (remaining / total). Slots 1·2 empty.
-		var total: float = float(m.sub_params.get("cooldown_s", 0.0))
-		s.radials[0].set_cd(m.sub_cooldown_s / total if total > 0.0 else 0.0)
+		# Q/E/R sub slots = equipped skillbooks (role-color disc + cooldown radial; empty if none).
+		for slot in SUB_SLOTS:
+			var inst = m.get_skillbook(slot) if m.has_method("get_skillbook") else null
+			var r: RadialCooldown = s.radials[slot]
+			if inst == null:
+				r.set_empty(true)
+			else:
+				r.set_empty(false)
+				r.set_icon_color(inst.get("color", m.get_class_color()))
+				var total: float = float(inst.params.get("cooldown_s", 0.0))
+				r.set_cd(float(inst.cooldown_s) / total if total > 0.0 else 0.0)
 		# Buff/debuff overlay — colored arc = remaining time (UI-002 §3).
 		var sl: Array = m.get_status_list()
 		var pips: Array = s.status_pips

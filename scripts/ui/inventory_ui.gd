@@ -927,6 +927,7 @@ func _build() -> void:
 	_backpack.add_item("Pistol", 2, 1, Color(0.45, 0.55, 0.85))
 	_backpack.add_item("Armor", 2, 2, Color(0.82, 0.70, 0.35))
 	add_consumable_to_backpack("con_revive_scroll", 3)  # seed: 3 revive scrolls (1 stack)
+	add_skillbook_to_backpack("AB-037", false)          # seed: Ember Lance (fire — ignites oil)
 
 	# Loot container (shown only while looting a chest).
 	var lt_box := _make_container(row, "CONTAINER", 5, 5)

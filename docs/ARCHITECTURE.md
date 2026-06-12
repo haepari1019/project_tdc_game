@@ -62,9 +62,10 @@
 | [map_demo_layout.gd](../scripts/run/map_demo_layout.gd) | 492 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크 + **fatal 장판 carve 재bake**·**데이터주도 인터페이스**(`_room_points`/profile=rooms.json) | `get_spawn_position` `rebake_navigation` `_carve_zone` `_resolve_room_points` | NavigationServer3D, Slice01Data, group 'player'/'navmap' |
 | [player_controller.gd](../scripts/run/player_controller.gd) | 34 | 조작 캐릭터 WASD→velocity (가속모델 옵션) | `_physics_process` | 부모 CharacterBody3D, InputMap |
 | [party_light.gd](../scripts/run/party_light.gd) | 115 | F-011 시야결합 조명(멤버별 omni+spot)·플리커·룸감쇠 | `_build_rigs` `_on_room_changed` | PartyController/Map/Run (노드경로) |
-| [hazard_zone.gd](../scripts/run/hazard_zone.gd) | 112 | 🟢 치명 장판: 텔레그래프→치사 지속데미지(피아무구분 F-021)·`fatal_zone` 그룹. 스폰/소거 시 `navmap` carve 재bake 트리거 | `setup` `clear_zone` `contains_point` `blocks_segment` | groups, call_group('navmap') |
+| [hazard_zone.gd](../scripts/run/hazard_zone.gd) | 138 | 🟢 일반 지면 zone: `status`(Fatal/Oil/Fire/ToxicGas)·dps/slow/ttl·`impassable`(Fatal=carve+회피). DoT=apply_poison(파티)/raw(적). 피아무구분 F-021 | `setup` `clear_zone` `contains_point` `blocks_segment` | groups, call_group('navmap') |
 | [trap.gd](../scripts/run/trap.gd) | 86 | 🟢 초크포인트 압력판: 조작멤버 통과→뒤에 HazardZone 스폰(분리)·`reset()`=소거+재무장 (F-006 트랩) | `reset` `has_active_zone` | HazardZone, group 'party_member' |
 | [lever.gd](../scripts/run/lever.gd) | 75 | 🟢 상호작용 레버: `trap.reset()`=함정 회복(장판 해제·통로 재개) | `interact` `setup` | Trap |
+| [barrel.gd](../scripts/run/barrel.gd) | 64 | 🟢 ENT-BARREL: HP 파괴 가능(AoE)→기름 HazardZone(슬로우 필드) 스폰; 화염 hit로 점화(RX-OIL-FIRE) | `take_damage` `_break` | HazardZone, group 'destructible' |
 | [main.gd](../scripts/main.gd) | 34 | 허브/메뉴: 로드 게이트 + 로드아웃 + 던전 진입 | `_ready` `_on_start_pressed` | Slice01Data, GameBootstrap |
 
 ### party — `scripts/party/`

@@ -47,6 +47,9 @@ var _alive: bool = true
 var _mia: bool = false
 var _warn: bool = false
 var _mia_marker: Label3D = null
+var _slow_factor: float = 1.0
+var _slow_timer: float = 0.0
+var _slow_dur: float = 0.0
 
 # --- Identity skill (from `identity` block) + shield (AB-020) ---
 var identity_params: Dictionary = {}
@@ -414,6 +417,10 @@ func _physics_process(delta: float) -> void:
 		shield_timer_s -= delta
 		if shield_timer_s <= 0.0:
 			shield = 0.0
+	if _slow_timer > 0.0:
+		_slow_timer -= delta
+		if _slow_timer <= 0.0:
+			_slow_factor = 1.0
 	if _hp_bar:
 		_hp_bar.set_shield_ratio(shield / maxf(max_hp, 1.0))  # white overlay on the HP bar
 	_tick_status(delta)
@@ -438,6 +445,19 @@ func apply_poison(duration: float, dps: float) -> void:
 	_update_status_orb()
 
 
+## Movement slow (e.g. Oil slick) — multiplies move speed while active (피아무구분).
+func apply_slow(factor: float, duration: float) -> void:
+	if not _alive:
+		return
+	_slow_factor = factor
+	_slow_timer = maxf(_slow_timer, duration)
+	_slow_dur = maxf(_slow_dur, _slow_timer)
+
+
+func move_speed_mult() -> float:
+	return _slow_factor if _slow_timer > 0.0 else 1.0
+
+
 ## Active buffs/debuffs for the party-sheet overlay (UI-002/003).
 ## Each: {color, ratio=elapsed (0 fresh → 1 expiring), buff}. Colored arc = remaining.
 func get_status_list() -> Array:
@@ -454,10 +474,16 @@ func get_status_list() -> Array:
 			"ratio": 1.0 - clampf(stun_timer_s / maxf(_stun_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
-	if poison_timer_s > 0.0:  # debuff
+	if poison_timer_s > 0.0:  # debuff (DoT — poison / fire / toxic gas)
 		out.append({
 			"color": Color(0.36, 0.9, 0.32),
 			"ratio": 1.0 - clampf(poison_timer_s / maxf(_poison_dur, 0.01), 0.0, 1.0),
+			"buff": false,
+		})
+	if _slow_timer > 0.0:  # debuff (slow — Oil slick etc.)
+		out.append({
+			"color": Color(0.40, 0.78, 1.0),
+			"ratio": 1.0 - clampf(_slow_timer / maxf(_slow_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
 	return out

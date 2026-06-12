@@ -11,7 +11,7 @@
   ],
   "ability_ids": [
     "AB-001", "AB-002", "AB-015", "AB-016", "AB-010", "AB-011",
-    "AB-020", "AB-024", "AB-025", "AB-026",
+    "AB-020", "AB-024", "AB-025", "AB-026", "AB-037",
     "AB-S01", "AB-S02", "AB-S03", "AB-S04"
   ],
   "_note_ability_ids": "AB-001/002/010/011/015/016 = enemy abilities in use. AB-S01..S04 = non-spec demo sub-skills (DRIFT-001), pending spec reconciliation to skillbook AB-### (F-009).",

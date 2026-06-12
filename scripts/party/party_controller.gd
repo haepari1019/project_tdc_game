@@ -823,6 +823,8 @@ func _sv1_update_follow(
 		else:
 			member.velocity = target_vel
 		_clamp_fatal(member, delta)
+		if member.has_method("move_speed_mult"):
+			member.velocity *= member.move_speed_mult()  # Oil slick etc.
 		member.move_and_slide()
 		_sv1_store_wall_normals(member)
 	# Pass 3: the anchor. Pass 1/2 skip it (they assume it's the player-driven
@@ -845,6 +847,8 @@ func _sv1_update_follow(
 		else:
 			anchor.velocity = av
 		_clamp_fatal(anchor, delta)
+		if anchor.has_method("move_speed_mult"):
+			anchor.velocity *= anchor.move_speed_mult()
 		anchor.move_and_slide()
 
 
