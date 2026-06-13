@@ -1,0 +1,30 @@
+name: CI
+
+# Headless smoke gate: every push / PR loads the scenes in Godot headless and fails on any
+# script/parse/load error or broken preload path. See tools/ci_smoke.sh. Mouse/play behavior
+# (drag/equip/combat cast) is NOT covered — those still need a manual playtest.
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: 4.5.1-stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Godot ${{ env.GODOT_VERSION }} (headless)
+        run: |
+          set -e
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}"
+          ZIP="Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          curl -sSL -o godot.zip "${BASE}/${ZIP}"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}_linux.x86_64" godot
+          chmod +x godot
+          ./godot --version
+
+      - name: Headless smoke gate
+        run: GODOT="$PWD/godot" bash tools/ci_smoke.sh
