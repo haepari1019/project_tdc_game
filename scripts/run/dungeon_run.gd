@@ -19,6 +19,10 @@ const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const ConsumableBar := preload("res://scripts/ui/consumable_bar.gd")
 const SettlementPanel := preload("res://scripts/ui/settlement_panel.gd")
+const AimMarker := preload("res://scripts/ui/aim_marker.gd")
+const ControlledIndicator := preload("res://scripts/ui/controlled_indicator.gd")
+const ReviveController := preload("res://scripts/run/revive_controller.gd")
+const TorchCarryController := preload("res://scripts/run/torch_carry_controller.gd")
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
 
 ## PH loot table — a defeated enemy drops one of these as a world pickup. ref: F-010.
@@ -62,27 +66,12 @@ const SKILLBOOK_DROP_CHANCE := 0.85
 var _aiming: bool = false
 var _aim_member: CharacterBody3D = null
 var _aim_slot: int = -1  # which skillbook slot the aim will cast
-# Torch carry + throw (ENT-TORCH, F-021 §3.1.2) — ally holds a torch in a chosen consumable
-# slot; pressing that slot aims a ground-targeted throw. One torch carried at a time.
-var _consumable_bar: Control = null
-var _carried_torch: Node = null
-var _carry_slot: int = -1
-var _carry_pick: bool = false     # waiting for the player to press Z/X/C to choose a slot
-var _carry_pending: Node = null
-var _throwing: bool = false
-# Revive consumable — hotkey → target a downed ally (corpse / portrait) → channel + revive.
-var _reviving: bool = false
-var _revive_cid: String = ""
-var _revive_prompt: Label
+var _aim: MeshInstance3D     # AimMarker (shared by skillbook aim + torch throw)
+var _revive: Node3D          # ReviveController (targeted revive)
+var _torch: Node             # TorchCarryController (ENT-TORCH carry/throw)
 var _alert_banner: Label   # UI-006 central separation/MIA warning overlay
 var _alert_token: int = 0
-var _aim_marker: MeshInstance3D
-var _aim_mat: StandardMaterial3D
 
-# UI-001: controlled-character world indicator (foot disc + floating arrow).
-var _ctrl_indicator: Node3D
-var _ctrl_arrow: MeshInstance3D
-var _ind_time: float = 0.0
 
 # Directional damage indicator — screen-edge red glow on the controlled char's hits.
 var _damage_indicator: DamageIndicator
@@ -140,8 +129,11 @@ func _ready() -> void:
 	_combat.prespawn_encounters("RM-ENTRY-01")
 	_party_sheet.setup(_party.get_members())
 	_controlled_sheet.setup(_party)
-	_build_aim_marker()
-	_build_controlled_indicator()
+	_aim = AimMarker.new()  # shared ground-target marker (skillbook aim + torch throw)
+	add_child(_aim)
+	var ctrl_ind := ControlledIndicator.new()  # UI-001 foot disc + bob arrow
+	add_child(ctrl_ind)
+	ctrl_ind.setup(_party)
 	_damage_indicator = DamageIndicator.new()
 	$HUD.add_child(_damage_indicator)
 	_inventory_ui = InventoryUI.new()
@@ -150,8 +142,13 @@ func _ready() -> void:
 	var consumable_bar := ConsumableBar.new()  # Z/X/C consumable hotkeys above the char sheet
 	$HUD.add_child(consumable_bar)
 	_inventory_ui.setup_consumable_bar(consumable_bar)
-	_consumable_bar = consumable_bar
 	_inventory_ui.consumable_use_requested.connect(_on_consumable_use_requested)
+	_revive = ReviveController.new()  # targeted revive (F-010 / D-020)
+	add_child(_revive)
+	_revive.setup(_party, _combat, _inventory_ui, _party_sheet, $HUD)
+	_torch = TorchCarryController.new()  # ENT-TORCH carry/throw (F-021 §3.1.2)
+	add_child(_torch)
+	_torch.setup(_party, _aim, consumable_bar, _inventory_ui, $HUD)
 	# World loop — chest (holding the extraction key) in the objective room.
 	var chest := Chest.new()
 	chest.title = "유물함"
@@ -183,10 +180,10 @@ func _ready() -> void:
 	# land + ignite; touching oil ignites RX-OIL-FIRE). ref: F-021 §3.1.2 / F-027.
 	for t in get_tree().get_nodes_in_group("torch"):
 		t.setup(_combat)
-		if not t.pickup_requested.is_connected(_on_torch_pickup):
-			t.pickup_requested.connect(_on_torch_pickup)
-		if not t.dropped.is_connected(_on_torch_dropped):
-			t.dropped.connect(_on_torch_dropped)
+		if not t.pickup_requested.is_connected(_torch.on_torch_pickup):
+			t.pickup_requested.connect(_torch.on_torch_pickup)
+		if not t.dropped.is_connected(_torch.on_torch_dropped):
+			t.dropped.connect(_torch.on_torch_dropped)
 	# Proximity interaction prompt + controller.
 	_interact_prompt = _make_interact_prompt()
 	$HUD.add_child(_interact_prompt)
@@ -204,16 +201,6 @@ func _ready() -> void:
 	# Enemy inspect panel (top-center), shown on left-click of an enemy.
 	_enemy_info = EnemyInfo.new()
 	$HUD.add_child(_enemy_info)
-	_revive_prompt = Label.new()  # revive targeting prompt / toast (top-center)
-	_revive_prompt.visible = false
-	_revive_prompt.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_revive_prompt.offset_top = 92
-	_revive_prompt.offset_bottom = 120
-	_revive_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_revive_prompt.add_theme_font_size_override("font_size", 18)
-	_revive_prompt.modulate = Color(0.6, 1.0, 0.7)
-	_revive_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	$HUD.add_child(_revive_prompt)
 	_alert_banner = Label.new()  # UI-006 central separation/MIA warning (icon + text, auto-hide)
 	_alert_banner.visible = false
 	_alert_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -241,33 +228,22 @@ func _process(delta: float) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl:
 		_hud_sub.text = "Ready" if ctrl.sub_cooldown_s <= 0.0 else "%.1fs" % ctrl.sub_cooldown_s
-		# UI-001: controlled indicator follows + bobbing arrow.
-		_ind_time += delta
-		_ctrl_indicator.visible = true
-		_ctrl_indicator.global_position = ctrl.global_position
-		_ctrl_arrow.position.y = 2.3 + sin(_ind_time * 3.0) * 0.12
 		# Extraction (F-007 ExtractionActivate): hold at POINT-DEMO-01 for
 		# EXTRACT_HOLD_S with the objective done → Run Success. Leaving the zone
 		# cancels (no failure — F-007: 미완료=런 지속). Big countdown UI ticks down.
 		var in_extract: bool = not _run.run_over and _run.objective_complete \
 				and ctrl.global_position.distance_to(_map.get_extraction_position()) < EXTRACT_RADIUS_M
 		_update_extraction(in_extract, delta)
-	elif _ctrl_indicator:
-		_ctrl_indicator.visible = false
-	if _aiming or _throwing:
-		_aim_marker.global_position = _mouse_ground_pos() + Vector3(0, 0.05, 0)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if _inventory_ui.is_open():
 			_inventory_ui.toggle()  # Esc closes the inventory first
-		elif _carry_pick:
-			_cancel_carry_pick()
-		elif _throwing:
-			_cancel_throw()
-		elif _reviving:
-			_cancel_revive_targeting()
+		elif _torch.is_active():
+			_torch.cancel()
+		elif _revive.is_active():
+			_revive.cancel()
 		elif _aiming:
 			_end_aim()
 		else:
@@ -278,34 +254,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			_end_aim()
 		_inventory_ui.toggle()
 		return
-	# Revive targeting: click a downed ally (world corpse or party portrait) to channel; RMB cancels.
-	if _reviving and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
-		var rb := event as InputEventMouseButton
-		if rb.button_index == MOUSE_BUTTON_LEFT:
-			var tgt := _pick_downed_target()
-			if tgt != null:
-				_begin_revive_channel(tgt)
-		elif rb.button_index == MOUSE_BUTTON_RIGHT:
-			_cancel_revive_targeting()
+	# Modal targeting click dispatch (priority: revive, skillbook aim, torch throw).
+	if _revive.handle_click(event):
 		return
-	# Aiming a ground-targeted sub: left click = cast, right click = cancel.
 	if _aiming and event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed:
 			if mb.button_index == MOUSE_BUTTON_LEFT:
-				_combat.cast_skillbook(_aim_member, _aim_slot, _mouse_ground_pos())
+				_combat.cast_skillbook(_aim_member, _aim_slot, _aim.ground_pos())
 				_end_aim()
 			elif mb.button_index == MOUSE_BUTTON_RIGHT:
 				_end_aim()
 		return
-	# Throwing a carried torch: left click = throw to the ground point, right = cancel.
-	if _throwing and event is InputEventMouseButton:
-		var tb := event as InputEventMouseButton
-		if tb.pressed:
-			if tb.button_index == MOUSE_BUTTON_LEFT:
-				_do_throw(_mouse_ground_pos())
-			elif tb.button_index == MOUSE_BUTTON_RIGHT:
-				_cancel_throw()
+	if _torch.handle_click(event):
 		return
 	# Left-click (not aiming) inspects an enemy in the top-center panel; empty space clears.
 	if event is InputEventMouseButton:
@@ -376,14 +337,10 @@ func _on_sub_key(slot_index: int) -> void:
 # --- consumables: hotkey use + targeted revive channel --------------------------
 
 func _on_consumable_key(slot: int) -> void:
-	if _carry_pick:
-		_assign_carry_slot(slot)   # choosing which slot holds the picked-up torch
-		return
+	if _torch.handle_consumable_key(slot, _aiming or _revive.is_active()):
+		return  # torch carry-pick assign / throw aim
 	if _inventory_ui.is_open():
 		return  # inventory consumes Z/X/C (hotkey assign) when open
-	if slot == _carry_slot:
-		_begin_throw()             # this slot holds a torch → aim a throw
-		return
 	var cid := _inventory_ui.get_hotkey(slot)
 	if cid.is_empty():
 		return
@@ -391,7 +348,7 @@ func _on_consumable_key(slot: int) -> void:
 	if master.is_empty():
 		return
 	if String(master.get("effect", "")) == "revive_ally":
-		_start_revive_targeting(cid, master)
+		_revive.try_start(cid, master)
 	else:
 		_inventory_ui.use_consumable(slot)  # instant consumables
 
@@ -405,170 +362,7 @@ func _on_consumable_use_requested(cid: String) -> void:
 	if master.is_empty():
 		return
 	if String(master.get("effect", "")) == "revive_ally":
-		_start_revive_targeting(cid, master)
-
-
-# --- torch carry + throw (ENT-TORCH, F-021 §3.1.2) ------------------------------
-
-## Ally F-interacted a placed torch → ask which consumable slot to hold it in (player chose
-## "슬롯 선택"). The chosen Z/X/C slot then throws the torch instead of using its consumable.
-func _on_torch_pickup(torch: Node) -> void:
-	if _carried_torch != null or _carry_pick or _throwing or _reviving or _aiming:
-		return
-	if _party.get_controlled() == null:
-		return
-	_carry_pending = torch
-	# Auto-assign to the first EMPTY consumable slot; only ask the player when all 3 are full.
-	var empty := _first_empty_consumable_slot()
-	if empty >= 0:
-		_assign_carry_slot(empty)
-		return
-	_carry_pick = true
-	_revive_prompt.text = "횃불 슬롯 선택: Z / X / C  · 우클릭/Esc 취소"
-	_revive_prompt.visible = true
-
-
-func _assign_carry_slot(slot: int) -> void:
-	var torch := _carry_pending
-	_carry_pick = false
-	_carry_pending = null
-	_revive_prompt.visible = false
-	var ctrl: CharacterBody3D = _party.get_controlled()
-	if torch == null or not is_instance_valid(torch) or ctrl == null:
-		return
-	_carry_slot = slot
-	_carried_torch = torch
-	torch.pick_up(ctrl)
-	if _consumable_bar.has_method("set_carry"):
-		_consumable_bar.set_carry(slot, "횃불\n던지기")
-
-
-## First consumable slot (Z/X/C) with no consumable assigned — for torch auto-pickup.
-func _first_empty_consumable_slot() -> int:
-	for i in 3:
-		if String(_inventory_ui.get_hotkey(i)).is_empty():
-			return i
-	return -1
-
-
-func _cancel_carry_pick() -> void:
-	_carry_pick = false
-	_carry_pending = null
-	_revive_prompt.visible = false
-
-
-## Press the carry slot → aim the throw (ground-targeted, reuses the aim marker).
-func _begin_throw() -> void:
-	if _carried_torch == null or _aiming or _reviving:
-		return
-	_throwing = true
-	_aim_marker.scale = Vector3(2.4, 1.0, 2.4)   # Torch.IGNITE_RADIUS
-	_aim_mat.albedo_color = Color(1.0, 0.5, 0.15, 0.35)
-	_aim_marker.visible = true
-	_revive_prompt.text = "횃불 투척: 지면 클릭 · 우클릭/Esc 취소"
-	_revive_prompt.visible = true
-
-
-func _do_throw(point: Vector3) -> void:
-	if _carried_torch != null and is_instance_valid(_carried_torch):
-		_carried_torch.throw_to(point)
-	_clear_carry()
-	_throwing = false
-	_aim_marker.visible = false
-	_revive_prompt.visible = false
-
-
-func _cancel_throw() -> void:
-	_throwing = false
-	_aim_marker.visible = false
-	_revive_prompt.visible = false
-
-
-## Carrier died mid-carry → the torch dropped itself; release our slot binding too.
-func _on_torch_dropped(torch: Node) -> void:
-	if _carried_torch == torch:
-		if _throwing:
-			_cancel_throw()
-		_clear_carry()
-
-
-func _clear_carry() -> void:
-	if _consumable_bar != null and _consumable_bar.has_method("clear_carry"):
-		_consumable_bar.clear_carry()
-	_carry_slot = -1
-	_carried_torch = null
-
-
-func _start_revive_targeting(cid: String, master: Dictionary) -> void:
-	if _reviving:
-		_cancel_revive_targeting()  # re-press → toggle off
-		return
-	if not bool(master.get("usable_in_combat", true)) and _combat.is_engaged():
-		_revive_toast("전투 중 사용 불가")
-		return
-	if _inventory_ui.consumable_count(cid) <= 0:
-		_revive_toast("보유 없음")
-		return
-	var has_downed := false
-	for m in _party.get_members():
-		if not (m as Node).is_alive():
-			has_downed = true
-			break
-	if not has_downed:
-		_revive_toast("다운된 아군 없음")
-		return
-	_reviving = true
-	_revive_cid = cid
-	_revive_prompt.text = "부활: 죽은 아군(시체/초상화) 클릭 · 우클릭 취소"
-	_revive_prompt.visible = true
-
-
-## The downed party member under the cursor — party-sheet portrait first, then world ray.
-func _pick_downed_target() -> Node:
-	var mouse := get_viewport().get_mouse_position()
-	var pm: Node = _party_sheet.portrait_member_under(mouse)
-	if pm != null and not pm.is_alive():
-		return pm
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return null
-	var from := cam.project_ray_origin(mouse)
-	var to := from + cam.project_ray_normal(mouse) * 1000.0
-	var q := PhysicsRayQueryParameters3D.create(from, to, 1 << 1)  # LAYER_PARTY
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	if not hit.is_empty():
-		var n: Node = hit.collider
-		if n != null and n.has_method("is_alive") and not n.is_alive():
-			return n
-	return null
-
-
-func _begin_revive_channel(member: Node) -> void:
-	_reviving = false
-	_revive_prompt.visible = false
-	SkillVfx.revive_pillar(self, (member as Node3D).global_position, 1.5)
-	get_tree().create_timer(1.5).timeout.connect(_finish_revive.bind(member, _revive_cid))
-
-
-func _finish_revive(member: Node, cid: String) -> void:
-	if is_instance_valid(member) and not member.is_alive() and _inventory_ui.consume_consumable(cid):
-		member.revive(0.5)
-
-
-func _cancel_revive_targeting() -> void:
-	_reviving = false
-	_revive_prompt.visible = false
-
-
-func _revive_toast(msg: String) -> void:
-	_revive_prompt.text = msg
-	_revive_prompt.visible = true
-	get_tree().create_timer(1.2).timeout.connect(_hide_revive_toast)
-
-
-func _hide_revive_toast() -> void:
-	if not _reviving:
-		_revive_prompt.visible = false
+		_revive.try_start(cid, master)
 
 
 ## UI-006 — central separation/MIA warning overlay (non-blocking, brief, anti-spam).
@@ -591,83 +385,15 @@ func _start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> v
 	_aim_slot = slot_index
 	var p: Dictionary = inst.params
 	var r: float = float(p.get("radius_m", p.get("aoe_radius_m", 3.0)))
-	_aim_marker.scale = Vector3(r, 1.0, r)
 	var cc: Color = member.get_class_color()
-	_aim_mat.albedo_color = Color(cc.r, cc.g, cc.b, 0.35)
-	_aim_marker.visible = true
+	_aim.show_at(r, Color(cc.r, cc.g, cc.b, 0.35))
 
 
 func _end_aim() -> void:
 	_aiming = false
 	_aim_member = null
 	_aim_slot = -1
-	_aim_marker.visible = false
-
-
-func _mouse_ground_pos() -> Vector3:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return Vector3.ZERO
-	var mp := get_viewport().get_mouse_position()
-	var from := cam.project_ray_origin(mp)
-	var dir := cam.project_ray_normal(mp)
-	if absf(dir.y) < 0.0001:
-		return from
-	return from + dir * (-from.y / dir.y)
-
-
-func _build_aim_marker() -> void:
-	_aim_marker = MeshInstance3D.new()
-	var disc := CylinderMesh.new()
-	disc.top_radius = 1.0
-	disc.bottom_radius = 1.0
-	disc.height = 0.06
-	_aim_marker.mesh = disc
-	_aim_mat = StandardMaterial3D.new()
-	_aim_mat.albedo_color = Color(1, 1, 0.3, 0.35)
-	_aim_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_aim_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_aim_mat.no_depth_test = true
-	_aim_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_aim_marker.material_override = _aim_mat
-	_aim_marker.visible = false
-	add_child(_aim_marker)
-
-
-func _build_controlled_indicator() -> void:
-	_ctrl_indicator = Node3D.new()
-	add_child(_ctrl_indicator)
-	# Foot highlight disc (respects depth — sits on the ground).
-	var disc_mi := MeshInstance3D.new()
-	var disc := CylinderMesh.new()
-	disc.top_radius = 0.85
-	disc.bottom_radius = 0.85
-	disc.height = 0.05
-	disc_mi.mesh = disc
-	disc_mi.position.y = 0.07
-	disc_mi.material_override = _ind_mat(Color(0.70, 0.95, 1.0, 0.28), false)
-	_ctrl_indicator.add_child(disc_mi)
-	# Floating downward arrow above the head (always visible).
-	_ctrl_arrow = MeshInstance3D.new()
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.0
-	cone.bottom_radius = 0.22
-	cone.height = 0.42
-	_ctrl_arrow.mesh = cone
-	_ctrl_arrow.rotation_degrees = Vector3(180, 0, 0)  # apex points down
-	_ctrl_arrow.position.y = 2.3
-	_ctrl_arrow.material_override = _ind_mat(Color(0.78, 0.97, 1.0, 0.95), true)
-	_ctrl_indicator.add_child(_ctrl_arrow)
-
-
-func _ind_mat(color: Color, no_depth: bool) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.no_depth_test = no_depth
-	return m
+	_aim.hide_marker()
 
 
 ## ExtractionActivate hold-channel: a countdown that ticks down while in the zone and

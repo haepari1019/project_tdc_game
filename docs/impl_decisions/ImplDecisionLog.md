@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260613-002 — 모달 입력 패밀리 분리 (dungeon_run 갓코드 2라운드, 동작 보존)
+- **결정:** dungeon_run의 "모달 타게팅 패밀리"를 4개로 추출 — **표현 헬퍼** `ui/aim_marker.gd`(51, 가시 시 마우스 자동추종)·`ui/controlled_indicator.gd`(60, setup 후 자기추종) + **기능 컨트롤러** `run/revive_controller.gd`(131)·`run/torch_carry_controller.gd`(145). dungeon_run은 **얇은 라우터**로 잔존 — `_unhandled_input`이 Esc/클릭/키를 우선순위대로 `is_active()/cancel()/handle_click()/handle_consumable_key()`로 위임. dungeon_run 960→686.
+- **이유:** 갓코드 점검 후속(사용자: C 전체 진행). 셋(횃불/부활/조준)이 **독립 3섬이 아니라** 공유 마커·프롬프트·단일활성모달·우선순위 라우터를 쓰는 패밀리 → "완전 독립 3모듈"은 결합을 교차참조로 되살림. **얇은 코디네이터(라우터) 잔존 + 응집 컨트롤러 + 표현 헬퍼**가 정답.
+- **설계 결정:** ① AimMarker가 visible일 때 자기 `_process`로 마우스 추종 → 라우터에서 추종 제거, 스킬북조준·횃불투척 공유. ② 상호배제는 라우터가 `handle_consumable_key(slot, blocked)`의 `blocked=_aiming or _revive.is_active()`로 주입(정직한 코디네이터 한계 — 균일 인터페이스의 기능별 혹). ③ 프롬프트는 컨트롤러별 자체 소유(공유 `_revive_prompt` 폐기).
+- **동작 보존:** 클릭 우선순위(revive→aim→throw→inspect/camera)·Esc 우선순위·슬롯 자동/선택·throw 가드 그대로. 헤드리스 로드 검증 통과. **회귀리스크=라이브 입력**(모달 전환)이라 플레이검증 필요.
+- **잔여(DEBT-GOD3):** 추출채널(~40)·루트롤(~70)·정산조합(~80) 추출 + 라우터 `ModalStack` 정식화 → 3라운드.
+- **영향:** `scripts/ui/aim_marker.gd`·`controlled_indicator.gd`(신규), `scripts/run/revive_controller.gd`·`torch_carry_controller.gd`(신규), `scripts/run/dungeon_run.gd`, `docs/ARCHITECTURE.md`(DEBT-GOD3).
+
+
 ### IMPL-DEC-20260613-001 — SettlementPanel 분리 (dungeon_run 갓코드 정리, 동작 보존)
 - **결정:** F-007 런 정산 UI(중앙 패널 빌드/표시/카테고리요약/항목목록, 6함수 ~157줄)를 `dungeon_run.gd`에서 **`scripts/ui/settlement_panel.gd`(163)** Control로 추출. dungeon_run은 패널 생성 + `_run.run_settled(summary) → panel.show_settlement` 연결만 남김. **정산 조합**(`_settle_extraction`/`_failure`/`_collect_at_risk`/`_has_separated_survivor`/`_is_party_wiped`)은 _party/_inventory 의존이라 dungeon_run에 잔존.
 - **이유:** 갓코드 점검(사용자 요청)에서 dungeon_run이 CameraRig 분리(256줄) 후 F-007 정산·횃불 carry/투척·부활 타게팅·루트롤 누적으로 **1115줄 재증식**. 정산 UI는 `summary` dict만 받는 **순수 표현**이라 가장 고립·저위험 추출 단위 → 첫 정리 대상(사용자 승인). dungeon_run 1115→961.

@@ -57,8 +57,10 @@
 |------|--:|------|-----------|------|
 | [run_phase.gd](../scripts/run/run_phase.gd) | 16 | 5개 runPhase 문자열 상수 + 순서 | `ENTRY..EXTRACTION` `SEQUENCE` | — |
 | [run_controller.gd](../scripts/run/run_controller.gd) | 124 | 런 상태(phase/room/flags), 룸진입→인카운터 트리거, objective/extraction | `start_run` `on_player_entered_room` `try_extract` | RunPhase, Slice01Data |
-| [dungeon_run.gd](../scripts/run/dungeon_run.gd) | 960 | 🔴 씬 와이어링·라우팅 + **누적 갓코드**: 입력·조준UI·조작표시·탈출홀드·정산조합·**횃불 carry/투척**·**부활 타게팅**·적 인스펙트+루트롤·HUD. (정산 UI=`settlement_panel.gd` 분리) | `_ready` `_process` `_unhandled_input` `_update_extraction` `_settle_*` `_*_torch` `_on_*` | 전 노드 트리, CameraRig, HUD (DEBT-GOD3) |
+| [dungeon_run.gd](../scripts/run/dungeon_run.gd) | 686 | 🔸 씬 부트·시그널 라우팅 + **입력 라우터**(Esc/클릭/키 → 모달 컨트롤러 위임) + 탈출홀드 + 정산조합 + 적 인스펙트·루트롤 + HUD. (모달 패밀리 Aim/Revive/Torch 분리) | `_ready` `_process` `_unhandled_input` `_update_extraction` `_settle_*` `_on_*` | 전 노드 트리, CameraRig, 모달 컨트롤러 (DEBT-GOD3) |
 | [camera_rig.gd](../scripts/run/camera_rig.gd) | 87 | 🟢 게임플레이 카메라 리그(추종/스왑글라이드 accel·decel/RMB 오르빗/trauma 셰이크). `CameraPivot` 노드에 부착 | `set_follow_target` `glide_to_current` `orbit_yaw` `add_shake` | Camera3D(자식) only |
+| [revive_controller.gd](../scripts/run/revive_controller.gd) | 131 | 🟢 타게팅 부활(F-010/D-020): 시동→시체/초상화 클릭→1.5s 빛기둥→HP50%. 자체 프롬프트 | `try_start` `handle_click` `is_active` `cancel` | party/combat/inv/sheet(ref) |
+| [torch_carry_controller.gd](../scripts/run/torch_carry_controller.gd) | 145 | 🟢 횃불 carry/투척(F-021 §3.1.2): 빈슬롯 자동/선택→슬롯키 지면조준 투척. AimMarker+소모품바 사용 | `on_torch_pickup` `handle_consumable_key` `handle_click` | party/aim/bar/inv(ref) |
 | [map_demo_layout.gd](../scripts/run/map_demo_layout.gd) | 492 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크 + **fatal 장판 carve 재bake**·**데이터주도 인터페이스**(`_room_points`/profile=rooms.json) | `get_spawn_position` `rebake_navigation` `_carve_zone` `_resolve_room_points` | NavigationServer3D, Slice01Data, group 'player'/'navmap' |
 | [player_controller.gd](../scripts/run/player_controller.gd) | 34 | 조작 캐릭터 WASD→velocity (가속모델 옵션) | `_physics_process` | 부모 CharacterBody3D, InputMap |
 | [party_light.gd](../scripts/run/party_light.gd) | 115 | F-011 시야결합 조명(멤버별 omni+spot)·플리커·룸감쇠 | `_build_rigs` `_on_room_changed` | PartyController/Map/Run (노드경로) |
@@ -93,6 +95,8 @@
 | [controlled_sheet.gd](../scripts/ui/controlled_sheet.gd) | 110 | UI-003 하단 조작캐 액션바(초상/HP/Identity+Q/E/R 쿨) | `setup` `_process` | radial_cooldown, PartyController |
 | [radial_cooldown.gd](../scripts/ui/radial_cooldown.gd) | 45 | 쿨다운 라디얼 웨지 Control(쿨/상태핍 겸용) | `set_cd` `set_icon_color` `_draw` | — |
 | [settlement_panel.gd](../scripts/ui/settlement_panel.gd) | 163 | 🟢 F-007 §3.8 런 정산 화면(중앙 박스: 결과·생존/전사·카테고리요약·스크롤 상세). 순수 표현 — `run_settled(summary)` 구동 | `show_settlement` `_build` `_category_summary` | summary dict only |
+| [aim_marker.gd](../scripts/ui/aim_marker.gd) | 51 | 🟢 지면조준 마커(가시일 때 마우스 자동추종). 스킬북조준·횃불투척 공유 | `show_at` `hide_marker` `ground_pos` | 카메라/뷰포트 |
+| [controlled_indicator.gd](../scripts/ui/controlled_indicator.gd) | 60 | 🟢 UI-001 조작캐 표시(발판디스크+bob 화살표). setup(party) 후 자기 추종 | `setup` `_process` | PartyController(ref) |
 | [loadout_stub.gd](../scripts/ui/loadout_stub.gd) | 37 | 메뉴 로드아웃 스텁(4 Identity 표시·확정) | `populate_from_data` `loadout_confirmed` | Slice01Data |
 
 ### scenes — `scenes/`
@@ -120,7 +124,7 @@
 - ID 1:1: 코드/데이터의 문자열 ID는 spec과 **그대로** (`tank_anchor_guard`, `ENC-NORM-001`, `P-ADV-01` …). 별칭 금지.
 - 미등록 ID → abort: 로드 시 `require_id`로 차단 (현재 abilities 도메인은 누락).
 - 규칙 SSOT 복사 금지: F/QA 전문을 주석에 붙이지 말고 `## ref:` 한 줄 + spec 경로만.
-- 단일 책임: 1 파일 = 1 책임. **현 편차:** `party_controller.gd`(§6 DEBT-GOD — `CombatPositioning` 분리 + 데드 v0 정리로 1623→1014, 잔여 SteeringV1). 🔸 `combat_controller.gd`은 `EnemyAI`+`AbilityDispatch` 분리로 854→408줄(§6 DEBT-GOD2, 잔여: EncounterSpawner/Squad). 🔸 `dungeon_run.gd`은 `CameraRig`(326→256, 2026-06-10) 후 정산·횃불·부활·루트 누적으로 **재증식 1115→961**(§6 DEBT-GOD3, `SettlementPanel` 분리; 잔여 횃불/부활/조준 컨트롤러).
+- 단일 책임: 1 파일 = 1 책임. **현 편차:** `party_controller.gd`(§6 DEBT-GOD — `CombatPositioning` 분리 + 데드 v0 정리로 1623→1014, 잔여 SteeringV1). 🔸 `combat_controller.gd`은 `EnemyAI`+`AbilityDispatch` 분리로 854→408줄(§6 DEBT-GOD2, 잔여: EncounterSpawner/Squad). 🔸 `dungeon_run.gd`은 1115줄 재증식 후 **SettlementPanel + 모달 패밀리(Aim/Revive/Torch) 분리로 1115→686**(§6 DEBT-GOD3; 잔여 추출채널·루트롤·정산조합·ModalStack).
 - 도메인 폴더: `core/run/party/combat/ui` (dev_templates의 `features/F###_*` per-feature 컨벤션과는 다름 — 의도적 단순화).
 
 ---
@@ -135,7 +139,7 @@
 |----|------|------|-----|------|
 | DEBT-GOD | 🔸 **부분(P6.1·6.2 + 2026-06-10)** — v0 엔진·데드로직·팔레트 제거 + **CombatPositioning 분리**(전투교전·힐러, `combat_positioning.gd` 111) + **데드 v0 config 17종 정리**(DEBT-V0)로 **1623→1014줄**. 잔여 추출 단위(우선순위): **①`SteeringV1`(~21 `_sv1_*`, ~530줄 — 최대 덩어리, 고위험·config 소유권 재설계 동반)** / `FormationConfig`(설정로더) / `FormationForward`(상태머신) | party_controller.gd | high | **부분 DONE** |
 | DEBT-GOD2 | 🔸 **대부분 해소(2026-06-10)** — **EnemyAI**(`enemy_ai.gd` 301) + **AbilityDispatch**(`ability_dispatch.gd` 197) 분리로 combat_controller **854→408줄(-446)**. 둘 다 자식 노드, 공유 시스템(engage/grace/threat/공간쿼리/셰이크)은 컨트롤러 단일소유 + 콜백. 잔여 추출 단위: `EncounterSpawner/SquadManager`(스폰·증원·분대 — `_squads` 상태 소유) | combat_controller.gd, enemy_ai.gd, ability_dispatch.gd | high | **부분 DONE** |
-| DEBT-GOD3 | 🔸 **신규(2026-06-13)** — `dungeon_run.gd`이 CameraRig 분리(256줄) 후 F-007 정산·횃불 carry/투척·부활 타게팅·루트롤 누적으로 **1115줄 재증식**. **`SettlementPanel` 분리**(정산 UI 순수표현 `ui/settlement_panel.gd` 163, `run_settled(summary)` 구동)로 **1115→961줄**. 잔여 추출 후보(중위험·입력결합): 횃불 carry/투척(~90)·부활 타게팅(~73)·조준마커/조작표시(~88) | dungeon_run.gd, settlement_panel.gd | high | **부분 DONE** |
+| DEBT-GOD3 | 🔸 **부분(2026-06-13, 2라운드)** — CameraRig 분리 후 정산·횃불·부활·루트 누적 1115줄 재증식. ① `SettlementPanel`(정산 UI 163) ② **모달 입력 패밀리** — `AimMarker`(51)·`ControlledIndicator`(60)·`ReviveController`(131)·`TorchCarryController`(145), dungeon_run은 얇은 라우터(Esc/클릭/키→`is_active/cancel/handle_*` 위임)로 잔존. **1115→686줄**. 잔여(저~중위험): 추출채널·루트롤·정산조합 추출 + ModalStack 정식화 | dungeon_run.gd + 컨트롤러 5종 | high | **부분 DONE** |
 | DEBT-V0 | ✅ **완전 해소(2026-06-10)** — 죽은 v0 추종엔진 삭제 + **잔여 데드 config 17종 제거**(tank_follow 보정/리버설 6 + v0 separation 7 + preferred_anchor/lateral/slot_arrive/path_clearance 4, 선언+로더). sv1은 `_sv1_*` config만 사용 | scripts/party/party_controller.gd | med | **DONE** |
 | DEBT-DEAD1 | ✅ **해소(2026-06-10)** — no-op `_sync_tank_follow_collision`(+호출 2곳) 제거. `set_party_member_collision(false)`가 어디서도 안 불려 스폰 기본값 재확인일 뿐이었음. (setter 자체는 1b 상태시스템용 API로 보존) | party_controller.gd | low | **DONE** |
 | DEBT-DEAD2 | 🔸 `party_in_combat` 이중관리 **해소(②)**. `run_controller.can_swap()` 항상 true 스텁은 Control Lock/MIA 미구현이라 **의도적 잔존** | run_controller.gd:66 | low | 부분 DONE |
