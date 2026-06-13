@@ -21,6 +21,8 @@ config/icon="res://icon.svg"
 
 GameBootstrap="*res://scripts/autoload/game_bootstrap.gd"
 Slice01Data="*res://scripts/core/slice01_data.gd"
+RunLoadout="*res://scripts/autoload/run_loadout.gd"
+Stash="*res://scripts/autoload/stash.gd"
 
 [display]
 

@@ -1,5 +1,7 @@
 extends VBoxContainer
-## UI-005 stub — confirm 4 identitySkillIds before dungeon (F-020 §3.2.1).
+## Deployment loadout (UI-005 / F-010) — confirm the 4 Identity loadout (장착 Gear = Safe).
+## Gear / skillbooks / consumables are edited via the stash → backpack inventory ("장비·스킬
+## 편집", main.gd); brought items are At-Risk (F-007). ref: F-010 §3.2.
 
 signal loadout_confirmed
 
@@ -22,7 +24,7 @@ func populate_from_data() -> void:
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		var lbl := Label.new()
-		lbl.text = "%s · %s · %s" % [
+		lbl.text = "%s · %s · %s   (장착 Identity Gear = Safe)" % [
 			row.get("class_id", "?"),
 			row.get("identity_skill_id", "?"),
 			row.get("ability_id", "?"),
@@ -33,5 +35,5 @@ func populate_from_data() -> void:
 func _on_confirm_pressed() -> void:
 	_confirmed = true
 	$ConfirmButton.disabled = true
-	$StatusLabel.text = "Loadout confirmed (4 Identity)."
+	$StatusLabel.text = "Identity 확정 — 장비·스킬·소모품은 [장비·스킬 편집]에서 스태시로."
 	loadout_confirmed.emit()

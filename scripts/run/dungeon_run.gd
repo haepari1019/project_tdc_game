@@ -116,6 +116,29 @@ func _ready() -> void:
 	$HUD.add_child(consumable_bar)
 	_inventory_ui.setup_consumable_bar(consumable_bar)
 	_inventory_ui.consumable_use_requested.connect(_on_consumable_use_requested)
+	# F-010 deployment loadout → apply the brought run inventory (At-Risk) + equipped subs.
+	# Autoload via runtime path (stale-editor-safe; loaded fresh each run).
+	var rl: Node = get_node_or_null("/root/RunLoadout")
+	if rl != null:
+		for cid in rl.consumables:
+			_inventory_ui.add_consumable_to_backpack(String(cid), int(rl.consumables[cid]))
+		for it in rl.backpack:
+			match String(it.get("kind", "")):
+				"gear":
+					_inventory_ui.add_gear_to_backpack(String(it.get("base_gear_id", "")), true)
+				"skillbook":
+					_inventory_ui.add_skillbook_to_backpack(String(it.get("base_ability_id", "")), true)
+				"consumable":
+					_inventory_ui.add_consumable_to_backpack(String(it.get("consumable_id", "")), int(it.get("count", 1)))
+		var dep_members: Array = _party.get_members()
+		for i in mini(dep_members.size(), rl.member_subs.size()):
+			var subrow: Array = rl.member_subs[i]
+			var dm = dep_members[i]
+			if dm == null or not is_instance_valid(dm) or not dm.has_method("equip_skillbook_by_id"):
+				continue
+			for j in mini(3, subrow.size()):
+				if String(subrow[j]) != "":
+					dm.equip_skillbook_by_id(j, String(subrow[j]))
 	_revive = ReviveController.new()  # targeted revive (F-010 / D-020)
 	add_child(_revive)
 	_revive.setup(_party, _combat, _inventory_ui, _party_sheet, $HUD)

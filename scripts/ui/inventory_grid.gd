@@ -182,6 +182,14 @@ func _node_label(item: Dictionary) -> String:
 	return "%s\n%d×%d" % [String(item.id), int(item.w), int(item.h)]
 
 
+## The item whose footprint covers cell (col,row), or {} if the cell is empty.
+func item_at(col: int, row: int) -> Dictionary:
+	for it in items:
+		if col >= int(it.col) and col < int(it.col) + int(it.w) and row >= int(it.row) and row < int(it.row) + int(it.h):
+			return it
+	return {}
+
+
 ## Refresh a placed item's caption in-place (e.g. after a consumable stack changes).
 func refresh_item_label(item: Dictionary) -> void:
 	if not (item.has("node") and is_instance_valid(item.node)):

@@ -5,7 +5,7 @@
       "consumable_id": "con_revive_scroll",
       "display_name": "부활 스크롤",
       "effect": "revive_ally",
-      "max_stack": 3,
+      "max_stack": 10,
       "usable_in_combat": false,
       "color": [0.55, 0.85, 0.55]
     }

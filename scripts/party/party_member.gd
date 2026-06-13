@@ -206,6 +206,26 @@ func _init_starter_skillbook() -> void:
 	}
 
 
+## Equip a skillbook into a Q/E/R slot by base_ability_id (deployment loadout apply, F-010).
+func equip_skillbook_by_id(slot_index: int, base_ability_id: String) -> void:
+	if slot_index < 0 or slot_index >= skillbook_slots.size() or base_ability_id == "":
+		return
+	var master: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
+	if master.is_empty():
+		return
+	var cmax := int(master.get("charges_max", 30))
+	set_skillbook(slot_index, {
+		"base_ability_id": base_ability_id,
+		"display_name": String(master.get("display_name", base_ability_id)),
+		"params": master.get("cast", {}),
+		"charges": cmax,
+		"charges_max": cmax,
+		"cooldown_s": 0.0,
+		"equip_classes": master.get("equip_classes", [class_id]),
+		"color": _base_color,
+	})
+
+
 func set_controlled(active: bool) -> void:
 	if _controlled == active:
 		return

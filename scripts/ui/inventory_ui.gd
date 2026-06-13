@@ -214,11 +214,36 @@ func collect_run_inventory() -> Array:
 	return out
 
 
+## Raw backpack item dicts (for the deployment hub to serialize the brought loadout).
+func get_backpack_items() -> Array:
+	var out: Array = []
+	for it in _backpack.items:
+		out.append((it as Dictionary).duplicate())
+	return out
+
+
 ## F-007 §3.6 — Extraction Success: every At-Risk run-inventory stack becomes Safe.
 func mark_run_inventory_safe() -> void:
 	for it in _backpack.items:
 		if it.has("at_risk"):
 			it["at_risk"] = false
+
+
+# --- stash item builders (deployment hub) — public wrappers so the hub can fill a stash grid
+# with the exact item dicts the equip/sub/backpack drag system expects (F-010). ---
+func make_gear_stash_item(base_gear_id: String) -> Dictionary:
+	var m := Slice01Data.get_gear_master(base_gear_id)
+	return _gear_item(m, true) if not m.is_empty() else {}
+
+
+func make_skillbook_stash_item(base_ability_id: String) -> Dictionary:
+	var m := Slice01Data.get_skillbook_master(base_ability_id)
+	return _skillbook_item(m, true) if not m.is_empty() else {}
+
+
+func make_consumable_stash_item(consumable_id: String, count: int) -> Dictionary:
+	var m := Slice01Data.get_consumable_master(consumable_id)
+	return _consumable_item(m, count) if not m.is_empty() else {}
 
 
 # --- consumables (stacking + Z/X/C hotkeys — F-010) -----------------------------
@@ -985,7 +1010,11 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 	if not mb.pressed or not _drag.is_empty():
 		return
 	if mb.button_index == MOUSE_BUTTON_LEFT:
-		_begin_drag(grid, item)
+		# Ctrl+drag a stackable consumable → split off half into a new floating stack.
+		if mb.ctrl_pressed and String(item.get("kind", "")) == "consumable" and int(item.get("count", 1)) > 1:
+			_open_split_popup(grid, item)   # Ctrl+click → ask how many to split off
+		else:
+			_begin_drag(grid, item)
 		accept_event()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT:
 		if grid == _loot:
@@ -1020,6 +1049,57 @@ func _begin_drag(grid: InventoryGrid, item: Dictionary) -> void:
 	_drag_vis = _make_drag_vis(item)
 	add_child(_drag_vis)
 	_update_drag()
+
+
+## Ctrl+click a consumable stack → popup asking how many to split off into a NEW stack (placed
+## in the first free cell). Drag a stack onto a same-id stack to merge them back. ref: F-010.
+func _open_split_popup(grid: InventoryGrid, item: Dictionary) -> void:
+	var total := int(item.count)
+	if total <= 1:
+		return
+	var pop := PopupPanel.new()
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	pop.add_child(vb)
+	var lbl := Label.new()
+	lbl.text = "%s — 분해 수량 (1~%d)" % [String(item.get("id", "")), total - 1]
+	vb.add_child(lbl)
+	var spin := SpinBox.new()
+	spin.min_value = 1
+	spin.max_value = total - 1
+	spin.value = total / 2
+	vb.add_child(spin)
+	var hb := HBoxContainer.new()
+	hb.alignment = BoxContainer.ALIGNMENT_END
+	var cancel := Button.new()
+	cancel.text = "취소"
+	cancel.pressed.connect(pop.queue_free)
+	hb.add_child(cancel)
+	var ok := Button.new()
+	ok.text = "분해"
+	ok.pressed.connect(func() -> void:
+		_do_split(grid, item, int(spin.value))
+		pop.queue_free()
+	)
+	hb.add_child(ok)
+	vb.add_child(hb)
+	add_child(pop)
+	pop.popup(Rect2i(get_viewport().get_mouse_position(), Vector2i(230, 116)))
+
+
+## Split `n` units off `item` into a new stack placed in the grid's first free cell.
+func _do_split(grid: InventoryGrid, item: Dictionary, n: int) -> void:
+	n = clampi(n, 1, int(item.count) - 1)
+	if n <= 0:
+		return
+	item.count = int(item.count) - n
+	grid.refresh_item_label(item)
+	var part: Dictionary = item.duplicate()
+	part.erase("node")
+	part.count = n
+	if not grid.add_item_dict(part):
+		item.count = int(item.count) + n   # no free cell → undo the split
+		grid.refresh_item_label(item)
 
 
 func _make_drag_vis(item: Dictionary) -> Panel:
@@ -1119,10 +1199,23 @@ func _drop() -> void:
 		var target := _grid_under(mouse)
 		if target != null:
 			var c := target.cell_from_global_topleft(topleft)
-			if target.can_place(int(_drag.w), int(_drag.h), c.x, c.y):
+			# consumable merge: dropping onto a same-id stack combines (≤ max_stack).
+			if String(_drag.get("kind", "")) == "consumable":
+				var dest: Dictionary = target.item_at(int(c.x), int(c.y))
+				if not dest.is_empty() and dest != _drag \
+						and String(dest.get("consumable_id", "")) == String(_drag.get("consumable_id", "")):
+					var room := int(_drag.get("max_stack", 1)) - int(dest.get("count", 0))
+					var move := mini(room, int(_drag.get("count", 0)))
+					if move > 0:
+						dest.count = int(dest.count) + move
+						target.refresh_item_label(dest)
+						_drag.count = int(_drag.count) - move
+						if int(_drag.count) <= 0:
+							placed = true  # fully merged into the stack
+			if not placed and target.can_place(int(_drag.w), int(_drag.h), c.x, c.y):
 				target.place(_drag, c.x, c.y)
 				placed = true
-		if not placed:  # revert to where it began (grid spot / gear slot / sub slot)
+		if not placed:  # leftover / no target → revert to source (or merge the split back)
 			_revert_drag()
 	for g: InventoryGrid in _grids:
 		g.clear_preview()
