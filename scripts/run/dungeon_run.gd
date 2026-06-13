@@ -23,25 +23,11 @@ const AimMarker := preload("res://scripts/ui/aim_marker.gd")
 const ControlledIndicator := preload("res://scripts/ui/controlled_indicator.gd")
 const ReviveController := preload("res://scripts/run/revive_controller.gd")
 const TorchCarryController := preload("res://scripts/run/torch_carry_controller.gd")
+const AimController := preload("res://scripts/run/aim_controller.gd")
+const LootService := preload("res://scripts/run/loot_service.gd")
+const RunEndController := preload("res://scripts/run/run_end_controller.gd")
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
 
-## PH loot table — a defeated enemy drops one of these as a world pickup. ref: F-010.
-const LOOT_TABLE: Array = [
-	{"id": "Ammo", "w": 1, "h": 1, "color": Color(0.80, 0.55, 0.30)},
-	{"id": "Medkit", "w": 1, "h": 1, "color": Color(0.85, 0.30, 0.30)},
-	{"id": "Scrap", "w": 1, "h": 1, "color": Color(0.55, 0.58, 0.62)},
-	{"id": "Cell", "w": 1, "h": 2, "color": Color(0.62, 0.45, 0.82)},
-]
-
-## PH gear-loot pool — dungeon-dropped Identity Gear (F-008 §3.3 / DEC-20260611-001;
-## looted = At Risk). A same-role set (Tank) the player can equip + a cross-role set
-## (Healer) to show the equipClasses gate reject. Masters live in gear.json.
-const GEAR_LOOT: Array = ["gear_ward_tank_anchor_set", "gear_ward_healer_mend_set"]
-## Gear drops are RARE (per-kill, after the skillbook roll) — ~1-2 per run. (tuning)
-const GEAR_DROP_CHANCE := 0.08
-## Per-kill skillbook drop (F-009 / DEC-20260611-002): only on enemies that USE a lootable
-## AB; that enemy's own AB drops. High so those enemies almost always drop a book. (tuning)
-const SKILLBOOK_DROP_CHANCE := 0.85
 
 @onready var _run: Node = $RunController
 @onready var _map: Node3D = $MapDemoLayout
@@ -62,13 +48,13 @@ const SKILLBOOK_DROP_CHANCE := 0.85
 @onready var _party_sheet: Control = $HUD/PartySheet
 @onready var _controlled_sheet: Control = $HUD/ControlledSheet
 
-# Ground-targeted sub (DPS/Nuker): press sub key → aim → click to cast at mouse.
-var _aiming: bool = false
-var _aim_member: CharacterBody3D = null
-var _aim_slot: int = -1  # which skillbook slot the aim will cast
-var _aim: MeshInstance3D     # AimMarker (shared by skillbook aim + torch throw)
+# Modal targeting controllers (aim/revive/torch) + per-kill loot + run-end flow.
+var _aim: MeshInstance3D     # AimMarker (shared aim/throw marker)
+var _aim_ctrl: Node          # AimController (skillbook ground-target modal)
 var _revive: Node3D          # ReviveController (targeted revive)
 var _torch: Node             # TorchCarryController (ENT-TORCH carry/throw)
+var _loot: Node3D            # LootService (per-kill drops)
+var _run_end: Node           # RunEndController (extraction channel + settlement + wipe)
 var _alert_banner: Label   # UI-006 central separation/MIA warning overlay
 var _alert_token: int = 0
 
@@ -88,19 +74,6 @@ var _enemy_info: EnemyInfo
 var _cam_dragging: bool = false
 var _rmb_move_accum: float = 0.0  # RMB click(=interact) vs drag(=camera orbit) discriminator
 
-# F-007 ExtractionActivate — hold at the extraction point this long to complete.
-# Longer while partyInCombat (적이 붙어 있으면 탈출이 더 어렵다). Channel time is
-# "후속 UI/전투 SSOT" in F-007 §3.1.2 → tuning (game SPEC_DRIFT).
-const EXTRACT_HOLD_S := 5.0          # 비전투
-const EXTRACT_HOLD_COMBAT_S := 30.0  # 전투중(partyInCombat)
-const EXTRACT_RADIUS_M := 3.0
-var _extract_active: bool = false
-var _extract_remaining_s: float = 0.0   # hold countdown (s)
-var _extract_combat: bool = false        # combat state the current countdown was sized for
-var _extract_blocked: bool = false       # F-007 §3.6.2 cohesion gate holding the channel at 0
-## F-007 §3.6.2 extractionCohesionRule — Contract flag (spec default false). The demo
-## enables it so a survivor MIA/separated blocks ExtractionActivate completion.
-const COHESION_RULE := true
 
 
 func _ready() -> void:
@@ -115,7 +88,6 @@ func _ready() -> void:
 	_combat.engagement_changed.connect(_on_engagement_changed)
 	_combat.camera_shake.connect(_camera_rig.add_shake)
 	_combat.party_hit.connect(_on_party_hit)
-	_combat.enemy_defeated.connect(_on_enemy_loot)
 	_combat.setup(_party, _map)
 	_party.bind_combat(_combat)
 	var enemy_vis := EnemyVisibility.new()
@@ -149,6 +121,17 @@ func _ready() -> void:
 	_torch = TorchCarryController.new()  # ENT-TORCH carry/throw (F-021 §3.1.2)
 	add_child(_torch)
 	_torch.setup(_party, _aim, consumable_bar, _inventory_ui, $HUD)
+	_aim_ctrl = AimController.new()  # skillbook ground-target modal
+	add_child(_aim_ctrl)
+	_aim_ctrl.setup(_aim, _combat)
+	_loot = LootService.new()  # per-kill loot drops (F-009/F-010)
+	add_child(_loot)
+	_loot.setup(_inventory_ui)
+	_combat.enemy_defeated.connect(_loot.on_enemy_defeated)
+	_run_end = RunEndController.new()  # extraction channel + settlement + party-wipe (F-007)
+	add_child(_run_end)
+	_run_end.setup(_run, _party, _combat, _inventory_ui, _map, _extract_count)
+	_run_end.party_alert.connect(_on_party_alert)
 	# World loop — chest (holding the extraction key) in the objective room.
 	var chest := Chest.new()
 	chest.title = "유물함"
@@ -220,20 +203,10 @@ func _ready() -> void:
 	_camera_rig.set_follow_target(_party.get_controlled())  # glide in from rig origin
 
 
-func _process(delta: float) -> void:
-	# F-007 §3.7.1 — 전원 ExtractCasualty → PartyWipe → Run Failure (탈출 불가).
-	if not _run.run_over and _is_party_wiped():
-		_settle_failure("PartyWipe")
-		return
+func _process(_delta: float) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl:
 		_hud_sub.text = "Ready" if ctrl.sub_cooldown_s <= 0.0 else "%.1fs" % ctrl.sub_cooldown_s
-		# Extraction (F-007 ExtractionActivate): hold at POINT-DEMO-01 for
-		# EXTRACT_HOLD_S with the objective done → Run Success. Leaving the zone
-		# cancels (no failure — F-007: 미완료=런 지속). Big countdown UI ticks down.
-		var in_extract: bool = not _run.run_over and _run.objective_complete \
-				and ctrl.global_position.distance_to(_map.get_extraction_position()) < EXTRACT_RADIUS_M
-		_update_extraction(in_extract, delta)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -244,27 +217,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			_torch.cancel()
 		elif _revive.is_active():
 			_revive.cancel()
-		elif _aiming:
-			_end_aim()
+		elif _aim_ctrl.is_active():
+			_aim_ctrl.cancel()
 		else:
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
 		return
 	if event.is_action_pressed("toggle_inventory"):
-		if _aiming:
-			_end_aim()
+		if _aim_ctrl.is_active():
+			_aim_ctrl.cancel()
 		_inventory_ui.toggle()
 		return
 	# Modal targeting click dispatch (priority: revive, skillbook aim, torch throw).
 	if _revive.handle_click(event):
 		return
-	if _aiming and event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.pressed:
-			if mb.button_index == MOUSE_BUTTON_LEFT:
-				_combat.cast_skillbook(_aim_member, _aim_slot, _aim.ground_pos())
-				_end_aim()
-			elif mb.button_index == MOUSE_BUTTON_RIGHT:
-				_end_aim()
+	if _aim_ctrl.handle_click(event):
 		return
 	if _torch.handle_click(event):
 		return
@@ -312,8 +278,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_interaction.interact_nearest()  # F → nearest interactable to the player (mouse-independent)
 	for i in 4:
 		if event.is_action_pressed("swap_party_%d" % (i + 1)):
-			if _aiming:
-				_end_aim()
+			if _aim_ctrl.is_active():
+				_aim_ctrl.cancel()
 			_party.try_swap_to(i)  # success → controlled_changed → rig glides to new char
 
 
@@ -329,7 +295,7 @@ func _on_sub_key(slot_index: int) -> void:
 	# Targeted subs (DPS lunge / Nuker nova) → aim mode: left-click a ground point to cast.
 	# Self-centered subs (taunt/sanctuary/skillbook strike/poison/stun) → instant.
 	if bool(inst.params.get("targeted", false)):
-		_start_aim(ctrl, slot_index, inst)
+		_aim_ctrl.start_aim(ctrl, slot_index, inst)  # ground-target modal
 	else:
 		_combat.cast_skillbook(ctrl, slot_index, ctrl.global_position)
 
@@ -337,7 +303,7 @@ func _on_sub_key(slot_index: int) -> void:
 # --- consumables: hotkey use + targeted revive channel --------------------------
 
 func _on_consumable_key(slot: int) -> void:
-	if _torch.handle_consumable_key(slot, _aiming or _revive.is_active()):
+	if _torch.handle_consumable_key(slot, _aim_ctrl.is_active() or _revive.is_active()):
 		return  # torch carry-pick assign / throw aim
 	if _inventory_ui.is_open():
 		return  # inventory consumes Z/X/C (hotkey assign) when open
@@ -379,65 +345,6 @@ func _hide_alert(tok: int) -> void:
 		_alert_banner.visible = false
 
 
-func _start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> void:
-	_aiming = true
-	_aim_member = member
-	_aim_slot = slot_index
-	var p: Dictionary = inst.params
-	var r: float = float(p.get("radius_m", p.get("aoe_radius_m", 3.0)))
-	var cc: Color = member.get_class_color()
-	_aim.show_at(r, Color(cc.r, cc.g, cc.b, 0.35))
-
-
-func _end_aim() -> void:
-	_aiming = false
-	_aim_member = null
-	_aim_slot = -1
-	_aim.hide_marker()
-
-
-## ExtractionActivate hold-channel: a countdown that ticks down while in the zone and
-## completes at 0. Combat sizes it to 30s; clearing combat SHORTENS the remaining to the
-## 5s safe hold (capped, so it doesn't instant-complete); starting combat re-extends to
-## 30s. Leaving the zone cancels (reset). Big countdown ticks high→low.
-func _update_extraction(in_zone: bool, delta: float) -> void:
-	if not in_zone:
-		if _extract_active:
-			_extract_active = false
-			_extract_count.visible = false
-		_extract_blocked = false
-		return
-	var combat: bool = _combat.is_engaged()
-	if not _extract_active:
-		_extract_active = true
-		_extract_combat = combat
-		_extract_remaining_s = EXTRACT_HOLD_COMBAT_S if combat else EXTRACT_HOLD_S
-	elif combat != _extract_combat:
-		# Combat starting re-extends to the long hold; combat clearing shortens the
-		# remaining to (at most) the safe hold instead of instantly completing.
-		_extract_remaining_s = EXTRACT_HOLD_COMBAT_S if combat else minf(_extract_remaining_s, EXTRACT_HOLD_S)
-		_extract_combat = combat
-	_extract_remaining_s -= delta
-	if _extract_remaining_s <= 0.0:
-		# F-007 §3.6.2 extractionCohesionRule — hold the channel at 0 (not complete, not a
-		# failure) while a SURVIVING party member is MIA/separated. Run continues.
-		if COHESION_RULE and _has_separated_survivor():
-			_extract_remaining_s = 0.0
-			_extract_count.visible = true
-			_extract_count.text = "집합 필요"
-			if not _extract_blocked:
-				_extract_blocked = true
-				_on_party_alert("집합 필요 — 생존 파티원이 이탈/MIA 상태입니다", 1)
-			return
-		_extract_blocked = false
-		_extract_active = false
-		_extract_count.visible = false
-		_settle_extraction()  # F-007 §3.6 Extraction Success (incl. Partial)
-		return
-	_extract_count.visible = true
-	_extract_count.text = "%d" % int(ceil(_extract_remaining_s))  # 30…/5… → 1
-
-
 ## Left-click → ray-pick an enemy (collision layer 4) for the inspect panel; else clear.
 func _select_enemy_under_mouse() -> void:
 	var cam := get_viewport().get_camera_3d()
@@ -456,59 +363,6 @@ func _select_enemy_under_mouse() -> void:
 		_enemy_info.set_enemy(n)
 	else:
 		_enemy_info.clear()
-
-
-## CombatController.enemy_defeated → spawn a PH loot drop at the death position.
-func _on_enemy_loot(world_pos: Vector3, ability_refs: Array) -> void:
-	var def: Dictionary = _roll_loot_def(ability_refs)
-	if def.is_empty():
-		return
-	var drop := ItemDrop.new()
-	drop.setup(_inventory_ui, def)
-	drop.position = Vector3(world_pos.x, 0.0, world_pos.z)
-	add_child(drop)
-
-
-## Per-kill loot roll: (1) skillbook — if this enemy USES a lootable AB, roll for that
-## AB (F-009/DEC-20260611-002); (2) else gear; (3) else generic item.
-func _roll_loot_def(ability_refs: Array) -> Dictionary:
-	var lootable: Array = []
-	for r in ability_refs:
-		if not Slice01Data.get_skillbook_master(String(r)).is_empty():
-			lootable.append(String(r))
-	if not lootable.is_empty() and randf() < SKILLBOOK_DROP_CHANCE:
-		return _make_skillbook_drop_def(String(lootable[randi() % lootable.size()]))
-	if randf() < GEAR_DROP_CHANCE and not GEAR_LOOT.is_empty():
-		return _make_gear_drop_def(String(GEAR_LOOT[randi() % GEAR_LOOT.size()]))
-	return (LOOT_TABLE[randi() % LOOT_TABLE.size()] as Dictionary).duplicate()
-
-
-## Build an ItemDrop def for a skillbook looted from an enemy's lootable AB.
-func _make_skillbook_drop_def(base_ability_id: String) -> Dictionary:
-	var m: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
-	var classes: Array = m.get("equip_classes", [])
-	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
-	return {
-		"id": String(m.get("display_name", base_ability_id)),
-		"w": 1, "h": 1,
-		"color": UnitVisuals.role_color(cid).lightened(0.15),
-		"kind": "skillbook",
-		"base_ability_id": base_ability_id,
-	}
-
-
-## Build an ItemDrop def for an Identity Gear master (gear.json), colored by its role.
-func _make_gear_drop_def(base_gear_id: String) -> Dictionary:
-	var m: Dictionary = Slice01Data.get_gear_master(base_gear_id)
-	var classes: Array = m.get("equip_classes", [])
-	var cid := String(classes[0]) if not classes.is_empty() else "Tank"
-	return {
-		"id": String(m.get("display_name", base_gear_id)),
-		"w": 2, "h": 2,
-		"color": UnitVisuals.role_color(cid),
-		"kind": "gear",
-		"base_gear_id": base_gear_id,
-	}
 
 
 ## Floating interaction label (name + key) positioned ABOVE the hovered object by
@@ -555,91 +409,6 @@ func _on_party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool
 ## draws the full end screen, so nothing to do here.
 func _on_run_ended(_result: String) -> void:
 	pass
-
-
-## F-007 §3.6 — compose + finalize Extraction Success (Partial if any ExtractCasualty).
-func _settle_extraction() -> void:
-	var survivors: Array = []
-	var casualties: Array = []
-	for m in _party.get_members():
-		if not is_instance_valid(m):
-			continue
-		if m.has_method("is_alive") and not m.is_alive():
-			casualties.append(String(m.class_id))   # ExtractCasualty (§3.0)
-		else:
-			survivors.append(String(m.class_id))
-	var safe_items := _collect_at_risk()             # At-Risk → Safe (전량, §3.6.1)
-	_inventory_ui.mark_run_inventory_safe()
-	var partial := not casualties.is_empty()
-	_run.settle_extraction({
-		"result": "Partial Extraction Success" if partial else "Extraction Success",
-		"cause": "",
-		"survivors": survivors,
-		"casualties": casualties,
-		"safe_items": safe_items,
-		"lost_items": [],
-	})
-
-
-## F-007 §3.7 — compose + finalize Run Failure. Run-inventory At-Risk → Loss Bundle.
-func _settle_failure(cause: String) -> void:
-	var casualties: Array = []
-	for m in _party.get_members():
-		if is_instance_valid(m):
-			casualties.append(String(m.class_id))
-	_run.settle_failure(cause, {
-		"result": "Run Failure",
-		"cause": cause,
-		"survivors": [],
-		"casualties": casualties,
-		"safe_items": [],
-		"lost_items": _collect_at_risk(),
-	})
-
-
-## At-Risk run inventory = backpack (전체) + 장착 스킬북(F-009 §3.7). 장착 Identity Gear
-## 모듈은 Safe(허브 메타)라 제외한다.
-func _collect_at_risk() -> Array:
-	var out: Array = _inventory_ui.collect_run_inventory()
-	for m in _party.get_members():
-		if not is_instance_valid(m) or not m.has_method("get_skillbook"):
-			continue
-		for i in 3:
-			var sb = m.get_skillbook(i)
-			if sb != null:
-				out.append({
-					"label": "%s (장착)" % String(sb.get("display_name", "Skillbook")),
-					"count": 1,
-					"kind": "skillbook",
-				})
-	return out
-
-
-## F-007 §3.6.2 — any SURVIVING party member MIA or beyond the unbound anchor leash.
-func _has_separated_survivor() -> bool:
-	for m in _party.get_members():
-		if not is_instance_valid(m):
-			continue
-		if m.has_method("is_alive") and not m.is_alive():
-			continue  # casualties don't gate (§3.6.2: 생존 파티원 중)
-		if m.has_method("is_mia") and m.is_mia():
-			return true
-		if m.has_method("is_warn") and m.is_warn():
-			return true  # anchorDistance > unbound_anchor_max_m (pre-MIA 경고 구간)
-	return false
-
-
-## F-007 §3.7.1 — every party member is an ExtractCasualty (Dead/RunIncapacitated).
-func _is_party_wiped() -> bool:
-	var members: Array = _party.get_members()
-	if members.is_empty():
-		return false
-	for m in members:
-		if is_instance_valid(m) and (not m.has_method("is_alive") or m.is_alive()):
-			return false
-	return true
-
-
 
 
 func _on_run_booted(state: Dictionary) -> void:

@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260613-003 — Loot/RunEnd/Aim 분리 (dungeon_run 갓코드 3라운드, 동작 보존)
+- **결정:** dungeon_run 잔여 3덩어리 추출 — `run/loot_service.gd`(77, 처치 루트 롤·드랍, `enemy_defeated` 구동)·`run/run_end_controller.gd`(173, 탈출 홀드채널+결속게이트+전멸감지+정산조합, 자기 `_process`로 `run.settle_*` 호출·`party_alert` emit)·`run/aim_controller.gd`(52, 스킬북 지면조준 모달 → revive/torch와 **진짜 균일** is_active/cancel/handle_click). dungeon_run **686→455**.
+- **이유:** 갓코드 3라운드(사용자: C→재평가→플랜→진행). 추출채널+정산조합은 `_settle_extraction`/`_has_separated_survivor`/전멸로 **결합** → 한 `RunEndController`로 묶음(런 종료 흐름 응집). AimController로 3모달이 균일해져 라우터의 인라인 aim 특례 제거(B+→A 인터페이스 조건).
+- **동작 보존:** _process의 전멸체크·추출트리거 → RunEndController._process로 이동(동일 매프레임). 루트 연결 `enemy_defeated→on_enemy_defeated`. aim 클릭/Esc/스왑/인벤 위임. 헤드리스 로드 검증 통과. **회귀=라이브 입력·런종료 흐름**(플레이검증 필요).
+- **결과:** dungeon_run = 씬부트 + 입력라우터 + 월드오브젝트 스폰 + HUD콜백으로 수렴. **1115→455(-660, -59%)**. 컨트롤러 8종.
+- **잔여(DEBT-GOD3, 저위험):** 입력 라우터 ModalStack 정식화·_ready 월드스폰 빌더 분리(선택).
+- **영향:** `scripts/run/loot_service.gd`·`run_end_controller.gd`·`aim_controller.gd`(신규), `scripts/run/dungeon_run.gd`, `docs/ARCHITECTURE.md`(DEBT-GOD3).
+
+
 ### IMPL-DEC-20260613-002 — 모달 입력 패밀리 분리 (dungeon_run 갓코드 2라운드, 동작 보존)
 - **결정:** dungeon_run의 "모달 타게팅 패밀리"를 4개로 추출 — **표현 헬퍼** `ui/aim_marker.gd`(51, 가시 시 마우스 자동추종)·`ui/controlled_indicator.gd`(60, setup 후 자기추종) + **기능 컨트롤러** `run/revive_controller.gd`(131)·`run/torch_carry_controller.gd`(145). dungeon_run은 **얇은 라우터**로 잔존 — `_unhandled_input`이 Esc/클릭/키를 우선순위대로 `is_active()/cancel()/handle_click()/handle_consumable_key()`로 위임. dungeon_run 960→686.
 - **이유:** 갓코드 점검 후속(사용자: C 전체 진행). 셋(횃불/부활/조준)이 **독립 3섬이 아니라** 공유 마커·프롬프트·단일활성모달·우선순위 라우터를 쓰는 패밀리 → "완전 독립 3모듈"은 결합을 교차참조로 되살림. **얇은 코디네이터(라우터) 잔존 + 응집 컨트롤러 + 표현 헬퍼**가 정답.
