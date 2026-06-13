@@ -7,6 +7,7 @@ extends Control
 
 const InventoryGrid := preload("res://scripts/ui/inventory_grid.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
+const ItemFactory := preload("res://scripts/ui/item_factory.gd")
 
 signal consumable_use_requested(consumable_id: String)  # right-click a consumable → use it
 
@@ -155,21 +156,9 @@ func add_gear_to_backpack(base_gear_id: String, at_risk: bool) -> bool:
 	var m: Dictionary = Slice01Data.get_gear_master(base_gear_id)
 	if m.is_empty():
 		return false
-	return _backpack.add_item_dict(_gear_item(m, at_risk))
+	return _backpack.add_item_dict(ItemFactory.gear_item(m, at_risk))
 
 
-## Build a backpack item dict from a gear master (id=display name, role color, 2x2).
-func _gear_item(master: Dictionary, at_risk: bool) -> Dictionary:
-	var classes: Array = master.get("equip_classes", [])
-	var cid := String(classes[0]) if not classes.is_empty() else "Tank"
-	return {
-		"id": String(master.get("display_name", master.get("base_gear_id", "Gear"))),
-		"w": 2, "h": 2,
-		"color": UnitVisuals.role_color(cid),
-		"kind": "gear",
-		"base_gear_id": String(master.get("base_gear_id", "")),
-		"at_risk": at_risk,
-	}
 
 
 ## Add a looted skillbook to the backpack as an At-Risk run-inventory item. Skillbooks
@@ -178,24 +167,9 @@ func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool) -> bool:
 	var m: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
 	if m.is_empty():
 		return false
-	return _backpack.add_item_dict(_skillbook_item(m, at_risk))
+	return _backpack.add_item_dict(ItemFactory.skillbook_item(m, at_risk))
 
 
-## Build a backpack item dict from a skillbook master (1x1, role-tinted, full charges).
-func _skillbook_item(master: Dictionary, at_risk: bool) -> Dictionary:
-	var classes: Array = master.get("equip_classes", [])
-	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
-	var cmax := int(master.get("charges_max", 0))
-	return {
-		"id": String(master.get("display_name", master.get("base_ability_id", "Skillbook"))),
-		"w": 1, "h": 1,
-		"color": UnitVisuals.role_color(cid).lightened(0.15),
-		"kind": "skillbook",
-		"base_ability_id": String(master.get("base_ability_id", "")),
-		"charges": cmax,
-		"charges_max": cmax,
-		"at_risk": at_risk,
-	}
 
 
 # --- run settlement (F-007 §3.6/§3.7 — backpack = At-Risk run inventory) ---------
@@ -233,36 +207,21 @@ func mark_run_inventory_safe() -> void:
 # with the exact item dicts the equip/sub/backpack drag system expects (F-010). ---
 func make_gear_stash_item(base_gear_id: String) -> Dictionary:
 	var m := Slice01Data.get_gear_master(base_gear_id)
-	return _gear_item(m, true) if not m.is_empty() else {}
+	return ItemFactory.gear_item(m, true) if not m.is_empty() else {}
 
 
 func make_skillbook_stash_item(base_ability_id: String) -> Dictionary:
 	var m := Slice01Data.get_skillbook_master(base_ability_id)
-	return _skillbook_item(m, true) if not m.is_empty() else {}
+	return ItemFactory.skillbook_item(m, true) if not m.is_empty() else {}
 
 
 func make_consumable_stash_item(consumable_id: String, count: int) -> Dictionary:
 	var m := Slice01Data.get_consumable_master(consumable_id)
-	return _consumable_item(m, count) if not m.is_empty() else {}
+	return ItemFactory.consumable_item(m, count) if not m.is_empty() else {}
 
 
 # --- consumables (stacking + Z/X/C hotkeys — F-010) -----------------------------
 
-func _consumable_color(master: Dictionary) -> Color:
-	var ca: Array = master.get("color", [0.6, 0.85, 0.6])
-	return Color(float(ca[0]), float(ca[1]), float(ca[2])) if ca.size() >= 3 else Color(0.6, 0.85, 0.6)
-
-
-func _consumable_item(master: Dictionary, count: int) -> Dictionary:
-	return {
-		"id": String(master.get("display_name", master.get("consumable_id", "Item"))),
-		"w": 1, "h": 1,
-		"color": _consumable_color(master),
-		"kind": "consumable",
-		"consumable_id": String(master.get("consumable_id", "")),
-		"count": count,
-		"max_stack": int(master.get("max_stack", 1)),
-	}
 
 
 ## Add `amount` of a consumable, filling existing stacks (≤ max_stack) then new tiles.
@@ -284,7 +243,7 @@ func add_consumable_to_backpack(consumable_id: String, amount: int) -> int:
 				_backpack.refresh_item_label(it)
 	while remaining > 0:
 		var n := mini(max_stack, remaining)
-		if not _backpack.add_item_dict(_consumable_item(master, n)):
+		if not _backpack.add_item_dict(ItemFactory.consumable_item(master, n)):
 			break
 		remaining -= n
 	_refresh_consumable_ui()
@@ -332,7 +291,7 @@ func _begin_hotkey_drag(slot: int) -> void:
 	var master := Slice01Data.get_consumable_master(cid)
 	var item := {
 		"id": String(master.get("display_name", cid)), "w": 1, "h": 1,
-		"color": _consumable_color(master), "kind": "hotkey", "consumable_id": cid, "src_slot": slot,
+		"color": ItemFactory.consumable_color(master), "kind": "hotkey", "consumable_id": cid, "src_slot": slot,
 	}
 	_drag = item
 	_from = null
@@ -379,7 +338,7 @@ func _refresh_consumable_ui() -> void:
 			data.append({})
 		else:
 			var m := Slice01Data.get_consumable_master(cid)
-			data.append({"name": String(m.get("display_name", cid)), "count": consumable_count(cid), "color": _consumable_color(m)})
+			data.append({"name": String(m.get("display_name", cid)), "count": consumable_count(cid), "color": ItemFactory.consumable_color(m)})
 	_consumable_bar.refresh(data)
 
 
@@ -542,7 +501,7 @@ func _commit_equip(member: Node, master: Dictionary) -> void:
 	var displaced: Dictionary = member.equipped_gear
 	member.equip_gear(master)
 	if not displaced.is_empty():
-		if not _backpack.add_item_dict(_gear_item(displaced, true)):
+		if not _backpack.add_item_dict(ItemFactory.gear_item(displaced, true)):
 			push_warning("[TDC] Backpack full — displaced gear had nowhere to go")
 	_refresh_equip_slots()
 	_msg("%s ▸ %s 장착" % [String(member.class_id), String(master.get("display_name", ""))])
@@ -842,7 +801,7 @@ func _begin_gear_slot_drag(char_index: int) -> void:
 	if float(m.identity_cooldown_s) > 0.0:
 		_msg("Identity 스킬 쿨다운 중 — 장비 해제 불가")
 		return
-	var item := _gear_item(m.equipped_gear, true)  # unequipped → At-Risk in inventory
+	var item := ItemFactory.gear_item(m.equipped_gear, true)  # unequipped → At-Risk in inventory
 	m.unequip_gear()
 	_refresh_equip_slots()
 	_start_drag_from_slot(item, {"kind": "gear", "char": char_index})
