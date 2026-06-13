@@ -345,4 +345,3 @@ func _sb_fire(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
 	SkillVfx.telegraph(self, center, Color(1.0, 0.45, 0.1))  # orange fire impact
 	print("[SB] %s Ember Lance @target" % m.class_id)
 	return true
-
