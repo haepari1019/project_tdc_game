@@ -18,6 +18,7 @@ const Minimap := preload("res://scripts/ui/minimap.gd")
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const ConsumableBar := preload("res://scripts/ui/consumable_bar.gd")
+const SettlementPanel := preload("res://scripts/ui/settlement_panel.gd")
 const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
 
 ## PH loot table — a defeated enemy drops one of these as a world pickup. ref: F-010.
@@ -74,14 +75,6 @@ var _reviving: bool = false
 var _revive_cid: String = ""
 var _revive_prompt: Label
 var _alert_banner: Label   # UI-006 central separation/MIA warning overlay
-# F-007 §3.8 run settlement panel (built in _ready, shown by _show_settlement)
-var _settle_panel: Panel
-var _settle_sb: StyleBoxFlat
-var _settle_title: Label
-var _settle_sub: Label
-var _settle_section: Label
-var _settle_body: Label
-var _settle_foot: Label
 var _alert_token: int = 0
 var _aim_marker: MeshInstance3D
 var _aim_mat: StandardMaterial3D
@@ -127,7 +120,6 @@ func _ready() -> void:
 	_run.run_phase_changed.connect(_on_phase_changed)
 	_run.room_changed.connect(_on_room_changed)
 	_run.run_ended.connect(_on_run_ended)
-	_run.run_settled.connect(_show_settlement)
 	_party.controlled_changed.connect(_on_controlled_changed)
 	_party.cohesion_changed.connect(_on_cohesion_changed)
 	_party.formation_priority_changed.connect(_on_formation_priority_changed)
@@ -231,7 +223,9 @@ func _ready() -> void:
 	_alert_banner.add_theme_font_size_override("font_size", 22)
 	_alert_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	$HUD.add_child(_alert_banner)
-	_build_settlement_panel()
+	var settlement := SettlementPanel.new()  # F-007 §3.8 run settlement screen (pure UI)
+	$HUD.add_child(settlement)
+	_run.run_settled.connect(settlement.show_settlement)
 	_party.party_alert.connect(_on_party_alert)
 	var pip := PipCamera.new()  # UI-006 §7 PIP camera (bottom-left, MIA/separation target)
 	$HUD.add_child(pip)
@@ -831,8 +825,8 @@ func _on_party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool
 	_damage_indicator.flash(screen_dir, severity)
 
 
-## run_ended carries only the result string; run_settled (→ _show_settlement) always
-## follows and draws the full settlement panel, so nothing to do here.
+## run_ended is just the result string; run_settled → SettlementPanel.show_settlement
+## draws the full end screen, so nothing to do here.
 func _on_run_ended(_result: String) -> void:
 	pass
 
@@ -920,155 +914,6 @@ func _is_party_wiped() -> bool:
 	return true
 
 
-## F-007 §3.8 — centered settlement panel (fixed box, small left-aligned list). Built once.
-func _build_settlement_panel() -> void:
-	_settle_panel = Panel.new()
-	_settle_panel.visible = false
-	_settle_panel.anchor_left = 0.5
-	_settle_panel.anchor_top = 0.5
-	_settle_panel.anchor_right = 0.5
-	_settle_panel.anchor_bottom = 0.5
-	_settle_panel.offset_left = -260.0
-	_settle_panel.offset_right = 260.0
-	_settle_panel.offset_top = -220.0
-	_settle_panel.offset_bottom = 220.0
-	_settle_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_settle_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_settle_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_settle_sb = StyleBoxFlat.new()
-	_settle_sb.bg_color = Color(0.06, 0.07, 0.10, 0.97)
-	_settle_sb.set_border_width_all(2)
-	_settle_sb.border_color = Color(0.55, 1.0, 0.6)
-	_settle_sb.set_corner_radius_all(8)
-	_settle_panel.add_theme_stylebox_override("panel", _settle_sb)
-	$HUD.add_child(_settle_panel)
-
-	var mc := MarginContainer.new()
-	mc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	mc.add_theme_constant_override("margin_left", 26)
-	mc.add_theme_constant_override("margin_right", 26)
-	mc.add_theme_constant_override("margin_top", 20)
-	mc.add_theme_constant_override("margin_bottom", 18)
-	mc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_settle_panel.add_child(mc)
-
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8)
-	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mc.add_child(vb)
-
-	_settle_title = _settle_label(vb, 30, HORIZONTAL_ALIGNMENT_CENTER, Color(0.55, 1.0, 0.6))
-	_settle_sub = _settle_label(vb, 16, HORIZONTAL_ALIGNMENT_CENTER, Color(0.86, 0.89, 0.93))
-	vb.add_child(HSeparator.new())
-	_settle_section = _settle_label(vb, 15, HORIZONTAL_ALIGNMENT_LEFT, Color(0.78, 0.83, 0.90))
-
-	# scrollable detail box — absorbs any overflow so the list never spills the panel.
-	var scrollbox := PanelContainer.new()
-	scrollbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scrollbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var inset := StyleBoxFlat.new()
-	inset.bg_color = Color(0.0, 0.0, 0.0, 0.28)
-	inset.set_corner_radius_all(4)
-	inset.set_content_margin_all(7)
-	scrollbox.add_theme_stylebox_override("panel", inset)
-	vb.add_child(scrollbox)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scrollbox.add_child(scroll)
-	_settle_body = Label.new()
-	_settle_body.add_theme_font_size_override("font_size", 14)
-	_settle_body.modulate = Color(0.92, 0.94, 0.97)
-	_settle_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_settle_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_settle_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	scroll.add_child(_settle_body)
-
-	_settle_foot = _settle_label(vb, 13, HORIZONTAL_ALIGNMENT_LEFT, Color(0.62, 0.67, 0.74))
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 4)
-	vb.add_child(spacer)
-	var hint := _settle_label(vb, 12, HORIZONTAL_ALIGNMENT_CENTER, Color(0.55, 0.60, 0.68))
-	hint.text = "(Esc → menu)"
-
-
-func _settle_label(parent: Node, size: int, align: int, col: Color) -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", size)
-	l.horizontal_alignment = align
-	l.modulate = col
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(l)
-	return l
-
-
-## F-007 §3.8 — fill + show the settlement panel. Success/Partial: At-Risk → Safe list.
-## Failure: Loss Bundle (회수 후보). 장착 Identity Gear은 항상 Safe.
-func _show_settlement(summary: Dictionary) -> void:
-	var failed := String(summary.get("cause", "")) != ""
-	var col := Color(1.0, 0.45, 0.3) if failed else Color(0.55, 1.0, 0.6)
-	_settle_sb.border_color = col
-	_settle_title.modulate = col
-	if failed:
-		_settle_title.text = "✖ RUN FAILURE"
-		_settle_sub.text = "파티 전멸 · %s" % String(summary.get("cause", ""))
-		var lost: Array = summary.get("lost_items", [])
-		_settle_section.text = "Loss Bundle · 회수 후보 — %s" % _category_summary(lost)
-		_settle_body.text = _item_lines(lost)
-		_settle_foot.text = "장착 Identity Gear = Safe (보존)"
-	else:
-		_settle_title.text = "★ EXTRACTION SUCCESS ★"
-		var surv: Array = summary.get("survivors", [])
-		var cas: Array = summary.get("casualties", [])
-		var s := "생존 %d" % surv.size()
-		if not cas.is_empty():
-			s = "부분 탈출 · " + s + " · 전사 %d (%s)" % [cas.size(), ", ".join(cas)]
-		_settle_sub.text = s
-		var safe: Array = summary.get("safe_items", [])
-		_settle_section.text = "루트 정산 · At-Risk → Safe — %s" % _category_summary(safe)
-		_settle_body.text = _item_lines(safe, " → Safe")
-		_settle_foot.text = "장착 Identity Gear = Safe"
-	_settle_panel.visible = true
-
-
-## F-007 §3.8 — category roll-up (장비/스킬북/소모품) + total stacks for the summary line.
-func _category_summary(items: Array) -> String:
-	var g := 0
-	var s := 0
-	var c := 0
-	var o := 0
-	for it in items:
-		match String(it.get("kind", "")):
-			"gear": g += 1
-			"skillbook": s += 1
-			"consumable": c += 1
-			_: o += 1
-	var parts: Array = []
-	if g > 0:
-		parts.append("장비 %d" % g)
-	if s > 0:
-		parts.append("스킬북 %d" % s)
-	if c > 0:
-		parts.append("소모품 %d" % c)
-	if o > 0:
-		parts.append("기타 %d" % o)
-	if parts.is_empty():
-		return "없음"
-	return "%s · 총 %d" % [" · ".join(parts), items.size()]
-
-
-func _item_lines(items: Array, suffix: String = "") -> String:
-	if items.is_empty():
-		return "  (없음)"
-	var lines: Array = []
-	for it in items:
-		lines.append("  • %s%s%s" % [String(it.get("label", "?")), _qty(it), suffix])
-	return "\n".join(lines)
-
-
-func _qty(it: Dictionary) -> String:
-	var c := int(it.get("count", 1))
-	return " ×%d" % c if c > 1 else ""
 
 
 func _on_run_booted(state: Dictionary) -> void:

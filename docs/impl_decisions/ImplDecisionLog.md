@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260613-001 — SettlementPanel 분리 (dungeon_run 갓코드 정리, 동작 보존)
+- **결정:** F-007 런 정산 UI(중앙 패널 빌드/표시/카테고리요약/항목목록, 6함수 ~157줄)를 `dungeon_run.gd`에서 **`scripts/ui/settlement_panel.gd`(163)** Control로 추출. dungeon_run은 패널 생성 + `_run.run_settled(summary) → panel.show_settlement` 연결만 남김. **정산 조합**(`_settle_extraction`/`_failure`/`_collect_at_risk`/`_has_separated_survivor`/`_is_party_wiped`)은 _party/_inventory 의존이라 dungeon_run에 잔존.
+- **이유:** 갓코드 점검(사용자 요청)에서 dungeon_run이 CameraRig 분리(256줄) 후 F-007 정산·횃불 carry/투척·부활 타게팅·루트롤 누적으로 **1115줄 재증식**. 정산 UI는 `summary` dict만 받는 **순수 표현**이라 가장 고립·저위험 추출 단위 → 첫 정리 대상(사용자 승인). dungeon_run 1115→961.
+- **동작 보존:** 순수 이동 — 패널 레이아웃·색·카테고리/스크롤 로직 그대로, `run_settled` 시그널 구동 동일. 헤드리스 로드 검증 통과.
+- **잔여(DEBT-GOD3, 중위험·입력결합):** 횃불 carry/투척(~90)·부활 타게팅(~73)·조준마커/조작표시(~88) — 후속 보류.
+- **영향:** `scripts/ui/settlement_panel.gd`(신규), `scripts/run/dungeon_run.gd`, `docs/ARCHITECTURE.md`(DEBT-GOD3).
+
+
 ### IMPL-DEC-20260608-001 — 코드 구조 지도 + 드리프트 거버넌스 도입
 - **결정:** [docs/ARCHITECTURE.md](../ARCHITECTURE.md)(모듈 책임 + 기술부채 레지스터)와 [docs/SPEC_DRIFT.md](../SPEC_DRIFT.md)(드리프트 대장) 신설, [AGENTS.md](../../AGENTS.md)/[CLAUDE.md](../../CLAUDE.md)에 spec 역전파 규칙 고정.
 - **이유:** 코드가 덧붙이기로 누적되며 스파게티/스펙 이격 위험. 단일 지도 + 강제 트래킹으로 방지.
