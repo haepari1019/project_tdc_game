@@ -24,6 +24,7 @@ const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const Spatial := preload("res://scripts/core/spatial.gd")
 const EnemyAI := preload("res://scripts/combat/enemy_ai.gd")
 const AbilityDispatch := preload("res://scripts/combat/ability_dispatch.gd")
+const ReactionSystem := preload("res://scripts/combat/reaction_system.gd")
 
 ## D-010 §4.2 combat_exit_grace_s — an engaged enemy with no combat event and no
 ## line of sight to the party for this long disengages (전투중 → dormant). Tuning.
@@ -64,6 +65,8 @@ var _enemy_ai: EnemyAI
 ## Party Identity/Sub skill effects (child node). Calls back for spatial queries /
 ## damage / heal-threat / camera shake (shared systems stay owned here). DEBT-GOD2.
 var _ability_dispatch: AbilityDispatch
+## World-object AoE + RX-OIL-FIRE hazard chemistry (child node). DEBT-GOD2.
+var _reactions: ReactionSystem
 
 
 func setup(party: Node3D, map: Node3D) -> void:
@@ -72,9 +75,12 @@ func setup(party: Node3D, map: Node3D) -> void:
 	_enemy_ai = EnemyAI.new()
 	add_child(_enemy_ai)
 	_enemy_ai.setup(self)
+	_reactions = ReactionSystem.new()
+	add_child(_reactions)
+	_reactions.setup(self)
 	_ability_dispatch = AbilityDispatch.new()
 	add_child(_ability_dispatch)
-	_ability_dispatch.setup(self)
+	_ability_dispatch.setup(self, _reactions)
 
 
 ## partyInCombat: true while ANY enemy is engaged. Drives HUD + follower re-form.
@@ -224,7 +230,7 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 
 ## FireDamageHit at a point (F-027 ENT-TORCH) — torch landing / oil contact. ref: F-021.
 func ignite_at(center: Vector3, radius: float, source: Node = null) -> void:
-	_ability_dispatch.ignite_at(center, radius, source)
+	_reactions.ignite_at(center, radius, source)
 
 
 func _enemies_in_radius(pos: Vector3, r: float) -> Array:
