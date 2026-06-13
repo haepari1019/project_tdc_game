@@ -7,7 +7,7 @@ extends Node3D
 ## ref: F-021 / F-027 (ZONE-OIL, RX-OIL-FIRE, ENT-BARREL/TORCH).
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
-const HazardZone := preload("res://scripts/world/hazard_zone.gd")
+const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")
 
 const FIRE_DPS := 14.0
 const FIRE_TTL := 4.0

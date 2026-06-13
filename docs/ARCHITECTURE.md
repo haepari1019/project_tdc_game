@@ -53,8 +53,9 @@ scripts/
   party/      party_controller · mia_controller · combat_positioning · party_member · party_cohesion
   combat/     combat_controller · enemy_ai · enemy_unit · health_bar
     abilities/  ability_dispatch · skill_vfx · reaction_system       (스킬 효과·RX 반응)
-  world/      barrel · torch · lantern · lever · trap · chest · door · item_drop ·
-              hazard_zone · map_demo_layout · party_light · enemy_visibility   (상호작용·환경 오브젝트)
+  world/      map_demo_layout · party_light · enemy_visibility            (환경 시스템)
+    objects/    barrel · torch · lantern · lever · chest · door · item_drop  (상호작용/액터블 엔티티 — 덕타이핑 protocol)
+    hazards/    trap · hazard_zone                                          (트리거/effect zone)
   run/        dungeon_run · run_controller · run_phase · run_end_controller · loot_service
     controllers/  aim · revive · torch_carry · interaction · camera_rig · player   (모달/입력 컨트롤러)
   ui/         party_sheet · controlled_sheet · pip_camera · minimap · enemy_info · 등 (HUD)
@@ -72,7 +73,7 @@ scripts/
 | [autoload/stash.gd](../scripts/autoload/stash.gd) | 39 | 🟢 플레이어 스태시(소유 gear/스킬북/소모품 시드). 배치 허브가 컨테이너로 띄움 | `take_consumable` `return_consumable` `_seed` | — |
 | [autoload/run_loadout.gd](../scripts/autoload/run_loadout.gd) | 14 | 🟢 씬간 런 로드아웃(F-010): 반입 소모품·백팩(At-Risk)·멤버 서브·포메이션 오프셋. 허브 set→던전 read | `set_consumables` (vars) | — |
 
-### run / world / controllers — `scripts/run/`, `scripts/run/controllers/`, `scripts/world/`
+### run / world / controllers — `scripts/run/`, `scripts/run/controllers/`, `scripts/world/{,objects/,hazards/}`
 | 파일 | L | 책임 | 핵심 심볼 | 의존 |
 |------|--:|------|-----------|------|
 | [run_phase.gd](../scripts/run/run_phase.gd) | 16 | 5개 runPhase 문자열 상수 + 순서 | `ENTRY..EXTRACTION` `SEQUENCE` | — |
@@ -87,12 +88,12 @@ scripts/
 | [map_demo_layout.gd](../scripts/world/map_demo_layout.gd) | 580 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크 + **fatal 장판 carve 재bake**·**데이터주도 인터페이스**(`_room_points`/profile=rooms.json) | `get_spawn_position` `rebake_navigation` `_carve_zone` `_resolve_room_points` | NavigationServer3D, Slice01Data, group 'player'/'navmap' |
 | [player_controller.gd](../scripts/run/controllers/player_controller.gd) | 34 | 조작 캐릭터 WASD→velocity (가속모델 옵션) | `_physics_process` | 부모 CharacterBody3D, InputMap |
 | [party_light.gd](../scripts/world/party_light.gd) | 115 | F-011 시야결합 조명(멤버별 omni+spot)·플리커·룸감쇠 | `_build_rigs` `_on_room_changed` | PartyController/Map/Run (노드경로) |
-| [hazard_zone.gd](../scripts/world/hazard_zone.gd) | 193 | 🟢 일반 지면 zone: `status`(Fatal/Oil/Fire/ToxicGas)·dps/slow/ttl·`impassable`(Fatal=carve+회피). **Oil=불투명 지면 슬릭(opaque, 적 안 가림)·기타=투명 텔레그래프(부유)**. DoT=apply_poison(파티)/raw(적). 피아무구분 F-021 | `setup` `clear_zone` `contains_point` `blocks_segment` | groups, call_group('navmap') |
-| [trap.gd](../scripts/world/trap.gd) | 86 | 🟢 초크포인트 압력판: 조작멤버 통과→뒤에 HazardZone 스폰(분리)·`reset()`=소거+재무장 (F-006 트랩) | `reset` `has_active_zone` | HazardZone, group 'party_member' |
-| [lever.gd](../scripts/world/lever.gd) | 75 | 🟢 상호작용 레버: `trap.reset()`=함정 회복(장판 해제·통로 재개) | `interact` `setup` | Trap |
-| [barrel.gd](../scripts/world/barrel.gd) | 64 | 🟢 ENT-BARREL: HP 파괴 가능(AoE)→기름 HazardZone(슬로우 필드) 스폰; 화염 hit로 점화(RX-OIL-FIRE) | `take_damage` `_break` | HazardZone, group 'destructible' |
-| [torch.gd](../scripts/world/torch.gd) | 252 | 🟢 ENT-TORCH: 휴대/투척 광원(F-021 §3.1.2). 점화시 콘플레임 플리커, 착지/오일접촉→`combat.ignite_at`. 제네릭 적-오브젝트 프로토콜(`enemy_usable`/`enemy_combat_tick`=어그로시 투척) | `pickup` `throw_to` `enemy_use` | combat(ignite_at), group 'destructible'/usable |
-| [lantern.gd](../scripts/world/lantern.gd) | 85 | 🟢 거치형 고정 광원(주요 진입점/방 중앙): 금속기둥+박스하우징+steady OmniLight. 줍기 불가(횃불과 시각 차별화) | `_build` | OmniLight3D |
+| [hazard_zone.gd](../scripts/world/hazards/hazard_zone.gd) | 193 | 🟢 일반 지면 zone: `status`(Fatal/Oil/Fire/ToxicGas)·dps/slow/ttl·`impassable`(Fatal=carve+회피). **Oil=불투명 지면 슬릭(opaque, 적 안 가림)·기타=투명 텔레그래프(부유)**. DoT=apply_poison(파티)/raw(적). 피아무구분 F-021 | `setup` `clear_zone` `contains_point` `blocks_segment` | groups, call_group('navmap') |
+| [trap.gd](../scripts/world/hazards/trap.gd) | 86 | 🟢 초크포인트 압력판: 조작멤버 통과→뒤에 HazardZone 스폰(분리)·`reset()`=소거+재무장 (F-006 트랩) | `reset` `has_active_zone` | HazardZone, group 'party_member' |
+| [lever.gd](../scripts/world/objects/lever.gd) | 75 | 🟢 상호작용 레버: `trap.reset()`=함정 회복(장판 해제·통로 재개) | `interact` `setup` | Trap |
+| [barrel.gd](../scripts/world/objects/barrel.gd) | 64 | 🟢 ENT-BARREL: HP 파괴 가능(AoE)→기름 HazardZone(슬로우 필드) 스폰; 화염 hit로 점화(RX-OIL-FIRE) | `take_damage` `_break` | HazardZone, group 'destructible' |
+| [torch.gd](../scripts/world/objects/torch.gd) | 252 | 🟢 ENT-TORCH: 휴대/투척 광원(F-021 §3.1.2). 점화시 콘플레임 플리커, 착지/오일접촉→`combat.ignite_at`. 제네릭 적-오브젝트 프로토콜(`enemy_usable`/`enemy_combat_tick`=어그로시 투척) | `pickup` `throw_to` `enemy_use` | combat(ignite_at), group 'destructible'/usable |
+| [lantern.gd](../scripts/world/objects/lantern.gd) | 85 | 🟢 거치형 고정 광원(주요 진입점/방 중앙): 금속기둥+박스하우징+steady OmniLight. 줍기 불가(횃불과 시각 차별화) | `_build` | OmniLight3D |
 | [main.gd](../scripts/main.gd) | 166 | 🟢 **배치 허브**(F-010 §3.2/UI-005): 로드 게이트 + Identity 확정 + **스태시→캐릭터/백팩 장착**(InventoryUI 임베드, combat=null) + **포메이션 에디터** + Deploy 직렬화→RunLoadout→던전 | `_setup_hub` `_build_formation_editor` `_serialize_loadout` `_build_stash_items` | Slice01Data, PartyController, InventoryUI, FormationEditor, Stash/RunLoadout(런타임경로) |
 
 ### party — `scripts/party/`
