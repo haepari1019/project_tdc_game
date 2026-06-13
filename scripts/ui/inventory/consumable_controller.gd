@@ -9,15 +9,30 @@ extends Node
 
 const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
 
+## Drop-in consumable effects (consumable_effects/<name>.gd, each: kind()+apply(master, ctx)->bool).
+## ADD A CONSUMABLE EFFECT = create the file + add one preload line here. kind()=master.effect.
+const _EFFECT_SCRIPTS := [
+	preload("res://scripts/ui/inventory/consumable_effects/revive_ally.gd"),
+]
+
 var _inv: Control = null            # InventoryUI coordinator (backpack + drag owner)
 var _party: Node = null
 var _combat: Node = null
 var _bar: Node = null               # the on-screen consumable bar widget (Z/X/C)
 var _hotkeys: Array = ["", "", ""]  # party-shared; each = consumable_id or ""
+var _effects: Dictionary = {}       # effect string -> effect instance (from _EFFECT_SCRIPTS)
 
 
 func setup(inv: Control) -> void:
 	_inv = inv
+	for s in _EFFECT_SCRIPTS:
+		var e = s.new()
+		_effects[String(e.kind())] = e
+
+
+## The party (consumable effects reach members through this). ref: drop-in effects.
+func get_party() -> Node:
+	return _party
 
 
 func bind_party(party: Node, combat: Node) -> void:
@@ -174,15 +189,8 @@ func use(slot: int) -> String:
 
 
 func _apply(master: Dictionary) -> bool:
-	match String(master.get("effect", "")):
-		"revive_ally":
-			if _party == null:
-				return false
-			for m in _party.get_members():
-				if not (m as Node).is_alive():
-					return (m as Node).revive(0.5)
-			return false
-	return false
+	var effect = _effects.get(String(master.get("effect", "")))
+	return effect.apply(master, self) if effect != null else false
 
 
 ## Consume 1 of a consumable (external callers, e.g. dungeon_run after a revive channel).

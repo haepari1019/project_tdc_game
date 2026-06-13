@@ -52,7 +52,9 @@ scripts/
   core/       validate_ids · unit_visuals · ui_colors · spatial     (순수 공유 유틸)
   party/      party_controller · mia_controller · combat_positioning · party_member · party_cohesion
   combat/     combat_controller · enemy_ai · enemy_unit · health_bar
-    abilities/  ability_dispatch · skill_vfx · reaction_system       (스킬 효과·RX 반응)
+    abilities/  ability_dispatch(디스패처+ctx 파사드) · skill_vfx · reaction_system
+      effects/    스킬당 드롭인 파일 kind()+cast(m,p,tpos,ctx) — anchor_guard·press_line·mark_ruin·
+                  mend_circle·taunt·lunge·nova·sanctuary·sb_strike·sb_poison·sb_stun·sb_fire (12)
   world/      map_demo_layout · party_light · enemy_visibility            (환경 시스템)
     objects/    barrel · torch · lantern · lever · chest · door · item_drop  (상호작용/액터블 엔티티 — 덕타이핑 protocol)
     hazards/    trap · hazard_zone                                          (트리거/effect zone)
@@ -61,6 +63,7 @@ scripts/
   ui/         party_sheet · controlled_sheet · pip_camera · minimap · enemy_info · 등 (HUD)
     inventory/  inventory_ui · inventory_grid · item_factory · equip_panel ·
                 consumable_controller · stash_source · formation_editor · loadout_stub
+      consumable_effects/  소모품 효과 드롭인 kind()+apply(master,ctx) — revive_ally …
   main.gd     (배치 허브 진입)
 ```
 
@@ -110,7 +113,8 @@ scripts/
 |------|--:|------|-----------|------|
 | [combat_controller.gd](../scripts/combat/combat_controller.gd) | **494** | 🔸 코디네이터(적AI=EnemyAI·스킬=AbilityDispatch·반응=ReactionSystem 분리): ①인카운터/분대 스폰·증원 ②파티 자동공격 루프(basic) ③F-022 threat + 공간쿼리 ④engage/grace 소유 + camera_shake 시그널 ⑤`ignite_at` 퍼사드→ReactionSystem | `prespawn_encounters` `_spawn_squad` `_engage_enemy` `refresh_engage_grace` `_tick_party_attacks` `_deal_damage` `_enemies_in_*` `ignite_at` | EnemyAI, AbilityDispatch, ReactionSystem, Slice01Data, enemy_unit.tscn, skill_vfx, unit_visuals, spatial |
 | [enemy_ai.gd](../scripts/combat/enemy_ai.gd) | 394 | 🟢 적 perception(시야콘+LOS+근접존)·전투행동(위협추적/LOS공격/시야상실추격/텔레그래프/피격시 발신원 수색). CombatController 자식; engage/grace/시그널은 컨트롤러 콜백 | `tick` `_tick_dormant` `_begin_enemy_attack` `_apply_enemy_hit` `attach_vision_cone` | combat_controller(콜백), skill_vfx, Slice01Data |
-| [ability_dispatch.gd](../scripts/combat/abilities/ability_dispatch.gd) | **348** | 🟢 파티 Identity(자동) + **Sub=스킬북**(조작 전용) 스킬 효과 — kind 기반 디스패치(Identity 4 + **skillbook 4: strike/poison/stun/fire = 적 Shared AB** F-009). CombatController 자식; 공간쿼리/damage/셰이크는 컨트롤러 콜백, destructible·오일/파이어는 ReactionSystem 위임 | `try_identity` `cast_skillbook` `_cast_*` `_sb_*` | combat_controller(콜백), ReactionSystem, skill_vfx |
+| [ability_dispatch.gd](../scripts/combat/abilities/ability_dispatch.gd) | **149** | 🟢 **스킬 디스패처 + ctx 파사드**: kind→`effects/<skill>.gd` 인스턴스 매핑(setup 시 `_SKILL_SCRIPTS` 프리로드 배열). Identity/Sub/Skillbook 시전 라우팅 + 충전/쿨/coeff. 스킬은 `ctx`(=이 노드)로 공간쿼리/damage/heal/shake/reactions/VFX 호출 | `try_identity` `cast_sub` `cast_skillbook` `enemies_in_radius` `deal_damage` `sub_shake` | combat_controller, ReactionSystem, effects/*, skill_vfx |
+| effects/ (스킬 12) | ~20ea | 🟢 **스킬당 드롭인 효과**: `kind()`+`cast(m,p,target_pos,ctx)->bool`. 새 스킬 = 파일 1개 + `_SKILL_SCRIPTS` 1줄. anchor_guard·press_line·mark_ruin·mend_circle·taunt·lunge·nova·sanctuary·sb_{strike,poison,stun,fire} | `kind` `cast` | ability_dispatch(ctx), skill_vfx |
 | [reaction_system.gd](../scripts/combat/abilities/reaction_system.gd) | 100 | 🟢 월드오브젝트 AoE + 위험요소 화학(F-021/F-027): destructible 파괴(ENT-BARREL) + **RX-OIL-FIRE-001** 오일점화 체인(폭발+Fire/ToxicGas zone, depth-limited) + `ignite_at`(횃불 FireDamageHit). AbilityDispatch가 분리(DEBT-GOD2) | `damage_destructibles` `fire_hit` `ignite_at` `_ignite_oil` `_explosion` | combat_controller(셰이크), HazardZone, skill_vfx, groups 'destructible'/'ground_zone' |
 | [enemy_unit.gd](../scripts/combat/enemy_unit.gd) | 527 | 단일 적: 데이터 스탯·F-022 threat·slow/knockback·**perception(facing/scan/cone VFX/alert)·navmesh 캐시·investigate·피격발신원 수색**·박스메쉬·HP바·제네릭 오브젝트 상호작용(`enemy_usable`) | `setup` `add_threat` `pick_target` `scan` `face_toward` `nav_*` `build_vision_cone` `perceive_attacker` | health_bar, NavigationServer3D, group 'enemy' |
 | [health_bar.gd](../scripts/combat/health_bar.gd) | 129 | 아군/적 공용 빌보드 HP바(프레임/배경/필/타겟·임박 마커) | `set_ratio` `set_target` `set_imminent` | 카메라(프레임당 조회) |
@@ -162,6 +166,10 @@ scripts/
 - ID 1:1: 코드/데이터의 문자열 ID는 spec과 **그대로** (`tank_anchor_guard`, `ENC-NORM-001`, `P-ADV-01` …). 별칭 금지.
 - 미등록 ID → abort: 로드 시 `require_id`로 차단 (현재 abilities 도메인은 누락).
 - 규칙 SSOT 복사 금지: F/QA 전문을 주석에 붙이지 말고 `## ref:` 한 줄 + spec 경로만.
+- **수평 확장 = 드롭인 파일 (god파일 금지):** 같은 종류(스킬·효과·오브젝트)를 계속 늘릴 땐 한 파일에 핸들러를 쌓지 말고 디렉토리에 파일 1개씩 떨군다. 효과 로직은 파일 내부, 공유 시스템은 `ctx`/콜백/덕타이핑으로만 접근.
+  - **스킬** → `combat/abilities/effects/<name>.gd` (`kind()`+`cast(m,p,target_pos,ctx)`) + `ability_dispatch._SKILL_SCRIPTS`에 preload 1줄.
+  - **소모품 효과** → `ui/inventory/consumable_effects/<name>.gd` (`kind()`+`apply(master,ctx)`) + `consumable_controller._EFFECT_SCRIPTS`에 1줄.
+  - **상호작용 오브젝트** → `world/objects/<name>.gd`, 덕타이핑 protocol(`interact_prompt/interact_anchor/interact`, 적측 `enemy_usable/enemy_use/enemy_combat_tick`) 구현. 중앙 등록 0.
 - 단일 책임: 1 파일 = 1 책임. **현 편차:** `party_controller.gd`(§6 DEBT-GOD — `CombatPositioning`+`MiaController` 분리로 **1280**, 잔여 SteeringV1). 🔸 `combat_controller.gd`은 `EnemyAI`+`AbilityDispatch`+`ReactionSystem` 분리로 **494줄**(§6 DEBT-GOD2, 잔여: EncounterSpawner/Squad). 🟢 `dungeon_run.gd`은 1115줄 재증식 후 **SettlementPanel + 모달 패밀리 + Loot/RunEnd 분리로 1115→487**(§6 DEBT-GOD3; 씬부트+입력라우터+월드스폰+HUD로 수렴). 🔸 `inventory_ui.gd`는 ItemFactory+EquipPanel+ConsumableController 분리로 **1273→663**(§6 DEBT-INV).
 - 도메인 폴더: `core/run/party/combat/ui` (dev_templates의 `features/F###_*` per-feature 컨벤션과는 다름 — 의도적 단순화).
 
