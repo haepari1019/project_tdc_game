@@ -3,7 +3,7 @@ extends Node3D
 
 const PartyCohesion := preload("res://scripts/party/party_cohesion.gd")
 const MemberScene := preload("res://scenes/party/party_member.tscn")
-const PlayerControl := preload("res://scripts/run/player_controller.gd")
+const PlayerControl := preload("res://scripts/run/controllers/player_controller.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const CombatPositioning := preload("res://scripts/party/combat_positioning.gd")
 const MiaController := preload("res://scripts/party/mia_controller.gd")

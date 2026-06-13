@@ -7,7 +7,7 @@ extends Node3D
 ## engage / grace / signals — combat state stays single-owned there.
 ## ref: F-013 EnemyCombatAI · F-011 Vision · F-022 Threat.
 
-const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 
 # Line-of-sight raycast (perception + attack gating). Mask = world layer (1) only —
 # walls/cover block; party(2)/enemy(3,4) are ignored. ref: enemy_visibility.

@@ -3,7 +3,7 @@ extends Node3D
 ## (skillbook from the enemy's lootable AB > gear > generic item) and spawns an ItemDrop world
 ## pickup at the death position. setup(inventory_ui); connect combat.enemy_defeated → on_enemy_defeated.
 
-const ItemDrop := preload("res://scripts/run/item_drop.gd")
+const ItemDrop := preload("res://scripts/world/item_drop.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
 ## PH loot table — a defeated enemy drops one of these as a world pickup. ref: F-010.

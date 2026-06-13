@@ -3,7 +3,7 @@ extends Node3D
 ## spawns an Oil HazardZone (passable, flammable, persists). A fire hit on the oil triggers
 ## the ignition reaction (RX-OIL-FIRE, chunk 2). ref: ENT-BARREL-001 / F-027.
 
-const HazardZone := preload("res://scripts/run/hazard_zone.gd")
+const HazardZone := preload("res://scripts/world/hazard_zone.gd")
 
 const OIL_RADIUS := 3.0
 

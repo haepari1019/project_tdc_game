@@ -7,7 +7,7 @@ extends Node3D
 ## shake (those shared systems stay single-owned on the controller).
 ## ref: F-005 (NC main-skill rules) · QA-005 §2.6 (no sub auto) · AB-020/024/025/026 + sub.
 
-const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 
 const TANK_PULSE_FLOOR := 40.0    # F-022 §3.10 Anchor Guard temp threat floor
 

@@ -75,7 +75,7 @@ const LIGHT_PROFILES: Dictionary = {
 }
 ## 횃불 광원(ENT-TORCH) 1개가 담당하는 대략적 그리드 셀 크기(m). 너무 많지 않게 성기게 깐다.
 const LIGHT_GRID_SPACING := 20.0
-const Lantern := preload("res://scripts/run/lantern.gd")
+const Lantern := preload("res://scripts/world/lantern.gd")
 
 const WALL_HEIGHT := 3.5
 const WALL_THICKNESS := 0.4

@@ -4,7 +4,7 @@ extends Node3D
 ## out behind get cut off — splitting the party at the corridor. A linked Lever resets it
 ## (clears the zone + re-arms). ref: F-006 trap classification / F-021 telegraph.
 
-const HazardZone := preload("res://scripts/run/hazard_zone.gd")
+const HazardZone := preload("res://scripts/world/hazard_zone.gd")
 
 const TRIGGER_RADIUS := 2.4
 const TELEGRAPH_S := 0.8

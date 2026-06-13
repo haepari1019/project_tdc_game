@@ -6,8 +6,8 @@ extends Node3D
 ## damage_destructibles()/fire_hit(); torches reach ignite_at() via the combat facade.
 ## ref: F-021 / F-027 (ZONE-OIL, RX-OIL-FIRE, ENT-BARREL/TORCH).
 
-const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
-const HazardZone := preload("res://scripts/run/hazard_zone.gd")
+const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
+const HazardZone := preload("res://scripts/world/hazard_zone.gd")
 
 const FIRE_DPS := 14.0
 const FIRE_TTL := 4.0

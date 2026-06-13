@@ -4,7 +4,7 @@ extends Node3D
 ## revives at 50% HP. Out-of-combat only. setup() then drive via try_start / handle_click /
 ## cancel / is_active. Owns its own prompt label. ref: F-010 §3.4 / D-020.
 
-const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 
 var _party: Node3D
 var _combat: Node3D

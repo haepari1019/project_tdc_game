@@ -8,7 +8,7 @@ extends Control
 ## gear/skillbook branches here.
 
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
-const ItemFactory := preload("res://scripts/ui/item_factory.gd")
+const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
 
 const SLOT_OK := Color(0.30, 0.85, 0.40, 0.32)    # drag-over slot, equippable
 const SLOT_BAD := Color(0.95, 0.25, 0.20, 0.42)   # drag-over slot, wrong class / in combat

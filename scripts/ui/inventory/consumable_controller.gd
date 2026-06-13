@@ -7,7 +7,7 @@ extends Node
 ## (setup_consumable_bar/add_consumable_to_backpack/use_consumable/…) so external callers
 ## (dungeon_run, revive/torch controllers) are unaffected. ref: F-010.
 
-const ItemFactory := preload("res://scripts/ui/item_factory.gd")
+const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
 
 var _inv: Control = null            # InventoryUI coordinator (backpack + drag owner)
 var _party: Node = null

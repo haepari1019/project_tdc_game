@@ -19,12 +19,12 @@ signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool)
 signal enemy_defeated(world_pos: Vector3, ability_refs: Array)
 
 const EnemyScene := preload("res://scenes/combat/enemy_unit.tscn")
-const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const Spatial := preload("res://scripts/core/spatial.gd")
 const EnemyAI := preload("res://scripts/combat/enemy_ai.gd")
-const AbilityDispatch := preload("res://scripts/combat/ability_dispatch.gd")
-const ReactionSystem := preload("res://scripts/combat/reaction_system.gd")
+const AbilityDispatch := preload("res://scripts/combat/abilities/ability_dispatch.gd")
+const ReactionSystem := preload("res://scripts/combat/abilities/reaction_system.gd")
 
 ## D-010 §4.2 combat_exit_grace_s — an engaged enemy with no combat event and no
 ## line of sight to the party for this long disengages (전투중 → dormant). Tuning.

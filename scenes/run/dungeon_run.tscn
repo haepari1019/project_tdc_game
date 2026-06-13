@@ -2,13 +2,13 @@
 
 [ext_resource type="Script" uid="uid://cuqbfg4u0d1nq" path="res://scripts/run/dungeon_run.gd" id="1_dungeon"]
 [ext_resource type="Script" uid="uid://dsnhkmip7ejdr" path="res://scripts/run/run_controller.gd" id="2_run"]
-[ext_resource type="Script" uid="uid://dise1mwax1u1v" path="res://scripts/run/map_demo_layout.gd" id="3_map"]
+[ext_resource type="Script" uid="uid://dise1mwax1u1v" path="res://scripts/world/map_demo_layout.gd" id="3_map"]
 [ext_resource type="Script" uid="uid://b2q2lhpocy4l1" path="res://scripts/party/party_controller.gd" id="4_party"]
 [ext_resource type="Script" path="res://scripts/combat/combat_controller.gd" id="5_combat"]
 [ext_resource type="Script" path="res://scripts/ui/party_sheet.gd" id="6_partysheet"]
 [ext_resource type="Script" path="res://scripts/ui/controlled_sheet.gd" id="7_ctrlsheet"]
-[ext_resource type="Script" path="res://scripts/run/party_light.gd" id="8_partylight"]
-[ext_resource type="Script" path="res://scripts/run/camera_rig.gd" id="9_camrig"]
+[ext_resource type="Script" path="res://scripts/world/party_light.gd" id="8_partylight"]
+[ext_resource type="Script" path="res://scripts/run/controllers/camera_rig.gd" id="9_camrig"]
 
 [sub_resource type="Environment" id="Environment_dungeon"]
 background_mode = 1

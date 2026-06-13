@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://bqx7slice01main"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/ui/loadout_stub.gd" id="2_loadout"]
+[ext_resource type="Script" path="res://scripts/ui/inventory/loadout_stub.gd" id="2_loadout"]
 
 [node name="Main" type="Control"]
 layout_mode = 3

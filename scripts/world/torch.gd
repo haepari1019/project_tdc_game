@@ -5,7 +5,7 @@ extends Node3D
 ## it lands and ignites. It is ALWAYS lit, so touching an Oil zone ignites it on the spot
 ## (RX-OIL-FIRE) — carrying it over oil is a real risk. ref: F-021, F-027.
 
-const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 
 const ID := "ENT-TORCH-001"
 const IGNITE_RADIUS := 2.4

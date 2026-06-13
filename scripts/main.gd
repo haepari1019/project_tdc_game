@@ -6,9 +6,9 @@ extends Control
 
 const DUNGEON_SCENE := "res://scenes/run/dungeon_run.tscn"
 const PartyController := preload("res://scripts/party/party_controller.gd")
-const InventoryUI := preload("res://scripts/ui/inventory_ui.gd")
-const StashSource := preload("res://scripts/ui/stash_source.gd")
-const FormationEditor := preload("res://scripts/ui/formation_editor.gd")
+const InventoryUI := preload("res://scripts/ui/inventory/inventory_ui.gd")
+const StashSource := preload("res://scripts/ui/inventory/stash_source.gd")
+const FormationEditor := preload("res://scripts/ui/inventory/formation_editor.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
 @onready var _status: Label = $Panel/Margin/VBox/Status

@@ -5,11 +5,11 @@ extends Control
 ## item visuals; this coordinator owns the active drag and routes drops to whichever
 ## VISIBLE grid the cursor is over. ref: F-010 Loadout / 백팩 인벤.
 
-const InventoryGrid := preload("res://scripts/ui/inventory_grid.gd")
+const InventoryGrid := preload("res://scripts/ui/inventory/inventory_grid.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
-const ItemFactory := preload("res://scripts/ui/item_factory.gd")
-const EquipPanel := preload("res://scripts/ui/equip_panel.gd")
-const ConsumableController := preload("res://scripts/ui/consumable_controller.gd")
+const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
+const EquipPanel := preload("res://scripts/ui/inventory/equip_panel.gd")
+const ConsumableController := preload("res://scripts/ui/inventory/consumable_controller.gd")
 
 signal consumable_use_requested(consumable_id: String)  # right-click a consumable → use it
 
