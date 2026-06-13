@@ -198,6 +198,29 @@ func _skillbook_item(master: Dictionary, at_risk: bool) -> Dictionary:
 	}
 
 
+# --- run settlement (F-007 §3.6/§3.7 — backpack = At-Risk run inventory) ---------
+
+## The whole backpack is At-Risk run inventory. Returns a settlement list
+## [{label, count}] for the Loss Bundle (on failure) / Safe set (on extraction).
+func collect_run_inventory() -> Array:
+	var out: Array = []
+	for it in _backpack.items:
+		var kind := String(it.get("kind", ""))
+		out.append({
+			"label": String(it.get("id", "?")),
+			"count": int(it.get("count", 1)) if kind == "consumable" else 1,
+			"kind": kind,
+		})
+	return out
+
+
+## F-007 §3.6 — Extraction Success: every At-Risk run-inventory stack becomes Safe.
+func mark_run_inventory_safe() -> void:
+	for it in _backpack.items:
+		if it.has("at_risk"):
+			it["at_risk"] = false
+
+
 # --- consumables (stacking + Z/X/C hotkeys — F-010) -----------------------------
 
 func _consumable_color(master: Dictionary) -> Color:

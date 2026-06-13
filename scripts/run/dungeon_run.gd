@@ -66,6 +66,14 @@ var _reviving: bool = false
 var _revive_cid: String = ""
 var _revive_prompt: Label
 var _alert_banner: Label   # UI-006 central separation/MIA warning overlay
+# F-007 §3.8 run settlement panel (built in _ready, shown by _show_settlement)
+var _settle_panel: Panel
+var _settle_sb: StyleBoxFlat
+var _settle_title: Label
+var _settle_sub: Label
+var _settle_section: Label
+var _settle_body: Label
+var _settle_foot: Label
 var _alert_token: int = 0
 var _aim_marker: MeshInstance3D
 var _aim_mat: StandardMaterial3D
@@ -99,6 +107,10 @@ const EXTRACT_RADIUS_M := 3.0
 var _extract_active: bool = false
 var _extract_remaining_s: float = 0.0   # hold countdown (s)
 var _extract_combat: bool = false        # combat state the current countdown was sized for
+var _extract_blocked: bool = false       # F-007 §3.6.2 cohesion gate holding the channel at 0
+## F-007 §3.6.2 extractionCohesionRule — Contract flag (spec default false). The demo
+## enables it so a survivor MIA/separated blocks ExtractionActivate completion.
+const COHESION_RULE := true
 
 
 func _ready() -> void:
@@ -107,6 +119,7 @@ func _ready() -> void:
 	_run.run_phase_changed.connect(_on_phase_changed)
 	_run.room_changed.connect(_on_room_changed)
 	_run.run_ended.connect(_on_run_ended)
+	_run.run_settled.connect(_show_settlement)
 	_party.controlled_changed.connect(_on_controlled_changed)
 	_party.cohesion_changed.connect(_on_cohesion_changed)
 	_party.formation_priority_changed.connect(_on_formation_priority_changed)
@@ -200,6 +213,7 @@ func _ready() -> void:
 	_alert_banner.add_theme_font_size_override("font_size", 22)
 	_alert_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	$HUD.add_child(_alert_banner)
+	_build_settlement_panel()
 	_party.party_alert.connect(_on_party_alert)
 	var pip := PipCamera.new()  # UI-006 §7 PIP camera (bottom-left, MIA/separation target)
 	$HUD.add_child(pip)
@@ -208,6 +222,10 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# F-007 §3.7.1 — 전원 ExtractCasualty → PartyWipe → Run Failure (탈출 불가).
+	if not _run.run_over and _is_party_wiped():
+		_settle_failure("PartyWipe")
+		return
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl:
 		_hud_sub.text = "Ready" if ctrl.sub_cooldown_s <= 0.0 else "%.1fs" % ctrl.sub_cooldown_s
@@ -539,6 +557,7 @@ func _update_extraction(in_zone: bool, delta: float) -> void:
 		if _extract_active:
 			_extract_active = false
 			_extract_count.visible = false
+		_extract_blocked = false
 		return
 	var combat: bool = _combat.is_engaged()
 	if not _extract_active:
@@ -552,9 +571,20 @@ func _update_extraction(in_zone: bool, delta: float) -> void:
 		_extract_combat = combat
 	_extract_remaining_s -= delta
 	if _extract_remaining_s <= 0.0:
+		# F-007 §3.6.2 extractionCohesionRule — hold the channel at 0 (not complete, not a
+		# failure) while a SURVIVING party member is MIA/separated. Run continues.
+		if COHESION_RULE and _has_separated_survivor():
+			_extract_remaining_s = 0.0
+			_extract_count.visible = true
+			_extract_count.text = "집합 필요"
+			if not _extract_blocked:
+				_extract_blocked = true
+				_on_party_alert("집합 필요 — 생존 파티원이 이탈/MIA 상태입니다", 1)
+			return
+		_extract_blocked = false
 		_extract_active = false
 		_extract_count.visible = false
-		_run.try_extract()  # → run_ended("Success") (F-007 §3.1.2 정산)
+		_settle_extraction()  # F-007 §3.6 Extraction Success (incl. Partial)
 		return
 	_extract_count.visible = true
 	_extract_count.text = "%d" % int(ceil(_extract_remaining_s))  # 30…/5… → 1
@@ -673,9 +703,244 @@ func _on_party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool
 	_damage_indicator.flash(screen_dir, severity)
 
 
-func _on_run_ended(result: String) -> void:
-	_banner.text = "★ RUN %s ★\n(Esc → menu)" % result.to_upper()
-	_banner.visible = true
+## run_ended carries only the result string; run_settled (→ _show_settlement) always
+## follows and draws the full settlement panel, so nothing to do here.
+func _on_run_ended(_result: String) -> void:
+	pass
+
+
+## F-007 §3.6 — compose + finalize Extraction Success (Partial if any ExtractCasualty).
+func _settle_extraction() -> void:
+	var survivors: Array = []
+	var casualties: Array = []
+	for m in _party.get_members():
+		if not is_instance_valid(m):
+			continue
+		if m.has_method("is_alive") and not m.is_alive():
+			casualties.append(String(m.class_id))   # ExtractCasualty (§3.0)
+		else:
+			survivors.append(String(m.class_id))
+	var safe_items := _collect_at_risk()             # At-Risk → Safe (전량, §3.6.1)
+	_inventory_ui.mark_run_inventory_safe()
+	var partial := not casualties.is_empty()
+	_run.settle_extraction({
+		"result": "Partial Extraction Success" if partial else "Extraction Success",
+		"cause": "",
+		"survivors": survivors,
+		"casualties": casualties,
+		"safe_items": safe_items,
+		"lost_items": [],
+	})
+
+
+## F-007 §3.7 — compose + finalize Run Failure. Run-inventory At-Risk → Loss Bundle.
+func _settle_failure(cause: String) -> void:
+	var casualties: Array = []
+	for m in _party.get_members():
+		if is_instance_valid(m):
+			casualties.append(String(m.class_id))
+	_run.settle_failure(cause, {
+		"result": "Run Failure",
+		"cause": cause,
+		"survivors": [],
+		"casualties": casualties,
+		"safe_items": [],
+		"lost_items": _collect_at_risk(),
+	})
+
+
+## At-Risk run inventory = backpack (전체) + 장착 스킬북(F-009 §3.7). 장착 Identity Gear
+## 모듈은 Safe(허브 메타)라 제외한다.
+func _collect_at_risk() -> Array:
+	var out: Array = _inventory_ui.collect_run_inventory()
+	for m in _party.get_members():
+		if not is_instance_valid(m) or not m.has_method("get_skillbook"):
+			continue
+		for i in 3:
+			var sb = m.get_skillbook(i)
+			if sb != null:
+				out.append({
+					"label": "%s (장착)" % String(sb.get("display_name", "Skillbook")),
+					"count": 1,
+					"kind": "skillbook",
+				})
+	return out
+
+
+## F-007 §3.6.2 — any SURVIVING party member MIA or beyond the unbound anchor leash.
+func _has_separated_survivor() -> bool:
+	for m in _party.get_members():
+		if not is_instance_valid(m):
+			continue
+		if m.has_method("is_alive") and not m.is_alive():
+			continue  # casualties don't gate (§3.6.2: 생존 파티원 중)
+		if m.has_method("is_mia") and m.is_mia():
+			return true
+		if m.has_method("is_warn") and m.is_warn():
+			return true  # anchorDistance > unbound_anchor_max_m (pre-MIA 경고 구간)
+	return false
+
+
+## F-007 §3.7.1 — every party member is an ExtractCasualty (Dead/RunIncapacitated).
+func _is_party_wiped() -> bool:
+	var members: Array = _party.get_members()
+	if members.is_empty():
+		return false
+	for m in members:
+		if is_instance_valid(m) and (not m.has_method("is_alive") or m.is_alive()):
+			return false
+	return true
+
+
+## F-007 §3.8 — centered settlement panel (fixed box, small left-aligned list). Built once.
+func _build_settlement_panel() -> void:
+	_settle_panel = Panel.new()
+	_settle_panel.visible = false
+	_settle_panel.anchor_left = 0.5
+	_settle_panel.anchor_top = 0.5
+	_settle_panel.anchor_right = 0.5
+	_settle_panel.anchor_bottom = 0.5
+	_settle_panel.offset_left = -260.0
+	_settle_panel.offset_right = 260.0
+	_settle_panel.offset_top = -220.0
+	_settle_panel.offset_bottom = 220.0
+	_settle_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_settle_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_settle_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_settle_sb = StyleBoxFlat.new()
+	_settle_sb.bg_color = Color(0.06, 0.07, 0.10, 0.97)
+	_settle_sb.set_border_width_all(2)
+	_settle_sb.border_color = Color(0.55, 1.0, 0.6)
+	_settle_sb.set_corner_radius_all(8)
+	_settle_panel.add_theme_stylebox_override("panel", _settle_sb)
+	$HUD.add_child(_settle_panel)
+
+	var mc := MarginContainer.new()
+	mc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mc.add_theme_constant_override("margin_left", 26)
+	mc.add_theme_constant_override("margin_right", 26)
+	mc.add_theme_constant_override("margin_top", 20)
+	mc.add_theme_constant_override("margin_bottom", 18)
+	mc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_settle_panel.add_child(mc)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mc.add_child(vb)
+
+	_settle_title = _settle_label(vb, 30, HORIZONTAL_ALIGNMENT_CENTER, Color(0.55, 1.0, 0.6))
+	_settle_sub = _settle_label(vb, 16, HORIZONTAL_ALIGNMENT_CENTER, Color(0.86, 0.89, 0.93))
+	vb.add_child(HSeparator.new())
+	_settle_section = _settle_label(vb, 15, HORIZONTAL_ALIGNMENT_LEFT, Color(0.78, 0.83, 0.90))
+
+	# scrollable detail box — absorbs any overflow so the list never spills the panel.
+	var scrollbox := PanelContainer.new()
+	scrollbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scrollbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var inset := StyleBoxFlat.new()
+	inset.bg_color = Color(0.0, 0.0, 0.0, 0.28)
+	inset.set_corner_radius_all(4)
+	inset.set_content_margin_all(7)
+	scrollbox.add_theme_stylebox_override("panel", inset)
+	vb.add_child(scrollbox)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scrollbox.add_child(scroll)
+	_settle_body = Label.new()
+	_settle_body.add_theme_font_size_override("font_size", 14)
+	_settle_body.modulate = Color(0.92, 0.94, 0.97)
+	_settle_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_settle_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_settle_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scroll.add_child(_settle_body)
+
+	_settle_foot = _settle_label(vb, 13, HORIZONTAL_ALIGNMENT_LEFT, Color(0.62, 0.67, 0.74))
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 4)
+	vb.add_child(spacer)
+	var hint := _settle_label(vb, 12, HORIZONTAL_ALIGNMENT_CENTER, Color(0.55, 0.60, 0.68))
+	hint.text = "(Esc → menu)"
+
+
+func _settle_label(parent: Node, size: int, align: int, col: Color) -> Label:
+	var l := Label.new()
+	l.add_theme_font_size_override("font_size", size)
+	l.horizontal_alignment = align
+	l.modulate = col
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(l)
+	return l
+
+
+## F-007 §3.8 — fill + show the settlement panel. Success/Partial: At-Risk → Safe list.
+## Failure: Loss Bundle (회수 후보). 장착 Identity Gear은 항상 Safe.
+func _show_settlement(summary: Dictionary) -> void:
+	var failed := String(summary.get("cause", "")) != ""
+	var col := Color(1.0, 0.45, 0.3) if failed else Color(0.55, 1.0, 0.6)
+	_settle_sb.border_color = col
+	_settle_title.modulate = col
+	if failed:
+		_settle_title.text = "✖ RUN FAILURE"
+		_settle_sub.text = "파티 전멸 · %s" % String(summary.get("cause", ""))
+		var lost: Array = summary.get("lost_items", [])
+		_settle_section.text = "Loss Bundle · 회수 후보 — %s" % _category_summary(lost)
+		_settle_body.text = _item_lines(lost)
+		_settle_foot.text = "장착 Identity Gear = Safe (보존)"
+	else:
+		_settle_title.text = "★ EXTRACTION SUCCESS ★"
+		var surv: Array = summary.get("survivors", [])
+		var cas: Array = summary.get("casualties", [])
+		var s := "생존 %d" % surv.size()
+		if not cas.is_empty():
+			s = "부분 탈출 · " + s + " · 전사 %d (%s)" % [cas.size(), ", ".join(cas)]
+		_settle_sub.text = s
+		var safe: Array = summary.get("safe_items", [])
+		_settle_section.text = "루트 정산 · At-Risk → Safe — %s" % _category_summary(safe)
+		_settle_body.text = _item_lines(safe, " → Safe")
+		_settle_foot.text = "장착 Identity Gear = Safe"
+	_settle_panel.visible = true
+
+
+## F-007 §3.8 — category roll-up (장비/스킬북/소모품) + total stacks for the summary line.
+func _category_summary(items: Array) -> String:
+	var g := 0
+	var s := 0
+	var c := 0
+	var o := 0
+	for it in items:
+		match String(it.get("kind", "")):
+			"gear": g += 1
+			"skillbook": s += 1
+			"consumable": c += 1
+			_: o += 1
+	var parts: Array = []
+	if g > 0:
+		parts.append("장비 %d" % g)
+	if s > 0:
+		parts.append("스킬북 %d" % s)
+	if c > 0:
+		parts.append("소모품 %d" % c)
+	if o > 0:
+		parts.append("기타 %d" % o)
+	if parts.is_empty():
+		return "없음"
+	return "%s · 총 %d" % [" · ".join(parts), items.size()]
+
+
+func _item_lines(items: Array, suffix: String = "") -> String:
+	if items.is_empty():
+		return "  (없음)"
+	var lines: Array = []
+	for it in items:
+		lines.append("  • %s%s%s" % [String(it.get("label", "?")), _qty(it), suffix])
+	return "\n".join(lines)
+
+
+func _qty(it: Dictionary) -> String:
+	var c := int(it.get("count", 1))
+	return " ×%d" % c if c > 1 else ""
 
 
 func _on_run_booted(state: Dictionary) -> void:

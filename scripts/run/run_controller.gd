@@ -8,6 +8,7 @@ signal run_phase_changed(phase: String)
 signal room_changed(room_ref: String)
 signal encounter_triggered(encounter_id: String, room_ref: String)
 signal run_ended(result: String)
+signal run_settled(summary: Dictionary)   # F-007 §3.8 — full settlement payload for the UI
 
 var blueprint_id: String = ""
 var map_id: String = ""
@@ -94,17 +95,37 @@ func complete_objective() -> void:
 	print("[TDC] Objective GIMMICK-DEMO-01 complete (stub)")
 
 
-## ExtractionActivate at RM-EXT-01 / POINT-DEMO-01. Requires objective complete.
-func try_extract() -> bool:
+## ExtractionActivate precondition (F-007 §3.1.2) — objective done + run still active.
+## The cohesion gate (§3.6.2) and casualty/loot composition live in the scene
+## (dungeon_run), which owns the party + inventory and calls settle_extraction().
+func can_extract() -> bool:
+	return not run_over and objective_complete
+
+
+## F-007 §3.6 — finalize Extraction Success (incl. Partial). `summary` is built by the
+## scene from party survivors/casualties + run-inventory At-Risk → Safe.
+func settle_extraction(summary: Dictionary) -> void:
 	if run_over:
-		return false
-	if not objective_complete:
-		print("[TDC] Extraction blocked — objective incomplete")
-		return false
+		return
 	run_over = true
-	print("[TDC] Run ended: Success (extraction stub — no haul, no Loss Bundle)")
-	run_ended.emit("Success")
-	return true
+	var result := String(summary.get("result", "Extraction Success"))
+	run_ended.emit(result)
+	run_settled.emit(summary)
+	print("[TDC] Run settled: %s — survivors=%s casualties=%s safe=%d stacks" % [
+		result, summary.get("survivors", []), summary.get("casualties", []),
+		(summary.get("safe_items", []) as Array).size()])
+
+
+## F-007 §3.7 — finalize Run Failure (PartyWipe/RunAbandon). Run-inventory At-Risk
+## becomes the Loss Bundle (Recovery Target persistence deferred to a later increment).
+func settle_failure(cause: String, summary: Dictionary) -> void:
+	if run_over:
+		return
+	run_over = true
+	run_ended.emit("Run Failure")
+	run_settled.emit(summary)
+	print("[TDC] Run FAILURE: %s — loss bundle=%d At-Risk stacks (Recovery Target deferred)" % [
+		cause, (summary.get("lost_items", []) as Array).size()])
 
 
 func _set_phase(phase: String) -> void:
