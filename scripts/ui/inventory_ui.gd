@@ -8,6 +8,7 @@ extends Control
 const InventoryGrid := preload("res://scripts/ui/inventory_grid.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const ItemFactory := preload("res://scripts/ui/item_factory.gd")
+const EquipPanel := preload("res://scripts/ui/equip_panel.gd")
 
 signal consumable_use_requested(consumable_id: String)  # right-click a consumable → use it
 
@@ -38,19 +39,10 @@ var _win_drag := false
 var _win_off := Vector2.ZERO
 
 # Party gear equip slots (F-008 §3.2): drop / right-click a gear item to equip it.
-const SLOT_OK := Color(0.30, 0.85, 0.40, 0.32)    # drag-over slot, equippable
-const SLOT_BAD := Color(0.95, 0.25, 0.20, 0.42)   # drag-over slot, wrong class / in combat
 var _party: Node = null
 var _combat: Node = null
 var _content_row: HBoxContainer = null
-var _equip_box: VBoxContainer = null
-var _equip_slots: Array = []     # Panel per character (the slot frame = drop target)
-var _equip_tiles: Array = []     # Label inside each slot (equipped gear name)
-var _equip_overlays: Array = []  # ColorRect per slot (green/red drag preview)
-var _equip_msg: Label = null     # transient feedback (combat/role reject)
-# Sub skillbook slots (Q/E/R) for the CONTROLLED character (F-009 §3.1).
-var _sub_box: VBoxContainer = null
-var _sub_slots: Array = []  # entries: {panel, tile, overlay, char, slot} — 4 chars × Q/E/R
+var _equip: EquipPanel = null    # gear/sub equip slots (extracted, DEBT-INV); drives drag delegates
 # Consumable Z/X/C hotkeys (party-shared; F-010). Each = consumable_id or "".
 var _hotkeys: Array = ["", "", ""]
 var _consumable_bar: Node = null
@@ -116,9 +108,8 @@ func backpack_has_key() -> bool:
 func _open() -> void:
 	visible = true
 	_win_drag = false
-	if _party != null:  # reflect current equip/charge state + the now-controlled char's subs
-		_refresh_equip_slots()
-		_refresh_sub_slots()
+	if _equip != null:  # reflect current equip/charge state + the now-controlled char's subs
+		_equip.refresh()
 	if _consumable_bar != null and _consumable_bar.has_method("set_interactive"):
 		_consumable_bar.set_interactive(true)  # bar slots become draggable while inventory open
 	_relayout()
@@ -144,10 +135,30 @@ func _close() -> void:
 func setup_party(party: Node, combat: Node) -> void:
 	_party = party
 	_combat = combat
-	_build_equip_column()
-	_refresh_equip_slots()
-	_build_sub_column()
-	_refresh_sub_slots()
+	if _equip == null:
+		_equip = EquipPanel.new()
+		add_child(_equip)
+	_equip.setup(self, party, combat)
+	_equip.build(_content_row)
+	_equip.refresh()
+
+
+# --- equip panel callbacks (the EquipPanel drives the shared drag state through these) ---
+
+## True while an item is being dragged (gates slot drag-out). ref: DEBT-INV.
+func is_dragging() -> bool:
+	return not _drag.is_empty()
+
+
+## The player backpack grid (EquipPanel returns displaced gear/skillbooks here).
+func backpack_grid() -> InventoryGrid:
+	return _backpack
+
+
+## Transient feedback line (owned by the EquipPanel's gear column). Consumable code uses it too.
+func _msg(text: String) -> void:
+	if _equip != null:
+		_equip.msg(text)
 
 
 ## Add a looted Identity Gear instance to the backpack as an At-Risk run-inventory
@@ -398,438 +409,9 @@ func consume_consumable(consumable_id: String) -> bool:
 	return true
 
 
-func _build_equip_column() -> void:
-	if _content_row == null or _party == null:
-		return
-	if _equip_box != null and is_instance_valid(_equip_box):
-		_equip_box.queue_free()
-	_equip_slots.clear()
-	_equip_tiles.clear()
-	_equip_overlays.clear()
-	_equip_box = VBoxContainer.new()
-	_equip_box.add_theme_constant_override("separation", 8)
-	var title := Label.new()
-	title.text = "PARTY GEAR (장비 슬롯)"
-	title.add_theme_font_size_override("font_size", 14)
-	_equip_box.add_child(title)
-	_equip_msg = Label.new()
-	_equip_msg.add_theme_font_size_override("font_size", 11)
-	_equip_msg.modulate = Color(1.0, 0.72, 0.42)
-	_equip_msg.custom_minimum_size = Vector2(176, 15)
-	_equip_box.add_child(_equip_msg)
-	var members: Array = _party.get_members()
-	for i in members.size():
-		var cname := String((members[i] as Node).class_id)
-		var head := Label.new()  # per-character header (class)
-		head.text = cname.to_upper()
-		head.add_theme_font_size_override("font_size", 11)
-		head.modulate = UnitVisuals.role_color(cname)
-		_equip_box.add_child(head)
-		var slot := Panel.new()  # slot frame = drop target + drag source (gear)
-		slot.custom_minimum_size = Vector2(176, 50)
-		slot.mouse_filter = Control.MOUSE_FILTER_STOP
-		slot.gui_input.connect(_on_gear_slot_input.bind(i))
-		var tile := Label.new()
-		tile.set_anchors_preset(Control.PRESET_FULL_RECT)
-		tile.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tile.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tile.add_theme_font_size_override("font_size", 11)
-		slot.add_child(tile)
-		var ov := ColorRect.new()  # green/red drag-preview overlay (on top of the tile)
-		ov.set_anchors_preset(Control.PRESET_FULL_RECT)
-		ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ov.visible = false
-		slot.add_child(ov)
-		_equip_box.add_child(slot)
-		_equip_slots.append(slot)
-		_equip_tiles.append(tile)
-		_equip_overlays.append(ov)
-	_content_row.add_child(_equip_box)
-	_content_row.move_child(_equip_box, 0)  # leftmost column
 
 
-func _refresh_equip_slots() -> void:
-	if _party == null:
-		return
-	var members: Array = _party.get_members()
-	for i in mini(members.size(), _equip_slots.size()):
-		var m: Node = members[i]
-		var gear: Dictionary = m.equipped_gear
-		var col: Color = UnitVisuals.role_color(String(m.class_id))
-		_equip_tiles[i].text = String(gear.get("display_name", gear.get("base_gear_id", "—")))
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(col.r, col.g, col.b, 0.30)
-		sb.border_color = col.lightened(0.35)
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(5)
-		_equip_slots[i].add_theme_stylebox_override("panel", sb)
-
-
-func _equip_slot_under(mouse: Vector2) -> int:
-	for i in _equip_slots.size():
-		var s: Panel = _equip_slots[i]
-		if s.is_visible_in_tree() and s.get_global_rect().has_point(mouse):
-			return i
-	return -1
-
-
-## Can `member` equip `master` right now? combat gate (F-008 §4.2) + equipClasses
-## same-role (F-008 §3.4). No side effects — used by both the drag preview and equip.
-func _can_equip_now(member: Node, master: Dictionary) -> bool:
-	if member == null or master.is_empty():
-		return false
-	if _combat != null and _combat.is_engaged():
-		return false
-	return member.can_equip_gear(master)
-
-
-## Index of the first party member whose class matches the gear's equipClasses, else -1.
-func _matching_member(master: Dictionary) -> int:
-	if _party == null:
-		return -1
-	var members: Array = _party.get_members()
-	for i in members.size():
-		if (members[i] as Node).can_equip_gear(master):
-			return i
-	return -1
-
-
-## Apply the equip (caller already removed the item from its grid). Displaced gear
-## returns to the backpack as an At-Risk instance (F-008 §3.3, decision B).
-func _commit_equip(member: Node, master: Dictionary) -> void:
-	var displaced: Dictionary = member.equipped_gear
-	member.equip_gear(master)
-	if not displaced.is_empty():
-		if not _backpack.add_item_dict(ItemFactory.gear_item(displaced, true)):
-			push_warning("[TDC] Backpack full — displaced gear had nowhere to go")
-	_refresh_equip_slots()
-	_msg("%s ▸ %s 장착" % [String(member.class_id), String(master.get("display_name", ""))])
-
-
-## Drag-drop equip onto member `slot_index`. Returns false (no change) if gated; the
-## drag item is already lifted, so on success it is consumed (now equipped).
-func _try_equip(slot_index: int, item: Dictionary) -> bool:
-	var member: Node = _party.get_member(slot_index) if _party != null else null
-	var master: Dictionary = Slice01Data.get_gear_master(String(item.get("base_gear_id", "")))
-	if member == null or master.is_empty():
-		return false
-	if _combat != null and _combat.is_engaged():
-		_msg("전투 중에는 장비 교체 불가 (F-008 §4.2)")
-		return false
-	if not member.can_equip_gear(master):
-		_msg("역할 불일치 — %s 전용 장비" % String((master.get("equip_classes", ["?"]) as Array)[0]))
-		return false
-	_commit_equip(member, master)
-	return true
-
-
-## Right-click equip: send a backpack gear item to the matching-class member (auto-target).
-func _equip_to_matching(grid: Node, item: Dictionary) -> void:
-	var master: Dictionary = Slice01Data.get_gear_master(String(item.get("base_gear_id", "")))
-	if master.is_empty():
-		return
-	if _combat != null and _combat.is_engaged():
-		_msg("전투 중에는 장비 교체 불가 (F-008 §4.2)")
-		return
-	var idx := _matching_member(master)
-	if idx < 0:
-		_msg("착용 가능한 %s 캐릭터 없음" % String((master.get("equip_classes", ["?"]) as Array)[0]))
-		return
-	grid.lift(item)  # remove from backpack (consumed → equipped)
-	_commit_equip(_party.get_member(idx), master)
-
-
-func _set_slot_preview(i: int, ok: bool) -> void:
-	if i < 0 or i >= _equip_overlays.size():
-		return
-	var ov: ColorRect = _equip_overlays[i]
-	ov.color = SLOT_OK if ok else SLOT_BAD
-	ov.visible = true
-
-
-func _clear_slot_previews() -> void:
-	for ov: ColorRect in _equip_overlays:
-		ov.visible = false
-
-
-## During a gear drag, tint the hovered equip slot green (equippable) / red (wrong
-## class or in combat). Non-gear drags clear all slot previews.
-func _update_slot_previews(mouse: Vector2) -> void:
-	_clear_slot_previews()
-	_clear_sub_previews()
-	var kind := String(_drag.get("kind", ""))
-	if kind == "gear":
-		var si := _equip_slot_under(mouse)
-		if si >= 0:
-			var master: Dictionary = Slice01Data.get_gear_master(String(_drag.get("base_gear_id", "")))
-			_set_slot_preview(si, _can_equip_now(_party.get_member(si), master))
-	elif kind == "skillbook":
-		var si := _sub_slot_under(mouse)
-		if si >= 0:
-			var master: Dictionary = Slice01Data.get_skillbook_master(String(_drag.get("base_ability_id", "")))
-			_set_sub_preview(si, _can_equip_sub_now(si, master))
-
-
-func _msg(text: String) -> void:
-	if _equip_msg != null:
-		_equip_msg.text = text
-
-
-# --- sub skillbook slots (per-character Q/E/R — F-009 §3.1) ---------------------
-
-func _build_sub_column() -> void:
-	if _content_row == null or _party == null:
-		return
-	if _sub_box != null and is_instance_valid(_sub_box):
-		_sub_box.queue_free()
-	_sub_slots.clear()
-	_sub_box = VBoxContainer.new()
-	_sub_box.add_theme_constant_override("separation", 6)
-	var title := Label.new()
-	title.text = "SUB SKILLS (캐릭터별 Q/E/R)"
-	title.add_theme_font_size_override("font_size", 14)
-	_sub_box.add_child(title)
-	var members: Array = _party.get_members()
-	for ci in members.size():
-		var cname := String((members[ci] as Node).class_id)
-		var crow := HBoxContainer.new()
-		crow.add_theme_constant_override("separation", 5)
-		var clabel := Label.new()
-		clabel.text = cname
-		clabel.custom_minimum_size = Vector2(50, 0)
-		clabel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		clabel.modulate = UnitVisuals.role_color(cname)
-		clabel.add_theme_font_size_override("font_size", 11)
-		crow.add_child(clabel)
-		for si in 3:
-			var slot := Panel.new()
-			slot.custom_minimum_size = Vector2(96, 44)
-			slot.mouse_filter = Control.MOUSE_FILTER_STOP
-			slot.gui_input.connect(_on_sub_slot_input.bind(_sub_slots.size()))
-			var tile := Label.new()
-			tile.set_anchors_preset(Control.PRESET_FULL_RECT)
-			tile.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			tile.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			tile.add_theme_font_size_override("font_size", 9)
-			slot.add_child(tile)
-			var ov := ColorRect.new()
-			ov.set_anchors_preset(Control.PRESET_FULL_RECT)
-			ov.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			ov.visible = false
-			slot.add_child(ov)
-			crow.add_child(slot)
-			_sub_slots.append({"panel": slot, "tile": tile, "overlay": ov, "char": ci, "slot": si})
-		_sub_box.add_child(crow)
-	_content_row.add_child(_sub_box)
-	_content_row.move_child(_sub_box, 1)  # after the gear column
-
-
-func _refresh_sub_slots() -> void:
-	if _party == null:
-		return
-	var members: Array = _party.get_members()
-	for e in _sub_slots:
-		if int(e.char) >= members.size():
-			continue
-		var inst = (members[int(e.char)] as Node).get_skillbook(int(e.slot))
-		var key: String = ["Q", "E", "R"][int(e.slot)]
-		var col: Color
-		if inst == null:
-			e.tile.text = "%s\n—" % key
-			col = Color(0.28, 0.31, 0.38)
-		else:
-			e.tile.text = "%s %s\n탄%d" % [key, _short(String(inst.display_name)), int(inst.charges)]
-			col = Color(0.40, 0.55, 0.85)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(col.r, col.g, col.b, 0.30)
-		sb.border_color = col.lightened(0.3)
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(4)
-		e.panel.add_theme_stylebox_override("panel", sb)
-
-
-func _short(s: String) -> String:
-	return s if s.length() <= 10 else s.substr(0, 9) + "…"
-
-
-func _sub_slot_under(mouse: Vector2) -> int:
-	for i in _sub_slots.size():
-		var p: Panel = _sub_slots[i].panel
-		if p.is_visible_in_tree() and p.get_global_rect().has_point(mouse):
-			return i
-	return -1
-
-
-## Can the slot's owner char equip this skillbook now? combat gate + equipClasses.
-func _can_equip_sub_now(flat_index: int, master: Dictionary) -> bool:
-	if master.is_empty() or flat_index < 0 or flat_index >= _sub_slots.size():
-		return false
-	if _combat != null and _combat.is_engaged():
-		return false
-	var m: Node = _party.get_member(int(_sub_slots[flat_index].char)) if _party != null else null
-	return m != null and m.can_equip_skillbook(master)
-
-
-## Slot instance from a backpack skillbook item + its master (carries current charges).
-func _skillbook_inst(master: Dictionary, item: Dictionary) -> Dictionary:
-	var classes: Array = master.get("equip_classes", [])
-	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
-	return {
-		"base_ability_id": String(master.get("base_ability_id", "")),
-		"display_name": String(master.get("display_name", "")),
-		"params": master.get("cast", {}),
-		"charges": int(item.get("charges", master.get("charges_max", 0))),
-		"charges_max": int(master.get("charges_max", 0)),
-		"cooldown_s": 0.0,
-		"equip_classes": classes,
-		"color": item.get("color", UnitVisuals.role_color(cid)),
-	}
-
-
-## Backpack item from a displaced slot instance (preserves remaining charges; At-Risk).
-func _skillbook_item_from_inst(inst: Dictionary) -> Dictionary:
-	return {
-		"id": String(inst.display_name),
-		"w": 1, "h": 1,
-		"color": inst.get("color", Color(0.5, 0.6, 0.85)),
-		"kind": "skillbook",
-		"base_ability_id": String(inst.base_ability_id),
-		"charges": int(inst.charges),
-		"charges_max": int(inst.charges_max),
-		"at_risk": true,
-	}
-
-
-func _commit_sub_equip(m: Node, slot_index: int, item: Dictionary, master: Dictionary) -> void:
-	var inst := _skillbook_inst(master, item)
-	var displaced = m.set_skillbook(slot_index, inst)
-	if displaced != null:
-		if not _backpack.add_item_dict(_skillbook_item_from_inst(displaced)):
-			push_warning("[TDC] Backpack full — displaced skillbook had nowhere to go")
-	_refresh_sub_slots()
-	_msg("%s %s → %s 장착" % [String(m.class_id), ["Q", "E", "R"][slot_index], String(master.get("display_name", ""))])
-
-
-## Drag-drop equip a skillbook onto the sub slot at `flat_index` (item already lifted).
-func _try_equip_sub(flat_index: int, item: Dictionary) -> bool:
-	if flat_index < 0 or flat_index >= _sub_slots.size():
-		return false
-	var e = _sub_slots[flat_index]
-	var m: Node = _party.get_member(int(e.char)) if _party != null else null
-	var master: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
-	if m == null or master.is_empty():
-		return false
-	if _combat != null and _combat.is_engaged():
-		_msg("전투 중에는 스킬북 교체 불가 (F-009 §3.4)")
-		return false
-	if not m.can_equip_skillbook(master):
-		_msg("역할 불일치 — %s 전용 스킬북" % String((master.get("equip_classes", ["?"]) as Array)[0]))
-		return false
-	_commit_sub_equip(m, int(e.slot), item, master)
-	return true
-
-
-## Right-click equip: first matching-class char with an empty slot (else that char's Q).
-func _equip_sub_to_first(grid: Node, item: Dictionary) -> void:
-	var master: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
-	if master.is_empty():
-		return
-	if _combat != null and _combat.is_engaged():
-		_msg("전투 중에는 스킬북 교체 불가 (F-009 §3.4)")
-		return
-	var members: Array = _party.get_members() if _party != null else []
-	var fb_char := -1
-	for ci in members.size():
-		var m: Node = members[ci]
-		if not m.can_equip_skillbook(master):
-			continue
-		if fb_char < 0:
-			fb_char = ci
-		for si in 3:
-			if m.get_skillbook(si) == null:
-				grid.lift(item)
-				_commit_sub_equip(m, si, item, master)
-				return
-	if fb_char < 0:
-		_msg("착용 가능한 %s 캐릭터 없음" % String((master.get("equip_classes", ["?"]) as Array)[0]))
-		return
-	grid.lift(item)
-	_commit_sub_equip(members[fb_char], 0, item, master)
-
-
-func _set_sub_preview(i: int, ok: bool) -> void:
-	if i < 0 or i >= _sub_slots.size():
-		return
-	_sub_slots[i].overlay.color = SLOT_OK if ok else SLOT_BAD
-	_sub_slots[i].overlay.visible = true
-
-
-func _clear_sub_previews() -> void:
-	for e in _sub_slots:
-		e.overlay.visible = false
-
-
-# --- drag OUT of an equip / sub slot (unequip to inventory, or move slot↔slot) --
-
-func _on_gear_slot_input(event: InputEvent, char_index: int) -> void:
-	if not (event is InputEventMouseButton):
-		return
-	var mb := event as InputEventMouseButton
-	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and _drag.is_empty():
-		_begin_gear_slot_drag(char_index)
-		accept_event()
-
-
-func _on_sub_slot_input(event: InputEvent, flat_index: int) -> void:
-	if not (event is InputEventMouseButton):
-		return
-	var mb := event as InputEventMouseButton
-	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and _drag.is_empty():
-		_begin_sub_slot_drag(flat_index)
-		accept_event()
-
-
-func _begin_gear_slot_drag(char_index: int) -> void:
-	var m: Node = _party.get_member(char_index) if _party != null else null
-	if m == null or (m.equipped_gear as Dictionary).is_empty():
-		return
-	if _combat != null and _combat.is_engaged():
-		_msg("전투 중에는 장비 해제 불가 (F-008 §4.2)")
-		return
-	if float(m.identity_cooldown_s) > 0.0:
-		_msg("Identity 스킬 쿨다운 중 — 장비 해제 불가")
-		return
-	var item := ItemFactory.gear_item(m.equipped_gear, true)  # unequipped → At-Risk in inventory
-	m.unequip_gear()
-	_refresh_equip_slots()
-	_start_drag_from_slot(item, {"kind": "gear", "char": char_index})
-
-
-func _begin_sub_slot_drag(flat_index: int) -> void:
-	if flat_index < 0 or flat_index >= _sub_slots.size():
-		return
-	var e = _sub_slots[flat_index]
-	var m: Node = _party.get_member(int(e.char)) if _party != null else null
-	if m == null:
-		return
-	var inst = m.get_skillbook(int(e.slot))
-	if inst == null:
-		return
-	if _combat != null and _combat.is_engaged():
-		_msg("전투 중에는 스킬북 해제 불가 (F-009 §3.4)")
-		return
-	if float(inst.cooldown_s) > 0.0:
-		_msg("스킬북 쿨다운 중 — 해제 불가")
-		return
-	var item := _skillbook_item_from_inst(inst)
-	m.set_skillbook(int(e.slot), null)
-	_refresh_sub_slots()
-	_start_drag_from_slot(item, {"kind": "sub", "char": int(e.char), "slot": int(e.slot)})
-
-
-func _start_drag_from_slot(item: Dictionary, src: Dictionary) -> void:
+func start_drag_from_slot(item: Dictionary, src: Dictionary) -> void:
 	_drag = item
 	_from = null
 	_drag_src = src
@@ -845,16 +427,9 @@ func _start_drag_from_slot(item: Dictionary, src: Dictionary) -> void:
 func _revert_drag() -> void:
 	match String(_drag_src.get("kind", "grid")):
 		"gear":
-			var m: Node = _party.get_member(int(_drag_src.char))
-			if m != null:
-				m.equip_gear(Slice01Data.get_gear_master(String(_drag.get("base_gear_id", ""))))
-			_refresh_equip_slots()
+			_equip.revert_gear(int(_drag_src.char), String(_drag.get("base_gear_id", "")))
 		"sub":
-			var m: Node = _party.get_member(int(_drag_src.char))
-			if m != null:
-				var master := Slice01Data.get_skillbook_master(String(_drag.get("base_ability_id", "")))
-				m.set_skillbook(int(_drag_src.slot), _skillbook_inst(master, _drag))
-			_refresh_sub_slots()
+			_equip.revert_sub(int(_drag_src.char), int(_drag_src.slot), _drag)
 		_:
 			if _from != null:
 				_drag.w = _orig.w
@@ -979,9 +554,9 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 		if grid == _loot:
 			_stow_to_backpack(grid, item)  # chest → backpack: auto-stow to free space
 		elif String(item.get("kind", "")) == "gear":
-			_equip_to_matching(grid, item)  # right-click → auto-equip to matching class
+			_equip.equip_gear_to_matching(grid, item)  # right-click → auto-equip to matching class
 		elif String(item.get("kind", "")) == "skillbook":
-			_equip_sub_to_first(grid, item)  # right-click → first matching sub slot
+			_equip.equip_sub_to_first(grid, item)  # right-click → first matching sub slot
 		elif String(item.get("kind", "")) == "consumable":
 			consumable_use_requested.emit(String(item.get("consumable_id", "")))  # → use (revive targeting)
 		accept_event()
@@ -1095,7 +670,8 @@ func _update_drag() -> void:
 			g.set_preview(c, int(_drag.w), int(_drag.h), g.can_place(int(_drag.w), int(_drag.h), c.x, c.y))
 		else:
 			g.clear_preview()
-	_update_slot_previews(mouse)
+	if _equip != null:
+		_equip.update_previews(mouse, _drag)
 
 
 func _rotate_drag() -> void:
@@ -1127,15 +703,15 @@ func _drop() -> void:
 	# Identity Gear → drop onto a party equip slot (F-008 §3.2 mid-run swap). On success
 	# the item is consumed from the backpack (now equipped); on reject it reverts.
 	if String(_drag.get("kind", "")) == "gear":
-		var si := _equip_slot_under(mouse)
+		var si := _equip.gear_slot_under(mouse)
 		if si >= 0:
-			if not _try_equip(si, _drag):
+			if not _equip.try_equip_gear(si, _drag):
 				_revert_drag()
 			placed = true
 	elif String(_drag.get("kind", "")) == "skillbook":
-		var ssi := _sub_slot_under(mouse)
+		var ssi := _equip.sub_slot_under(mouse)
 		if ssi >= 0:
-			if not _try_equip_sub(ssi, _drag):
+			if not _equip.try_equip_sub(ssi, _drag):
 				_revert_drag()
 			placed = true
 	elif String(_drag.get("kind", "")) == "consumable":
@@ -1178,8 +754,8 @@ func _drop() -> void:
 			_revert_drag()
 	for g: InventoryGrid in _grids:
 		g.clear_preview()
-	_clear_slot_previews()
-	_clear_sub_previews()
+	if _equip != null:
+		_equip.clear_previews()
 	_drag_vis.queue_free()
 	_drag_vis = null
 	_drag = {}
