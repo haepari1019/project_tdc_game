@@ -23,6 +23,7 @@ const AimMarker := preload("res://scripts/ui/aim_marker.gd")
 const ControlledIndicator := preload("res://scripts/ui/controlled_indicator.gd")
 const ReviveController := preload("res://scripts/run/revive_controller.gd")
 const TorchCarryController := preload("res://scripts/run/torch_carry_controller.gd")
+const Torch := preload("res://scripts/run/torch.gd")
 const AimController := preload("res://scripts/run/aim_controller.gd")
 const LootService := preload("res://scripts/run/loot_service.gd")
 const RunEndController := preload("res://scripts/run/run_end_controller.gd")
@@ -158,9 +159,13 @@ func _ready() -> void:
 		var barrel := Barrel.new()
 		barrel.position = bpos
 		add_child(barrel)
-	# Torches (ENT-TORCH) are placed by the map as the room light sources — wire every one to
-	# combat (ignite_at) + the carry/throw handlers (pick up F → throw via consumable slot →
-	# land + ignite; touching oil ignites RX-OIL-FIRE). ref: F-021 §3.1.2 / F-027.
+	# A few carriable torches (ENT-TORCH) near the oil — the carry/throw + RX-OIL-FIRE gameplay
+	# spot. Rooms are lit by fixed lanterns (map), so an enemy can't dark out a room by throwing
+	# every light. Wire each torch to combat (ignite_at) + the carry/throw handlers. ref: F-021.
+	for tpos in [Vector3(4.0, 0.0, 29.0), Vector3(13.0, 0.0, 38.0), Vector3(-5.0, 0.0, 33.0), Vector3(0.0, 0.0, 43.0)]:
+		var torch := Torch.new()
+		torch.position = tpos
+		add_child(torch)
 	for t in get_tree().get_nodes_in_group("torch"):
 		t.setup(_combat)
 		if not t.pickup_requested.is_connected(_torch.on_torch_pickup):

@@ -30,6 +30,12 @@ const CHASE_BLIND_SPEED_FRAC := 0.55
 ## F-022 §3.6 target-switch hysteresis. Lower = aggro bounces more readily (harder).
 const SWITCH_RATIO := 1.02
 
+# F-021 §3.1.2 object-priority: a flagged enemy seeks the nearest enemy-usable interactable
+# (objects opt in via enemy_usable(); chest/door/etc. don't → auto-excluded) and uses it. What
+# a held object DOES (e.g. a torch's throw) lives IN THE OBJECT — no per-object branch here.
+const OBJECT_SEEK_RADIUS_M := 16.0   # how far the enemy looks for a usable object
+const OBJECT_REACH_M := 1.6          # close enough to use it
+
 # Camera damage feedback (피격, F-012). AB-DEFINED 스킬 피해만 — 평타·접촉뎀 제외.
 # trauma = (dmg/maxHP)*gain, 방향 킥 = 맞은 방향. 비조작 멤버 이벤트는 감쇄.
 const DMG_SHAKE_GAIN := 3.0
@@ -69,14 +75,7 @@ func _has_los(from_node: Node3D, to_node: Node3D) -> bool:
 ## Velocity toward `dest` following the navmesh — routes the enemy AROUND walls
 ## instead of grinding straight into them. ZERO when arrived / no path.
 func _nav_move(enemy: CharacterBody3D, dest: Vector3, speed: float) -> Vector3:
-	enemy.nav_set_target(dest)
-	var wp: Vector3 = enemy.nav_get_next_position()
-	var to_wp := wp - enemy.global_position
-	to_wp.y = 0.0
-	var d := to_wp.length()
-	if d < 0.05:
-		return Vector3.ZERO
-	return (to_wp / d) * speed
+	return enemy.nav_move_toward(dest, speed)
 
 
 ## Dormant tick (휴식중): hybrid vision cone perception. Scans party members within
@@ -192,6 +191,11 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		enemy.investigate_pos = enemy.search_pos
 		enemy.has_investigate = true
 		enemy.has_search = false                          # consumed into investigate_pos
+	# F-021 §3.1.2 object-priority: a flagged enemy uses nearby objects; a held object runs its
+	# OWN combat behavior (torch → throw). Falls back to normal combat with no usable object.
+	if enemy.interacts_with_objects and _try_object_interaction(enemy, target, has_los, delta):
+		enemy.move_and_slide()
+		return
 	if has_los and dist <= enemy.attack_range_m:
 		# In range with LOS: stop and attack on cooldown (data-driven ability).
 		enemy.face_toward(target.global_position)
@@ -212,6 +216,41 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		enemy.face_toward(dest)
 		enemy.velocity = _nav_move(enemy, dest, spd)
 	enemy.move_and_slide()
+
+
+## Object-priority interaction (F-021 §3.1.2): if holding an object, run ITS combat behavior;
+## else seek + use the nearest enemy-usable interactable. Returns true if it drove this frame.
+func _try_object_interaction(enemy: CharacterBody3D, target: CharacterBody3D, has_los: bool, delta: float) -> bool:
+	var held = enemy.held_object
+	if held != null and is_instance_valid(held) and held.has_method("enemy_combat_tick"):
+		return held.enemy_combat_tick(enemy, target, has_los, delta)   # the object owns its behavior
+	# not holding → seek the nearest enemy-usable object (objects opt in via enemy_usable())
+	var obj := _nearest_usable_object(enemy)
+	if obj == null:
+		return false   # nothing usable → fall back to normal combat
+	var op: Vector3 = obj.global_position
+	if Vector2(op.x - enemy.global_position.x, op.z - enemy.global_position.z).length() <= OBJECT_REACH_M:
+		obj.enemy_use(enemy)   # the object decides (torch → pick_up + set enemy.held_object)
+		enemy.velocity = Vector3.ZERO
+	else:
+		enemy.face_toward(op)
+		enemy.velocity = _nav_move(enemy, op, enemy.current_move_speed())
+	return true
+
+
+## Nearest enemy-usable interactable within seek radius (group "interactable" + enemy_usable()).
+## Objects that don't implement enemy_usable() (chest/door/lever/trap) are auto-excluded.
+func _nearest_usable_object(enemy: CharacterBody3D) -> Node:
+	var best: Node = null
+	var best_d := OBJECT_SEEK_RADIUS_M * OBJECT_SEEK_RADIUS_M
+	for t in get_tree().get_nodes_in_group("interactable"):
+		if not (t is Node3D) or not t.has_method("enemy_usable") or not t.enemy_usable():
+			continue
+		var d := Vector2(t.global_position.x - enemy.global_position.x, t.global_position.z - enemy.global_position.z).length_squared()
+		if d < best_d:
+			best_d = d
+			best = t
+	return best
 
 
 ## Data-driven enemy attack: choose ability (every_n pattern > basic). Telegraphed

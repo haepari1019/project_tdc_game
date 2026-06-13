@@ -21,6 +21,11 @@
       "abilities": [ { "ref": "AB-015", "trigger": "basic" }, { "ref": "AB-011", "trigger": "every_n", "n": 2 } ] },
     { "enemy_id": "EN-005", "role": "nuker", "display_name": "Gutter Stinger",
       "stats": { "hp": 165, "move_speed": 5.3, "contact_damage": 7, "attack_range_m": 8.5, "attack_interval_s": 2.1 },
-      "abilities": [ { "ref": "AB-010", "trigger": "basic" } ] }
+      "abilities": [ { "ref": "AB-010", "trigger": "basic" } ] },
+    { "enemy_id": "EN-014", "role": "fodder", "display_name": "Torch Bearer",
+      "stats": { "hp": 280, "move_speed": 5.5, "contact_damage": 10, "attack_range_m": 1.7, "attack_interval_s": 1.3 },
+      "interacts_with_objects": true,
+      "_behavior_note": "F-021 §3.1.2 object-priority: seeks ENT-TORCH, carries + throws at the party (ignites oil → RX-OIL-FIRE). Killable normally with no torch around. spec EN-COR-000 alignment = 1b content task.",
+      "abilities": [ { "ref": "AB-015", "trigger": "basic" } ] }
   ]
 }

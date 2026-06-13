@@ -29,6 +29,10 @@ var attack_cooldown_s: float = 0.0
 ## Ability instances [{ref, trigger, n}] from data (resolved vs ability_catalog).
 var abilities: Array = []
 var attack_count: int = 0
+# F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
+# object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.
+var interacts_with_objects: bool = false
+var held_object: Node = null
 
 ## Squad (분대) = encounter group. Engagement is per-enemy but propagates only to
 ## squad-mates within cohesion range, so a strayed member fighting alone doesn't
@@ -89,6 +93,7 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 	attack_interval_s = float(stats.get("attack_interval_s", 1.2))
 	var ab = row.get("abilities", [])
 	abilities = ab if typeof(ab) == TYPE_ARRAY else []
+	interacts_with_objects = bool(row.get("interacts_with_objects", false))
 	name = enemy_id
 	_base_albedo = color
 	var box_size := BOX_BASE * box_scale
@@ -388,6 +393,19 @@ func nav_get_next_position() -> Vector3:
 
 func nav_has_path() -> bool:
 	return _nav_path.size() > 1 and _nav_path_idx < _nav_path.size()
+
+
+## Velocity toward `dest` along the navmesh (routes around walls). ZERO when arrived / no path.
+## Used by EnemyAI and by held objects driving the carrier's approach (e.g. torch throw).
+func nav_move_toward(dest: Vector3, speed: float) -> Vector3:
+	nav_set_target(dest)
+	var wp: Vector3 = nav_get_next_position()
+	var to_wp := wp - global_position
+	to_wp.y = 0.0
+	var d := to_wp.length()
+	if d < 0.05:
+		return Vector3.ZERO
+	return (to_wp / d) * speed
 
 
 func add_threat(member: CharacterBody3D, amount: float) -> void:

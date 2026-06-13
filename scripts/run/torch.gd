@@ -5,12 +5,18 @@ extends Node3D
 ## it lands and ignites. It is ALWAYS lit, so touching an Oil zone ignites it on the spot
 ## (RX-OIL-FIRE) — carrying it over oil is a real risk. ref: F-021, F-027.
 
+const SkillVfx := preload("res://scripts/combat/skill_vfx.gd")
+
 const ID := "ENT-TORCH-001"
 const IGNITE_RADIUS := 2.4
 const CARRY_OFFSET := Vector3(0.0, 1.4, 0.0)
 const THROW_DUR := 0.55
 const THROW_ARC := 2.5            # peak height of the toss arc (m)
 const OIL_CHECK_S := 0.12
+# Enemy-held throw behavior (F-021 §3.1.2) — the torch owns "throw when the carrier needs to
+# attack", so no per-object branch lives in the enemy AI.
+const ENEMY_THROW_RANGE := 11.0
+const ENEMY_THROW_WINDUP := 0.7   # readable telegraph before an enemy throws (F-021 §3.3)
 
 signal pickup_requested(torch)    # ally F-interact → scene picks the slot + calls pick_up()
 signal dropped(torch)             # carrier died → torch fell (scene clears its carry state)
@@ -23,9 +29,13 @@ var _from: Vector3 = Vector3.ZERO
 var _to: Vector3 = Vector3.ZERO
 var _t: float = 0.0
 var _oil_timer: float = 0.0
+var _enemy_windup: float = 0.0    # enemy throw telegraph countdown (held-by-enemy behavior)
 var _rest_y: float = 0.0
 var _body: StaticBody3D
 var _light: OmniLight3D       # the flame's glow — moves with carry/throw (diegetic room light)
+var _flame: MeshInstance3D
+var _flicker_t: float = 0.0
+var _base_energy: float = 1.6
 
 
 func setup(combat: Node3D) -> void:
@@ -44,6 +54,7 @@ func _ready() -> void:
 func configure_light(energy: float, rng: float, color: Color) -> void:
 	if _light == null:
 		return
+	_base_energy = energy
 	_light.light_energy = energy
 	_light.omni_range = rng
 	_light.light_color = color
@@ -95,7 +106,56 @@ func drop() -> void:
 	dropped.emit(self)
 
 
+# --- enemy-usable object protocol (F-021 §3.1.2) — the enemy AI calls these GENERICALLY; the
+# behavior of a held object lives HERE, not in the enemy. New usable objects opt in by adding
+# enemy_usable()/enemy_use(); chest/door/etc. don't implement it, so they're auto-excluded. ---
+
+## Available for an enemy to seek + grab (placed, unheld). Implementing this = "enemies may use me".
+func enemy_usable() -> bool:
+	return is_available()
+
+
+## An enemy reached this torch → it carries it (becomes the enemy's held_object "weapon").
+func enemy_use(enemy: Node3D) -> void:
+	if not is_available():
+		return
+	pick_up(enemy)
+	if "held_object" in enemy:
+		enemy.held_object = self
+
+
+## Held-by-enemy combat behavior: approach throw range, telegraph, then throw at the target
+## (igniting oil → RX-OIL-FIRE). Returns true (drives the carrier this frame). The throw logic
+## is OWNED here, so adding new usable objects needs NO change to the enemy AI.
+func enemy_combat_tick(enemy: Node3D, target: Node3D, has_los: bool, delta: float) -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	var tpos: Vector3 = target.global_position
+	var d := Vector2(tpos.x - enemy.global_position.x, tpos.z - enemy.global_position.z).length()
+	if d <= ENEMY_THROW_RANGE and has_los:
+		enemy.face_toward(tpos)
+		enemy.velocity = Vector3.ZERO
+		if _enemy_windup <= 0.0:
+			_enemy_windup = ENEMY_THROW_WINDUP   # begin telegraph
+			SkillVfx.telegraph(get_tree().current_scene, tpos, Color(1.0, 0.5, 0.1))  # landing tell
+		else:
+			_enemy_windup -= delta
+			if _enemy_windup <= 0.0:
+				if "held_object" in enemy:
+					enemy.held_object = null
+				throw_to(tpos)   # _thrower = enemy → fire credits the thrower
+		return true
+	# out of throw range → close in; cancel any pending windup
+	_enemy_windup = 0.0
+	enemy.face_toward(tpos)
+	enemy.velocity = enemy.nav_move_toward(tpos, enemy.current_move_speed())
+	return true
+
+
 func _process(delta: float) -> void:
+	if _light != null:   # live-fire flicker (the lantern stays steady)
+		_flicker_t += delta
+		_light.light_energy = _base_energy + (sin(_flicker_t * 11.0) + sin(_flicker_t * 23.0)) * 0.09
 	if _carrier != null:
 		if not is_instance_valid(_carrier) or (_carrier.has_method("is_alive") and not _carrier.is_alive()):
 			drop()
@@ -154,24 +214,27 @@ func _build_visual() -> void:
 	handle.material_override = hm
 	add_child(handle)
 
+	# Open flame — a pointed cone (vs the lantern's boxy caged housing), hot orange-red.
 	var flame := MeshInstance3D.new()
-	var sph := SphereMesh.new()
-	sph.radius = 0.22
-	sph.height = 0.5
-	flame.mesh = sph
-	flame.position.y = 1.18
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.20
+	cone.height = 0.52
+	flame.mesh = cone
+	flame.position.y = 1.28
 	var fm := StandardMaterial3D.new()
-	fm.albedo_color = Color(1.0, 0.55, 0.15)
+	fm.albedo_color = Color(1.0, 0.42, 0.12)
 	fm.emission_enabled = true
-	fm.emission = Color(1.0, 0.5, 0.1)
-	fm.emission_energy_multiplier = 2.6
+	fm.emission = Color(1.0, 0.34, 0.06)
+	fm.emission_energy_multiplier = 3.2
 	flame.material_override = fm
 	add_child(flame)
+	_flame = flame
 
-	_light = OmniLight3D.new()      # warm flame glow (shadowless — many torches light the rooms)
-	_light.position.y = 1.18
-	_light.light_color = Color(1.0, 0.72, 0.42)
-	_light.light_energy = 1.6
+	_light = OmniLight3D.new()      # hot orange glow that FLICKERS (live fire vs the steady lantern)
+	_light.position.y = 1.2
+	_light.light_color = Color(1.0, 0.56, 0.24)
+	_light.light_energy = _base_energy
 	_light.omni_range = 13.0
 	_light.omni_attenuation = 1.0
 	_light.shadow_enabled = false

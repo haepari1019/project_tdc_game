@@ -75,7 +75,7 @@ const LIGHT_PROFILES: Dictionary = {
 }
 ## 횃불 광원(ENT-TORCH) 1개가 담당하는 대략적 그리드 셀 크기(m). 너무 많지 않게 성기게 깐다.
 const LIGHT_GRID_SPACING := 20.0
-const Torch := preload("res://scripts/run/torch.gd")
+const Lantern := preload("res://scripts/run/lantern.gd")
 
 const WALL_HEIGHT := 3.5
 const WALL_THICKNESS := 0.4
@@ -336,10 +336,10 @@ func _build_room(room_ref: String) -> void:
 		_markers_root.add_child(ext)
 
 
-## Places the room's light sources as ENT-TORCH braziers (floor) on a grid — torches ARE the
-## lights now (the old ceiling omni fixtures are gone). Each is carriable + ignitable; combat
-## wiring is done by dungeon_run (group "torch"). profile "unlit" (energy 0) places none;
-## dimmer profiles use lower torch energy. Warm light regardless of profile. ref: F-021 §3.1.2.
+## Places the room's light sources as fixed LANTERNS (floor braziers) on a grid — stable room
+## lighting that can't be grabbed. Carriable ENT-TORCH are hand-placed near the oil instead
+## (dungeon_run), so an enemy can't dark out a whole room by throwing every light. profile
+## "unlit" (energy 0) places none; dimmer profiles use lower energy. Warm light regardless.
 func _add_room_lighting(parent: Node3D, center: Vector3, size: Vector3, profile: String) -> void:
 	var prof: Dictionary = LIGHT_PROFILES.get(profile, LIGHT_PROFILES["standard"])
 	var energy: float = float(prof["energy"])
@@ -361,10 +361,10 @@ func _add_room_lighting(parent: Node3D, center: Vector3, size: Vector3, profile:
 		for iz in count_z:
 			var lx: float = -size.x * 0.5 + cell_x * (float(ix) + 0.5)
 			var lz: float = -size.z * 0.5 + cell_z * (float(iz) + 0.5)
-			var torch := Torch.new()
-			torch.position = center + Vector3(lx, 0.0, lz)   # floor brazier
-			fixtures.add_child(torch)                          # _ready builds its light + groups it
-			torch.configure_light(energy * 0.6, torch_range, warm)  # dimmer than the old omni grid
+			var lantern := Lantern.new()
+			lantern.position = center + Vector3(lx, 0.0, lz)
+			fixtures.add_child(lantern)                         # _ready builds its light
+			lantern.configure_light(energy * 0.6, torch_range, warm)
 
 
 func _add_floor(parent: Node3D, center: Vector3, size: Vector3, color: Color) -> void:
