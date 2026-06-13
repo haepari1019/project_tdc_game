@@ -360,7 +360,7 @@ func _sb_fire(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
 	for e in _combat._enemies_in_radius(center, radius):
 		_combat._deal_damage(e, m, dmg)
 	_damage_destructibles(center, radius, dmg)
-	_fire_hit(center, radius, 0)  # FireDamageHit → ignite any Oil here (RX-OIL-FIRE)
+	_fire_hit(center, radius, 0, m)  # FireDamageHit → ignite any Oil here (RX-OIL-FIRE)
 	_sub_hit_shake(p)
 	SkillVfx.telegraph(self, center, Color(1.0, 0.45, 0.1))  # orange fire impact
 	print("[SB] %s Ember Lance @target" % m.class_id)
@@ -368,22 +368,22 @@ func _sb_fire(m: CharacterBody3D, p: Dictionary, target_pos: Vector3) -> bool:
 
 
 ## A fire damage hit at a point — ignites any overlapping Oil zone (RX-OIL-FIRE-001).
-func _fire_hit(center: Vector3, radius: float, depth: int) -> void:
+func _fire_hit(center: Vector3, radius: float, depth: int, source: Node = null) -> void:
 	for z in get_tree().get_nodes_in_group("ground_zone"):
 		if z.is_active() and String(z.status) == "Oil":
 			var d := Vector2(z.global_position.x - center.x, z.global_position.z - center.z)
 			if d.length() <= radius + float(z.radius):
-				_ignite_oil(z, depth)
+				_ignite_oil(z, depth, source)
 
 
 ## RX-OIL-FIRE-001 — consume the oil → explosion + Fire zone + ToxicGas, then chain to
 ## adjacent oil (depth-limited; F-021 §3.2.1 depth 1 center / 2 rare / 3+ forbidden).
-func _ignite_oil(oil: Node, depth: int) -> void:
+func _ignite_oil(oil: Node, depth: int, source: Node = null) -> void:
 	var parent := oil.get_parent()
 	var pos: Vector3 = oil.global_position
 	var r: float = float(oil.radius)
 	oil.clear_zone()  # consume the oil (removed from group immediately → no re-ignite)
-	_explosion(pos, r + 1.0, EXPLOSION_DMG)
+	_explosion(pos, r + 1.0, EXPLOSION_DMG, source)
 	var fire := HazardZone.new()
 	fire.setup(r, FIRE_DPS, 0.0, "Fire", false, FIRE_TTL)
 	fire.position = pos
@@ -392,19 +392,40 @@ func _ignite_oil(oil: Node, depth: int) -> void:
 	gas.setup(r + 1.5, GAS_DPS, 0.0, "ToxicGas", false, GAS_TTL)
 	gas.position = pos
 	parent.add_child(gas)
+	if source != null:
+		fire.set_source(source)
+		gas.set_source(source)
 	print("[RX] Oil ignited (depth %d) → explosion + fire + toxic gas" % depth)
 	if depth < MAX_CHAIN_DEPTH:
-		_fire_hit(pos, r + 1.5, depth + 1)  # explosion reaches adjacent oil → chain +1
+		_fire_hit(pos, r + 1.5, depth + 1, source)  # explosion reaches adjacent oil → chain +1
 
 
 ## AoE explosion — damage ALL units (피아무구분, F-021 §3.3.1) + destructibles + shake.
-func _explosion(pos: Vector3, radius: float, dmg: float) -> void:
+func _explosion(pos: Vector3, radius: float, dmg: float, source: Node = null) -> void:
 	for g in ["party_member", "enemy"]:
 		for u in get_tree().get_nodes_in_group(g):
 			if u is Node3D and u.has_method("take_damage"):
 				var d := Vector2(u.global_position.x - pos.x, u.global_position.z - pos.z)
 				if d.length() <= radius:
 					u.take_damage(dmg)
+					if g == "enemy" and source != null and is_instance_valid(source) and u.has_method("add_threat"):
+						u.add_threat(source, dmg)
+						if u.has_method("perceive_attacker"):
+							u.perceive_attacker(source)
 	_damage_destructibles(pos, radius, dmg)
 	_combat.camera_shake.emit(HIT_SHAKE_CAP, Vector3.ZERO)
 	SkillVfx.telegraph(self, pos, Color(1.0, 0.55, 0.12))
+
+
+## Public FireDamageHit at a point (F-027 ENT-TORCH) — a thrown/dropped torch landing, or a
+## lit torch touching oil. Lays a short Fire zone (the spot burns) and ignites any
+## overlapping Oil → RX-OIL-FIRE-001 explosion + chain. ref: F-021 §3.1.2.
+func ignite_at(center: Vector3, radius: float, source: Node = null) -> void:
+	var fire := HazardZone.new()
+	fire.setup(radius, FIRE_DPS, 0.0, "Fire", false, FIRE_TTL)
+	add_child(fire)
+	fire.global_position = center
+	if source != null:
+		fire.set_source(source)
+	_fire_hit(center, radius, 0, source)
+	SkillVfx.telegraph(self, center, Color(1.0, 0.5, 0.12))

@@ -222,6 +222,11 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	_ability_dispatch.cast_skillbook(member, slot_index, target_pos)
 
 
+## FireDamageHit at a point (F-027 ENT-TORCH) — torch landing / oil contact. ref: F-021.
+func ignite_at(center: Vector3, radius: float, source: Node = null) -> void:
+	_ability_dispatch.ignite_at(center, radius, source)
+
+
 func _enemies_in_radius(pos: Vector3, r: float) -> Array:
 	var out: Array = []
 	var r2 := r * r
@@ -300,6 +305,7 @@ func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float)
 	# (Camera hit-feel is emitted ONCE per SUB cast — see AbilityDispatch._sub_hit_shake
 	# — not per damaged target, so AOE subs don't stack into a max-out shake.)
 	_engage_enemy(enemy)
+	enemy.perceive_attacker(attacker)   # hit → search toward the attacker even with no LOS
 	enemy.add_threat(attacker, dmg * float(attacker.threat_mult))
 	if not enemy.first_hit:
 		enemy.first_hit = true

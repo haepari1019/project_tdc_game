@@ -73,9 +73,9 @@ const LIGHT_PROFILES: Dictionary = {
 	"dim": {"energy": 1.1, "range_scale": 0.78, "color": Color(0.58, 0.60, 0.78)},
 	"unlit": {"energy": 0.0, "range_scale": 0.0, "color": Color(0.50, 0.50, 0.60)},
 }
-## 픽스처 1개가 담당하는 대략적 그리드 셀 크기(m). 길쭉한/큰 방은 여러 개로 분할
-## 해 중앙 falloff로 양끝이 희미해지는 현상을 막는다.
-const LIGHT_GRID_SPACING := 18.0
+## 횃불 광원(ENT-TORCH) 1개가 담당하는 대략적 그리드 셀 크기(m). 너무 많지 않게 성기게 깐다.
+const LIGHT_GRID_SPACING := 20.0
+const Torch := preload("res://scripts/run/torch.gd")
 
 const WALL_HEIGHT := 3.5
 const WALL_THICKNESS := 0.4
@@ -336,10 +336,10 @@ func _build_room(room_ref: String) -> void:
 		_markers_root.add_child(ext)
 
 
-## Places ceiling light fixtures for one room based on its lighting_profile.
-## Big rooms get a grid of fixtures so corners aren't left dark; small rooms get
-## a single central light. Fixtures are shadowless (cheap) — the party torch
-## carries the dramatic shadows. profile "unlit" (energy 0) places nothing.
+## Places the room's light sources as ENT-TORCH braziers (floor) on a grid — torches ARE the
+## lights now (the old ceiling omni fixtures are gone). Each is carriable + ignitable; combat
+## wiring is done by dungeon_run (group "torch"). profile "unlit" (energy 0) places none;
+## dimmer profiles use lower torch energy. Warm light regardless of profile. ref: F-021 §3.1.2.
 func _add_room_lighting(parent: Node3D, center: Vector3, size: Vector3, profile: String) -> void:
 	var prof: Dictionary = LIGHT_PROFILES.get(profile, LIGHT_PROFILES["standard"])
 	var energy: float = float(prof["energy"])
@@ -350,8 +350,8 @@ func _add_room_lighting(parent: Node3D, center: Vector3, size: Vector3, profile:
 	var count_z: int = maxi(1, int(round(size.z / LIGHT_GRID_SPACING)))
 	var cell_x: float = size.x / float(count_x)
 	var cell_z: float = size.z / float(count_z)
-	var light_y: float = WALL_HEIGHT * 0.86
-	var fixture_range: float = clampf(maxf(cell_x, cell_z) * float(prof["range_scale"]) + 4.0, 7.0, 28.0)
+	var torch_range: float = clampf(maxf(cell_x, cell_z) * float(prof["range_scale"]) + 3.0, 11.0, 22.0)
+	var warm := Color(1.0, 0.72, 0.42)
 
 	var fixtures := Node3D.new()
 	fixtures.name = "Lighting"
@@ -361,14 +361,10 @@ func _add_room_lighting(parent: Node3D, center: Vector3, size: Vector3, profile:
 		for iz in count_z:
 			var lx: float = -size.x * 0.5 + cell_x * (float(ix) + 0.5)
 			var lz: float = -size.z * 0.5 + cell_z * (float(iz) + 0.5)
-			var omni := OmniLight3D.new()
-			omni.position = center + Vector3(lx, light_y, lz)
-			omni.omni_range = fixture_range
-			omni.omni_attenuation = 1.0  # 완만한 falloff → 방 전체 고른 밝기
-			omni.light_energy = energy
-			omni.light_color = prof["color"]
-			omni.shadow_enabled = false
-			fixtures.add_child(omni)
+			var torch := Torch.new()
+			torch.position = center + Vector3(lx, 0.0, lz)   # floor brazier
+			fixtures.add_child(torch)                          # _ready builds its light + groups it
+			torch.configure_light(energy * 0.6, torch_range, warm)  # dimmer than the old omni grid
 
 
 func _add_floor(parent: Node3D, center: Vector3, size: Vector3, color: Color) -> void:

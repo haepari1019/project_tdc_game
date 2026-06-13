@@ -10,6 +10,8 @@ const SLOT_H := 40
 const KEYS := ["Z", "X", "C"]
 
 var _slots: Array = []  # {panel, label}
+var _last_data: Array = []   # last refresh payload, so clear_carry can restore a slot
+var _carry_slot: int = -1    # slot currently overlaid by a carried object (torch); -1 = none
 
 
 func _ready() -> void:
@@ -72,16 +74,41 @@ func _slot_style(bg: Color, border: Color) -> StyleBoxFlat:
 
 ## data: Array of 3 dicts — {} (empty) or {name, count, color}.
 func refresh(data: Array) -> void:
+	_last_data = data
 	for i in mini(_slots.size(), data.size()):
-		var d: Dictionary = data[i]
-		var s = _slots[i]
-		if d.is_empty():
-			s.label.text = "—"
-			s.panel.add_theme_stylebox_override("panel", _slot_style(Color(0.12, 0.14, 0.12), Color(0.4, 0.5, 0.4)))
-		else:
-			s.label.text = "%s\nx%d" % [String(d.get("name", "")), int(d.get("count", 0))]
-			var col: Color = d.get("color", Color(0.6, 0.85, 0.6))
-			s.panel.add_theme_stylebox_override("panel", _slot_style(col, col.lightened(0.3)))
+		if i == _carry_slot:
+			continue   # a carried object owns this slot's display (set_carry)
+		_render_slot(i, data[i])
+
+
+func _render_slot(i: int, d: Dictionary) -> void:
+	var s = _slots[i]
+	if d.is_empty():
+		s.label.text = "—"
+		s.panel.add_theme_stylebox_override("panel", _slot_style(Color(0.12, 0.14, 0.12), Color(0.4, 0.5, 0.4)))
+	else:
+		s.label.text = "%s\nx%d" % [String(d.get("name", "")), int(d.get("count", 0))]
+		var col: Color = d.get("color", Color(0.6, 0.85, 0.6))
+		s.panel.add_theme_stylebox_override("panel", _slot_style(col, col.lightened(0.3)))
+
+
+## Overlay a slot with a carried object (torch) — distinct fiery tint + label (F-021 carry).
+func set_carry(slot: int, text: String) -> void:
+	if slot < 0 or slot >= _slots.size():
+		return
+	_carry_slot = slot
+	var s = _slots[slot]
+	s.label.text = text
+	s.panel.add_theme_stylebox_override("panel", _slot_style(Color(1.0, 0.5, 0.15), Color(1.0, 0.72, 0.3)))
+
+
+## Clear the carry overlay and restore the slot from the last refresh data.
+func clear_carry() -> void:
+	var slot := _carry_slot
+	_carry_slot = -1
+	if slot >= 0 and slot < _slots.size():
+		var d: Dictionary = _last_data[slot] if slot < _last_data.size() else {}
+		_render_slot(slot, d)
 
 
 func slot_under(mouse: Vector2) -> int:

@@ -55,6 +55,11 @@ var _scan_t: float = 0.0
 ## which is where the PARTY last saw this enemy — fog-of-war rendering.)
 var investigate_pos: Vector3 = Vector3.ZERO
 var has_investigate: bool = false
+## Search-on-hit: damaged from outside vision → engage + walk toward the hit's source
+## direction (investigate even without LOS, then grace gives up). ref: F-011 / F-013.
+const SEARCH_GRACE_S := 6.0
+var search_pos: Vector3 = Vector3.ZERO
+var has_search: bool = false
 
 ## Cached navmesh path (mirrors party_member) — lets enemies route AROUND walls when
 ## chasing/investigating instead of rubbing straight into them.
@@ -391,6 +396,17 @@ func add_threat(member: CharacterBody3D, amount: float) -> void:
 	threat[member] = float(threat.get(member, 0.0)) + amount
 	if amount > 0.0:
 		last_gainer = member
+
+
+## Took damage from `attacker` (any source) — engage and remember its direction so this
+## enemy walks over to search even with no LOS. The AI consumes search_pos when blind.
+func perceive_attacker(attacker: Node) -> void:
+	if attacker == null or not is_instance_valid(attacker) or not (attacker is Node3D):
+		return
+	engaged = true
+	engage_grace_s = maxf(engage_grace_s, SEARCH_GRACE_S)
+	search_pos = (attacker as Node3D).global_position
+	has_search = true
 
 
 ## Raise this member's threat floor on this enemy (§3.5 — never lowers).

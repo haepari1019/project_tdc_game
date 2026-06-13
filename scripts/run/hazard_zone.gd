@@ -34,6 +34,7 @@ var _tick_accum: float = 0.0
 var _age: float = 0.0
 var _mesh: MeshInstance3D
 var _mat: StandardMaterial3D
+var _source: Node = null   # attacker credited for threat when this zone damages enemies
 
 
 func setup(p_radius: float, p_dps: float, p_telegraph_s: float = 0.0, p_status: String = "Fatal", p_impassable: bool = true, p_ttl: float = -1.0, p_slow: float = 0.0) -> void:
@@ -65,6 +66,11 @@ func _go_lethal() -> void:
 
 func is_active() -> bool:
 	return _active
+
+
+## Credit an attacker (e.g. the torch thrower) for threat when this zone damages enemies.
+func set_source(s: Node) -> void:
+	_source = s
 
 
 ## Is a world point inside the zone (horizontal disc)? Used by damage + party avoidance.
@@ -134,6 +140,11 @@ func _physics_process(delta: float) -> void:
 					u.apply_poison(TICK_S * 2.5, dps)
 				elif u.has_method("take_damage"):
 					u.take_damage(dmg)
+				# Torch fire pulls aggro onto its source (F-021 - the thrower / carrier).
+				if g == "enemy" and _source != null and is_instance_valid(_source) and u.has_method("add_threat"):
+					u.add_threat(_source, dmg)
+					if u.has_method("perceive_attacker"):
+						u.perceive_attacker(_source)
 			if slow_factor > 0.0 and u.has_method("apply_slow"):
 				u.apply_slow(slow_factor, TICK_S * 2.5)  # refreshed while standing in it
 

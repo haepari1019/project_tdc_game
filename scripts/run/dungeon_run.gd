@@ -61,6 +61,14 @@ const SKILLBOOK_DROP_CHANCE := 0.85
 var _aiming: bool = false
 var _aim_member: CharacterBody3D = null
 var _aim_slot: int = -1  # which skillbook slot the aim will cast
+# Torch carry + throw (ENT-TORCH, F-021 §3.1.2) — ally holds a torch in a chosen consumable
+# slot; pressing that slot aims a ground-targeted throw. One torch carried at a time.
+var _consumable_bar: Control = null
+var _carried_torch: Node = null
+var _carry_slot: int = -1
+var _carry_pick: bool = false     # waiting for the player to press Z/X/C to choose a slot
+var _carry_pending: Node = null
+var _throwing: bool = false
 # Revive consumable — hotkey → target a downed ally (corpse / portrait) → channel + revive.
 var _reviving: bool = false
 var _revive_cid: String = ""
@@ -150,6 +158,7 @@ func _ready() -> void:
 	var consumable_bar := ConsumableBar.new()  # Z/X/C consumable hotkeys above the char sheet
 	$HUD.add_child(consumable_bar)
 	_inventory_ui.setup_consumable_bar(consumable_bar)
+	_consumable_bar = consumable_bar
 	_inventory_ui.consumable_use_requested.connect(_on_consumable_use_requested)
 	# World loop — chest (holding the extraction key) in the objective room.
 	var chest := Chest.new()
@@ -177,6 +186,15 @@ func _ready() -> void:
 		var barrel := Barrel.new()
 		barrel.position = bpos
 		add_child(barrel)
+	# Torches (ENT-TORCH) are placed by the map as the room light sources — wire every one to
+	# combat (ignite_at) + the carry/throw handlers (pick up F → throw via consumable slot →
+	# land + ignite; touching oil ignites RX-OIL-FIRE). ref: F-021 §3.1.2 / F-027.
+	for t in get_tree().get_nodes_in_group("torch"):
+		t.setup(_combat)
+		if not t.pickup_requested.is_connected(_on_torch_pickup):
+			t.pickup_requested.connect(_on_torch_pickup)
+		if not t.dropped.is_connected(_on_torch_dropped):
+			t.dropped.connect(_on_torch_dropped)
 	# Proximity interaction prompt + controller.
 	_interact_prompt = _make_interact_prompt()
 	$HUD.add_child(_interact_prompt)
@@ -242,7 +260,7 @@ func _process(delta: float) -> void:
 		_update_extraction(in_extract, delta)
 	elif _ctrl_indicator:
 		_ctrl_indicator.visible = false
-	if _aiming:
+	if _aiming or _throwing:
 		_aim_marker.global_position = _mouse_ground_pos() + Vector3(0, 0.05, 0)
 
 
@@ -250,6 +268,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if _inventory_ui.is_open():
 			_inventory_ui.toggle()  # Esc closes the inventory first
+		elif _carry_pick:
+			_cancel_carry_pick()
+		elif _throwing:
+			_cancel_throw()
 		elif _reviving:
 			_cancel_revive_targeting()
 		elif _aiming:
@@ -281,6 +303,15 @@ func _unhandled_input(event: InputEvent) -> void:
 				_end_aim()
 			elif mb.button_index == MOUSE_BUTTON_RIGHT:
 				_end_aim()
+		return
+	# Throwing a carried torch: left click = throw to the ground point, right = cancel.
+	if _throwing and event is InputEventMouseButton:
+		var tb := event as InputEventMouseButton
+		if tb.pressed:
+			if tb.button_index == MOUSE_BUTTON_LEFT:
+				_do_throw(_mouse_ground_pos())
+			elif tb.button_index == MOUSE_BUTTON_RIGHT:
+				_cancel_throw()
 		return
 	# Left-click (not aiming) inspects an enemy in the top-center panel; empty space clears.
 	if event is InputEventMouseButton:
@@ -351,8 +382,14 @@ func _on_sub_key(slot_index: int) -> void:
 # --- consumables: hotkey use + targeted revive channel --------------------------
 
 func _on_consumable_key(slot: int) -> void:
+	if _carry_pick:
+		_assign_carry_slot(slot)   # choosing which slot holds the picked-up torch
+		return
 	if _inventory_ui.is_open():
 		return  # inventory consumes Z/X/C (hotkey assign) when open
+	if slot == _carry_slot:
+		_begin_throw()             # this slot holds a torch → aim a throw
+		return
 	var cid := _inventory_ui.get_hotkey(slot)
 	if cid.is_empty():
 		return
@@ -375,6 +412,97 @@ func _on_consumable_use_requested(cid: String) -> void:
 		return
 	if String(master.get("effect", "")) == "revive_ally":
 		_start_revive_targeting(cid, master)
+
+
+# --- torch carry + throw (ENT-TORCH, F-021 §3.1.2) ------------------------------
+
+## Ally F-interacted a placed torch → ask which consumable slot to hold it in (player chose
+## "슬롯 선택"). The chosen Z/X/C slot then throws the torch instead of using its consumable.
+func _on_torch_pickup(torch: Node) -> void:
+	if _carried_torch != null or _carry_pick or _throwing or _reviving or _aiming:
+		return
+	if _party.get_controlled() == null:
+		return
+	_carry_pending = torch
+	# Auto-assign to the first EMPTY consumable slot; only ask the player when all 3 are full.
+	var empty := _first_empty_consumable_slot()
+	if empty >= 0:
+		_assign_carry_slot(empty)
+		return
+	_carry_pick = true
+	_revive_prompt.text = "횃불 슬롯 선택: Z / X / C  · 우클릭/Esc 취소"
+	_revive_prompt.visible = true
+
+
+func _assign_carry_slot(slot: int) -> void:
+	var torch := _carry_pending
+	_carry_pick = false
+	_carry_pending = null
+	_revive_prompt.visible = false
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if torch == null or not is_instance_valid(torch) or ctrl == null:
+		return
+	_carry_slot = slot
+	_carried_torch = torch
+	torch.pick_up(ctrl)
+	if _consumable_bar.has_method("set_carry"):
+		_consumable_bar.set_carry(slot, "횃불\n던지기")
+
+
+## First consumable slot (Z/X/C) with no consumable assigned — for torch auto-pickup.
+func _first_empty_consumable_slot() -> int:
+	for i in 3:
+		if String(_inventory_ui.get_hotkey(i)).is_empty():
+			return i
+	return -1
+
+
+func _cancel_carry_pick() -> void:
+	_carry_pick = false
+	_carry_pending = null
+	_revive_prompt.visible = false
+
+
+## Press the carry slot → aim the throw (ground-targeted, reuses the aim marker).
+func _begin_throw() -> void:
+	if _carried_torch == null or _aiming or _reviving:
+		return
+	_throwing = true
+	_aim_marker.scale = Vector3(2.4, 1.0, 2.4)   # Torch.IGNITE_RADIUS
+	_aim_mat.albedo_color = Color(1.0, 0.5, 0.15, 0.35)
+	_aim_marker.visible = true
+	_revive_prompt.text = "횃불 투척: 지면 클릭 · 우클릭/Esc 취소"
+	_revive_prompt.visible = true
+
+
+func _do_throw(point: Vector3) -> void:
+	if _carried_torch != null and is_instance_valid(_carried_torch):
+		_carried_torch.throw_to(point)
+	_clear_carry()
+	_throwing = false
+	_aim_marker.visible = false
+	_revive_prompt.visible = false
+
+
+func _cancel_throw() -> void:
+	_throwing = false
+	_aim_marker.visible = false
+	_revive_prompt.visible = false
+
+
+## Carrier died mid-carry → the torch dropped itself; release our slot binding too.
+func _on_torch_dropped(torch: Node) -> void:
+	if _carried_torch == torch:
+		if _throwing:
+			_cancel_throw()
+		_clear_carry()
+
+
+func _clear_carry() -> void:
+	if _consumable_bar != null and _consumable_bar.has_method("clear_carry"):
+		_consumable_bar.clear_carry()
+	_carry_slot = -1
+	_carried_torch = null
 
 
 func _start_revive_targeting(cid: String, master: Dictionary) -> void:

@@ -187,6 +187,11 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		_combat.refresh_engage_grace(enemy)               # still sees prey → stay engaged
 		enemy.investigate_pos = target.global_position    # remember the last-seen spot
 		enemy.has_investigate = true
+	elif enemy.has_search:
+		# Hit from outside vision: search toward the hit's source direction (F-011/F-013).
+		enemy.investigate_pos = enemy.search_pos
+		enemy.has_investigate = true
+		enemy.has_search = false                          # consumed into investigate_pos
 	if has_los and dist <= enemy.attack_range_m:
 		# In range with LOS: stop and attack on cooldown (data-driven ability).
 		enemy.face_toward(target.global_position)
