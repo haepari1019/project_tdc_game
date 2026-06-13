@@ -6,6 +6,7 @@ extends Node
 var consumables: Dictionary = {}   # consumable_id -> count brought this run (deployment v1)
 var backpack: Array = []           # brought run-inventory item dicts from the hub (At-Risk)
 var member_subs: Array = []        # per party slot: [base_ability_id|"" ×3] equipped in the hub
+var formation: Array = []          # [{class_id, offset:[x,z]}] formation slot offsets (hub editor)
 
 
 func set_consumables(d: Dictionary) -> void:

@@ -168,13 +168,23 @@ func _build() -> void:
 	_mat = StandardMaterial3D.new()
 	_mat.emission_enabled = true
 	_mat.emission_energy_multiplier = 1.6
-	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_mat.render_priority = 2   # draw after enemy vision cones (priority -1, depth-writing)
+	if status == "Oil":
+		# Persistent ground slick → OPAQUE, hugging the floor. Rendering in the opaque pass
+		# makes depth resolve correctly: units standing in it are NOT covered (the slick sits
+		# below them), and the depth-writing vision cone (transparent, drawn later) only tints
+		# it rather than hiding it. (A floating transparent disk covered enemies' lower bodies.)
+		_mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+		_mesh.position.y = 0.07
+	else:
+		# Transient telegraph → transparent, floated above the vision cone (y=0.3, depth-writing)
+		# so the cone can't occlude it; render_priority draws it after the cones.
+		_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_mat.render_priority = 2
+		_mesh.position.y = 0.4
 	_apply_color(not _lethal)
 	_mesh.material_override = _mat
-	_mesh.position.y = 0.4      # above the vision cone (y=0.3) so the cone can't occlude it
 	add_child(_mesh)
 	# emissive pulse so an active hazard reads — skip for inert Oil (it just sits, dark).
 	if status != "Oil":

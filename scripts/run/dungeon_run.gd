@@ -139,6 +139,10 @@ func _ready() -> void:
 			for j in mini(3, subrow.size()):
 				if String(subrow[j]) != "":
 					dm.equip_skillbook_by_id(j, String(subrow[j]))
+		for f in rl.formation:                       # hub formation editor → slot offsets (F-003)
+			var foff: Array = f.get("offset", [0, 0])
+			if foff.size() >= 2:
+				_party.set_slot_offset(String(f.get("class_id", "")), Vector3(float(foff[0]), 0.0, float(foff[1])))
 	_revive = ReviveController.new()  # targeted revive (F-010 / D-020)
 	add_child(_revive)
 	_revive.setup(_party, _combat, _inventory_ui, _party_sheet, $HUD)

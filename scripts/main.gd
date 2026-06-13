@@ -8,6 +8,8 @@ const DUNGEON_SCENE := "res://scenes/run/dungeon_run.tscn"
 const PartyController := preload("res://scripts/party/party_controller.gd")
 const InventoryUI := preload("res://scripts/ui/inventory_ui.gd")
 const StashSource := preload("res://scripts/ui/stash_source.gd")
+const FormationEditor := preload("res://scripts/ui/formation_editor.gd")
+const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
 @onready var _status: Label = $Panel/Margin/VBox/Status
 @onready var _loadout: VBoxContainer = $Panel/Margin/VBox/LoadoutStub
@@ -16,6 +18,7 @@ const StashSource := preload("res://scripts/ui/stash_source.gd")
 var _party: Node
 var _inv: InventoryUI
 var _stash_src: Node
+var _formation: Panel
 # Autoloads via runtime path (not the parse-time global) so a stale editor that hasn't
 # re-registered a newly-added autoload still compiles + runs. Loaded fresh on every game run.
 @onready var _stash: Node = get_node("/root/Stash")
@@ -59,6 +62,31 @@ func _setup_hub() -> void:
 	edit.pressed.connect(_open_loadout_editor)
 	$Panel/Margin/VBox.add_child(edit)
 	$Panel/Margin/VBox.move_child(edit, _loadout.get_index())  # stash editor ABOVE the confirm
+	_build_formation_editor()
+
+
+## Top-down draggable formation editor (4 role tokens), placed above the confirm.
+func _build_formation_editor() -> void:
+	var offsets: Dictionary = {}
+	var colors: Dictionary = {}
+	for m in _party.get_members():
+		if m == null or not is_instance_valid(m):
+			continue
+		var cid := String(m.class_id)
+		var o3: Vector3 = _party.get_slot_offset(cid)
+		offsets[cid] = Vector2(o3.x, o3.z)
+		colors[cid] = UnitVisuals.role_color(cid)
+	var flabel := Label.new()
+	flabel.text = "포메이션 (토큰 드래그로 배치 · 중앙 = 리더)"
+	$Panel/Margin/VBox.add_child(flabel)
+	$Panel/Margin/VBox.move_child(flabel, _loadout.get_index())
+	_formation = FormationEditor.new()
+	# Lock to its 220×220 min size (else the VBox stretches it wide and the token coordinate
+	# space — anchored at SIZE/2 — no longer matches the visible panel).
+	_formation.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	$Panel/Margin/VBox.add_child(_formation)
+	_formation.setup(offsets, colors)
+	$Panel/Margin/VBox.move_child(_formation, _loadout.get_index())
 
 
 func _open_loadout_editor() -> void:
@@ -129,3 +157,10 @@ func _serialize_loadout() -> void:
 					row[j] = String(sb.get("base_ability_id", ""))
 		subs.append(row)
 	_run_loadout.member_subs = subs
+	var form: Array = []
+	if _formation != null:
+		var offsets: Dictionary = _formation.get_offsets()
+		for cid in offsets:
+			var o: Vector2 = offsets[cid]
+			form.append({"class_id": String(cid), "offset": [o.x, o.y]})  # o.y holds z (forward)
+	_run_loadout.formation = form

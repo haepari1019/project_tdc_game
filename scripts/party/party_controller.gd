@@ -582,6 +582,15 @@ func _anchor_slot_offset(anchor: CharacterBody3D) -> Vector3:
 	return _slot_offsets.get(anchor_class_id, Vector3.ZERO)
 
 
+## Formation slot offset for a class (F-003 / UI-005 — deployment editor reads/writes these).
+func get_slot_offset(class_id: String) -> Vector3:
+	return _slot_offsets.get(class_id, Vector3.ZERO)
+
+
+func set_slot_offset(class_id: String, offset: Vector3) -> void:
+	_slot_offsets[class_id] = offset
+
+
 func _slot_world_target(class_id: String, axes: Dictionary, ground_y: float) -> Vector3:
 	var slot_offset: Vector3 = _slot_offsets.get(class_id, Vector3.ZERO)
 	var world_off := _offset_to_world(axes, slot_offset)
