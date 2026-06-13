@@ -3,7 +3,7 @@
 > **목적:** 코드가 "필요할 때마다 덧붙이기"로 쌓이는 것을 막기 위한 **단일 구조 지도**.
 > 각 스크립트의 책임·의존·핵심 심볼과, 알려진 **기술 부채**(중복/비효율/결합)를 한 곳에 적재한다.
 > **갱신 규칙:** 스크립트를 추가/이동/삭제하거나 책임이 바뀌면 이 문서를 같은 PR에서 갱신한다. 부채를 해소하면 §6 레지스터에서 항목을 지운다.
-> **최종 갱신:** 2026-06-13 · **기준 커밋:** `5e9dab8` 이후 작업 트리(1b 횃불/배럴·기름/MIA/배치허브/포메이션 + DEBT-GOD/GOD2 추출 라운드 + 스크립트 도메인 재구조화) · 라인수는 갱신 시점 기준.
+> **기준:** 현재 작업 트리(`main`) — 라인수·구조는 현행 스냅샷.
 
 ---
 
@@ -45,7 +45,7 @@
 
 ## 3. 모듈 맵 (도메인별 책임)
 
-**디렉토리 레이아웃 (2026-06-13 도메인 재구조화 — 책임별 그룹화):**
+**디렉토리 레이아웃 (책임별 도메인 그룹화):**
 ```text
 scripts/
   autoload/   GameBootstrap · Slice01Data · RunLoadout · Stash      (전역 싱글톤)
@@ -115,7 +115,7 @@ scripts/
 | [enemy_ai.gd](../scripts/combat/enemy_ai.gd) | 394 | 🟢 적 perception(시야콘+LOS+근접존)·전투행동(위협추적/LOS공격/시야상실추격/텔레그래프/피격시 발신원 수색). CombatController 자식; engage/grace/시그널은 컨트롤러 콜백 | `tick` `_tick_dormant` `_begin_enemy_attack` `_apply_enemy_hit` `attach_vision_cone` | combat_controller(콜백), skill_vfx, Slice01Data |
 | [ability_dispatch.gd](../scripts/combat/abilities/ability_dispatch.gd) | **149** | 🟢 **스킬 디스패처 + ctx 파사드**: kind→`effects/<skill>.gd` 인스턴스 매핑(setup 시 `_SKILL_SCRIPTS` 프리로드 배열). Identity/Sub/Skillbook 시전 라우팅 + 충전/쿨/coeff. 스킬은 `ctx`(=이 노드)로 공간쿼리/damage/heal/shake/reactions/VFX 호출 | `try_identity` `cast_sub` `cast_skillbook` `enemies_in_radius` `deal_damage` `sub_shake` | combat_controller, ReactionSystem, effects/*, skill_vfx |
 | effects/ (스킬 12) | ~20ea | 🟢 **스킬당 드롭인 효과**: `kind()`+`cast(m,p,target_pos,ctx)->bool`. 새 스킬 = 파일 1개 + `_SKILL_SCRIPTS` 1줄. anchor_guard·press_line·mark_ruin·mend_circle·taunt·lunge·nova·sanctuary·sb_{strike,poison,stun,fire} | `kind` `cast` | ability_dispatch(ctx), skill_vfx |
-| [reaction_system.gd](../scripts/combat/abilities/reaction_system.gd) | 100 | 🟢 월드오브젝트 AoE + 위험요소 화학(F-021/F-027): destructible 파괴(ENT-BARREL) + **RX-OIL-FIRE-001** 오일점화 체인(폭발+Fire/ToxicGas zone, depth-limited) + `ignite_at`(횃불 FireDamageHit). AbilityDispatch가 분리(DEBT-GOD2) | `damage_destructibles` `fire_hit` `ignite_at` `_ignite_oil` `_explosion` | combat_controller(셰이크), HazardZone, skill_vfx, groups 'destructible'/'ground_zone' |
+| [reaction_system.gd](../scripts/combat/abilities/reaction_system.gd) | 100 | 🟢 월드오브젝트 AoE + 위험요소 화학(F-021/F-027): destructible 파괴(ENT-BARREL) + **RX-OIL-FIRE-001** 오일점화 체인(폭발+Fire/ToxicGas zone, depth-limited) + `ignite_at`(횃불 FireDamageHit) | `damage_destructibles` `fire_hit` `ignite_at` `_ignite_oil` `_explosion` | combat_controller(셰이크), HazardZone, skill_vfx, groups 'destructible'/'ground_zone' |
 | [enemy_unit.gd](../scripts/combat/enemy_unit.gd) | 527 | 단일 적: 데이터 스탯·F-022 threat·slow/knockback·**perception(facing/scan/cone VFX/alert)·navmesh 캐시·investigate·피격발신원 수색**·박스메쉬·HP바·제네릭 오브젝트 상호작용(`enemy_usable`) | `setup` `add_threat` `pick_target` `scan` `face_toward` `nav_*` `build_vision_cone` `perceive_attacker` | health_bar, NavigationServer3D, group 'enemy' |
 | [health_bar.gd](../scripts/combat/health_bar.gd) | 129 | 아군/적 공용 빌보드 HP바(프레임/배경/필/타겟·임박 마커) | `set_ratio` `set_target` `set_imminent` | 카메라(프레임당 조회) |
 | [skill_vfx.gd](../scripts/combat/abilities/skill_vfx.gd) | 224 | 무상태 절차 PH VFX 라이브러리(역할별 자동소멸) | `anchor_guard` `press_line` `mark_ruin` `mend_circle` `sub_*` `enemy_vfx` | Godot 메쉬/트윈 only |
@@ -130,7 +130,7 @@ scripts/
 | [aim_marker.gd](../scripts/ui/aim_marker.gd) | 51 | 🟢 지면조준 마커(가시일 때 마우스 자동추종). 스킬북조준·횃불투척 공유 | `show_at` `hide_marker` `ground_pos` | 카메라/뷰포트 |
 | [controlled_indicator.gd](../scripts/ui/controlled_indicator.gd) | 60 | 🟢 UI-001 조작캐 표시(발판디스크+bob 화살표). setup(party) 후 자기 추종 | `setup` `_process` | PartyController(ref) |
 | [loadout_stub.gd](../scripts/ui/inventory/loadout_stub.gd) | 37 | 메뉴 로드아웃 스텁(4 Identity 표시·확정) | `populate_from_data` `loadout_confirmed` | Slice01Data |
-| [inventory_ui.gd](../scripts/ui/inventory/inventory_ui.gd) | **663** | 🔸 인벤 코디네이터(§6 DEBT-INV 대부분 해소): 백팩(영속)+루트/컨테이너 그리드 + **공유 드래그 라우터**(`_drop`/`_update_drag`/`_revert_drag`/회전/합치기) + 윈도우 + EquipPanel/ConsumableController에 위임. 빌더는 ItemFactory | `setup_party` `open_loot` `start_drag_from_slot` `backpack_grid` `_drop` `_do_split` | InventoryGrid, ItemFactory, EquipPanel, ConsumableController, Slice01Data |
+| [inventory_ui.gd](../scripts/ui/inventory/inventory_ui.gd) | **663** | 🔸 인벤 코디네이터: 백팩(영속)+루트/컨테이너 그리드 + **공유 드래그 라우터**(`_drop`/`_update_drag`/`_revert_drag`/회전/합치기) + 윈도우 + EquipPanel/ConsumableController에 위임. 빌더는 ItemFactory | `setup_party` `open_loot` `start_drag_from_slot` `backpack_grid` `_drop` `_do_split` | InventoryGrid, ItemFactory, EquipPanel, ConsumableController, Slice01Data |
 | [equip_panel.gd](../scripts/ui/inventory/equip_panel.gd) | 501 | 🟢 캐릭터 장비 슬롯(F-008)+서브 Q/E/R(F-009) UI·규칙·슬롯드래그아웃·드롭프리뷰. InventoryUI 자식; 중앙 드래그는 `_inv` 콜백 | `build` `refresh` `try_equip_gear` `try_equip_sub` `update_previews` `revert_*` | inventory_ui(backref), ItemFactory, Slice01Data |
 | [consumable_controller.gd](../scripts/ui/inventory/consumable_controller.gd) | 204 | 🟢 소모품 스택·Z/X/C 핫키·게임플레이 사용(F-010). 바 위젯 구동, 백팩은 `_inv.backpack_grid()` | `add_to_backpack` `use` `assign_hotkey` `count` `consume` | inventory_ui(backref), ItemFactory, Slice01Data |
 | [item_factory.gd](../scripts/ui/inventory/item_factory.gd) | 56 | 🟢 순수 아이템 dict 빌더(gear/skillbook/consumable). 무상태 static | `gear_item` `skillbook_item` `consumable_item` `consumable_color` | UnitVisuals |
@@ -170,58 +170,43 @@ scripts/
   - **스킬** → `combat/abilities/effects/<name>.gd` (`kind()`+`cast(m,p,target_pos,ctx)`) + `ability_dispatch._SKILL_SCRIPTS`에 preload 1줄.
   - **소모품 효과** → `ui/inventory/consumable_effects/<name>.gd` (`kind()`+`apply(master,ctx)`) + `consumable_controller._EFFECT_SCRIPTS`에 1줄.
   - **상호작용 오브젝트** → `world/objects/<name>.gd`, 덕타이핑 protocol(`interact_prompt/interact_anchor/interact`, 적측 `enemy_usable/enemy_use/enemy_combat_tick`) 구현. 중앙 등록 0.
-- 단일 책임: 1 파일 = 1 책임. **현 편차:** `party_controller.gd`(§6 DEBT-GOD — `CombatPositioning`+`MiaController` 분리로 **1280**, 잔여 SteeringV1). 🔸 `combat_controller.gd`은 `EnemyAI`+`AbilityDispatch`+`ReactionSystem` 분리로 **494줄**(§6 DEBT-GOD2, 잔여: EncounterSpawner/Squad). 🟢 `dungeon_run.gd`은 1115줄 재증식 후 **SettlementPanel + 모달 패밀리 + Loot/RunEnd 분리로 1115→487**(§6 DEBT-GOD3; 씬부트+입력라우터+월드스폰+HUD로 수렴). 🔸 `inventory_ui.gd`는 ItemFactory+EquipPanel+ConsumableController 분리로 **1273→663**(§6 DEBT-INV).
+- 단일 책임: 1 파일 = 1 책임. **현 편차(잔여 대형):** `party_controller.gd`(~1280 — **SteeringV1 ~530줄**이 최대 덩어리, §6 DEBT-GOD) · `combat_controller.gd`(~494 — EncounterSpawner 추출 여지, §6 DEBT-GOD2). 그 외 god파일(dungeon_run ~487 · inventory_ui ~663)은 컨트롤러/패널 위임으로 정상 범위.
 - 도메인 폴더: `core/run/party/combat/ui` (dev_templates의 `features/F###_*` per-feature 컨벤션과는 다름 — 의도적 단순화).
 
 ---
 
-## 6. 기술 부채 레지스터 (효율화 체크 결과)
+## 6. 기술 부채 레지스터 (열린 항목만)
 
-> `risk_to_fix` = **게이트/라이브 흐름 회귀 위험**. `now` = 안전(P4에서 정리), `defer` = 라이브 전투/스티어링 흐름을 건드림(P6 전체 리팩토링 + 검증 동반).
-> 출처: 2026-06-08 read-only 아키텍처 서베이(9-agent).
+> 해소된 항목은 제거한다(이력은 git·[SPEC_DRIFT](SPEC_DRIFT.md)). `risk` = 라이브 전투/스티어링 흐름 회귀 위험.
 
-### 갓오브젝트 / 죽은 코드
-| ID | 항목 | 위치 | sev | 처리 |
-|----|------|------|-----|------|
-| DEBT-GOD | 🔸 **부분(P6.1·6.2 + 2026-06-10)** — v0 엔진·데드로직·팔레트 제거 + **CombatPositioning 분리**(전투교전·힐러, `combat_positioning.gd` 111) + **데드 v0 config 17종 정리**(DEBT-V0)로 1623→1014줄. 이후 1b 기능(MIA/fatal/슬롯오프셋) 재증식 1396 → **MiaController(`mia_controller.gd` 151) 분리로 1280**(2026-06-13). 잔여 추출 단위(우선순위): **①`SteeringV1`(~21 `_sv1_*`, ~530줄 — 최대 덩어리, 고위험·config 소유권 재설계 동반)** / `FormationConfig`(설정로더) / `FormationForward`(상태머신) | party_controller.gd | high | **부분 DONE** |
-| DEBT-GOD2 | 🔸 **대부분 해소(2026-06-10)** — **EnemyAI**(`enemy_ai.gd` 301) + **AbilityDispatch**(`ability_dispatch.gd` 197) 분리로 854→408줄. 이후 skillbook 핸들러+RX-OIL-FIRE 재증식(ability_dispatch 431) → **ReactionSystem(`reaction_system.gd` 100, destructible+오일/파이어 체인) 분리로 ability_dispatch 348**(2026-06-13). 셋 다 자식 노드, 공유 시스템(engage/grace/threat/공간쿼리/셰이크)은 컨트롤러 단일소유 + 콜백. 잔여 추출 단위: `EncounterSpawner/SquadManager`(스폰·증원·분대 — `_squads` 상태 소유, combat_controller 494) | combat_controller.gd, enemy_ai.gd, ability_dispatch.gd, reaction_system.gd | high | **부분 DONE** |
-| DEBT-GOD3 | 🟢 **대부분 해소(2026-06-13, 3라운드)** — CameraRig 분리 후 정산·횃불·부활·루트 누적 1115줄 재증식. ① `SettlementPanel`(163) ② 모달 패밀리 `AimMarker`·`ControlledIndicator`·`ReviveController`·`TorchCarryController`·`AimController` ③ `LootService`(77)·`RunEndController`(173, 탈출채널+정산조합+전멸). dungeon_run은 **씬부트+입력라우터+월드스폰+HUD콜백**으로 수렴 **1115→455줄(-660)**. 잔여(저위험): 라우터 ModalStack 정식화·_ready 월드스폰 빌더 분리 | dungeon_run.gd + 컨트롤러 8종 | high | **대부분 DONE** |
-| DEBT-INV | 🔸 **대부분 해소(2026-06-13, 3라운드)** — `inventory_ui.gd` 1273줄 갓-UI를 **ItemFactory(56, 순수 빌더) + EquipPanel(501, 장착/서브 슬롯, backref) + ConsumableController(204, 핫키/사용, backref) 분리로 1273→663(−48%)**. 코디네이터는 **공유 드래그 라우터 + 백팩/루트 그리드 + 윈도우**로 수렴(정상 크기). 분리한 패널은 `_inv` 콜백(start_drag_from_slot/is_dragging/backpack_grid/_msg)으로 중앙 드래그 상태 사용; 외부 소모품 API는 델리게이트 래퍼로 보존. **잔여(선택·defer):** 드래그 라우터를 분기→패널 자가등록 **레지스트리 재설계**(한계효용 작음). ⚠️ 드래그/장착/핫키는 헤드리스 검증 불가 — 플레이테스트로 확인 | inventory_ui.gd, equip_panel.gd, consumable_controller.gd, item_factory.gd | med | **대부분 DONE** |
-| DEBT-V0 | ✅ **완전 해소(2026-06-10)** — 죽은 v0 추종엔진 삭제 + **잔여 데드 config 17종 제거**(tank_follow 보정/리버설 6 + v0 separation 7 + preferred_anchor/lateral/slot_arrive/path_clearance 4, 선언+로더). sv1은 `_sv1_*` config만 사용 | scripts/party/party_controller.gd | med | **DONE** |
-| DEBT-DEAD1 | ✅ **해소(2026-06-10)** — no-op `_sync_tank_follow_collision`(+호출 2곳) 제거. `set_party_member_collision(false)`가 어디서도 안 불려 스폰 기본값 재확인일 뿐이었음. (setter 자체는 1b 상태시스템용 API로 보존) | party_controller.gd | low | **DONE** |
-| DEBT-DEAD2 | 🔸 `party_in_combat` 이중관리 **해소(②)**. `run_controller.can_swap()` 항상 true 스텁은 Control Lock/MIA 미구현이라 **의도적 잔존** | run_controller.gd:66 | low | 부분 DONE |
-
-### 중복
-| ID | 항목 | 위치 | sev | 처리 |
-|----|------|------|-----|------|
-| DEBT-DUP-COLOR | ✅ **해소(P6.2b)** — `scripts/core/unit_visuals.gd` 단일 팔레트(role_color/role_scale/enemy_visual)로 통합, party+combat 호출 | scripts/core/unit_visuals.gd | med | **DONE** |
-| DEBT-DUP-HP | ✅ **해소(P4)** — 공유 `ui_colors.gd:hp_color(r)`로 단일화, 3파일 호출. (구: 노랑/빨강 값 갈라진 시각버그) | scripts/core/ui_colors.gd | med | **DONE** |
-| DEBT-DUP-SPATIAL | 🔸 **해소(④)** — `scripts/core/spatial.gd` `h_dist2`로 combat 4개 쿼리(radius/lowest-hp/allies/nearest) 통합. 잔여: party_controller `_combat_engage_target`(3D 메트릭, 의도적 보존)·enemy_unit pick_target | scripts/core/spatial.gd | low | 부분 DONE |
-| DEBT-DUP-MAT | StandardMaterial3D/메쉬 PH 빌더 중복(언셰이드+알파 디스크는 dungeon_run 안에서도 2회) | dungeon_run.gd:149-200, map_demo_layout.gd:235-298, party_member.gd:168, enemy_unit.gd:233 | low | **now (P4)** → 머티리얼 팩토리 |
-| DEBT-DUP-HPBAR | 2D HP바 위젯이 2곳에서 손수 재구현 | party_sheet.gd:83, controlled_sheet.gd:51 | low | now (P4, 선택) |
-| DEBT-DUP-CD | 쿨다운 비율식 `cd/params.cooldown_s` 인라인 복붙(div-by-zero 가드 포함) | party_sheet.gd:132, controlled_sheet.gd:97 | low | now (P4) → 멤버 `*_cd_ratio()` 접근자 |
+### 갓오브젝트
+| ID | 항목 | 위치 | risk |
+|----|------|------|------|
+| DEBT-GOD | `party_controller` 여전히 갓오브젝트(~1280). 최대 잔여 덩어리 **SteeringV1**(~21 `_sv1_*`, ~530줄) 추출 — 고위험(config 소유권 재설계 동반). 보조 후보: FormationConfig(설정로더)·FormationForward(상태머신) | party_controller.gd | high |
+| DEBT-GOD2 | `combat_controller`(~494)에서 **EncounterSpawner/SquadManager**(분대 스폰·증원, `_squads` 상태) 추출 여지 | combat_controller.gd | med |
+| DEBT-DEAD2 | `run_controller.can_swap()` 항상-true 스텁 — Control Lock/지휘권 지정 미구현이라 의도적 잔존 | run_controller.gd | low |
 
 ### 비효율 (프레임당 핫패스)
-| ID | 항목 | 위치 | sev | 처리 |
-|----|------|------|-----|------|
-| DEBT-EFF-GRP | 🔸 **부분(⑤)** — combat의 party_member 중복 재스캔 제거(틱당 1회 fetch→스레딩). 잔여: party_controller의 `'enemy'` 그룹 O(추종자) 재스캔 + 추종자별 레이캐스트 (P6.3 분해와 함께) | party_controller.gd | med | 부분 DONE |
-| DEBT-EFF-RAY | 스티어링 v1이 추종자당 프레임당 레이캐스트 6~15회(벽/경로). 스로틀·캐시 없음 | party_controller.gd:914-1012 | med | **defer (P6)** |
-| DEBT-EFF-ALLOC | 프레임당 Dictionary/RNG 신규할당(`peer_slot_targets`, reposition RNG) | party_controller.gd:574,590,643,731 | low | defer (P6) |
-| DEBT-EFF-HPBAR | HP바마다 프레임당 카메라 조회 + 트랜스폼 재구성 | health_bar.gd:51-60 | low | now/선택 (빌보드 플래그) |
+| ID | 항목 | 위치 | risk |
+|----|------|------|------|
+| DEBT-EFF-RAY | 스티어링 v1: 추종자당 프레임당 레이캐스트 6~15회(벽/경로), 스로틀·캐시 없음 | party_controller `_sv1_*` | med |
+| DEBT-EFF-GRP | party_controller가 `'enemy'` 그룹을 추종자별 재스캔(SteeringV1 분해와 함께 정리) | party_controller.gd | med |
+| DEBT-EFF-ALLOC | 프레임당 Dictionary/RNG 신규 할당(slot targets·reposition) | party_controller.gd | low |
+| DEBT-EFF-HPBAR | HP바마다 프레임당 카메라 조회 + 트랜스폼 재구성 | health_bar.gd | low |
 
-### 결합 / 데이터모델
-| ID | 항목 | 위치 | sev | 처리 |
-|----|------|------|-----|------|
-| DEBT-CPL-COMBAT | ✅ **해소(②)** — CombatController가 단일 소유(`is_in_combat()` + combat_started/ended). PartyController는 `bind_combat()`로 **구독**해 `_in_combat` 캐시. run_controller 중복 제거, dungeon_run의 bool 포킹 제거. 1b 전투반응 시스템은 구독만 하면 됨 | combat_controller.gd, party_controller.gd | med | **DONE** |
-| DEBT-CPL-DUCK | CombatController가 party_member 필드 ~20개를 가드 없이 덕타이핑; 스킬 'kind' 4종 하드코딩 | combat_controller.gd:91-123 | med | defer (P6) — 타입드 계약 + 테이블 디스패치 |
-| DEBT-CPL-HUD | dungeon_run이 HUD 라벨 11개 노드경로를 하드코딩·직접 set; 한글 상태문자열 .tscn과 중복 | dungeon_run.gd:10-20,230-261 | med | defer (P6) — `RunInfoPanel` 노드로 분리 |
-| DEBT-CPL-GROUP | controlled/alive/room-trigger 상태가 문자열 그룹으로 멀티플렉싱(member에서 mutate, 여러 시스템이 read) | party_member.gd:96-111,397 | med | defer (P6) |
-| DEBT-OTHER-AWAIT | ✅ **해소(③)** — `await` 제거. 프레임 구동 윈드업 상태머신(`enemy.winding`/`windup_timer_s`, `_tick_enemy`에서 tick)로 전환. `_begin_enemy_attack`→`_resolve_enemy_attack`→`_apply_enemy_hit` 분리. 전투 결정론적 | combat_controller.gd, enemy_unit.gd | med | **DONE** |
-| DEBT-DM1 | `abilities.json` 로드 시 `require_id` 미수행 → "미등록 ID→abort" 규칙이 어빌리티만 무력화 | slice01_data.gd:211-213 | med | **now (P3)** — 코드 가드 버그 |
-| DEBT-DM2 | `ENEMY_VISUALS` 색/크기가 enemies.json과 분리(컨트롤러 리터럴) | combat_controller.gd:23-32 | low | now/선택 (PH 아트) |
-| DEBT-DM3 | 🔸 **부분 해소** — `lighting_profile`은 `rooms.json`(SSOT)로 통일(`_room_profile`), 맵 인터페이스(spawn/extraction/size)는 `_room_points` 런타임 테이블로 분리 → **Blender 실맵 교체 시 콜러 무수정**(getter가 ROOM_SPECS 직접참조 안 함). 잔여: 룸 **기하**(center/size)는 ROOM_SPECS 상수(placeholder, Blender가 대체 예정) | map_demo_layout.gd, rooms.json | med | **부분 DONE** |
+### 결합 / 데이터모델 / 중복
+| ID | 항목 | 위치 | risk |
+|----|------|------|------|
+| DEBT-DM1 | `abilities.json` 로드 시 `require_id` 미수행 → "미등록 ID→abort"가 어빌리티만 무력화(코드 가드 버그) | slice01_data.gd | med |
+| DEBT-DM3 | 룸 **기하**(center/size)가 아직 ROOM_SPECS 상수(placeholder, Blender 실맵 대체 예정). lighting/맵 인터페이스는 rooms.json SSOT화 완료 | map_demo_layout.gd, rooms.json | med |
+| DEBT-CPL-DUCK | CombatController가 party_member 필드 다수를 가드 없이 덕타이핑 | combat_controller.gd | med |
+| DEBT-CPL-HUD | dungeon_run이 HUD 라벨 노드경로를 하드코딩·직접 set → RunInfoPanel 분리 여지 | dungeon_run.gd | med |
+| DEBT-CPL-GROUP | controlled/alive/room-trigger 상태를 문자열 그룹으로 멀티플렉싱 | party_member.gd | med |
+| DEBT-DM2 | `ENEMY_VISUALS` 색/크기 리터럴이 enemies.json과 분리(PH 아트) | combat_controller.gd | low |
+| DEBT-DUP-MAT | StandardMaterial3D/메쉬 PH 빌더 중복 → 머티리얼 팩토리 여지 | dungeon_run·map·party_member·enemy_unit | low |
+| DEBT-DUP-CD | 쿨다운 비율식 인라인 복붙 → 멤버 `*_cd_ratio()` 접근자 | party_sheet·controlled_sheet | low |
 
-**가장 깨끗한 파일:** `skill_vfx.gd`(무상태·정적), `health_bar.gd`(단일책임·무결합), `party_cohesion.gd`. 신규 코드의 참고 모델.
+**가장 깨끗한 파일(참고 모델):** `skill_vfx.gd`(무상태·정적) · `health_bar.gd`(단일책임) · `party_cohesion.gd` · `item_factory.gd`. 신규 코드는 이 결을 따른다.
 
 ---
 
