@@ -9,6 +9,7 @@ const InventoryGrid := preload("res://scripts/ui/inventory_grid.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const ItemFactory := preload("res://scripts/ui/item_factory.gd")
 const EquipPanel := preload("res://scripts/ui/equip_panel.gd")
+const ConsumableController := preload("res://scripts/ui/consumable_controller.gd")
 
 signal consumable_use_requested(consumable_id: String)  # right-click a consumable → use it
 
@@ -43,9 +44,7 @@ var _party: Node = null
 var _combat: Node = null
 var _content_row: HBoxContainer = null
 var _equip: EquipPanel = null    # gear/sub equip slots (extracted, DEBT-INV); drives drag delegates
-# Consumable Z/X/C hotkeys (party-shared; F-010). Each = consumable_id or "".
-var _hotkeys: Array = ["", "", ""]
-var _consumable_bar: Node = null
+var _consumables: ConsumableController = null  # consumable stacking + Z/X/C hotkeys (extracted, DEBT-INV)
 
 
 func _ready() -> void:
@@ -53,6 +52,9 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
+	_consumables = ConsumableController.new()
+	add_child(_consumables)
+	_consumables.setup(self)
 	get_viewport().size_changed.connect(_relayout)
 	_window.resized.connect(_center_window)
 	_relayout()
@@ -110,8 +112,8 @@ func _open() -> void:
 	_win_drag = false
 	if _equip != null:  # reflect current equip/charge state + the now-controlled char's subs
 		_equip.refresh()
-	if _consumable_bar != null and _consumable_bar.has_method("set_interactive"):
-		_consumable_bar.set_interactive(true)  # bar slots become draggable while inventory open
+	if _consumables != null:
+		_consumables.set_interactive(true)  # bar slots become draggable while inventory open
 	_relayout()
 	call_deferred("_relayout")  # re-fit once the HBox re-sorts after toggling the loot column
 
@@ -122,8 +124,8 @@ func _close() -> void:
 		_loot.clear()
 		_loot_box.visible = false
 		_chest = null
-	if _consumable_bar != null and _consumable_bar.has_method("set_interactive"):
-		_consumable_bar.set_interactive(false)
+	if _consumables != null:
+		_consumables.set_interactive(false)
 	visible = false
 	_win_drag = false
 
@@ -141,6 +143,8 @@ func setup_party(party: Node, combat: Node) -> void:
 	_equip.setup(self, party, combat)
 	_equip.build(_content_row)
 	_equip.refresh()
+	if _consumables != null:
+		_consumables.bind_party(party, combat)
 
 
 # --- equip panel callbacks (the EquipPanel drives the shared drag state through these) ---
@@ -159,6 +163,33 @@ func backpack_grid() -> InventoryGrid:
 func _msg(text: String) -> void:
 	if _equip != null:
 		_equip.msg(text)
+
+
+# --- consumables: thin wrappers → ConsumableController (external API preserved; F-010) ---
+
+func setup_consumable_bar(bar: Node) -> void:
+	if _consumables != null:
+		_consumables.setup_bar(bar)
+
+
+func add_consumable_to_backpack(consumable_id: String, amount: int) -> int:
+	return _consumables.add_to_backpack(consumable_id, amount) if _consumables != null else 0
+
+
+func consumable_count(consumable_id: String) -> int:
+	return _consumables.count(consumable_id) if _consumables != null else 0
+
+
+func consume_consumable(consumable_id: String) -> bool:
+	return _consumables.consume(consumable_id) if _consumables != null else false
+
+
+func use_consumable(slot: int) -> String:
+	return _consumables.use(slot) if _consumables != null else ""
+
+
+func get_hotkey(slot: int) -> String:
+	return _consumables.get_hotkey(slot) if _consumables != null else ""
 
 
 ## Add a looted Identity Gear instance to the backpack as an At-Risk run-inventory
@@ -231,182 +262,6 @@ func make_consumable_stash_item(consumable_id: String, count: int) -> Dictionary
 	return ItemFactory.consumable_item(m, count) if not m.is_empty() else {}
 
 
-# --- consumables (stacking + Z/X/C hotkeys — F-010) -----------------------------
-
-
-
-## Add `amount` of a consumable, filling existing stacks (≤ max_stack) then new tiles.
-func add_consumable_to_backpack(consumable_id: String, amount: int) -> int:
-	var master := Slice01Data.get_consumable_master(consumable_id)
-	if master.is_empty() or amount <= 0:
-		return 0
-	var max_stack := int(master.get("max_stack", 1))
-	var remaining := amount
-	for it in _backpack.items:
-		if remaining <= 0:
-			break
-		if String(it.get("kind", "")) == "consumable" and String(it.get("consumable_id", "")) == consumable_id:
-			var room := max_stack - int(it.get("count", 0))
-			if room > 0:
-				var add := mini(room, remaining)
-				it.count = int(it.count) + add
-				remaining -= add
-				_backpack.refresh_item_label(it)
-	while remaining > 0:
-		var n := mini(max_stack, remaining)
-		if not _backpack.add_item_dict(ItemFactory.consumable_item(master, n)):
-			break
-		remaining -= n
-	_refresh_consumable_ui()
-	return amount - remaining
-
-
-func consumable_count(consumable_id: String) -> int:
-	var n := 0
-	for it in _backpack.items:
-		if String(it.get("kind", "")) == "consumable" and String(it.get("consumable_id", "")) == consumable_id:
-			n += int(it.get("count", 0))
-	return n
-
-
-func _find_consumable_stack(consumable_id: String):
-	for it in _backpack.items:
-		if String(it.get("kind", "")) == "consumable" and String(it.get("consumable_id", "")) == consumable_id and int(it.get("count", 0)) > 0:
-			return it
-	return null
-
-
-## The consumable item under the cursor (for hover + Z/X/C hotkey assign).
-func _consumable_under(mouse: Vector2):
-	for it in _backpack.items:
-		if String(it.get("kind", "")) == "consumable" and it.has("node") and is_instance_valid(it.node):
-			if (it.node as Control).get_global_rect().has_point(mouse):
-				return it
-	return null
-
-
-func setup_consumable_bar(bar: Node) -> void:
-	_consumable_bar = bar
-	if bar.has_signal("slot_grabbed") and not bar.slot_grabbed.is_connected(_begin_hotkey_drag):
-		bar.slot_grabbed.connect(_begin_hotkey_drag)
-	_refresh_consumable_ui()
-
-
-## Drag a hotkey assignment OUT of a bar slot — to another slot (move) or away (unassign).
-func _begin_hotkey_drag(slot: int) -> void:
-	if not _drag.is_empty():
-		return
-	var cid := get_hotkey(slot)
-	if cid.is_empty():
-		return
-	var master := Slice01Data.get_consumable_master(cid)
-	var item := {
-		"id": String(master.get("display_name", cid)), "w": 1, "h": 1,
-		"color": ItemFactory.consumable_color(master), "kind": "hotkey", "consumable_id": cid, "src_slot": slot,
-	}
-	_drag = item
-	_from = null
-	_drag_src = {"kind": "hotkey", "slot": slot}
-	_rotated = false
-	_orig = {"w": 1, "h": 1, "col": 0, "row": 0}
-	_grab_off = Vector2(CELL * 0.5, CELL * 0.5)
-	_drag_vis = _make_drag_vis(item)
-	add_child(_drag_vis)
-	_update_drag()
-
-
-func get_hotkey(slot: int) -> String:
-	return String(_hotkeys[slot]) if slot >= 0 and slot < _hotkeys.size() else ""
-
-
-func assign_hotkey(slot: int, consumable_id: String) -> void:
-	if slot < 0 or slot >= _hotkeys.size():
-		return
-	for i in _hotkeys.size():  # uniqueness: the same consumable lives in only one slot
-		if i != slot and String(_hotkeys[i]) == consumable_id:
-			_hotkeys[i] = ""
-	_hotkeys[slot] = consumable_id
-	_refresh_consumable_ui()
-	var nm := String(Slice01Data.get_consumable_master(consumable_id).get("display_name", consumable_id))
-	_msg("%s → %s 핫키 등록" % [["Z", "X", "C"][slot], nm])
-
-
-func _unassign_hotkey(slot: int) -> void:
-	if slot < 0 or slot >= _hotkeys.size():
-		return
-	_hotkeys[slot] = ""
-	_refresh_consumable_ui()
-	_msg("%s 핫키 해제" % ["Z", "X", "C"][slot])
-
-
-func _refresh_consumable_ui() -> void:
-	if _consumable_bar == null or not is_instance_valid(_consumable_bar) or not _consumable_bar.has_method("refresh"):
-		return
-	var data: Array = []
-	for s in 3:
-		var cid := String(_hotkeys[s])
-		if cid.is_empty():
-			data.append({})
-		else:
-			var m := Slice01Data.get_consumable_master(cid)
-			data.append({"name": String(m.get("display_name", cid)), "count": consumable_count(cid), "color": ItemFactory.consumable_color(m)})
-	_consumable_bar.refresh(data)
-
-
-func _consumable_bar_slot_under(mouse: Vector2) -> int:
-	if _consumable_bar != null and is_instance_valid(_consumable_bar) and _consumable_bar.has_method("slot_under"):
-		return _consumable_bar.slot_under(mouse)
-	return -1
-
-
-## Gameplay use (Z/X/C while playing). Returns a status string for HUD feedback ("" = no-op).
-func use_consumable(slot: int) -> String:
-	var cid := get_hotkey(slot)
-	if cid.is_empty():
-		return ""
-	var master := Slice01Data.get_consumable_master(cid)
-	if master.is_empty():
-		return ""
-	if not bool(master.get("usable_in_combat", true)) and _combat != null and _combat.is_engaged():
-		return "전투 중 사용 불가: %s" % master.get("display_name", cid)
-	var stack = _find_consumable_stack(cid)
-	if stack == null:
-		return "보유 없음: %s" % master.get("display_name", cid)
-	if not _apply_consumable(master):
-		return "대상 없음: %s" % master.get("display_name", cid)
-	stack.count = int(stack.count) - 1
-	if int(stack.count) <= 0:
-		_backpack.lift(stack)
-	else:
-		_backpack.refresh_item_label(stack)
-	_refresh_consumable_ui()
-	return "%s 사용" % master.get("display_name", cid)
-
-
-func _apply_consumable(master: Dictionary) -> bool:
-	match String(master.get("effect", "")):
-		"revive_ally":
-			if _party == null:
-				return false
-			for m in _party.get_members():
-				if not (m as Node).is_alive():
-					return (m as Node).revive(0.5)
-			return false
-	return false
-
-
-## Consume 1 of a consumable (external callers, e.g. dungeon_run after a revive channel).
-func consume_consumable(consumable_id: String) -> bool:
-	var stack = _find_consumable_stack(consumable_id)
-	if stack == null:
-		return false
-	stack.count = int(stack.count) - 1
-	if int(stack.count) <= 0:
-		_backpack.lift(stack)
-	else:
-		_backpack.refresh_item_label(stack)
-	_refresh_consumable_ui()
-	return true
 
 
 
@@ -715,20 +570,20 @@ func _drop() -> void:
 				_revert_drag()
 			placed = true
 	elif String(_drag.get("kind", "")) == "consumable":
-		var bi := _consumable_bar_slot_under(mouse)
+		var bi := _consumables.bar_slot_under(mouse)
 		if bi >= 0:
-			assign_hotkey(bi, String(_drag.get("consumable_id", "")))
+			_consumables.assign_hotkey(bi, String(_drag.get("consumable_id", "")))
 			_revert_drag()  # assigning doesn't consume — return the stack to the backpack
 			placed = true
 	elif String(_drag.get("kind", "")) == "hotkey":
-		var hbi := _consumable_bar_slot_under(mouse)
+		var hbi := _consumables.bar_slot_under(mouse)
 		var src := int(_drag.get("src_slot", -1))
 		if hbi == src:
 			pass  # dropped back on its own slot → keep
 		elif hbi >= 0:
-			assign_hotkey(hbi, String(_drag.get("consumable_id", "")))  # move (uniqueness clears src)
+			_consumables.assign_hotkey(hbi, String(_drag.get("consumable_id", "")))  # move (uniqueness clears src)
 		else:
-			_unassign_hotkey(src)  # dropped away → unassign
+			_consumables.unassign_hotkey(src)  # dropped away → unassign
 		placed = true
 	if not placed:
 		var target := _grid_under(mouse)
@@ -771,13 +626,13 @@ func _input(event: InputEvent) -> void:
 		elif event.is_action_pressed("use_consumable_x"): hk = 1
 		elif event.is_action_pressed("use_consumable_c"): hk = 2
 		if hk >= 0:
-			var it = _consumable_under(get_viewport().get_mouse_position())
+			var it = _consumables.consumable_under(get_viewport().get_mouse_position())
 			if it != null:
 				var cid := String(it.consumable_id)
-				if String(_hotkeys[hk]) == cid:
-					_unassign_hotkey(hk)  # hover the item on its own slot's key → toggle off
+				if _consumables.get_hotkey(hk) == cid:
+					_consumables.unassign_hotkey(hk)  # hover the item on its own slot's key → toggle off
 				else:
-					assign_hotkey(hk, cid)
+					_consumables.assign_hotkey(hk, cid)
 			get_viewport().set_input_as_handled()
 			return
 	if not _drag.is_empty():
