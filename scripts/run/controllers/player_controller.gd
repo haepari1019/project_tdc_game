@@ -8,8 +8,8 @@ var use_accel_model: bool = false
 var accel_mps2: float = 90.0
 var decel_mps2: float = 120.0
 
-## Auto-move order (right-click an interactable → walk to it, then run the callback).
-## Straight-line seek with wall-slide + a stuck timeout; any WASD input cancels it.
+## Auto-move order (right-click ground → walk there; an interactable → walk to it + interact).
+## Follows the navmesh path (around walls/carved zones) + a stuck timeout; any WASD cancels it.
 var _move_active: bool = false
 var _move_target: Vector3 = Vector3.ZERO
 var _move_cb: Callable = Callable()
@@ -84,12 +84,17 @@ func _target_velocity(input: Vector2) -> Vector3:
 # --- auto-move order (issued by InteractionController on right-click) -----------
 
 ## Walk to `target` (stopping `arrive_dist` short), then invoke `cb`. WASD cancels it.
+## Follows the navmesh path (routes around walls + carved fatal zones) via the member's nav
+## helpers; Identity skills keep auto-firing on cooldown the whole way (combat loop, not gated).
 func order_move_to(target: Vector3, cb: Callable, arrive_dist: float) -> void:
 	_move_target = target
 	_move_cb = cb
 	_arrive_dist = arrive_dist
 	_stuck_time = 0.0
 	_move_active = true
+	var body := get_parent() as CharacterBody3D
+	if body != null and body.has_method("nav_set_target"):
+		body.nav_set_target(target)  # seed the navmesh path
 
 
 func cancel_move() -> void:
@@ -97,16 +102,23 @@ func cancel_move() -> void:
 
 
 func _drive_to_target(body: CharacterBody3D, delta: float) -> void:
-	var to := _move_target - body.global_position
+	# Arrive once within tolerance of the FINAL target (XZ).
+	var to_final := _move_target - body.global_position
+	to_final.y = 0.0
+	if to_final.length() <= _arrive_dist:
+		_arrive(body)
+		return
+	# Steer toward the next navmesh waypoint (routes around walls + carved zones); falls back to
+	# a straight line if the body has no nav helper.
+	var wp := _move_target
+	if body.has_method("nav_set_target"):
+		body.nav_set_target(_move_target)        # recompute throttled inside (target-distance gated)
+		wp = body.nav_get_next_position()
+	var to := wp - body.global_position
 	to.y = 0.0
 	var dist := to.length()
-	if dist <= _arrive_dist:
-		body.velocity = Vector3.ZERO
-		body.move_and_slide()
-		_move_active = false
-		_stuck_time = 0.0
-		if _move_cb.is_valid():
-			_move_cb.call()
+	if dist < 0.05:                              # path exhausted / unreachable → stop at best point
+		_arrive(body)
 		return
 	var v_target := (to / dist) * move_speed
 	if body.has_method("move_speed_mult"):
@@ -116,12 +128,21 @@ func _drive_to_target(body: CharacterBody3D, delta: float) -> void:
 	else:
 		body.velocity = v_target
 	body.move_and_slide()
-	# Blocked by a wall (can't reach in a straight line) → drop the order after a beat.
+	# Truly blocked (shouldn't happen with navmesh routing) → drop the order after a beat.
 	var real := body.get_real_velocity()
 	real.y = 0.0
 	if real.length() < 0.6:
 		_stuck_time += delta
-		if _stuck_time > 0.5:
+		if _stuck_time > 0.8:
 			_move_active = false
 	else:
 		_stuck_time = 0.0
+
+
+func _arrive(body: CharacterBody3D) -> void:
+	body.velocity = Vector3.ZERO
+	body.move_and_slide()
+	_move_active = false
+	_stuck_time = 0.0
+	if _move_cb.is_valid():
+		_move_cb.call()

@@ -13,6 +13,7 @@ const INTERACT_MASK := 1 << 4   # collision layer 5 = interactable (chest/door a
 const LABEL_GAP_PX := 12.0
 const ARRIVE_DIST := 2.0        # how close the auto-move stops to the object
 const INTERACT_RANGE := 4.0     # F-key reach to the nearest interactable (mouse-independent)
+const MOVE_ARRIVE_DIST := 0.4   # click-to-move stop tolerance at the clicked ground point
 
 var _party: Node3D = null
 var _label: Label = null
@@ -40,20 +41,45 @@ func _process(_delta: float) -> void:
 		_label.visible = false
 
 
+## RMB click: an interactable under the cursor → walk to it + interact on arrival; otherwise
+## the empty ground → click-to-move to that point. Identity skills keep auto-firing on cooldown
+## while the move order drives the controlled member (movement doesn't gate the combat loop).
 func try_interact() -> void:
-	var it := _hovered()
-	if it == null:
+	if _inv != null and _inv.is_open():
 		return
 	var ctrl: Node3D = _party.get_controlled()
 	if ctrl == null:
-		it.interact()
 		return
-	# Order the controlled member to walk to the object and interact on arrival.
 	var pc := ctrl.get_node_or_null("Control")
+	var it := _hovered()
+	if it != null:
+		# Walk to the interactable and interact on arrival (or interact now if no controller).
+		if pc != null and pc.has_method("order_move_to"):
+			pc.order_move_to((it as Node3D).global_position, Callable(it, "interact"), ARRIVE_DIST)
+		else:
+			it.interact()
+		return
+	# Empty ground → move the controlled member to the clicked point (click-to-move, no callback).
 	if pc != null and pc.has_method("order_move_to"):
-		pc.order_move_to((it as Node3D).global_position, Callable(it, "interact"), ARRIVE_DIST)
-	else:
-		it.interact()
+		var gp = _ground_under_mouse()
+		if gp != null:
+			pc.order_move_to(gp, Callable(), MOVE_ARRIVE_DIST)
+
+
+## Ground point under the cursor via the floor plane (y≈0). null if the ray is ~parallel.
+func _ground_under_mouse():
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return null
+	var mouse := get_viewport().get_mouse_position()
+	var from := cam.project_ray_origin(mouse)
+	var dir := cam.project_ray_normal(mouse)
+	if absf(dir.y) < 0.0001:
+		return null
+	var t := -from.y / dir.y       # intersect the y=0 floor plane
+	if t <= 0.0:
+		return null
+	return from + dir * t
 
 
 ## F-key interaction: interact with the nearest interactable within range of the
