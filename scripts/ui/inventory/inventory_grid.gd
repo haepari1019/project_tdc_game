@@ -56,6 +56,20 @@ func setup(coord: Node, c: int, r: int, cs: int, g: int) -> void:
 		_occ.append(line)
 
 
+## Resize an (already-cleared) container grid to new dimensions — a container source (chest /
+## stash) sets its own size, so the stash can be far larger than the backpack. ref: F-010.
+func resize(c: int, r: int) -> void:
+	cols = c
+	rows = r
+	custom_minimum_size = _grid_px()
+	_occ.clear()
+	for y in rows:
+		var line: Array = []
+		for x in cols:
+			line.append(null)
+		_occ.append(line)
+
+
 func _grid_px() -> Vector2:
 	return Vector2(cols * cell + (cols - 1) * gap, rows * cell + (rows - 1) * gap)
 

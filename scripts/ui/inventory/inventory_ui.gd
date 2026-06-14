@@ -75,6 +75,9 @@ func open_loot(chest: Node) -> void:
 	_chest = chest
 	_loot_label.text = chest.title if "title" in chest else "CONTAINER"
 	_loot.clear()
+	var c: int = int(chest.cols) if "cols" in chest else 5   # container sets its own size
+	var r: int = int(chest.rows) if "rows" in chest else 5   # (stash >> backpack; chest defaults 5x5)
+	_loot.resize(c, r)
 	for it in chest.items:
 		_loot.place((it as Dictionary).duplicate(), int(it.col), int(it.row))
 	_loot_box.visible = true

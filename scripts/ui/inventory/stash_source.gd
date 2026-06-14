@@ -5,3 +5,7 @@ extends Node
 
 var title := "STASH (보유)"
 var items: Array = []
+# Tarkov-style: the stash is a large persistent store, far bigger than the in-raid backpack
+# (5x8=40). open_loot() reads these to size its container grid. 10x12 = 120 cells.
+var cols := 10
+var rows := 12
