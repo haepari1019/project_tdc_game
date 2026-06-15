@@ -7,6 +7,7 @@ const DamageIndicator := preload("res://scripts/ui/damage_indicator.gd")
 const InventoryUI := preload("res://scripts/ui/inventory/inventory_ui.gd")
 const Chest := preload("res://scripts/world/objects/chest.gd")
 const InteractionController := preload("res://scripts/run/controllers/interaction_controller.gd")
+const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
 const Door := preload("res://scripts/world/objects/door.gd")
 const ItemDrop := preload("res://scripts/world/objects/item_drop.gd")
 const Trap := preload("res://scripts/world/hazards/trap.gd")
@@ -66,6 +67,7 @@ var _damage_indicator: DamageIndicator
 var _inventory_ui: InventoryUI
 # World interaction (E) — chest/door proximity prompts.
 var _interaction: InteractionController
+var _wall_xray: WallXray
 var _interact_prompt: Label
 # Enemy inspect (LMB click) — top-center portrait/HP panel.
 var _enemy_info: EnemyInfo
@@ -205,6 +207,9 @@ func _ready() -> void:
 	_interaction = InteractionController.new()
 	add_child(_interaction)
 	_interaction.setup(_party, _interact_prompt, _inventory_ui)
+	_wall_xray = WallXray.new()  # fade walls between camera and the controlled char (see-through)
+	add_child(_wall_xray)
+	_wall_xray.setup(_party)
 	# Quest tracker (top-right, below the reserved minimap space).
 	var quest := QuestTracker.new()
 	$HUD.add_child(quest)
@@ -271,6 +276,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		var lb := event as InputEventMouseButton
 		if lb.button_index == MOUSE_BUTTON_LEFT and lb.pressed:
 			_select_enemy_under_mouse()
+			return
+	# Scroll wheel = zoom the camera (WoW-style dolly; keeps the look angle).
+	if event is InputEventMouseButton:
+		var wheel := event as InputEventMouseButton
+		if wheel.pressed and wheel.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_camera_rig.zoom(1)   # in
+			return
+		if wheel.pressed and wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_camera_rig.zoom(-1)  # out
+			return
+	# Camera pitch tune (dev): [ / ] tilt the angle; console prints pitch/distance to bake in.
+	if event is InputEventKey and event.pressed and not event.echo:
+		var kc := (event as InputEventKey).physical_keycode
+		if kc == KEY_BRACKETLEFT:
+			_camera_rig.adjust_pitch(-3.0)   # tilt toward horizontal
+			return
+		if kc == KEY_BRACKETRIGHT:
+			_camera_rig.adjust_pitch(3.0)    # tilt toward top-down
 			return
 	# RMB: drag = camera orbit; a click (negligible drag) = interact the nearest object.
 	# (E is reserved for a future sub-skill, so world interaction uses the right mouse.)

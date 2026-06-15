@@ -8,6 +8,21 @@ extends Node3D
 # RMB + horizontal drag yaws the pivot around the controlled char.
 const YAW_SENS := 0.006  # radians per pixel of horizontal drag
 
+# Camera placement (code-driven so angle + zoom are tweakable + scroll-zoomable, overriding the
+# scene transform). Lower PITCH = more horizontal → better enemy silhouette/motion readability
+# for reading squad composition; 90 = top-down. DISTANCE = zoom (scroll wheel). ref: F-012.
+# Isometric framing (genre standard: Diablo/Lost Ark/Hades) — moderate angle + moderate distance.
+# Bird's-eye-far = detached "commander"; zoomed-close = cramped; shallow = camera behind walls.
+# Tunable live in-game: scroll = distance, [ / ] = pitch (console prints the values to bake).
+const PITCH_DEG := 40.0          # initial down-tilt (low cinematic; see-through handles wall occlusion)
+const PITCH_MIN := 30.0
+const PITCH_MAX := 65.0
+const DISTANCE_DEFAULT := 19.0   # a bit further out
+const DISTANCE_MIN := 12.0
+const DISTANCE_MAX := 24.0
+const ZOOM_STEP := 1.5           # metres per scroll notch
+const PITCH_STEP := 3.0          # degrees per [ / ] press
+
 # Swap glide — on 1~4 swap the pivot eases to the new char (accel/decel) instead of
 # teleporting; normal follow stays tight (no lag).
 const SWAP_MAX_SPEED := 60.0     # m/s glide cap
@@ -29,14 +44,39 @@ var _trauma: float = 0.0
 var _kick: Vector3 = Vector3.ZERO          # world XZ; per-frame 화면기준으로 변환 적용
 var _cam_base_pos: Vector3 = Vector3.ZERO  # rig offset to add the directional kick on top of
 var _cam_base_rot: Vector3 = Vector3.ZERO  # base look angle to jitter (rotational shake)
+var _distance: float = DISTANCE_DEFAULT    # current zoom (scroll wheel)
+var _pitch: float = PITCH_DEG               # current down-tilt ([ / ] keys)
 
 
 func _ready() -> void:
-	_cam_base_pos = _camera.position
-	_cam_base_rot = _camera.rotation
+	_apply_placement()  # code-driven angle/distance (overrides the scene Camera3D transform)
 	# Face the dungeon's forward progression (+Z: Entry→Advance→Extraction) up-screen
 	# at entry, so W moves into the dungeon. RMB-drag rotates relative to this.
 	rotation.y = PI
+
+
+## Place the camera behind+above at PITCH_DEG, looking at the pivot (the controlled char).
+## Re-applied on zoom; updates the shake base so trauma/kick layer on top of the placement.
+func _apply_placement() -> void:
+	var p := deg_to_rad(_pitch)
+	_camera.position = Vector3(0.0, _distance * sin(p), _distance * cos(p))
+	_camera.rotation = Vector3(-p, 0.0, 0.0)  # look down `_pitch` toward the pivot origin
+	_cam_base_pos = _camera.position
+	_cam_base_rot = _camera.rotation
+
+
+## Scroll-zoom (dir = +1 in / -1 out), clamped. Keeps the look angle (dolly).
+func zoom(dir: int) -> void:
+	_distance = clampf(_distance - dir * ZOOM_STEP, DISTANCE_MIN, DISTANCE_MAX)
+	_apply_placement()
+	print("[CAM] pitch=%.0f°  distance=%.1f" % [_pitch, _distance])
+
+
+## Live pitch tune ([ / ] keys). Console prints the values so the chosen feel can be baked in.
+func adjust_pitch(delta_deg: float) -> void:
+	_pitch = clampf(_pitch + delta_deg, PITCH_MIN, PITCH_MAX)
+	_apply_placement()
+	print("[CAM] pitch=%.0f°  distance=%.1f" % [_pitch, _distance])
 
 
 ## Follow this node. `glide` eases over (swap transition); else resume tight follow.
