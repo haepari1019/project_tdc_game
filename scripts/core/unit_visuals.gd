@@ -3,6 +3,12 @@ extends RefCounted
 ## ref: DEBT-DUP-COLOR (was split: party_controller CLASS_COLORS/CLASS_SCALES + combat_controller ENEMY_VISUALS).
 ## PH spec: WORK_ORDER §코드 플레이스홀더 — 아군=원기둥/한색(cool), 적=박스/난색(warm).
 
+## Global unit-vs-map scale. Units were too big vs the map ("miniature" feel + camera felt close);
+## shrinking them makes the world read bigger. Applied to party + enemy mesh scale here; the
+## SAME factor scales formation slot offsets + slot_min_distance in party_controller so the party
+## stays proportional (else steering re-spreads it). 1.0 = original. ref: F-012.
+const UNIT_SCALE := 0.65
+
 
 # --- Party roles (cool palette) ---
 const ROLE_COLORS: Dictionary = {
@@ -37,8 +43,10 @@ static func role_color(class_id: String) -> Color:
 
 
 static func role_scale(class_id: String) -> float:
-	return ROLE_SCALES.get(class_id, 1.0)
+	return ROLE_SCALES.get(class_id, 1.0) * UNIT_SCALE
 
 
 static func enemy_visual(enemy_id: String) -> Dictionary:
-	return ENEMY_VISUALS.get(enemy_id, ENEMY_DEFAULT)
+	var v: Dictionary = (ENEMY_VISUALS.get(enemy_id, ENEMY_DEFAULT) as Dictionary).duplicate()
+	v["scale"] = float(v.get("scale", 1.0)) * UNIT_SCALE
+	return v

@@ -529,8 +529,8 @@ func _load_formation_config() -> void:
 		_sv1_dir_smooth_rate = float(sv1.get("dir_smooth_rate", 14.0))
 		_sv1_wall_clip_enabled = bool(sv1.get("wall_clip_enabled", true))
 		_sv1_goal_ramp_after_delay_s = float(sv1.get("goal_ramp_after_delay_s", 0.08))
-		_sv1_slot_min_distance_pair = float(sv1.get("slot_min_distance_pair_m", 2.5))
-		_sv1_slot_min_distance_anchor = float(sv1.get("slot_min_distance_anchor_m", 2.0))
+		_sv1_slot_min_distance_pair = float(sv1.get("slot_min_distance_pair_m", 2.5)) * UnitVisuals.UNIT_SCALE
+		_sv1_slot_min_distance_anchor = float(sv1.get("slot_min_distance_anchor_m", 2.0)) * UnitVisuals.UNIT_SCALE
 		_sv1_sep_asymmetry_min = float(sv1.get("sep_asymmetry_min", 0.15))
 		_sv1_noise_dir_deg = float(sv1.get("noise_dir_deg", 6.0))
 		_sv1_noise_dir_freq = float(sv1.get("noise_dir_freq", 0.7))
@@ -551,15 +551,16 @@ func _load_formation_config() -> void:
 		_swap_reposition_delay_max = float(variation.get("swap_reposition_start_delay_max_s", 0.26))
 	var col = doc.get("collision", {})
 	if typeof(col) == TYPE_DICTIONARY:
-		_collision_radius = float(col.get("capsule_radius_m", 0.26))
-		_collision_height = float(col.get("capsule_height_m", 1.15))
+		_collision_radius = float(col.get("capsule_radius_m", 0.26)) * UnitVisuals.UNIT_SCALE
+		_collision_height = float(col.get("capsule_height_m", 1.15)) * UnitVisuals.UNIT_SCALE
 	for slot in doc.get("slots", []):
 		if typeof(slot) != TYPE_DICTIONARY:
 			continue
 		var cid := String(slot.get("class_id", ""))
 		var off: Array = slot.get("offset", [0, 0, 0])
 		if off.size() >= 3:
-			_slot_offsets[cid] = Vector3(float(off[0]), float(off[1]), float(off[2]))
+			# Same UNIT_SCALE as the mesh — keeps the party proportional when units shrink.
+			_slot_offsets[cid] = Vector3(float(off[0]), float(off[1]), float(off[2])) * UnitVisuals.UNIT_SCALE
 	_sv1_enforce_slot_constraints()
 
 
