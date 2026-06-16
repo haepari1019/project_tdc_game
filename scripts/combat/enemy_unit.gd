@@ -54,6 +54,12 @@ const SCAN_PERIOD_S := 4.0     # full left-right sweep period
 var facing: Vector3 = Vector3(0, 0, 1)         # horizontal look direction
 var _base_facing: Vector3 = Vector3(0, 0, 1)   # scan pivots around this
 var _scan_t: float = 0.0
+var _scan_mult: float = 1.0   # per-enemy scan speed → desync the idle sweep so cones aren't in lockstep
+# Dormant roaming (alive feel): wander near the spawn home. State driven by EnemyAI._tick_roam.
+var home_pos: Vector3 = Vector3.INF   # captured on first dormant tick
+var roaming: bool = false
+var roam_target: Vector3 = Vector3.ZERO
+var roam_timer_s: float = 0.0
 ## Perception memory: where this enemy last perceived the party. While investigating
 ## it walks here even after losing sight, then gives up. (Distinct from last_seen_pos,
 ## which is where the PARTY last saw this enemy — fog-of-war rendering.)
@@ -86,6 +92,11 @@ var _flash_tw: Tween
 
 
 func setup(row: Dictionary, color: Color, box_scale: float) -> void:
+	# Desync the idle scan across enemies (random phase + slightly varied speed) so vision cones
+	# don't all sweep in lockstep — looks alive, not synchronised.
+	_scan_t = randf() * SCAN_PERIOD_S
+	_scan_mult = randf_range(0.8, 1.2)
+	roam_timer_s = randf_range(0.5, 4.0)   # stagger the first roam so enemies don't all set off at once
 	enemy_id = String(row.get("enemy_id", ""))
 	role = String(row.get("role", ""))
 	display_name = String(row.get("display_name", ""))
@@ -258,7 +269,7 @@ func set_base_facing(dir: Vector3) -> void:
 ## Dormant idle: sweep facing left-right around the base so the cone moves and the
 ## player gets windows to slip past.
 func scan(delta: float) -> void:
-	_scan_t += delta
+	_scan_t += delta * _scan_mult
 	var ang := deg_to_rad(SCAN_HALF_DEG) * sin(_scan_t * TAU / SCAN_PERIOD_S)
 	facing = _base_facing.rotated(Vector3.UP, ang)
 	_orient_cone()

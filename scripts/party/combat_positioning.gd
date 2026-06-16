@@ -49,34 +49,74 @@ func enemy_in_party_basic_range() -> bool:
 ## Goal point for an engaging follower. Healers position to keep the most-wounded
 ## ally inside heal range (support); everyone else closes to attack range of the
 ## nearest enemy. `slot_target` is the safe fallback when there's no goal.
+const MELEE_RANGE_MAX := 3.5  # basic_range above this = ranged → deal from the backline (no approach)
+
 func engage_target(member: CharacterBody3D, slot_target: Vector3) -> Vector3:
 	# Healer (radius_heal): stay on the wounded, not on the enemy.
 	if String(member.identity_params.get("kind", "")) == "radius_heal":
 		return _healer_support_target(member, slot_target)
+	var br: float = float(member.get("basic_range_m"))
+	# Ranged dealers (DPS / ranged Nuker) attack from the backline — hold the formation slot;
+	# auto-attack picks up any enemy in range. They never approach ahead of the tank.
+	if br > MELEE_RANGE_MAX:
+		return slot_target
 	var mp := member.global_position
+	var nearest := _nearest_enemy(mp)
+	if nearest == null:
+		return mp
+	# Melee dealer (e.g. a melee Nuker): take a FLANK point off the tank→enemy axis — a side
+	# attack at melee reach, never the front, never overtaking the tank. ref: 2선 측면 딜.
+	var reach: float = clampf(br - 0.6, 0.8, br)
+	var epos := nearest.global_position
+	# Tank = front line: close STRAIGHT to melee range (own approach) and hold there. It LEADS
+	# the engage, so it must not flank — and it must reach a foe to land the gating first hit.
+	# (Without this the anchored tank ran the flank path, orbiting itself → "spinning in place".)
+	if String(member.get("class_id")) == "Tank":
+		var tdir := Vector2(mp.x - epos.x, mp.z - epos.z)
+		var td := tdir.length()
+		if td <= reach or td < 0.001:
+			return Vector3(mp.x, epos.y, mp.z)  # in range — hold & attack
+		tdir /= td
+		return Vector3(epos.x + tdir.x * reach, epos.y, epos.z + tdir.y * reach)
+	var me := Vector2(mp.x - epos.x, mp.z - epos.z)
+	var tank: Variant = _tank_position()
+	var flank: Vector2
+	if tank != null:
+		var t3: Vector3 = tank
+		var axis := Vector2(epos.x - t3.x, epos.z - t3.z)  # tank→enemy = front direction
+		axis = axis.normalized() if axis.length() > 0.01 else Vector2(0.0, 1.0)
+		var perp := Vector2(-axis.y, axis.x)
+		if me.dot(perp) < 0.0:
+			perp = -perp                       # the flank side the member is already on
+		flank = perp
+	else:
+		flank = me.normalized() if me.length() > 0.01 else Vector2(0.0, 1.0)  # no tank → own side
+	var t := epos + Vector3(flank.x, 0.0, flank.y) * reach
+	t.y = epos.y
+	return t
+
+
+func _nearest_enemy(from: Vector3) -> Node3D:
 	var nearest: Node3D = null
 	var best := INF
 	for e in get_tree().get_nodes_in_group("enemy"):
 		if not is_instance_valid(e):
 			continue
-		var d: float = mp.distance_squared_to(e.global_position)
+		var d: float = from.distance_squared_to(e.global_position)
 		if d < best:
 			best = d
 			nearest = e
-	if nearest == null:
-		return mp
-	# Stop well inside attack range (not at the edge) so separation jitter can't
-	# push the follower out of range — keeps it reliably attacking.
-	var br: float = float(member.get("basic_range_m"))
-	var reach: float = clampf(br - 0.6, 0.8, br)
-	var to := mp - nearest.global_position
-	to.y = 0.0
-	var dist := to.length()
-	if dist <= reach or dist < 0.001:
-		return Vector3(mp.x, nearest.global_position.y, mp.z)  # in range — hold & attack
-	var t := nearest.global_position + (to / dist) * reach
-	t.y = nearest.global_position.y
-	return t
+	return nearest
+
+
+## Living tank's position (the front line) or null — the melee flank is taken off the
+## tank→enemy axis so dealers attack from the side, behind the front.
+func _tank_position() -> Variant:
+	for m in _party._members:
+		if is_instance_valid(m) and String(m.get("class_id")) == "Tank" \
+				and (not m.has_method("is_alive") or m.is_alive()):
+			return m.global_position
+	return null
 
 
 ## Healer combat goal: move so the most-wounded ally (below its Mend Circle

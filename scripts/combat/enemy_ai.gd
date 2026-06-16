@@ -27,6 +27,14 @@ const INVESTIGATE_ARRIVE_M := 1.0    # reached last-seen point → give up the s
 ## re-hide before the enemy re-acquires; grace then disengages it.
 const CHASE_BLIND_SPEED_FRAC := 0.55
 
+# Dormant roaming (alive feel): wander within this radius of the spawn home, pausing between legs.
+const ROAM_RADIUS_M := 5.0
+const ROAM_SPEED_FRAC := 0.4
+const ROAM_ARRIVE_M := 0.8
+const ROAM_PAUSE_MIN_S := 1.5
+const ROAM_PAUSE_MAX_S := 4.0
+const ROAM_MAX_WALK_S := 8.0   # safety: abandon a roam leg that can't arrive
+
 ## F-022 §3.6 target-switch hysteresis. Lower = aggro bounces more readily (harder).
 const SWITCH_RATIO := 1.02
 
@@ -140,11 +148,40 @@ func _tick_dormant(enemy: CharacterBody3D, members: Array, delta: float) -> void
 		enemy.velocity = _nav_move(enemy, enemy.investigate_pos, enemy.current_move_speed() * INVESTIGATE_SPEED_FRAC)
 		enemy.move_and_slide()
 		return
-	# Nothing perceived and no lead → idle scan, hold position.
+	# Nothing perceived and no lead → idle: gentle roam near home + scan while paused (alive feel).
 	enemy.set_alert_mark(0)
+	_tick_roam(enemy, delta)
+
+
+## Dormant idle movement: wander to random points near the spawn home, pausing (and scanning)
+## between legs. Navmesh-routed so it skirts walls. Keeps dormant enemies alive, not frozen.
+func _tick_roam(enemy: CharacterBody3D, delta: float) -> void:
+	if enemy.home_pos == Vector3.INF:
+		enemy.home_pos = enemy.global_position   # first dormant tick → spawn point is home
+	enemy.roam_timer_s -= delta
+	if enemy.roaming:
+		var to: Vector3 = enemy.roam_target - enemy.global_position
+		to.y = 0.0
+		if to.length() <= ROAM_ARRIVE_M or enemy.roam_timer_s <= 0.0:
+			enemy.roaming = false
+			enemy.roam_timer_s = randf_range(ROAM_PAUSE_MIN_S, ROAM_PAUSE_MAX_S)
+			enemy.set_base_facing(enemy.facing)   # scan around the heading it arrived on
+			enemy.velocity = Vector3.ZERO
+		else:
+			enemy.face_toward(enemy.roam_target)
+			enemy.velocity = _nav_move(enemy, enemy.roam_target, enemy.current_move_speed() * ROAM_SPEED_FRAC)
+		enemy.move_and_slide()
+		return
+	# Paused → look around (scan sweep), then occasionally set off to a new nearby point.
 	enemy.scan(delta)
 	enemy.velocity = Vector3.ZERO
 	enemy.move_and_slide()
+	if enemy.roam_timer_s <= 0.0:
+		var ang := randf() * TAU
+		var r := sqrt(randf()) * ROAM_RADIUS_M   # uniform within the disc
+		enemy.roam_target = enemy.home_pos + Vector3(cos(ang) * r, 0.0, sin(ang) * r)
+		enemy.roaming = true
+		enemy.roam_timer_s = ROAM_MAX_WALK_S
 
 
 ## Per-enemy tick entry. Dormant (휴식중) enemies perceive (see _tick_dormant);

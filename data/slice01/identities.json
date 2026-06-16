@@ -15,7 +15,7 @@
       "ability_id": "AB-024",
       "sub_ability_id": "AB-S02",
       "pattern_id": "PT-020",
-      "combat": { "hp": 110, "basic_damage": 16, "basic_range_m": 2.0, "basic_interval_s": 0.7 }
+      "combat": { "hp": 110, "basic_damage": 16, "basic_range_m": 10.0, "basic_interval_s": 0.7 }
     },
     {
       "identity_skill_id": "nuker_mark_ruin",

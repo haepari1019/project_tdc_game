@@ -58,6 +58,10 @@ var _spawn_origin: Vector3 = Vector3.ZERO  # party start — squads spawn/face a
 var _party_in_combat: bool = false  # derived cache (emits engagement_changed on change)
 ## First party member to damage any enemy (§3.7 group pull source).
 var _first_aggressor: CharacterBody3D = null
+## The Tank landed its first hit this engagement → opens the gate that holds AI DPS/Nuker
+## (2nd-line dealers) from engaging before the tank. Reset on full disengage.
+signal tank_engaged()
+var _tank_engaged: bool = false
 
 ## Enemy perception/combat brain (child node). Per-enemy tick delegated here; it
 ## calls back for engage/grace/signals (combat state stays owned here). DEBT-GOD2.
@@ -98,6 +102,8 @@ func _refresh_party_in_combat() -> void:
 	if any != _party_in_combat:
 		_party_in_combat = any
 		engagement_changed.emit(any)
+	if not any:
+		_tank_engaged = false  # combat over → the next fight must be opened by the tank again
 
 
 ## A combat event on one enemy (it dealt/took damage, or perceived the party):
@@ -198,6 +204,13 @@ func _squad_alive_count(squad_id: int) -> int:
 ## Step 5: each member auto-uses its Identity skill when usable, else basic
 ## attack (F-005 §3.8 fallback). NO sub/passive auto (QA-005 §2.6).
 func _tick_party_attacks(members: Array, delta: float) -> void:
+	# Tank-first gate: AI DPS/Nuker (2nd-line dealers) hold their attack + Identity until the
+	# Tank lands its first hit. Open if no Tank is alive; controlled units are always exempt.
+	var tank_alive := false
+	for t in members:
+		if is_instance_valid(t) and String(t.get("class_id")) == "Tank" and t.is_alive():
+			tank_alive = true
+			break
 	for m in members:
 		if not is_instance_valid(m):
 			continue
@@ -205,6 +218,10 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 			continue
 		m.attack_cooldown_s = maxf(0.0, m.attack_cooldown_s - delta)
 		m.identity_cooldown_s = maxf(0.0, m.identity_cooldown_s - delta)
+		if tank_alive and not _tank_engaged and not m.is_controlled():
+			var gcid: String = String(m.get("class_id"))
+			if gcid == "DPS" or gcid == "Nuker":
+				continue  # 2nd-line dealer waits for the tank's first hit
 		# Identity (main) first; fall back to basic when not castable.
 		if m.identity_cooldown_s <= 0.0 and _ability_dispatch.try_identity(m):
 			continue
@@ -313,6 +330,9 @@ func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float)
 	_engage_enemy(enemy)
 	enemy.perceive_attacker(attacker)   # hit → search toward the attacker even with no LOS
 	enemy.add_threat(attacker, dmg * float(attacker.threat_mult))
+	if not _tank_engaged and String(attacker.get("class_id")) == "Tank":
+		_tank_engaged = true            # tank's first hit → open the 2nd-line dealer gate
+		tank_engaged.emit()
 	if not enemy.first_hit:
 		enemy.first_hit = true
 		enemy.add_threat(attacker, FIRST_ATTACK_BONUS)        # §3.4

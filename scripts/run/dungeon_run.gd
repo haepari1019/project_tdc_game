@@ -105,7 +105,7 @@ func _ready() -> void:
 	_vision_fog.setup(_party, _map)
 	_enemy_vision = EnemyVisionOverlay.new()  # enemy sight cones unioned into one ground tint
 	add_child(_enemy_vision)
-	_enemy_vision.setup(_map)
+	_enemy_vision.setup(_map, _party, _vision_fog)  # fog cur-LOS gates cones to visible areas
 	_run.start_run("RM-ENTRY-01")
 	var spawn: Vector3 = _map.get_spawn_position("RM-ENTRY-01")
 	_party.spawn_at(spawn)

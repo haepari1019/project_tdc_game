@@ -17,6 +17,7 @@ signal pip_targets(members: Array)             # UI-006 §7 PIP camera targets (
 @export var move_speed: float = 9.0
 
 var _party_damaged: bool = false  ## latch: a party member was hit (formation-break trigger; cleared on disengage)
+var _tank_engaged: bool = false   ## latch: tank landed its first hit (opens 2nd-line DPS/Nuker engage; cleared on disengage)
 var cohesion_mode: int = PartyCohesion.MODE_BOUND
 ## Formation-priority toggle. OFF (default) = combat priority: followers may
 ## break formation to engage — but ONLY after contact (party was hit, or an enemy
@@ -195,10 +196,15 @@ func get_members() -> Array:
 func bind_combat(combat: Node) -> void:
 	combat.party_damaged.connect(_on_party_damaged)
 	combat.engagement_changed.connect(_on_engagement_changed)
+	combat.tank_engaged.connect(_on_tank_engaged)
 
 
 func _on_party_damaged() -> void:
 	_party_damaged = true
+
+
+func _on_tank_engaged() -> void:
+	_tank_engaged = true
 
 
 ## partyInCombat → false (all squads disengaged) clears the damage latch so
@@ -206,6 +212,7 @@ func _on_party_damaged() -> void:
 func _on_engagement_changed(engaged: bool) -> void:
 	if not engaged:
 		_party_damaged = false
+		_tank_engaged = false
 
 
 func try_swap_to(index: int) -> bool:
@@ -372,6 +379,15 @@ func _has_living_noncontrolled() -> bool:
 			continue
 		var mm: CharacterBody3D = _members[i]
 		if is_instance_valid(mm) and (not mm.has_method("is_alive") or mm.is_alive()):
+			return true
+	return false
+
+
+## Any living Tank in the party? Gate fallback — if the tank is down, dealers fight freely.
+func _any_living_tank() -> bool:
+	for m in _members:
+		if is_instance_valid(m) and String(m.get("class_id")) == "Tank" \
+				and (not m.has_method("is_alive") or m.is_alive()):
 			return true
 	return false
 
@@ -663,11 +679,17 @@ func _update_formation_follow(delta: float) -> void:
 	_combat_engaging = false
 	if not _formation_priority and _combat_pos.has_live_enemies():
 		_combat_engaging = _party_damaged or _combat_pos.enemy_in_party_basic_range()
+	var tank_alive := _any_living_tank()
 	var peer_slot_targets: Dictionary = {}
 	for m in _members:
 		var cid: String = String(m.get("class_id"))
 		var slot_target: Vector3 = _slot_world_target(cid, layout_axes, anchor_pos.y)
-		if _combat_engaging and m != anchor and not m.is_controlled():
+		var engage: bool = _combat_engaging and m != anchor and not m.is_controlled()
+		# 2nd-line dealers (DPS/Nuker) don't break formation to engage until the tank has landed
+		# its first hit (unless no tank is alive). Keeps them behind the front line. ref: 탱커 선공.
+		if engage and not _tank_engaged and tank_alive and (cid == "DPS" or cid == "Nuker"):
+			engage = false
+		if engage:
 			peer_slot_targets[m] = _combat_pos.engage_target(m, slot_target)
 		else:
 			peer_slot_targets[m] = slot_target
