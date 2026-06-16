@@ -108,6 +108,11 @@ const OBSTACLE_SPECS: Dictionary = {
 @onready var _markers_root: Node3D = $Markers
 
 var _room_areas: Dictionary = {}
+## LOS occluder footprints (walls + cover obstacles; floors excluded) in world XZ —
+## recorded as the layer-1 colliders are built, so they're the SAME geometry that
+## enemy_visibility raycasts and the F-011 fog never drifts from it. Each entry:
+## {center:Vector2, half:Vector2} (box) or {center:Vector2, radius:float} (cylinder).
+var _occluders: Array = []
 ## Per-room openings: room_ref -> Array of {side, pos_along, width}
 var _room_openings: Dictionary = {}
 var _nav_region: NavigationRegion3D
@@ -171,6 +176,14 @@ func get_deep_spawn_position(room_ref: String, away_from: Vector3) -> Vector3:
 ## POINT-DEMO-01 extraction point (ground).
 func get_extraction_position() -> Vector3:
 	return _extraction_point
+
+
+## LOS occluder footprints (walls + cover obstacles; floors excluded) in world XZ —
+## the SAME geometry as the layer-1 colliders enemy_visibility raycasts, so the F-011
+## fog and enemy occlusion never disagree. {center:Vector2, half:Vector2} (box) or
+## {center:Vector2, radius:float} (cylinder). ref: F-011 consistency guardrail.
+func get_occluder_footprints() -> Array:
+	return _occluders
 
 
 ## Each room's footprint for the minimap: [{center: Vector3, size: Vector3}] (XZ used).
@@ -478,6 +491,8 @@ func _add_wall_segment(parent: Node3D, pos: Vector3, size: Vector3, color: Color
 	body.add_child(mesh)
 
 	parent.add_child(body)
+	# Record the footprint for the F-011 fog (same source as this layer-1 collider).
+	_occluders.append({"center": Vector2(pos.x, pos.z), "half": Vector2(size.x * 0.5, size.z * 0.5)})
 
 
 func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void:
@@ -502,6 +517,7 @@ func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void
 			cshape.radius = r
 			cshape.height = height
 			shape = cshape
+			_occluders.append({"center": Vector2(ground.x, ground.z), "radius": r})
 		else:
 			var size: Vector3 = t["size"]
 			height = size.y
@@ -511,6 +527,7 @@ func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void
 			var bshape := BoxShape3D.new()
 			bshape.size = size
 			shape = bshape
+			_occluders.append({"center": Vector2(ground.x, ground.z), "half": Vector2(size.x * 0.5, size.z * 0.5)})
 		_add_obstacle_body(parent, ground + Vector3(0, height * 0.5, 0), mesh, shape, t["color"])
 
 

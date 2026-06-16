@@ -8,6 +8,7 @@ const InventoryUI := preload("res://scripts/ui/inventory/inventory_ui.gd")
 const Chest := preload("res://scripts/world/objects/chest.gd")
 const InteractionController := preload("res://scripts/run/controllers/interaction_controller.gd")
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
+const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
 const Door := preload("res://scripts/world/objects/door.gd")
 const ItemDrop := preload("res://scripts/world/objects/item_drop.gd")
 const Trap := preload("res://scripts/world/hazards/trap.gd")
@@ -68,6 +69,7 @@ var _inventory_ui: InventoryUI
 # World interaction (E) — chest/door proximity prompts.
 var _interaction: InteractionController
 var _wall_xray: WallXray
+var _vision_fog: VisionFog  # F-011 party-LOS fog texture (step 1: debug-visible, V to toggle)
 var _interact_prompt: Label
 # Enemy inspect (LMB click) — top-center portrait/HP panel.
 var _enemy_info: EnemyInfo
@@ -96,6 +98,9 @@ func _ready() -> void:
 	var enemy_vis := EnemyVisibility.new()
 	add_child(enemy_vis)
 	enemy_vis.setup(_party)
+	_vision_fog = VisionFog.new()  # F-011 step1: 2D party-LOS fog texture (V toggles the debug view)
+	add_child(_vision_fog)
+	_vision_fog.setup(_party, _map)
 	_run.start_run("RM-ENTRY-01")
 	var spawn: Vector3 = _map.get_spawn_position("RM-ENTRY-01")
 	_party.spawn_at(spawn)
@@ -210,6 +215,9 @@ func _ready() -> void:
 	_wall_xray = WallXray.new()  # fade walls between camera and the controlled char (see-through)
 	add_child(_wall_xray)
 	_wall_xray.setup(_party)
+	# Walls the xray fades must NOT also be fogged (else see-through looks off) — let xray
+	# strip the fog next_pass off its faded walls and restore it on release. ref: F-011.
+	_wall_xray.set_fog_material(_vision_fog.get_fog_material())
 	# Quest tracker (top-right, below the reserved minimap space).
 	var quest := QuestTracker.new()
 	$HUD.add_child(quest)
@@ -294,6 +302,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if kc == KEY_BRACKETRIGHT:
 			_camera_rig.adjust_pitch(3.0)    # tilt toward top-down
+			return
+		if kc == KEY_V:
+			_vision_fog.toggle_debug()       # F-011: show/hide the 2D fog texture (debug)
+			return
+		if kc == KEY_B:
+			_vision_fog.toggle_world_fog()   # F-011: A/B toggle the 3D world fog
 			return
 	# RMB: drag = camera orbit; a click (negligible drag) = interact the nearest object.
 	# (E is reserved for a future sub-skill, so world interaction uses the right mouse.)

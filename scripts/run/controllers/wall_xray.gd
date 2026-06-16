@@ -12,10 +12,17 @@ const MAX_OCCLUDERS := 5         # successive walls to fade along the line
 
 var _party: Node = null
 var _faded: Dictionary = {}      # MeshInstance3D -> StandardMaterial3D currently faded
+var _fog_mat: ShaderMaterial = null  # F-011 fog next_pass — stripped off walls while xray-faded
 
 
 func setup(party: Node) -> void:
 	_party = party
+
+
+## The F-011 fog next_pass shared material. While a wall is xray-faded (see-through) we remove
+## this from it so the wall isn't ALSO painted dark by the fog; restored when it stops occluding.
+func set_fog_material(mat: ShaderMaterial) -> void:
+	_fog_mat = mat
 
 
 func _process(_delta: float) -> void:
@@ -68,9 +75,13 @@ func _set_fade(mat: StandardMaterial3D, on: bool) -> void:
 	if on:
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.albedo_color.a = XRAY_ALPHA
+		if _fog_mat != null:
+			mat.next_pass = null          # see-through: don't let the fog paint this wall dark
 	else:
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 		mat.albedo_color.a = 1.0
+		if _fog_mat != null:
+			mat.next_pass = _fog_mat      # restore the fog pass once it's a normal wall again
 
 
 func _restore_all() -> void:

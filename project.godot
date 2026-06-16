@@ -14,7 +14,7 @@ config/name="Project TDC"
 config/description="Top-down extraction raid ARPG — Godot implementation"
 config/version="0.1.0-slice01"
 run/main_scene="res://scenes/main.tscn"
-config/features=PackedStringArray("4.5", "GL Compatibility")
+config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -131,6 +131,6 @@ toggle_inventory={
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
+renderer/rendering_method="forward_plus"
 limits/opengl/max_renderable_lights=256
 limits/opengl/max_lights_per_object=32
