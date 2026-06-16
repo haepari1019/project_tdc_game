@@ -9,6 +9,7 @@ const Chest := preload("res://scripts/world/objects/chest.gd")
 const InteractionController := preload("res://scripts/run/controllers/interaction_controller.gd")
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
 const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
+const EnemyVisionOverlay := preload("res://scripts/run/controllers/enemy_vision_overlay.gd")
 const Door := preload("res://scripts/world/objects/door.gd")
 const ItemDrop := preload("res://scripts/world/objects/item_drop.gd")
 const Trap := preload("res://scripts/world/hazards/trap.gd")
@@ -70,6 +71,7 @@ var _inventory_ui: InventoryUI
 var _interaction: InteractionController
 var _wall_xray: WallXray
 var _vision_fog: VisionFog  # F-011 party-LOS fog texture (step 1: debug-visible, V to toggle)
+var _enemy_vision: EnemyVisionOverlay  # enemy sight cones as a unioned ground-tint overlay
 var _interact_prompt: Label
 # Enemy inspect (LMB click) — top-center portrait/HP panel.
 var _enemy_info: EnemyInfo
@@ -101,6 +103,9 @@ func _ready() -> void:
 	_vision_fog = VisionFog.new()  # F-011 step1: 2D party-LOS fog texture (V toggles the debug view)
 	add_child(_vision_fog)
 	_vision_fog.setup(_party, _map)
+	_enemy_vision = EnemyVisionOverlay.new()  # enemy sight cones unioned into one ground tint
+	add_child(_enemy_vision)
+	_enemy_vision.setup(_map)
 	_run.start_run("RM-ENTRY-01")
 	var spawn: Vector3 = _map.get_spawn_position("RM-ENTRY-01")
 	_party.spawn_at(spawn)

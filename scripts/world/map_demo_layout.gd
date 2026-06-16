@@ -79,6 +79,10 @@ const Lantern := preload("res://scripts/world/objects/lantern.gd")
 
 const WALL_HEIGHT := 3.5
 const WALL_THICKNESS := 0.4
+## Two adjacent rooms each build a wall on their SHARED edge → coplanar duplicate faces that
+## z-fight ("jitter", exposed by the Forward+ depth buffer). Pull each room's wall ring in by
+## this much so the duplicated faces separate cleanly (invisible; walls still overlap + block).
+const WALL_DEDUP_EPS := 0.04
 const FLOOR_THICKNESS := 0.3
 
 ## Cover obstacles — LOS blockers + navmesh holes (units route around). Heights
@@ -415,12 +419,16 @@ func _add_walls_with_openings(parent: Node3D, center: Vector3, size: Vector3, ba
 		var side: String = opening["side"]
 		side_openings[side].append(opening)
 
+	# Pull the wall ring in by WALL_DEDUP_EPS so a shared edge with the adjacent room isn't built
+	# as two coplanar (z-fighting) walls — they separate cleanly while still overlapping/blocking.
+	var hx := half_x - WALL_DEDUP_EPS
+	var hz := half_z - WALL_DEDUP_EPS
 	# North (+Z), South (-Z): wall runs along X, length = size.x
-	_build_wall_with_gaps(parent, center + Vector3(0, 0, half_z), size.x, "x", wall_color, side_openings["north"])
-	_build_wall_with_gaps(parent, center + Vector3(0, 0, -half_z), size.x, "x", wall_color, side_openings["south"])
+	_build_wall_with_gaps(parent, center + Vector3(0, 0, hz), size.x, "x", wall_color, side_openings["north"])
+	_build_wall_with_gaps(parent, center + Vector3(0, 0, -hz), size.x, "x", wall_color, side_openings["south"])
 	# East (+X), West (-X): wall runs along Z, length = size.z
-	_build_wall_with_gaps(parent, center + Vector3(half_x, 0, 0), size.z, "z", wall_color, side_openings["east"])
-	_build_wall_with_gaps(parent, center + Vector3(-half_x, 0, 0), size.z, "z", wall_color, side_openings["west"])
+	_build_wall_with_gaps(parent, center + Vector3(hx, 0, 0), size.z, "z", wall_color, side_openings["east"])
+	_build_wall_with_gaps(parent, center + Vector3(-hx, 0, 0), size.z, "z", wall_color, side_openings["west"])
 
 
 func _build_wall_with_gaps(parent: Node3D, wall_center: Vector3, wall_length: float, axis: String, color: Color, openings: Array) -> void:

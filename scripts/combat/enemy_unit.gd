@@ -70,7 +70,12 @@ var has_search: bool = false
 var _nav_path: PackedVector3Array = PackedVector3Array()
 var _nav_path_idx: int = 0
 var _nav_target: Vector3 = Vector3.ZERO
-var _vision_cone: Node3D
+# Vision cone params (the cone is drawn by EnemyVisionOverlay as a unioned ground mask, not a
+# per-enemy mesh — overlapping cone meshes z-fought / alpha-stacked). ref: vision cone union.
+var _cone_active := false
+var _cone_range := 0.0
+var _cone_combat_r := 0.0
+var _cone_fov_half := 0.0
 var _alert_label: Label3D
 var _alert_level: int = -1
 
@@ -298,68 +303,30 @@ func _build_alert_mark(box_size: Vector3) -> void:
 	add_child(_alert_label)
 
 
-## Dev VFX: ground-projected vision cone (player would unlock this with a
-## consumable; forced on for now). Inner (1-alert_frac) = 전투존 (red), outer ring
-## = 경계존 (yellow). Oriented to `facing`.
+## Dev VFX: vision cone (player would unlock this with a consumable; forced on for now).
+## No longer a per-enemy mesh — overlapping translucent cones z-fought / alpha-stacked. We just
+## STORE the params here; EnemyVisionOverlay rasterises every enemy's sector into ONE top-down
+## union mask and tints the ground once (combat=red, alert=yellow). ref: vision cone union.
 func build_vision_cone(range_m: float, fov_deg: float, alert_frac: float) -> void:
-	if _vision_cone != null:
-		_vision_cone.queue_free()
-	_vision_cone = Node3D.new()
-	# Lifted well off the floor: at ~0.04 the cone was near-coplanar with the ground, so
-	# the far top-down camera's depth precision z-fought them (jitter). 0.3 separates them
-	# in depth while still reading as ground-level (cones share this Y → still mutually
-	# depth-reject, no alpha stacking). ref: vision cone z-fighting fix.
-	_vision_cone.position.y = 0.3
-	add_child(_vision_cone)
-	var half := deg_to_rad(fov_deg * 0.5)
-	var combat_r := range_m * (1.0 - alert_frac)
-	_vision_cone.add_child(_sector_mesh(0.0, combat_r, half, Color(0.95, 0.25, 0.2, 0.06)))
-	_vision_cone.add_child(_sector_mesh(combat_r, range_m, half, Color(1.0, 0.85, 0.2, 0.05)))
-	_orient_cone()
+	_cone_range = range_m
+	_cone_combat_r = range_m * (1.0 - alert_frac)
+	_cone_fov_half = deg_to_rad(fov_deg * 0.5)
+	_cone_active = true
+
+
+## Read by EnemyVisionOverlay each frame to build the union mask. `facing` → world-space angle.
+func vision_cone_data() -> Dictionary:
+	return {
+		"active": _cone_active and is_alive(),
+		"range": _cone_range,
+		"combat_r": _cone_combat_r,
+		"fov_half": _cone_fov_half,
+		"facing": atan2(facing.x, facing.z),
+	}
 
 
 func _orient_cone() -> void:
-	if _vision_cone != null:
-		_vision_cone.rotation.y = atan2(facing.x, facing.z)
-
-
-## Flat ground sector (annulus r0..r1) spanning ±half around local +Z.
-func _sector_mesh(r0: float, r1: float, half: float, col: Color) -> MeshInstance3D:
-	var segs := 24
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	st.set_normal(Vector3.UP)
-	for i in segs:
-		var a0 := -half + (2.0 * half) * (float(i) / float(segs))
-		var a1 := -half + (2.0 * half) * (float(i + 1) / float(segs))
-		var d0 := Vector3(sin(a0), 0.0, cos(a0))
-		var d1 := Vector3(sin(a1), 0.0, cos(a1))
-		if r0 <= 0.001:
-			st.add_vertex(Vector3.ZERO)
-			st.add_vertex(d0 * r1)
-			st.add_vertex(d1 * r1)
-		else:
-			st.add_vertex(d0 * r0)
-			st.add_vertex(d0 * r1)
-			st.add_vertex(d1 * r1)
-			st.add_vertex(d0 * r0)
-			st.add_vertex(d1 * r1)
-			st.add_vertex(d1 * r0)
-	var mi := MeshInstance3D.new()
-	mi.mesh = st.commit()
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = col
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	# Write depth so overlapping cones depth-reject each other instead of alpha-
-	# stacking — clustered enemies' cones no longer pile up into a darker blob.
-	# render_priority < 0 draws cones before other transparent VFX (which stay on top).
-	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS
-	mat.render_priority = -1
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.material_override = mat
-	return mi
+	pass  # cone is drawn by EnemyVisionOverlay now (facing is read live); kept as a no-op
 
 
 # ===== Navmesh path (route around walls; mirrors party_member) =====

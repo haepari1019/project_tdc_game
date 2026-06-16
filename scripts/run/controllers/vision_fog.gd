@@ -28,6 +28,7 @@ var _party: Node = null
 var _map: Node = null
 
 var _viewport: SubViewport
+var _explored_viewport: SubViewport  # "ever seen" accumulator (CLEAR_ONCE + ADD blend) → fog memory
 var _root2d: Node2D
 var _member_lights: Array[PointLight2D] = []
 var _bounds_min := Vector2.ZERO   # world (x,z) min corner of the fog field
@@ -38,9 +39,8 @@ var _fog_mat: ShaderMaterial
 var _fogged_meshes: Array[MeshInstance3D] = []
 var _world_fog_on := true
 
-# Step-1 debug overlay (toggle): shows the fog texture on screen for verification.
+# Debug overlay (V toggles): shows the current-LOS + explored fog textures for verification.
 var _dbg_layer: CanvasLayer
-var _dbg_rect: TextureRect
 
 
 func setup(party: Node, map: Node) -> void:
@@ -48,6 +48,7 @@ func setup(party: Node, map: Node) -> void:
 	_map = map
 	_compute_bounds()
 	_build_viewport()
+	_build_explored_viewport()
 	_build_occluders()
 	_build_lights()
 	_build_fog_material()
@@ -108,6 +109,29 @@ func _build_viewport() -> void:
 	_root2d.add_child(ground)
 
 
+## "Ever seen" accumulator: a second viewport that NEVER clears (after the first frame) and
+## ADD-blends the current visibility texture into itself each frame → a monotonic union of
+## everywhere the party has ever had line of sight. Cheap (one textured blit, no lights). The
+## fog shader reads this as the "explored" mask → seen-but-not-now areas stay a faint grayscale
+## instead of going fully dark. ref: F-011 Step 3.
+func _build_explored_viewport() -> void:
+	_explored_viewport = SubViewport.new()
+	_explored_viewport.size = _viewport.size
+	_explored_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_explored_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ONCE  # clear once, then accumulate
+	_explored_viewport.transparent_bg = true   # baseline = 0 (NOT the default gray clear → "explored everywhere")
+	_explored_viewport.disable_3d = true
+	add_child(_explored_viewport)
+
+	var acc := Sprite2D.new()
+	acc.texture = _viewport.get_texture()  # current visibility, thresholded + ADD-blended each frame
+	acc.centered = false
+	var m := ShaderMaterial.new()           # threshold so only CLEARLY-seen pixels accumulate (no creep)
+	m.shader = load("res://assets/shaders/fog_accumulate.gdshader")
+	acc.material = m
+	_explored_viewport.add_child(acc)
+
+
 func _build_occluders() -> void:
 	for occ in _map.get_occluder_footprints():
 		var lo := LightOccluder2D.new()
@@ -123,9 +147,16 @@ func _build_occluders() -> void:
 				pts.append(_to_fog(c + Vector2(cos(a), sin(a)) * rad))
 			poly.polygon = pts
 		else:
-			# Inset both half-extents so the wall's party-facing face stays out of its own shadow.
+			# Inset ONLY the thin (thickness) axis so the wall's party-facing face stays out of its
+			# own shadow — WITHOUT shortening the length. (Shortening the length opened gaps where
+			# wall segments meet at corners → light leaked through as thin streaks that crept into
+			# the explored map.) ref: F-011.
 			var h0: Vector2 = occ["half"]
-			var h := Vector2(maxf(0.05, h0.x - OCCLUDER_INSET_M), maxf(0.05, h0.y - OCCLUDER_INSET_M))
+			var h := h0
+			if h0.x <= h0.y:
+				h.x = maxf(0.03, h0.x - OCCLUDER_INSET_M)   # x is the thickness axis
+			else:
+				h.y = maxf(0.03, h0.y - OCCLUDER_INSET_M)   # y is the thickness axis
 			poly.polygon = PackedVector2Array([
 				_to_fog(c + Vector2(-h.x, -h.y)),
 				_to_fog(c + Vector2(h.x, -h.y)),
@@ -176,7 +207,8 @@ func _make_light_texture() -> Texture2D:
 func _build_fog_material() -> void:
 	_fog_mat = ShaderMaterial.new()
 	_fog_mat.shader = load("res://assets/shaders/vision_fog.gdshader")
-	_fog_mat.set_shader_parameter("fog_tex", _viewport.get_texture())
+	_fog_mat.set_shader_parameter("cur_tex", _viewport.get_texture())
+	_fog_mat.set_shader_parameter("exp_tex", _explored_viewport.get_texture())
 	_fog_mat.set_shader_parameter("bounds_min", _bounds_min)
 	_fog_mat.set_shader_parameter("bounds_size", _bounds_size)
 
@@ -249,39 +281,48 @@ func get_bounds_size() -> Vector2:
 
 func _build_debug_overlay() -> void:
 	var aspect: float = _bounds_size.y / maxf(0.001, _bounds_size.x)
-	var w := 340.0
-	var h := 340.0 * aspect
+	var w := 150.0
+	var h := 150.0 * aspect
+	var vw: float = get_viewport().get_visible_rect().size.x
+	if vw < 200.0:
+		vw = 1920.0  # fallback if the window size isn't resolved yet at build time
 	_dbg_layer = CanvasLayer.new()
 	_dbg_layer.layer = 100
 	add_child(_dbg_layer)
 
-	# Solid frame behind the texture — visible even if the fog texture is blank/black,
-	# so we can tell "panel renders" apart from "texture empty". (Controls placed with
-	# explicit position+size, NOT in a Container, so nothing collapses to 0×0.)
+	# Two SMALL, SEPARATE thumbnails in opposite top corners (no overlap): CURRENT line-of-sight
+	# (top-left) and the accumulated EXPLORED map (top-right). Watching EXPLORED grow + persist
+	# as the party moves confirms the memory accumulation works.
+	_add_dbg_panel("CURRENT LOS (V)", _viewport.get_texture(), Vector2(12, 12), w, h)
+	_add_dbg_panel("EXPLORED", _explored_viewport.get_texture(), Vector2(vw - w - 12, 12), w, h)
+
+	_dbg_layer.visible = false  # hidden by default; V toggles (3D world fog is the main view)
+
+
+func _add_dbg_panel(title: String, tex: Texture2D, pos: Vector2, w: float, h: float) -> void:
 	var bg := ColorRect.new()
-	bg.color = Color(0.1, 0.1, 0.12, 0.85)
-	bg.position = Vector2(8, 8)
-	bg.size = Vector2(w + 8, h + 40)
+	bg.color = Color(0.08, 0.08, 0.10, 0.9)
+	bg.position = pos - Vector2(4, 4)
+	bg.size = Vector2(w + 8, h + 26)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dbg_layer.add_child(bg)
-
 	var label := Label.new()
-	label.text = "FOG (F-011 step1) — V to toggle"
-	label.position = Vector2(14, 12)
+	label.text = title
+	label.position = pos
+	label.add_theme_font_size_override("font_size", 12)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dbg_layer.add_child(label)
-
-	_dbg_rect = TextureRect.new()
-	_dbg_rect.texture = _viewport.get_texture()
-	_dbg_rect.position = Vector2(12, 36)
-	_dbg_rect.size = Vector2(w, h)
-	_dbg_rect.custom_minimum_size = Vector2(w, h)
-	_dbg_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_dbg_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
-	_dbg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_dbg_layer.add_child(_dbg_rect)
-
-	_dbg_layer.visible = false  # hidden by default; V toggles (3D world fog is the main view now)
+	# TextureRect renders a ViewportTexture at its NATIVE size (1164×1398) and ignores .size /
+	# custom_minimum_size for a free Control — so we draw it native and hard-SCALE it down to the
+	# target px. scale pivots at top-left, so it shrinks toward `pos`. Guaranteed small.
+	var src := Vector2(_viewport.size)
+	var r := TextureRect.new()
+	r.texture = tex
+	r.position = pos + Vector2(0, 16)
+	r.stretch_mode = TextureRect.STRETCH_SCALE
+	r.scale = Vector2(w / src.x, h / src.y)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dbg_layer.add_child(r)
 
 
 func toggle_debug() -> void:
