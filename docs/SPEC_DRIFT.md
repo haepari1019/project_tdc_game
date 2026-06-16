@@ -64,7 +64,8 @@
 | 032 | **횃불(ENT-TORCH) 들기/던지기 + 광원화 + 화염 어그로 + 시야밖 피격 수색**: 횃불=carriable 점화체(F-interact→소모품 슬롯, 빈슬롯 자동·풀이면 선택, 발동=지면조준 투척→착지 점화+소모), 들고 기름 접촉 즉시 점화 / 횃불이 방 광원(천장 omni 그리드 대체, 동적조명) / 던지거나 들고 점화한 화염·폭발이 적 때리면 **던진 주체에게 threat** / **시야 밖 피격(어떤 수단이든)→공격자 방향 investigate 수색** | rule(기존 spec 구현)+impl+tuning | F-021 §3.1.2(carry/투척/torch+oil)·F-027 ENT-TORCH·F-011/F-013(수색) 구현. 아군 능동 carry/투척·화염 source 어그로·시야밖 수색=전파 후보. 적 carry/몬스터 세트(증분2) 후속. 광원·수치=tuning | IMPLEMENTED (아군측; 적 carry 후속) |
 | 033 | **적 횃불꾼(EN-014) + 제네릭 적-오브젝트 프로토콜 + 랜턴/토치 분리 (증분2)**: `interacts_with_objects` 적이 group interactable 중 `enemy_usable()` 오브젝트 탐색→`enemy_use`(들기); 든 오브젝트가 `enemy_combat_tick()`으로 행동(토치=접근→텔레그래프→투척). 행동이 오브젝트 내부라 신규 오브젝트는 적 코드 무수정·체스트=enemy_usable 미구현→자동 제외 / 방 조명=고정 랜턴(줍기 불가), 토치=기름 코트 4개만 | rule(기존 spec 구현)+impl+content | F-021 §3.1.2 적 carry/투척·EN-COR-000 구현. EN-014=신규 데모 적(spec 정합=1b). 제네릭 프로토콜=확장 아키텍처. 랜턴·수치=impl/tuning | IMPLEMENTED |
 | 034 | **배치 허브(F-010 §3.2 / UI-005 / F-003) — 스태시 로드아웃 편집 + 반입 At-Risk + 포메이션 편집**: 메뉴에 InventoryUI(combat=null→장착 허용) + 정적 허브 파티 임베드 → 스태시(소유 gear/스킬북/소모품)를 컨테이너로 띄워 캐릭터 Q/E/R·장착·백팩 드래그. **탑다운 드래그 포메이션 에디터**(4 역할 토큰→슬롯 오프셋). Deploy 시 멤버 서브+백팩+포메이션 직렬화→RunLoadout→dungeon_run 적용(At-Risk 시작→정산 연동, 슬롯 오프셋 오버라이드). 소모품 스택10·Ctrl클릭 분해팝업·드래그 합치기. 오토로드 런타임 경로 접근 | rule(기존 spec 구현)+impl | F-010 §3.2·UI-005·F-007 At-Risk·F-003 슬롯 오프셋 구현. 스태시 시드·스택수치·CLAMP/SCALE=content/tuning | IMPLEMENTED |
-| 035 | **전투 진형 — 탱커 선공 게이트 + 2선 딜러(원거리 백라인/근접 측면 플랭크) + DPS 원거리화** | rule(전파후보)+tuning | AI DPS/Nuker는 탱커 첫타 전까지 교전·접근 보류; 원거리=백라인 딜, 근접=탱커축 측면 플랭크. DPS basic_range 2.0→10.0=tuning | IMPLEMENTED · 규칙 PENDING-PROP |
+| 035 | **전투 진형 — 탱커 선공 게이트 + 2선 딜러(원거리 백라인/근접 측면 플랭크) + DPS 원거리화** | rule(전파됨)+tuning | AI DPS/Nuker는 탱커 첫타 전까지 교전·접근 보류; 원거리=백라인 딜, 근접=탱커축 측면 플랭크. DPS basic_range 2.0→10.0=tuning | ✅ 전파 (F-004 §3.5, DEC-20260616-001, spec 0edf55c) + 재핀; range=tuning |
+| 036 | **카메라 RMB 세로 드래그 = pitch 틸트(인버트) + 피치 범위 15~85°** | rule(전파됨)+tuning | RMB Δy→pitch(yaw와 동시 자유오빗). 범위·감도·줌=tuning | ✅ 전파 (F-012 §3.1.2, DEC-20260616-002, spec 0edf55c) + 재핀 |
 
 > **비-드리프트(기존 spec 구현=정합, ImplDecisionLog 기록):** partyInCombat 진입/종료(D-010 §4.1 피해·공격·인지 / §4.2 grace), 비조작 안전우선 슬롯-이탈 트리거=피격/사거리(F-004 §3.1/§3.3), 힐러 포지셔닝(F-005), **지휘권 진입 핸드오프=서브리더 앵커(F-003 §3.4 #2)** — 진입 동작은 기존 spec 정합. 단 **스왑 중 지휘권/랠리 거동은 §3.0.4 분리 모델로 정제 → DRIFT-021(✅ MERGED f7739a1)**. 서브리더 지정(UI-005)·지휘권 전환 UX(UI-008)·Leader Move Ping(F-003 §3.5)은 **미구현(기본값/보류)**.
 > **아이디어(OPS_08):** "시야콘을 보이게 하는 소모품"(현재는 개발용 상시 표시) → 소모품/UI 아이디어로 등록 권장.
@@ -264,13 +265,19 @@
 - **tuning/content:** 스태시 시드 구성, max_stack 10, 분해 팝업 기본=절반, 포메이션 CLAMP_M 3.6·SCALE 28px/m. v1 소모품 -/+ 셀렉터는 스태시 드래그로 통일(제거).
 - **잔여:** 포메이션은 슬롯 **오프셋**만(class별 위치) — leader/subleader **명시 지정**(UI-008)·역할↔슬롯 재배정은 미구현. 스태시 비-소모 영속(데모는 비고갈). 인벤은 오버레이(컨펌은 메뉴 버튼 순서로만 위/아래). gear 스왑은 역할당 1종이라 제한적.
 
-### DRIFT-035 — 전투 진형: 탱커 선공 게이트 + 2선 딜러 + DPS 원거리화 🔸 IMPLEMENTED
+### DRIFT-035 — 전투 진형: 탱커 선공 게이트 + 2선 딜러 + DPS 원거리화 ✅ 전파+재핀
 - **현실/의도(2026-06-16):** 자동전투에서 비조작 딜러(DPS/Nuker)가 탱커보다 먼저 적에게 돌진·교전 → 분대 컨셉(탱커 전선·딜러 후열) 위배. 사용자 결정: **탱커 첫타를 게이트**로, 2선=측면.
 - **구현(게임 레포):**
   - **탱커 선공 게이트:** `CombatController._deal_damage`에서 탱커 첫 피해 → `_tank_engaged`=true + `tank_engaged` 시그널. 디스인게이지(`_refresh_party_in_combat` any=false) 시 리셋. AI DPS/Nuker는 게이트 전까지 `_tick_party_attacks`에서 평타·Identity 보류 + `PartyController` engage 루프에서 대형 이탈(접근) 보류(시그널-래치 `_tank_engaged`). **조작캐 예외**(is_controlled), **탱커 사망 시 게이트 개방**(딜러 자유).
   - **2선 포지셔닝(`CombatPositioning.engage_target`):** 원거리(basic_range>3.5m)=대형 슬롯 유지(백라인, 사거리 내 자동공격) / 근접=탱커→적 축의 **수직(측면)** melee reach 지점(전면·추월 금지). 힐러=기존 부상자 지원 유지.
-- **분류/전파:** **행동 규칙(탱커 선공·2선 딜러)=신규 설계 → 전파 후보(`rule`, PENDING-PROP, 승인 필요).** F-004(안전우선 슬롯이탈)·F-022(threat) 인접. **DPS basic_range 2.0→10.0=tuning(로깅만)** — DPS=원거리 광역 설계와 정합(데이터가 근접으로 박혀 있던 불일치 교정).
+- **분류/전파:** **✅ 행동 규칙(탱커 선공·2선 딜러) 전파 완료 → F-004 §3.5 신설(DEC-20260616-001, spec `0edf55c`) + spec_ref 재핀.** 스킬=F-005·위협=F-022 참조. **DPS basic_range 2.0→10.0=tuning(로깅만, 전파 안 함)** — DPS=원거리 광역 설계와 정합(데이터가 근접으로 박혀 있던 불일치 교정).
 - **잔여:** 탱커 자동 전진(앵커일 때 전선 진입)은 명시 로직 없음 — 전열 슬롯+파티 전진에 의존. 근접 측면 side-flip 미세 지터 가능. 원거리 사거리 10m=잠정 튜닝값.
+
+### DRIFT-036 — 카메라 RMB 세로 드래그 = pitch 틸트(인버트) ✅ 전파+재핀
+- **현실/의도(2026-06-16):** 기존 RMB 드래그=yaw(수평)만. 사용자 요청으로 **RMB 세로 드래그(Δy)→카메라 pitch** 추가(인버트), 피치 범위 15~85°(저각 시네마틱↔거의 탑다운).
+- **구현(게임):** `camera_rig.pitch_by_drag(dy)` — `_pitch ± dy*PITCH_DRAG_SENS(0.15)` clampf(PITCH_MIN 15·PITCH_MAX 85) + `_apply_placement`. dungeon_run RMB 모션에서 yaw(Δx)+pitch(Δy) 동시(자유 오빗). 저각 가림=wall_xray see-through.
+- **분류/전파:** **✅ 규칙(RMB Δy=pitch 틸트) 전파 → F-012 §3.1.2 신설(DEC-20260616-002, spec `0edf55c`) + §9 open Q 해소, spec_ref 재핀.** 민감도·pitch 범위·줌 수치=tuning(로깅만).
+- **잔여:** 줌(거리, scroll)·전방 가중 카메라는 F-012 후속. pitch 범위/감도=잠정 튜닝값.
 
 ### DRIFT-020 — 전투AI/인지 튜닝수치 (LOGGED, 전파금지)
 - FOV 160° · sight_range 12m · proximity 2.5m · alert_zone_frac 0.2 · scan ±35°/4s · investigate_speed 0.35 · chase_blind 0.55 · squad_prop_radius 9m · combat_exit_grace 6s · squad_lane 12m · cone alpha 0.05~0.06.
