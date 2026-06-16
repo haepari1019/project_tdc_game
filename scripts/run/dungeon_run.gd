@@ -330,7 +330,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and _cam_dragging:
 		var mm := event as InputEventMouseMotion
 		_rmb_move_accum += absf(mm.relative.x) + absf(mm.relative.y)
-		_camera_rig.orbit_yaw(mm.relative.x)
+		_camera_rig.orbit_yaw(mm.relative.x)     # horizontal drag → yaw
+		_camera_rig.pitch_by_drag(mm.relative.y) # vertical drag → pitch (inverted: down = raise angle)
 		return
 	if event.is_action_pressed("use_sub"):
 		_on_sub_key(0)  # Q → skillbook slot 0

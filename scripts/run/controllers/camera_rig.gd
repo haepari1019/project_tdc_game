@@ -7,6 +7,8 @@ extends Node3D
 
 # RMB + horizontal drag yaws the pivot around the controlled char.
 const YAW_SENS := 0.006  # radians per pixel of horizontal drag
+# RMB + vertical drag tilts the pitch (drag down → lower angle toward horizontal).
+const PITCH_DRAG_SENS := 0.15  # degrees per pixel of vertical drag
 
 # Camera placement (code-driven so angle + zoom are tweakable + scroll-zoomable, overriding the
 # scene transform). Lower PITCH = more horizontal → better enemy silhouette/motion readability
@@ -15,8 +17,8 @@ const YAW_SENS := 0.006  # radians per pixel of horizontal drag
 # Bird's-eye-far = detached "commander"; zoomed-close = cramped; shallow = camera behind walls.
 # Tunable live in-game: scroll = distance, [ / ] = pitch (console prints the values to bake).
 const PITCH_DEG := 40.0          # initial down-tilt (low cinematic; see-through handles wall occlusion)
-const PITCH_MIN := 30.0
-const PITCH_MAX := 65.0
+const PITCH_MIN := 15.0   # low cinematic (lowered from 30; wall_xray handles the wall occlusion)
+const PITCH_MAX := 85.0   # near top-down (raised from 65 — the top-down limit came too fast)
 const DISTANCE_DEFAULT := 19.0   # a bit further out
 const DISTANCE_MIN := 12.0
 const DISTANCE_MAX := 24.0
@@ -96,6 +98,13 @@ func glide_to_current() -> void:
 ## RMB-drag horizontal motion → yaw around the controlled char.
 func orbit_yaw(dx_pixels: float) -> void:
 	rotate_y(-dx_pixels * YAW_SENS)
+
+
+## RMB-drag vertical motion → tilt the pitch (inverted). Drag DOWN (dy_pixels > 0) raises the
+## angle toward top-down; drag up lowers it toward horizontal. Clamped to [PITCH_MIN, PITCH_MAX].
+func pitch_by_drag(dy_pixels: float) -> void:
+	_pitch = clampf(_pitch + dy_pixels * PITCH_DRAG_SENS, PITCH_MIN, PITCH_MAX)
+	_apply_placement()
 
 
 ## CombatController feeds trauma (0..1) + a world directional kick (피격=방향,
