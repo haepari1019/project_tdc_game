@@ -1,0 +1,12 @@
+{
+  "encounter_id": "ENC-HARD-012",
+  "difficulty_profile": "Hard",
+  "risk_pattern_ref": "RP-04",
+  "group_size": 4,
+  "_note": "Execution Mark 2nd (tight hex). ENC-000 §0.1 (RP-04 gap fill). EN-007 hex stub.",
+  "units": [
+    { "enemy_id": "EN-007", "count": 1, "slot": "fodder" },
+    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" }
+  ]
+}

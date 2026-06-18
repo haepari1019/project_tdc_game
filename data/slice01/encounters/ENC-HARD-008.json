@@ -1,0 +1,12 @@
+{
+  "encounter_id": "ENC-HARD-008",
+  "difficulty_profile": "Hard",
+  "risk_pattern_ref": "RP-03",
+  "group_size": 4,
+  "_note": "Slag Zone Denial (zone). ENC-000 §4. EN-004 zone behavior = P2-S2/S3 stub.",
+  "units": [
+    { "enemy_id": "EN-004", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
+    { "enemy_id": "EN-013", "count": 1, "slot": "fodder" }
+  ]
+}

@@ -45,6 +45,44 @@ const ROOM_SPECS: Dictionary = {
 		"extraction": true,
 		"label": "Extraction Landing",
 	},
+	# --- P2-S1 expansion (≥12 rooms): Upper branches (south/west) + Mid/Deep wing (east).
+	# Placed non-overlapping, sharing wall edges with a connected room. Critical path unchanged.
+	"RM-ADV-03": {
+		"center": Vector3(0, 0, -22.5),
+		"size": Vector3(27, 0, 22.5),
+		"profile": "standard",
+		"label": "South Antechamber",
+	},
+	"RM-ADV-04": {
+		"center": Vector3(-27, 0, 0),
+		"size": Vector3(27, 0, 22.5),
+		"profile": "standard",
+		"label": "West Gallery",
+	},
+	"RM-ADV-05": {
+		"center": Vector3(-54, 0, 0),
+		"size": Vector3(27, 0, 22.5),
+		"profile": "standard",
+		"label": "West Vault",
+	},
+	"RM-MID-01": {
+		"center": Vector3(48, 0, 45.75),
+		"size": Vector3(30, 0, 27),
+		"profile": "dim",
+		"label": "Mid — Slag Mire",
+	},
+	"RM-BOSS-01": {
+		"center": Vector3(48, 0, 18.75),
+		"size": Vector3(30, 0, 27),
+		"profile": "dim",
+		"label": "Mid — Warden Gate",
+	},
+	"RM-DEEP-01": {
+		"center": Vector3(75, 0, 45.75),
+		"size": Vector3(24, 0, 27),
+		"profile": "dim",
+		"label": "Deep — Gatefolk Corridor",
+	},
 }
 
 ## Connections: rooms share wall edges — only arch openings needed, no corridors.
@@ -55,6 +93,13 @@ const CONNECTIONS: Array = [
 	["RM-ADV-01", "RM-ADV-02", 8.0],
 	["RM-ADV-02", "RM-ROUTE-01", 6.0],
 	["RM-ROUTE-01", "RM-EXT-01", 6.0],
+	# P2-S1 expansion connections (shared edges → navmesh stays connected).
+	["RM-ENTRY-01", "RM-ADV-03", 8.0],
+	["RM-ENTRY-01", "RM-ADV-04", 8.0],
+	["RM-ADV-04", "RM-ADV-05", 6.0],
+	["RM-ADV-02", "RM-MID-01", 8.0],
+	["RM-MID-01", "RM-DEEP-01", 8.0],
+	["RM-MID-01", "RM-BOSS-01", 8.0],
 ]
 
 const PROFILE_COLORS: Dictionary = {

@@ -193,11 +193,16 @@ func _ready() -> void:
 	lever.setup(trap)
 	lever.position = Vector3(29.2, 0.0, 74.0)   # front side (north of zone), against the east wall
 	add_child(lever)
+	# These live under dungeon_run (not $Rooms) + spawn AFTER VisionFog.setup, so the initial
+	# fog sweep missed them → fog them explicitly (else visible at full brightness in unseen rooms).
+	for o in [chest, door, trap, lever]:
+		_vision_fog.fog_object(o)
 	# Breakable oil barrels (ENT-BARREL) in the combat court — AoE breaks them → oil pool.
 	for bpos in [Vector3(7.0, 0.0, 28.0), Vector3(-8.0, 0.0, 34.0), Vector3(10.0, 0.0, 40.0)]:
 		var barrel := Barrel.new()
 		barrel.position = bpos
 		add_child(barrel)
+		_vision_fog.fog_object(barrel)
 	# A few carriable torches (ENT-TORCH) near the oil — the carry/throw + RX-OIL-FIRE gameplay
 	# spot. Rooms are lit by fixed lanterns (map), so an enemy can't dark out a room by throwing
 	# every light. Wire each torch to combat (ignite_at) + the carry/throw handlers. ref: F-021.
@@ -205,6 +210,7 @@ func _ready() -> void:
 		var torch := Torch.new()
 		torch.position = tpos
 		add_child(torch)
+		_vision_fog.fog_object(torch)
 	for t in get_tree().get_nodes_in_group("torch"):
 		t.setup(_combat)
 		if not t.pickup_requested.is_connected(_torch.on_torch_pickup):

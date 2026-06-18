@@ -14,6 +14,7 @@ const BLUEPRINT_PATH := SLICE01_DIR + "blueprint.json"
 const GEAR_PATH := SLICE01_DIR + "gear.json"
 const SKILLBOOKS_PATH := SLICE01_DIR + "skillbooks.json"
 const CONSUMABLES_PATH := SLICE01_DIR + "consumables.json"
+const SPAWN_TABLE_PATH := SLICE01_DIR + "spawn_table.json"
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -30,6 +31,9 @@ var _skillbooks: Array = []
 var _skillbook_by_ability: Dictionary = {}
 var _consumables: Array = []
 var _consumable_by_id: Dictionary = {}
+## LDG-SPAWN-DEMO-001 — (pool, difficulty, world_layer) -> encounter_ref rows + force overrides.
+var _spawn_rows: Array = []
+var _spawn_overrides: Dictionary = {}
 
 
 func _ready() -> void:
@@ -175,11 +179,35 @@ func get_room_row(room_ref: String) -> Dictionary:
 	return {}
 
 
+## Legacy direct manifest lookup (DBP-DEMO-001 §5 flat binding). Prefer
+## get_encounter_for_pool() — kept for back-compat / fallback.
 func get_pool_encounter(pool_slot: String) -> String:
 	var enc_map: Dictionary = _manifest.get("encounters", {})
 	if typeof(enc_map) != TYPE_DICTIONARY:
 		return ""
 	return String(enc_map.get(pool_slot, ""))
+
+
+## Resolve a pool slot's encounter via the spawn table (LDG-SPAWN-DEMO-001):
+## force override > exact (pool, difficulty, world_layer) > (pool, difficulty) any-layer > "".
+## Returns "" when no row matches the run's difficulty for this pool (difficulty-gated slot).
+func get_encounter_for_pool(pool_slot: String, difficulty: String, world_layer: String) -> String:
+	if pool_slot.is_empty():
+		return ""
+	if _spawn_overrides.has(pool_slot):
+		return String(_spawn_overrides[pool_slot])
+	var any_layer := ""
+	for row in _spawn_rows:
+		var r := row as Dictionary
+		if String(r.get("pool_slot", "")) != pool_slot:
+			continue
+		if String(r.get("difficulty", "")) != difficulty:
+			continue
+		if String(r.get("world_layer", "")) == world_layer:
+			return String(r.get("encounter_ref", ""))
+		if any_layer.is_empty():
+			any_layer = String(r.get("encounter_ref", ""))
+	return any_layer
 
 
 func get_summary() -> String:
@@ -204,6 +232,7 @@ func _load_and_validate() -> bool:
 	var gear_doc := _read_json_dict(GEAR_PATH, "gear", errors)
 	var skillbooks_doc := _read_json_dict(SKILLBOOKS_PATH, "skillbooks", errors)
 	var consumables_doc := _read_json_dict(CONSUMABLES_PATH, "consumables", errors)
+	var spawn_table_doc := _read_json_dict(SPAWN_TABLE_PATH, "spawn_table", errors)
 
 	if errors.is_empty():
 		_validate_blueprint(errors)
@@ -214,6 +243,7 @@ func _load_and_validate() -> bool:
 		_parse_enemies(enemies_doc, errors)
 		_parse_abilities(abilities_doc, errors)
 		_validate_manifest(errors)
+		_parse_spawn_table(spawn_table_doc, errors)
 		_load_encounters(errors)
 		_validate_rooms(errors)
 
@@ -377,6 +407,32 @@ func _parse_consumables(doc: Dictionary, errors: Array[String]) -> void:
 		_consumable_by_id[cid] = row
 
 
+## Spawn table (LDG-SPAWN-DEMO-001). Rows = (pool, difficulty, world_layer) -> encounter_ref;
+## force_overrides win per pool (DBP-DEMO-001 §5.1). pool/encounter validated against id_registry.
+func _parse_spawn_table(doc: Dictionary, errors: Array[String]) -> void:
+	_spawn_rows.clear()
+	_spawn_overrides.clear()
+	var allowed_enc: Array = _registry_list("encounter_ids")
+	var allowed_pools: Array = _registry_list("pool_slots")
+	var rows = doc.get("rows", [])
+	if typeof(rows) != TYPE_ARRAY:
+		errors.append("spawn_table.json: 'rows' must be an array")
+		return
+	for row in rows:
+		if typeof(row) != TYPE_DICTIONARY:
+			errors.append("spawn_table.json: each row must be an object")
+			continue
+		IdValidate.require_id(String(row.get("pool_slot", "")), allowed_pools, "pool_slot", errors)
+		IdValidate.require_id(String(row.get("encounter_ref", "")), allowed_enc, "encounter_id", errors)
+		_spawn_rows.append(row)
+	var ov = doc.get("force_overrides", {})
+	if typeof(ov) == TYPE_DICTIONARY:
+		for pool_key in ov.keys():
+			IdValidate.require_id(String(pool_key), allowed_pools, "pool_slot", errors)
+			IdValidate.require_id(String(ov[pool_key]), allowed_enc, "encounter_id", errors)
+			_spawn_overrides[String(pool_key)] = String(ov[pool_key])
+
+
 func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:
 	var raw = doc.get("enemies", [])
 	if typeof(raw) != TYPE_ARRAY:
@@ -457,17 +513,30 @@ func _validate_manifest(errors: Array[String]) -> void:
 		IdValidate.require_id(String(enc_map[pool_key]), allowed_enc, "encounter_id", errors)
 
 
+## Load every encounter referenced by the manifest (flat/forced) AND the spawn table
+## (rows + force overrides), so resolver-bound MID/DEEP/BOSS encounters are spawnable.
 func _load_encounters(errors: Array[String]) -> void:
 	_encounters.clear()
-	var enc_map: Dictionary = _manifest.get("encounters", {})
-	if typeof(enc_map) != TYPE_DICTIONARY:
-		return
 	var seen: Dictionary = {}
-	for pool_key in enc_map.keys():
-		var enc_id := String(enc_map[pool_key])
-		if seen.has(enc_id):
-			continue
-		seen[enc_id] = true
+	var enc_ids: Array = []
+	var enc_map: Dictionary = _manifest.get("encounters", {})
+	if typeof(enc_map) == TYPE_DICTIONARY:
+		for pool_key in enc_map.keys():
+			var e := String(enc_map[pool_key])
+			if not e.is_empty() and not seen.has(e):
+				seen[e] = true
+				enc_ids.append(e)
+	for row in _spawn_rows:
+		var e := String((row as Dictionary).get("encounter_ref", ""))
+		if not e.is_empty() and not seen.has(e):
+			seen[e] = true
+			enc_ids.append(e)
+	for pool_key in _spawn_overrides.keys():
+		var e := String(_spawn_overrides[pool_key])
+		if not e.is_empty() and not seen.has(e):
+			seen[e] = true
+			enc_ids.append(e)
+	for enc_id in enc_ids:
 		var path := SLICE01_DIR + "encounters/%s.json" % enc_id
 		var doc := _read_json_dict(path, "encounter", errors)
 		if doc.is_empty():

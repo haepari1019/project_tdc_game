@@ -18,7 +18,11 @@ uniform float vis_lo = 0.25;                 // mask threshold lo
 uniform float vis_hi = 0.70;                 // mask threshold hi (wide band = soft edge)
 uniform float edge_blur : hint_range(0.0, 4.0) = 1.5;   // mask blur radius in texels (anti-stairstep)
 uniform float mem_dim : hint_range(0.0, 1.5) = 0.9;     // explored brightness — near-normal, achromatic
-uniform float dark_dim : hint_range(0.0, 1.0) = 0.08;   // never-reached brightness (dark)
+uniform float dark_dim : hint_range(0.0, 1.0) = 0.0;    // never-reached FLOOR — flat (NOT luminance-scaled),
+                               // so bright/emissive props (lanterns) are fully hidden in unseen rooms. 0 = black.
+uniform float occluded_lum_cap : hint_range(0.0, 1.0) = 0.3;  // clamp source luminance in EXPLORED-memory areas
+                               // so remembered bright props read as a dim grey, not a glowing beacon. (Never-reached
+                               // is flat dark_dim; currently-visible is discarded — both unaffected by this cap.)
 
 varying vec3 v_world;
 
@@ -68,10 +72,11 @@ void fragment() {
 	float mem = smoothstep(vis_lo, vis_hi, blur_exp(uv));  // 1 = explored (ever seen)
 	vec3 base = texture(screen_tex, SCREEN_UV).rgb;
 	float g = dot(base, vec3(0.299, 0.587, 0.114));        // luminance (desaturate)
+	g = min(g, occluded_lum_cap);                          // tame bright sources in REMEMBERED areas (lanterns)
 	// seen-before → achromatic at near-normal brightness (almost like the live view, just grey);
-	// never-reached → dark. Distinguished from the live view by being desaturated, not dimmed.
+	// never-reached → FLAT floor (not luminance-scaled) so nothing — incl. bright props — peeks through.
 	vec3 mem_col = vec3(g) * mem_dim;
-	vec3 dark_col = vec3(g) * dark_dim;
+	vec3 dark_col = vec3(dark_dim);
 	vec3 fog_col = mix(dark_col, mem_col, mem);
 	ALBEDO = fog_col;
 	ALPHA = 1.0 - vis;                                     // soft fade toward the visible edge

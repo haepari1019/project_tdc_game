@@ -1,0 +1,12 @@
+{
+  "encounter_id": "ENC-DEEP-001",
+  "difficulty_profile": "Normal",
+  "risk_pattern_ref": "RP-09",
+  "group_size": 4,
+  "_note": "Gatefolk Corridor — Deep layer intro (split pressure). ENC-000 §4. EN-003 mobile stub.",
+  "units": [
+    { "enemy_id": "EN-003", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-006", "count": 1, "slot": "fodder" },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" }
+  ]
+}

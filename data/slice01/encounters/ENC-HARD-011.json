@@ -1,0 +1,12 @@
+{
+  "encounter_id": "ENC-HARD-011",
+  "difficulty_profile": "Hard",
+  "risk_pattern_ref": "RP-01",
+  "group_size": 5,
+  "_note": "Disguised Assassin (Hard) — ENC-NORM-003 2nd. ENC-000 §0.1. AssassinTransform hook = P2-S2.",
+  "units": [
+    { "enemy_id": "EN-011", "count": 1, "slot": "fodder" },
+    { "enemy_id": "EN-010", "count": 3, "slot": "fodder" },
+    { "enemy_id": "EN-008", "count": 1, "slot": "fodder" }
+  ]
+}

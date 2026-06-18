@@ -224,6 +224,15 @@ func _apply_fog_to_world() -> void:
 	_collect_and_fog(rooms)
 
 
+## Fog a world object spawned AFTER setup. door/trap/chest/barrel/torch live under dungeon_run
+## (not $Rooms) and spawn after _apply_fog_to_world ran, so they'd never receive the fog pass and
+## would show at full brightness in unexplored rooms. Same rule as the initial sweep.
+func fog_object(n: Node) -> void:
+	if _fog_mat == null or n == null:
+		return
+	_collect_and_fog(n)
+
+
 func _collect_and_fog(n: Node) -> void:
 	for c in n.get_children():
 		if c is MeshInstance3D:

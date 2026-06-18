@@ -74,18 +74,19 @@ func on_player_entered_room(room_ref: String) -> void:
 	var row := Slice01Data.get_room_row(room_ref)
 	var pool := String(row.get("pool_slot", ""))
 	if not pool.is_empty():
-		var enc := Slice01Data.get_pool_encounter(pool)
+		var layer := String(row.get("world_layer", "Upper"))
+		var enc := Slice01Data.get_encounter_for_pool(pool, difficulty_profile, layer)
 		if not enc.is_empty():
 			encounter_triggered.emit(enc, room_ref)
-	if room_ref == "RM-OBJ-01":
-		if run_phase == RunPhase.ADVANCE:
-			_set_phase(RunPhase.OBJECTIVE)
-		# Objective is NOT auto-completed on entry anymore — loot the key from the chest
-		# and open the RM-ROUTE-01→RM-EXT-01 door, which calls complete_objective(). (Door)
-	elif room_ref == "RM-ROUTE-01" and run_phase == RunPhase.OBJECTIVE:
-		_set_phase(RunPhase.ADVANCE_EXTRACTION)
-	elif room_ref == "RM-EXT-01":
-		_set_phase(RunPhase.EXTRACTION)
+	# Phase progression is data-driven (rooms.json `run_phase_on_enter`), advanced
+	# monotonically along RunPhase.SEQUENCE so re-entering / branching never rewinds it.
+	# Objective is NOT auto-completed on entry — the key-gate door calls
+	# complete_objective() (GIMMICK-DEMO-01); the phase only mirrors room progression.
+	var target_phase := String(row.get("run_phase_on_enter", ""))
+	if not target_phase.is_empty():
+		var ti := RunPhase.SEQUENCE.find(target_phase)
+		if ti > _phase_index:
+			_set_phase(target_phase)
 
 
 func complete_objective() -> void:

@@ -367,13 +367,18 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	# of their rooms relative to this, and face away from it (see _init_enemy_perception).
 	if _map and _map.has_method("get_spawn_position"):
 		_spawn_origin = _map.get_spawn_position(spawn_room)
+	# Resolve per room via the spawn table: (pool, run difficulty, room world_layer).
+	var difficulty := String(Slice01Data.get_manifest().get("difficulty_profile", "Normal"))
 	for row in Slice01Data.get_rooms_document().get("rooms", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		var room_ref := String(row.get("room_ref", ""))
-		var enc_id := Slice01Data.get_pool_encounter(String(row.get("pool_slot", "")))
+		var pool := String(row.get("pool_slot", ""))
+		var layer := String(row.get("world_layer", "Upper"))
+		var enc_id := Slice01Data.get_encounter_for_pool(pool, difficulty, layer)
 		if enc_id.is_empty():
 			continue
+		print("[TDC] prespawn resolve: room=%s pool=%s layer=%s diff=%s -> %s" % [room_ref, pool, layer, difficulty, enc_id])
 		# The start room's own encounter would spawn on the party — relocate it into
 		# the main combat room (the start room's connected room) as its own squad.
 		var target_room := room_ref

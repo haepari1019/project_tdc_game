@@ -6,6 +6,19 @@
 
 ---
 
+### IMPL-DEC-20260618-002 — Vision fog 미탐지 프롭 가림 + 천장 패스 계획(이연)
+- **결정(구현):** 미방문(never-reached) 방에서 **발광 프롭이 fog를 뚫고 보이던** 문제 수정. ① fog 미탐지 색을 휘도비례(`vec3(g)*dark_dim`) → **평면 검정**(`vec3(dark_dim)`, `dark_dim` 기본 0)으로 — 오브젝트 밝기 무관 완전 가림. ② `occluded_lum_cap`(0.3) 신설 — **explored 기억** 영역의 밝은 프롭이 비콘처럼 튀지 않게 휘도 클램프(미탐지=평면, 가시=discard라 둘은 영향 없음). ③ `vision_fog.fog_object()` 공개 — `dungeon_run`이 setup **이후** 스폰하는 `door/trap/chest/lever/barrel/torch`에 fog `next_pass`를 명시 적용(`$Rooms` 밖이라 초기 `_apply_fog_to_world` sweep이 못 잡음).
+- **결정(이연 = 천장 패스, 천장 지오메트리 도입 시):** ① 벽/천장 높이↑(현 `WALL_HEIGHT 3.5`), **천장=벽높이 커플**(full-height 벽이라야 옆방 차단). ② **카메라를 천장 아래 유지**(천장 ≳ `max_zoom·sin(85°)` + 여유) → 전 피치에서 천장 미차폐. ③ **폴백:** 카메라가 천장선 초과 시 **룸단위 천장 페이드-투-0**(메시만, 광원 유지). 벽 see-through=반투명(0.16) vs **천장=완전투명(0)**. ④ **광원 `shadow_enabled` ON**(현 `lantern.gd` false → 빛이 벽 투과; 개구부로만 새려면 필요). ⑤ **fog dim 복원**(`dark_dim` 0→~0.07 + `dark_col` 휘도반영 복귀, **1줄 플립**) → 미탐지역에 *빛/그림자 샘*만 보이고 구조는 천장이 차단. ⑥ 대안: 고피치서 줌 강제축소로 천장 높이 절감.
+- **이유:** 현재 천장이 없는 개방 구조라 원거리/고각에서 미탐지 방 구조가 읽힘 → 임시로 전부 검정 처리. 천장이 생기면 **구조 차단은 지오메트리·카메라가** 맡고 fog는 기억 무채색 + 개구부 빛샘만 담당하는 게 옳음(브루트포스 검정 탈피).
+- **영향(구현):** `assets/shaders/vision_fog.gdshader`, `scripts/run/controllers/vision_fog.gd`, `scripts/run/dungeon_run.gd`. (이연 영향: `lantern.gd`·`run/controllers/camera_rig.gd`·`world/map_demo_layout.gd`·`vision_fog.gdshader` — 천장 패스 때.)
+
+### IMPL-DEC-20260618-001 — P2-S1 던전 스케일 (spawn resolver + 다층맵 + ENC/EN 스텁)
+- **결정:** Phase 2 Full Spec Coverage(`4422e50`) 첫 스프린트 — slice01을 spec `LDG-SPAWN-DEMO-001`에 맞춰 확장(신규 빌드 아닌 기존 자산 리팩터). ① `spawn_table.json` + `Slice01Data.get_encounter_for_pool(pool, difficulty, world_layer)`(force override > 정확 > (pool,diff) any-layer). `_load_encounters`가 spawn 참조 ENC까지 로드. `combat_controller.prespawn_encounters`·`run_controller` 호출부 신 API로. ② `rooms.json` `world_layer` + 신규 6룸(Upper/Mid/Deep), `map_demo_layout` ROOM_SPECS/CONNECTIONS **6→12룸**. ③ `run_controller` 룸 하드코딩 → `run_phase_on_enter` 단조 `SEQUENCE`. ④ ENC 9 + EN 6 스텁.
+- **이유:** 데모 스코프 캡 해제(Phase 2). spec이 이미 정의한 resolver/world_layer/pool·room 구조의 구현.
+- **대안:** ROOM_SPECS를 rooms.json geometry로 완전 이전(DEBT-DM3) — 범위·회귀위험 커서 **이연**(절차 placeholder 기하 유지). EN 실제 kit 즉시 구현 — **P2-S2로 분리**(스텁=placeholder 스탯+재사용 AB).
+- **검증:** Godot 4.5.1 헤드리스 — Normal(NORM-002/001·MID-001·DEEP-001)·Hard(BOSS-001 등 8분대) prespawn resolve·navmesh 244폴리·5단계 전환 OK. **인터랙티브 키-게이트→Extract 회귀 + Hard 플레이 스모크는 F5 잔여.**
+- **영향:** `data/slice01/{spawn_table.json·encounters/*(9 신규)·id_registry·enemies·rooms}`, `scripts/{autoload/slice01_data·combat/combat_controller·run/run_controller·world/map_demo_layout}`, `IMPL_COVERAGE.md`, `docs/SPEC_DRIFT.md`(DRIFT-039).
+
 ### IMPL-DEC-20260613-003 — Loot/RunEnd/Aim 분리 (dungeon_run 갓코드 3라운드, 동작 보존)
 - **결정:** dungeon_run 잔여 3덩어리 추출 — `run/loot_service.gd`(77, 처치 루트 롤·드랍, `enemy_defeated` 구동)·`run/run_end_controller.gd`(173, 탈출 홀드채널+결속게이트+전멸감지+정산조합, 자기 `_process`로 `run.settle_*` 호출·`party_alert` emit)·`run/aim_controller.gd`(52, 스킬북 지면조준 모달 → revive/torch와 **진짜 균일** is_active/cancel/handle_click). dungeon_run **686→455**.
 - **이유:** 갓코드 3라운드(사용자: C→재평가→플랜→진행). 추출채널+정산조합은 `_settle_extraction`/`_has_separated_survivor`/전멸로 **결합** → 한 `RunEndController`로 묶음(런 종료 흐름 응집). AimController로 3모달이 균일해져 라우터의 인라인 aim 특례 제거(B+→A 인터페이스 조건).

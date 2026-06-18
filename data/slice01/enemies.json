@@ -1,5 +1,6 @@
 {
   "_stats_note": "DEMO PH tuning. move_speed = near-party (anti-kite) then ×2/3 tempo downscale (2026-06-08); ratio kept so enemies stay ~equal to party. archetype identity kept (rush/skitter fastest, Slow Bulk slowest). HP eased from hard-pass. abilities[].ref -> abilities.json catalog. trigger: basic | every_n(n).",
+  "_stub_note": "EN-002/003/004/007/008/009 = P2-S1 stubs — placeholder stats + reused basic AB so ENC compositions resolve & spawn (D4). Real kit (EN-AI-000 patternRef + signature AB-098/099 etc., EN-COR-000) = P2-S2. SPEC_DRIFT logged.",
   "enemies": [
     { "enemy_id": "EN-001", "role": "elite",  "display_name": "Shield Elite",
       "stats": { "hp": 760, "move_speed": 5.5, "contact_damage": 18, "attack_range_m": 1.8, "attack_interval_s": 1.4 },
@@ -26,6 +27,31 @@
       "stats": { "hp": 280, "move_speed": 5.5, "contact_damage": 10, "attack_range_m": 1.7, "attack_interval_s": 1.3 },
       "interacts_with_objects": true,
       "_behavior_note": "F-021 §3.1.2 object-priority: seeks ENT-TORCH, carries + throws at the party (ignites oil → RX-OIL-FIRE). Killable normally with no torch around. spec EN-COR-000 alignment = 1b content task.",
+      "abilities": [ { "ref": "AB-015", "trigger": "basic" } ] },
+
+    { "enemy_id": "EN-002", "role": "nuker", "display_name": "Voltaic Acolyte",
+      "stats": { "hp": 300, "move_speed": 5.0, "contact_damage": 8, "attack_range_m": 9.0, "attack_interval_s": 2.0 },
+      "_stub": "NukerElite (PT-002, sig AB-004 charged) — placeholder ranged kit. P2-S2.",
+      "abilities": [ { "ref": "AB-016", "trigger": "basic" } ] },
+    { "enemy_id": "EN-003", "role": "elite", "display_name": "Skirting Raptor",
+      "stats": { "hp": 340, "move_speed": 6.3, "contact_damage": 14, "attack_range_m": 1.6, "attack_interval_s": 1.1 },
+      "_stub": "MobileElite (PT-003, dash) — placeholder melee kit. P2-S2.",
+      "abilities": [ { "ref": "AB-015", "trigger": "basic" } ] },
+    { "enemy_id": "EN-004", "role": "elite", "display_name": "Slag Siphon",
+      "stats": { "hp": 420, "move_speed": 4.8, "contact_damage": 13, "attack_range_m": 1.8, "attack_interval_s": 1.5 },
+      "_stub": "EnvironmentElite (PT-004, zone spawn) — placeholder; zone behavior P2-S2/S3.",
+      "abilities": [ { "ref": "AB-015", "trigger": "basic" } ] },
+    { "enemy_id": "EN-007", "role": "nuker", "display_name": "Mire Hexer",
+      "stats": { "hp": 220, "move_speed": 5.2, "contact_damage": 7, "attack_range_m": 8.0, "attack_interval_s": 2.2 },
+      "_stub": "DebuffTrash (PT-007, hex channel) — placeholder ranged kit. P2-S2.",
+      "abilities": [ { "ref": "AB-016", "trigger": "basic" } ] },
+    { "enemy_id": "EN-008", "role": "fodder", "display_name": "Corner Knife",
+      "stats": { "hp": 240, "move_speed": 6.0, "contact_damage": 12, "attack_range_m": 1.5, "attack_interval_s": 1.2 },
+      "_stub": "FlankTrash (PT-008, side/rear arc) — placeholder melee kit. P2-S2.",
+      "abilities": [ { "ref": "AB-015", "trigger": "basic" } ] },
+    { "enemy_id": "EN-009", "role": "fodder", "display_name": "Rustling Swarm",
+      "stats": { "hp": 90, "move_speed": 6.2, "contact_damage": 6, "attack_range_m": 1.4, "attack_interval_s": 0.9 },
+      "_stub": "SwarmTrash (PT-009, surround) — placeholder low-HP melee. P2-S2.",
       "abilities": [ { "ref": "AB-015", "trigger": "basic" } ] }
   ]
 }
