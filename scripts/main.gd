@@ -19,6 +19,7 @@ var _party: Node
 var _inv: InventoryUI
 var _stash_src: Node
 var _formation: Panel
+var _difficulty_opt: OptionButton
 # Autoloads via runtime path (not the parse-time global) so a stale editor that hasn't
 # re-registered a newly-added autoload still compiles + runs. Loaded fresh on every game run.
 @onready var _stash: Node = get_node("/root/Stash")
@@ -63,6 +64,23 @@ func _setup_hub() -> void:
 	$Panel/Margin/VBox.add_child(edit)
 	$Panel/Margin/VBox.move_child(edit, _loadout.get_index())  # stash editor ABOVE the confirm
 	_build_formation_editor()
+	_build_difficulty_selector()
+
+
+## Difficulty selector (Normal/Hard) — chosen in the hub BEFORE deploy, written to RunLoadout
+## at Deploy and read by run_controller/combat at run start (single source = RunLoadout.get_difficulty).
+func _build_difficulty_selector() -> void:
+	var dlabel := Label.new()
+	dlabel.text = "난이도 (던전 진입 전 선택)"
+	$Panel/Margin/VBox.add_child(dlabel)
+	$Panel/Margin/VBox.move_child(dlabel, _loadout.get_index())
+	_difficulty_opt = OptionButton.new()
+	_difficulty_opt.add_item("Normal")
+	_difficulty_opt.add_item("Hard")
+	_difficulty_opt.selected = 1 if String(_run_loadout.difficulty) == "Hard" else 0
+	_difficulty_opt.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	$Panel/Margin/VBox.add_child(_difficulty_opt)
+	$Panel/Margin/VBox.move_child(_difficulty_opt, _loadout.get_index())
 
 
 ## Top-down draggable formation editor (4 role tokens), placed above the confirm.
@@ -164,3 +182,5 @@ func _serialize_loadout() -> void:
 			var o: Vector2 = offsets[cid]
 			form.append({"class_id": String(cid), "offset": [o.x, o.y]})  # o.y holds z (forward)
 	_run_loadout.formation = form
+	if _difficulty_opt != null:
+		_run_loadout.difficulty = _difficulty_opt.get_item_text(_difficulty_opt.selected)

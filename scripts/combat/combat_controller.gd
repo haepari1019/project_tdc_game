@@ -368,7 +368,7 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	if _map and _map.has_method("get_spawn_position"):
 		_spawn_origin = _map.get_spawn_position(spawn_room)
 	# Resolve per room via the spawn table: (pool, run difficulty, room world_layer).
-	var difficulty := String(Slice01Data.get_manifest().get("difficulty_profile", "Normal"))
+	var difficulty := RunLoadout.get_difficulty()   # hub selection > manifest default (single source)
 	for row in Slice01Data.get_rooms_document().get("rooms", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
