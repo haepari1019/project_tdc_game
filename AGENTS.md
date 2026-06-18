@@ -4,11 +4,41 @@
 
 Godot **4.5.1** implementation for **Project TDC** (`project.godot` features: 4.5). Design SSOT lives in **`project_tdc`** (GitHub: `haepari1019/project_tdc`, branch `staging`). Do not duplicate `F-###` / `D-###` rule text here.
 
-## Before coding
+## Spec contract (project_tdc_spec)
 
-1. Read `spec_ref.json` for pinned spec commit.
-2. Phase scope: `QA-030` in spec repo (`docs/qa/QA-030_Slice01_PlayableContract.md`).
-3. ID contract: string 1:1 — `tank_anchor_guard`, `ENC-NORM-001`, `DBP-DEMO-001`, etc. No aliases; unregistered IDs → abort at load.
+- **SSOT 레포:** `E:/Game_design/project_tdc_spec` (`staging`). Pin: [`spec_ref.json`](spec_ref.json).
+- **Phase:** `implementation_phase` in spec_ref — **1b playable done**; active sprint **P2-S1** (dungeon scale).
+- **Phase 2 policy:** spec `docs/context/ImplementationPhase_FullSpecCoverage.md` — implement the full spec catalog over time; **do not** cap work to Slice-01 / 6-room demo / `QA-030` non-goals alone.
+- **Current sprint:** spec `docs/context/Sprint_P2-S1_DungeonScale.md` + `docs/context/GameRepo_Baseline_P2-S1.md`.
+- **Game architecture map:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — read before run/map/spawn changes.
+- **Coverage:** maintain [`IMPL_COVERAGE.md`](IMPL_COVERAGE.md) at end of each sprint.
+- **Drift:** [`docs/SPEC_DRIFT.md`](docs/SPEC_DRIFT.md) + [`docs/impl_decisions/ImplDecisionLog.md`](docs/impl_decisions/ImplDecisionLog.md). No silent spec divergence.
+
+### ID contract (hard rule)
+
+- Code/data string IDs match spec **1:1** — `tank_anchor_guard`, `ENC-NORM-001`, `DBP-DEMO-001`, etc. No aliases.
+- Unregistered IDs → **abort at load** (`require_id`). New spec IDs introduced by a sprint must be registered in `data/slice01/id_registry.json` before use.
+
+### Do NOT (scope)
+
+- Reject tasks because "not in Slice-01" or "only DBP-DEMO-001 6 rooms".
+- Re-implement 1b systems already in game (hub, key-gate, extract settlement, inventory, vision fog, enemy AI) — **extend** `data/slice01` + resolver instead.
+- Implement Recovery Marker / revisit (`F-007` §3.3) in P2-S1 — **deferred** (DRIFT-031).
+
+### Context load order
+
+1. `GameRepo_Baseline_P2-S1.md` (spec repo)
+2. `Sprint_P2-S1_DungeonScale.md` (spec repo)
+3. This repo `ARCHITECTURE.md` + `data/slice01/manifest.json`
+4. Target `F-###` / `LDG-SPAWN-DEMO-001` / encounter JSON in spec repo
+
+### P2-S1 Definition of Done (summary)
+
+- Spawn resolver: `difficultyProfile` × `world_layer` × `poolSlot` → `encounterRef` (`LDG-SPAWN-DEMO-001`)
+- Map ≥12 rooms, Upper/Mid/Deep layers
+- All non-empty LDG spawn rows resolve; MID/DEEP/BOSS **spawn** once (combat polish → P2-S2)
+- Key-gate extract **regression pass**
+- `IMPL_COVERAGE.md` updated; `spec_ref` bumped after spec merge
 
 ## This repo owns
 

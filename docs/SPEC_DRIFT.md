@@ -2,7 +2,7 @@
 
 > **무엇:** 구현이 spec(SSOT)과 달라진 지점의 **단일 추적 대장**. 발견 즉시 `DRIFT-###`로 기록하고, 분류·결정·상태를 유지한다.
 > **규칙:** [AGENTS.md](../AGENTS.md) §Spec drift & propagation. 튜닝수치=로깅만 / 아이디어=`OPS_08·I-002` / 규칙변경=spec repo `OPS_30` 전파 후 `spec_ref.json` 재핀.
-> **최종 갱신:** 2026-06-11 · **스펙 핀:** `spec_ref.json` @ `staging` `b84e975` (DEC-20260611-003~006 전파-후보 4종: 인-런 부활/그리드 인벤/월드루프 키-게이트/피격 인디케이터. 이전: c795fee=DEC-001/002, f7739a1=DRIFT-021).
+> **최종 갱신:** 2026-06-18 · **스펙 핀:** `spec_ref.json` @ `staging` `4422e50` (**Phase 2 Full Spec Coverage 채택** — 데모 스코프 상한 해제, `ImplementationPhase_FullSpecCoverage.md` · DRIFT-037 F-011 fog·DRIFT-038 F-012 see-through 전파 `daa1114`/DEC-20260618-001 머지+재핀). **PENDING-PROP 없음.** 이전 핀: 0edf55c=DRIFT-035/036(F-004 §3.5·F-012 §3.1.2), b84e975=DEC-20260611-003~006, c795fee=DEC-001/002, f7739a1=DRIFT-021.
 > **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조 검증).
 
 ## 범례
@@ -66,6 +66,8 @@
 | 034 | **배치 허브(F-010 §3.2 / UI-005 / F-003) — 스태시 로드아웃 편집 + 반입 At-Risk + 포메이션 편집**: 메뉴에 InventoryUI(combat=null→장착 허용) + 정적 허브 파티 임베드 → 스태시(소유 gear/스킬북/소모품)를 컨테이너로 띄워 캐릭터 Q/E/R·장착·백팩 드래그. **탑다운 드래그 포메이션 에디터**(4 역할 토큰→슬롯 오프셋). Deploy 시 멤버 서브+백팩+포메이션 직렬화→RunLoadout→dungeon_run 적용(At-Risk 시작→정산 연동, 슬롯 오프셋 오버라이드). 소모품 스택10·Ctrl클릭 분해팝업·드래그 합치기. 오토로드 런타임 경로 접근 | rule(기존 spec 구현)+impl | F-010 §3.2·UI-005·F-007 At-Risk·F-003 슬롯 오프셋 구현. 스태시 시드·스택수치·CLAMP/SCALE=content/tuning | IMPLEMENTED |
 | 035 | **전투 진형 — 탱커 선공 게이트 + 2선 딜러(원거리 백라인/근접 측면 플랭크) + DPS 원거리화** | rule(전파됨)+tuning | AI DPS/Nuker는 탱커 첫타 전까지 교전·접근 보류; 원거리=백라인 딜, 근접=탱커축 측면 플랭크. DPS basic_range 2.0→10.0=tuning | ✅ 전파 (F-004 §3.5, DEC-20260616-001, spec 0edf55c) + 재핀; range=tuning |
 | 036 | **카메라 RMB 세로 드래그 = pitch 틸트(인버트) + 피치 범위 15~85°** | rule(전파됨)+tuning | RMB Δy→pitch(yaw와 동시 자유오빗). 범위·감도·줌=tuning | ✅ 전파 (F-012 §3.1.2, DEC-20260616-002, spec 0edf55c) + 재핀 |
+| 037 | **F-011 풀 GPU vision fog**(2D SubViewport 파티-LOS→3D next_pass·explored 기억) + 적 시야콘 GPU union 재구성 + **렌더러 Forward+ 강제→web export 차단** | scope/impl + rule(제약) | DRIFT-015 deferred 풀 F-011 구현됨. fog 가시모델(차폐형 마스크·Explored Memory·시야콘 오버레이) **F-011 §3.0/§3.3/§5 정식화**. Forward+/web-export 제약=**impl-only 결정**(spec 비대상, ARCHITECTURE DEBT-PLAT-FWD) | ✅ MERGED (F-011 §3.0/§3.3/§5, daa1114·DEC-20260618-001, spec 4422e50) + 재핀 |
+| 038 | **F-012 wall x-ray** — 카메라↔조작캐 사이 벽 알파 페이드(see-through), 저각 시네마틱 카메라 보완 | rule/impl | DRIFT-036 pitch 저각화의 짝. **F-011 §3.3.1 Camera Occlusion See-Through**로 정식화(F-012 §3.1.2가 F-011에 위임) | ✅ MERGED (F-011 §3.3.1, daa1114·DEC-20260618-001, spec 4422e50) + 재핀 |
 
 > **비-드리프트(기존 spec 구현=정합, ImplDecisionLog 기록):** partyInCombat 진입/종료(D-010 §4.1 피해·공격·인지 / §4.2 grace), 비조작 안전우선 슬롯-이탈 트리거=피격/사거리(F-004 §3.1/§3.3), 힐러 포지셔닝(F-005), **지휘권 진입 핸드오프=서브리더 앵커(F-003 §3.4 #2)** — 진입 동작은 기존 spec 정합. 단 **스왑 중 지휘권/랠리 거동은 §3.0.4 분리 모델로 정제 → DRIFT-021(✅ MERGED f7739a1)**. 서브리더 지정(UI-005)·지휘권 전환 UX(UI-008)·Leader Move Ping(F-003 §3.5)은 **미구현(기본값/보류)**.
 > **아이디어(OPS_08):** "시야콘을 보이게 하는 소모품"(현재는 개발용 상시 표시) → 소모품/UI 아이디어로 등록 권장.
@@ -278,6 +280,24 @@
 - **구현(게임):** `camera_rig.pitch_by_drag(dy)` — `_pitch ± dy*PITCH_DRAG_SENS(0.15)` clampf(PITCH_MIN 15·PITCH_MAX 85) + `_apply_placement`. dungeon_run RMB 모션에서 yaw(Δx)+pitch(Δy) 동시(자유 오빗). 저각 가림=wall_xray see-through.
 - **분류/전파:** **✅ 규칙(RMB Δy=pitch 틸트) 전파 → F-012 §3.1.2 신설(DEC-20260616-002, spec `0edf55c`) + §9 open Q 해소, spec_ref 재핀.** 민감도·pitch 범위·줌 수치=tuning(로깅만).
 - **잔여:** 줌(거리, scroll)·전방 가중 카메라는 F-012 후속. pitch 범위/감도=잠정 튜닝값.
+
+### DRIFT-037 — F-011 풀 GPU vision fog(Step 1-3) + 적 시야콘 GPU 재구성 + Forward+ 강제 ✅ MERGED (daa1114 · DEC-20260618-001)
+- **구현(2026-06-14~16):** DRIFT-015(occlusion-only 토대)·DRIFT-018(적 perception)에서 **보류했던 풀 F-011 시야 fog**를 GPU 2D 라이팅으로 구현.
+  - **파티-LOS fog**(`run/controllers/vision_fog.gd`, 332): top-down SubViewport에 멤버별 그림자캐스트 PointLight2D + 벽 LightOccluder2D → 점등영역 = 파티 union 가시폴리곤(차폐형, 거리감쇠 아님). 별도 **explored 누적 뷰포트**(CLEAR_ONCE+ADD, `fog_accumulate.gdshader`)=기억(한 번 본 곳은 무채색 저채도 잔존). 공유 `vision_fog.gdshader`를 월드 메쉬 `next_pass`로 붙여 **3D 적용**(각 메쉬 월드XZ→fog UV, **depth 텍스처 재구성 없음** — 두 번 실패했던 부분 회피). V=디버그 오버레이, B=3D fog A/B.
+  - **적 시야콘 GPU 재구성**(`run/controllers/enemy_vision_overlay.gd`, 206): 기존 레이팬 콘(벽 엣지 떨림)을 fog와 동일 기법으로 교체 — 적별 섹터 PointLight2D + 벽 occluder → 벽서 정확 클립되는 union 마스크, 지면 quad가 샘플(빨강 전투/노랑 경계). fog cur-LOS로 게이트(가시영역만 표시).
+  - **렌더러 Forward+ 강제**(`project.godot` `rendering_method="forward_plus"`): 2D 라이팅 그림자 + 셰이더 next_pass가 Compatibility 백엔드 미동작 → Forward+ 전환. **결과: web(HTML5) export 차단**(Compatibility 전용). ARCHITECTURE §6 `DEBT-PLAT-FWD`.
+- **분류/전파:** **scope/impl + rule(제약).** DRIFT-015는 "풀 F-011 전파는 정식화 때 OPS_30"으로 명시 보류 → 본 구현으로 그 조건 충족. ① fog 가시모델(union LOS·explored 기억)을 **F-011에 확정**하거나 "demo subset" 명시 ② **Forward+/web-export-차단**은 플랫폼/타겟 **제약 변경**(ChangeProtocol §1 constraints) → QA-031/contract 또는 플랫폼 스코프에 반영. **PENDING-PROP** → spec repo OPS_30(F-011 + SpecScopeTracker + QA) + **사용자 플랫폼 결정**(web 타겟 포기 수용 여부).
+- **전파 결과(✅ MERGED, daa1114 · DEC-20260618-001, spec 4422e50):** ① fog 가시모델 — **F-011 §3.0 Explored Memory · §3.3 차폐형 가시 마스크 · §5 적 시야콘 바닥 오버레이**로 정식화(거리감쇠 아님, "미탐색 FoW 없음" §1 정합). ② **Forward+/web-export 차단은 사용자 결정으로 spec 비대상(impl-only)** — 게임 `ARCHITECTURE.md` DEBT-PLAT-FWD에만 잔존, 스펙 미반영(DEC alternatives B 기각). 게임 `spec_ref.json` 재핀 `4422e50`(Phase 2). 잔여 미구현(광원 합집합·perceptionProfile 차등·Patrol·미니맵 레이어)은 1b 현황 노트로 F-011에 명시.
+- **tuning/impl(전파금지):** fog PX_PER_M 12·SIGHT_RADIUS 64m·MAX_LIGHTS 4·OCCLUDER_INSET 0.15, 시야콘 PX_PER_M 8·CULL 32m·MAX_LIGHTS 16·overlay alpha 0.03·색(빨강/노랑). 셰이더 3종(vision_fog/fog_accumulate/enemy_vision_overlay).
+- **관련 아이디어:** "시야콘 상시표시 → 가시화 소모품/UI"(OPS_08 미등록). 적 시야콘 오버레이는 현재 개발용 상시 on.
+- **잔여:** fog 동적 occluder(움직이는 벽/문 개방 미반영)·멀티층·성능(UPDATE_ALWAYS 2 뷰포트). 시야콘 16개 캡.
+
+### DRIFT-038 — F-012 wall x-ray(카메라↔캐릭 벽 투과) ✅ MERGED (daa1114 · DEC-20260618-001)
+- **구현(2026-06-16):** 카메라 저각 pitch(DRIFT-036, `camera_rig` PITCH_MIN 30→15)에서 벽/장애물이 파티를 가리는 문제 → **see-through 벽 투과**(`run/controllers/wall_xray.gd`, 92): 매프레임 카메라→**생존 멤버 전원** 레이캐스트(벽 레이어 1, 최대 5겹)→히트 벽 머티리얼 알파 0.16 페이드 + F-011 fog `next_pass` 임시 제거(이중 어둡힘 방지), 비차폐 시 복원. `camera_rig` 주석에 "PITCH_MIN lowered from 30; wall_xray handles wall occlusion".
+- **분류/전파:** **rule/impl.** DRIFT-036(RMB pitch 틸트, ✅ F-012 §3.1.2 전파)의 **직접 후속** — 저각 카메라가 만든 가림을 해소하는 카메라 가시규칙. F-012에 "카메라 가림 처리(see-through/페이드)" 절 신설 후보. 단독으론 표현 휴리스틱(impl)에 가까워 **전파 여부 사용자 판단** 필요. **PENDING-PROP** → spec repo OPS_30(F-012 §3.x) 또는 impl-only(`ImplDecisionLog`)로 종결.
+- **전파 결과(✅ MERGED, daa1114 · DEC-20260618-001, spec 4422e50):** F-012 §3.x 신설 대신 **F-011 §3.3.1 Camera Occlusion See-Through**로 정식화 — F-012 §3.1.2(저각 카메라)가 가림 처리를 시야/엄폐 소유자 **F-011에 위임**(역참조 정밀화, related 양방향). see-through=**표현(렌더) 처리**로 명시(충돌·LOS·적 perception 판정 불변). 수치(XRAY_ALPHA·MAX_OCCLUDERS)=tuning 유지. 게임 `spec_ref.json` 재핀 `4422e50`.
+- **tuning/impl(전파금지):** XRAY_ALPHA 0.16·MAX_OCCLUDERS 5·WALL_LAYER 1. 투과 대상=StandardMaterial3D 가진 벽만.
+- **잔여:** 아웃라인/블러 폴리시·카메라-룸 fog(파일 헤더 "follow-up polish") 미구현.
 
 ### DRIFT-020 — 전투AI/인지 튜닝수치 (LOGGED, 전파금지)
 - FOV 160° · sight_range 12m · proximity 2.5m · alert_zone_frac 0.2 · scan ±35°/4s · investigate_speed 0.35 · chase_blind 0.55 · squad_prop_radius 9m · combat_exit_grace 6s · squad_lane 12m · cone alpha 0.05~0.06.

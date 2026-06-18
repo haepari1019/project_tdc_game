@@ -36,7 +36,8 @@
         ├─ CombatController   : 분대 스폰 + 전투 루프 + Threat(F-022) │ └ EnemyAI(적 perception/전투) · AbilityDispatch(Identity/Sub 스킬) 자식
         ├─ CameraPivot        : CameraRig(추종/스왑글라이드/오르빗/셰이크) + Camera3D
         ├─ PartyLight         : F-011 시야 결합 조명 리그
-        └─ HUD (CanvasLayer)  : PartySheet · ControlledSheet · 정보패널 · ResultBanner
+        ├─ VisionFog          : F-011 파티-LOS fog(2D SubViewport→3D next_pass·explored 기억) + EnemyVisionOverlay(적 시야콘 GPU union) + WallXray(저각 벽 투과, F-012)
+        └─ HUD (CanvasLayer)  : PartySheet · ControlledSheet · Minimap · QuestTracker · DamageIndicator · 정보패널 · SettlementPanel
 ```
 
 **프레임당(`_physics_process`) 핫패스:** ① CombatController가 적 AI + 파티 자동공격/스킬을 틱, ② PartyController가 추종자 스티어링을 틱. 두 시스템이 각자 `get_nodes_in_group()` 스캔과 최근접-적 계산을 **중복 수행**한다(§6 비효율 참고).
@@ -59,8 +60,8 @@ scripts/
     objects/    barrel · torch · lantern · lever · chest · door · item_drop  (상호작용/액터블 엔티티 — 덕타이핑 protocol)
     hazards/    trap · hazard_zone                                          (트리거/effect zone)
   run/        dungeon_run · run_controller · run_phase · run_end_controller · loot_service
-    controllers/  aim · revive · torch_carry · interaction · camera_rig · player   (모달/입력 컨트롤러)
-  ui/         party_sheet · controlled_sheet · pip_camera · minimap · enemy_info · 등 (HUD)
+    controllers/  aim · revive · torch_carry · interaction · camera_rig · player · vision_fog · enemy_vision_overlay · wall_xray   (모달/입력·시야 컨트롤러)
+  ui/         party_sheet · controlled_sheet · pip_camera · minimap · quest_tracker · damage_indicator · enemy_info · 등 (HUD)
     inventory/  inventory_ui · inventory_grid · item_factory · equip_panel ·
                 consumable_controller · stash_source · formation_editor · loadout_stub
       consumable_effects/  소모품 효과 드롭인 kind()+apply(master,ctx) — revive_ally …
@@ -75,6 +76,9 @@ scripts/
 | [core/validate_ids.gd](../scripts/core/validate_ids.gd) | 16 | id 레지스트리 멤버십 검증 + 표준 에러 문자열 | `contains_id` `require_id` `unknown_id_error` | (순수함수) |
 | [autoload/stash.gd](../scripts/autoload/stash.gd) | 39 | 🟢 플레이어 스태시(소유 gear/스킬북/소모품 시드). 배치 허브가 컨테이너로 띄움 | `take_consumable` `return_consumable` `_seed` | — |
 | [autoload/run_loadout.gd](../scripts/autoload/run_loadout.gd) | 14 | 🟢 씬간 런 로드아웃(F-010): 반입 소모품·백팩(At-Risk)·멤버 서브·포메이션 오프셋. 허브 set→던전 read | `set_consumables` (vars) | — |
+| [core/ui_colors.gd](../scripts/core/ui_colors.gd) | 13 | 🟢 HP 비율 색 램프 SSOT(녹>0.5/황>0.25/적). party_sheet·controlled_sheet·health_bar 복붙·드리프트 해소 | `hp_color` | (순수 static) |
+| [core/spatial.gd](../scripts/core/spatial.gd) | 17 | 🟢 XZ-평면 공간 헬퍼(수평 거리/반경 — 파티 부유 높이차 무시). 5~6 쿼리루프 복붙 해소 | `h_dist2` `within_xz` | (순수 static) |
+| [core/unit_visuals.gd](../scripts/core/unit_visuals.gd) | 53 | 🟢 PH 유닛 비주얼 SSOT: 역할 팔레트/스케일 + 적 색·크기표 + 전역 `UNIT_SCALE`(0.65, F-012). class_color/ENEMY_VISUALS 복붙 해소 | `role_color` `role_scale` `enemy_visual` | (순수 static) |
 
 ### run / world / controllers — `scripts/run/`, `scripts/run/controllers/`, `scripts/world/{,objects/,hazards/}`
 | 파일 | L | 책임 | 핵심 심볼 | 의존 |
@@ -85,18 +89,26 @@ scripts/
 | [aim_controller.gd](../scripts/run/controllers/aim_controller.gd) | 52 | 🟢 스킬북 지면조준 모달(start_aim→클릭 시전). 균일 인터페이스 is_active/cancel/handle_click | `start_aim` `handle_click` `cancel` | AimMarker/combat(ref) |
 | [loot_service.gd](../scripts/run/loot_service.gd) | 77 | 🟢 처치 루트 드랍(F-009/F-010): 스킬북>gear>일반 롤 → ItemDrop 스폰. enemy_defeated 구동 | `on_enemy_defeated` `_roll_loot_def` | Slice01Data, ItemDrop |
 | [run_end_controller.gd](../scripts/run/run_end_controller.gd) | 173 | 🟢 런 종료 흐름(F-007): 탈출 홀드채널 + 결속게이트(§3.6.2) + 전멸감지(§3.7.1) + 정산조합. 자기 _process, settle_* 호출 | `_update_extraction` `_settle_extraction` `_is_party_wiped` | run/party/combat/inv/map(ref) |
-| [camera_rig.gd](../scripts/run/controllers/camera_rig.gd) | 87 | 🟢 게임플레이 카메라 리그(추종/스왑글라이드 accel·decel/RMB 오르빗/trauma 셰이크). `CameraPivot` 노드에 부착 | `set_follow_target` `glide_to_current` `orbit_yaw` `add_shake` | Camera3D(자식) only |
+| [camera_rig.gd](../scripts/run/controllers/camera_rig.gd) | 87 | 🟢 게임플레이 카메라 리그(추종/스왑글라이드 accel·decel/RMB 오르빗 yaw+pitch 틸트 15~85°/trauma 셰이크). `CameraPivot` 노드에 부착 | `set_follow_target` `glide_to_current` `orbit_yaw` `pitch_by_drag` `add_shake` | Camera3D(자식) only |
+| [vision_fog.gd](../scripts/run/controllers/vision_fog.gd) | 332 | 🟢 F-011 파티합집합 LOS fog: 2D top-down SubViewport(멤버별 PointLight2D + 벽 LightOccluder2D = 차폐형 가시폴리곤) → explored 누적 뷰포트(기억) → 공유 `vision_fog.gdshader`를 월드 메쉬 next_pass로 3D 적용(월드XZ→fog UV, depth 재구성 없음). 디버그(V)·A/B(B) | `setup` `get_fog_material` `toggle_world_fog` `toggle_debug` | map(footprints/rects), party, 셰이더 |
+| [enemy_vision_overlay.gd](../scripts/run/controllers/enemy_vision_overlay.gd) | 206 | 🟢 적 시야콘 = GPU 2D 라이팅(fog 기법 재사용): 적별 섹터 PointLight2D + 벽 occluder → 벽서 정확히 클립되는 union 마스크(레이팬 떨림 제거), 지면 quad가 샘플해 틴트(빨강 전투/노랑 경계). fog cur-LOS로 가시영역 게이트 | `setup` `_make_sector_texture` | map, party, VisionFog(get_fog_texture), enemy `vision_cone_data`, 셰이더 |
+| [wall_xray.gd](../scripts/run/controllers/wall_xray.gd) | 92 | 🟢 F-012 카메라↔캐릭 벽 투과: 매프레임 카메라→생존멤버 레이캐스트(벽 레이어)→히트 벽 알파 페이드(see-through)+fog next_pass 임시 제거, 비차폐 시 복원. 저각 시네마틱 카메라 보완 | `setup` `set_fog_material` | party, 카메라, StandardMaterial3D |
+| [interaction_controller.gd](../scripts/run/controllers/interaction_controller.gd) | 125 | 🟢 호버 상호작용(F-010 월드루프): 마우스 아래 interactable 레이(거리무관)→떠있는 라벨 / 우클릭=조작캐 이동 후 도착 시 interact·빈땅=클릭이동 / F키=최근접 interact. 덕타이핑(interact_prompt/anchor/interact) | `try_interact` `interact_nearest` `_hovered` | party(order_move_to), inventory, group 'interactable' |
 | [revive_controller.gd](../scripts/run/controllers/revive_controller.gd) | 131 | 🟢 타게팅 부활(F-010/D-020): 시동→시체/초상화 클릭→1.5s 빛기둥→HP50%. 자체 프롬프트 | `try_start` `handle_click` `is_active` `cancel` | party/combat/inv/sheet(ref) |
 | [torch_carry_controller.gd](../scripts/run/controllers/torch_carry_controller.gd) | 145 | 🟢 횃불 carry/투척(F-021 §3.1.2): 빈슬롯 자동/선택→슬롯키 지면조준 투척. AimMarker+소모품바 사용 | `on_torch_pickup` `handle_consumable_key` `handle_click` | party/aim/bar/inv(ref) |
 | [map_demo_layout.gd](../scripts/world/map_demo_layout.gd) | 580 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크 + **fatal 장판 carve 재bake**·**데이터주도 인터페이스**(`_room_points`/profile=rooms.json) | `get_spawn_position` `rebake_navigation` `_carve_zone` `_resolve_room_points` | NavigationServer3D, Slice01Data, group 'player'/'navmap' |
 | [player_controller.gd](../scripts/run/controllers/player_controller.gd) | 34 | 조작 캐릭터 WASD→velocity (가속모델 옵션) | `_physics_process` | 부모 CharacterBody3D, InputMap |
 | [party_light.gd](../scripts/world/party_light.gd) | 115 | F-011 시야결합 조명(멤버별 omni+spot)·플리커·룸감쇠 | `_build_rigs` `_on_room_changed` | PartyController/Map/Run (노드경로) |
+| [enemy_visibility.gd](../scripts/world/enemy_visibility.gd) | 52 | 🟢 F-011 선행(occlusion-only, DRIFT-015): 파티합집합 LOS 레이캐스트(world 레이어 1)로 적 가시 판정(10Hz)→`enemy_unit.set_seen` 페이드 + last_seen 저장 | `setup` `_physics_process` | party(get_members), group 'enemy', world layer 1 |
 | [hazard_zone.gd](../scripts/world/hazards/hazard_zone.gd) | 193 | 🟢 일반 지면 zone: `status`(Fatal/Oil/Fire/ToxicGas)·dps/slow/ttl·`impassable`(Fatal=carve+회피). **Oil=불투명 지면 슬릭(opaque, 적 안 가림)·기타=투명 텔레그래프(부유)**. DoT=apply_poison(파티)/raw(적). 피아무구분 F-021 | `setup` `clear_zone` `contains_point` `blocks_segment` | groups, call_group('navmap') |
 | [trap.gd](../scripts/world/hazards/trap.gd) | 86 | 🟢 초크포인트 압력판: 조작멤버 통과→뒤에 HazardZone 스폰(분리)·`reset()`=소거+재무장 (F-006 트랩) | `reset` `has_active_zone` | HazardZone, group 'party_member' |
 | [lever.gd](../scripts/world/objects/lever.gd) | 75 | 🟢 상호작용 레버: `trap.reset()`=함정 회복(장판 해제·통로 재개) | `interact` `setup` | Trap |
 | [barrel.gd](../scripts/world/objects/barrel.gd) | 64 | 🟢 ENT-BARREL: HP 파괴 가능(AoE)→기름 HazardZone(슬로우 필드) 스폰; 화염 hit로 점화(RX-OIL-FIRE) | `take_damage` `_break` | HazardZone, group 'destructible' |
 | [torch.gd](../scripts/world/objects/torch.gd) | 252 | 🟢 ENT-TORCH: 휴대/투척 광원(F-021 §3.1.2). 점화시 콘플레임 플리커, 착지/오일접촉→`combat.ignite_at`. 제네릭 적-오브젝트 프로토콜(`enemy_usable`/`enemy_combat_tick`=어그로시 투척) | `pickup` `throw_to` `enemy_use` | combat(ignite_at), group 'destructible'/usable |
 | [lantern.gd](../scripts/world/objects/lantern.gd) | 85 | 🟢 거치형 고정 광원(주요 진입점/방 중앙): 금속기둥+박스하우징+steady OmniLight. 줍기 불가(횃불과 시각 차별화) | `_build` | OmniLight3D |
+| [chest.gd](../scripts/world/objects/chest.gd) | 59 | 🟢 루팅 컨테이너(월드루프 상자→키, DRIFT-024): 우클릭 interact→`inventory.open_loot`. 덕타이핑 interactable | `setup` `interact` | InventoryUI, group 'interactable' |
+| [door.gd](../scripts/world/objects/door.gd) | 75 | 🟢 키 게이트 문(RM-OBJ-01, 탈출경로 차단, DRIFT-024): 백팩 키 보유 시 우클릭 개방→충돌/메쉬 제거 + `run.complete_objective` | `setup` `interact` | InventoryUI(키), RunController, group 'interactable' |
+| [item_drop.gd](../scripts/world/objects/item_drop.gd) | 78 | 🟢 처치 루트 드랍(F-010): 회전 발광 큐브, 우클릭→조작캐 이동 후 줍기(gear/skillbook/consumable kind별 At-Risk 백팩). 이동 비차단(interact 레이어만) | `setup` `interact` | InventoryUI(add_*_to_backpack), group 'interactable' |
 | [main.gd](../scripts/main.gd) | 166 | 🟢 **배치 허브**(F-010 §3.2/UI-005): 로드 게이트 + Identity 확정 + **스태시→캐릭터/백팩 장착**(InventoryUI 임베드, combat=null) + **포메이션 에디터** + Deploy 직렬화→RunLoadout→던전 | `_setup_hub` `_build_formation_editor` `_serialize_loadout` `_build_stash_items` | Slice01Data, PartyController, InventoryUI, FormationEditor, Stash/RunLoadout(런타임경로) |
 
 ### party — `scripts/party/`
@@ -140,6 +152,9 @@ scripts/
 | [formation_editor.gd](../scripts/ui/inventory/formation_editor.gd) | 92 | 🟢 탑다운 드래그 포메이션 에디터(4 역할 토큰→슬롯 오프셋, 중앙=리더). 허브 전용 | `setup` `get_offsets` | — |
 | [stash_source.gd](../scripts/ui/inventory/stash_source.gd) | 7 | 🟢 chest 덕타이핑 컨테이너 소스(스태시를 InventoryUI에 띄우기 위함) | `title` `items` | — |
 | [enemy_info.gd](../scripts/ui/enemy_info.gd) | 166 | 적 정보 패널(호버/타겟 적 스탯·상태) | `show_for` `_process` | enemy_unit(덕타이핑) |
+| [minimap.gd](../scripts/ui/minimap.gd) | 112 | 🟢 우상단 미니맵(월드정렬 +X右/+Z上): 룸 footprint + 추출마커 + interactable 마커 + 플레이어 도트/페이싱. map `get_room_rects` 디커플 인터페이스(Blender 맵 무수정) | `setup` `_draw` `_w2m` | map(get_room_rects/extraction), party, group 'interactable' |
+| [quest_tracker.gd](../scripts/ui/quest_tracker.gd) | 80 | 🟢 우상단 퀘스트 트래커(미니맵 아래): 주임무(키→문→탈출)+보조(Cell 6) 라이브 진행(카운트·취소선). 매프레임 게임상태 폴 | `setup` `_process` | InventoryUI(backpack_has_key/count_item), RunController(objective/run_over) |
+| [damage_indicator.gd](../scripts/ui/damage_indicator.gd) | 89 | 🟢 방향 피격 인디케이터(F-011 §3.7 인포워 HUD, DRIFT-022 전파됨): 조작캐 피격 시 공격자 방향 화면가장자리 빨간 글로우(severity 스케일·동방향 디바운스·페이드). 절차 draw | `flash` `_draw` | dungeon_run(party_hit→screen dir) |
 
 ### scenes — `scenes/`
 `main.tscn` · `run/dungeon_run.tscn` · `party/party_member.tscn`(원기둥 PH) · `combat/enemy_unit.tscn`(박스 PH). 메쉬·색·크기는 런타임에 덮어쓴다.
@@ -205,6 +220,7 @@ scripts/
 | DEBT-DM2 | `ENEMY_VISUALS` 색/크기 리터럴이 enemies.json과 분리(PH 아트) | combat_controller.gd | low |
 | DEBT-DUP-MAT | StandardMaterial3D/메쉬 PH 빌더 중복 → 머티리얼 팩토리 여지 | dungeon_run·map·party_member·enemy_unit | low |
 | DEBT-DUP-CD | 쿨다운 비율식 인라인 복붙 → 멤버 `*_cd_ratio()` 접근자 | party_sheet·controlled_sheet | low |
+| DEBT-PLAT-FWD | F-011 GPU fog/시야콘이 2D 라이팅·셰이더 next_pass 의존 → 렌더러 **Forward+ 강제**(`project.godot`), **web(HTML5) export 차단**(Compatibility 미지원). 모바일/웹 타겟 시 fog 기법 대체 필요 (→ SPEC_DRIFT-037) | project.godot, vision_fog·enemy_vision_overlay | med |
 
 **가장 깨끗한 파일(참고 모델):** `skill_vfx.gd`(무상태·정적) · `health_bar.gd`(단일책임) · `party_cohesion.gd` · `item_factory.gd`. 신규 코드는 이 결을 따른다.
 

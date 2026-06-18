@@ -5,7 +5,7 @@
 ## 시작 전
 1. [`spec_ref.json`](spec_ref.json) — 핀된 spec 커밋 확인.
 2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — 코드 구조·책임·기술부채 지도.
-3. ID 1:1, 미등록 ID → abort (AGENTS.md §Before coding).
+3. ID 1:1, 미등록 ID → abort (AGENTS.md §ID contract). Phase·스프린트 스코프 = AGENTS.md §Spec contract (현재 Phase 2 / P2-S1).
 
 ## ⚠️ 절대 규칙 — Spec drift propagation
 구현이 spec과 달라지면 **반드시** 분류·트래킹한다 (상세: [AGENTS.md](AGENTS.md) §Spec drift & propagation):
