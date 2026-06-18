@@ -1,0 +1,20 @@
+{
+  "_note": "Enemy combat pattern catalog — mirror of D-017 / PT-### (EN-AI-000 §1). SSOT = spec patterns/PT-*.md @ 4422e50. formation_role/band/anchor/spacing/retreat are kept verbatim from each PT 'Catalog (D-017)' block for 1:1 traceability. 'engage' = GAME-SIDE dispatch key derived from anchor+band+retreat (the EN-AI-000 'Engaged 우선' column) — consumed by enemy_ai. Movement tuning (leash_m / zone_radius_m / chase_speed_mult) is DEMO PH (DRIFT log). Signature AB casts/channels (AB-004/006/008/012/013/098/099), HP≤50% AB-007 retreat hop, and distance-leash disengage land in P2-S2c.",
+  "_engage_enum": "advance | standoff | kite | zone | orbit | probe | surround",
+  "patterns": {
+    "PT-001": { "formation_role": "Frontline",  "band": "Melee", "anchor": "Hold",     "spacing": "Tight",  "retreat": "none",              "engage": "advance" },
+    "PT-002": { "formation_role": "Backline",   "band": "Long",  "anchor": "Hold",     "spacing": "Loose",  "retreat": "maintain_distance", "engage": "standoff" },
+    "PT-003": { "formation_role": "Flanker",    "band": "Melee", "anchor": "Orbit",    "spacing": "Loose",  "retreat": "hp50_hop",          "engage": "orbit",    "leash_m": 22 },
+    "PT-004": { "formation_role": "Support",    "band": "Mid",   "anchor": "Hold",     "spacing": "Normal", "retreat": "hold_zone",         "engage": "zone",     "zone_radius_m": 8.0 },
+    "PT-005": { "formation_role": "Backline",   "band": "Long",  "anchor": "Hold",     "spacing": "Loose",  "retreat": "flee_if_melee",     "engage": "kite" },
+    "PT-006": { "formation_role": "Skirmisher", "band": "Melee", "anchor": "Probe",    "spacing": "Normal", "retreat": "probe_in_out",      "engage": "probe" },
+    "PT-007": { "formation_role": "Support",    "band": "Long",  "anchor": "Hold",     "spacing": "Loose",  "retreat": "hold_behind",       "engage": "standoff" },
+    "PT-008": { "formation_role": "Flanker",    "band": "Melee", "anchor": "Orbit",    "spacing": "Loose",  "retreat": "orbit_avoid_front", "engage": "orbit",    "leash_m": 22 },
+    "PT-009": { "formation_role": "Swarm",      "band": "Melee", "anchor": "Surround", "spacing": "Tight",  "retreat": "none",              "engage": "surround" },
+    "PT-012": { "formation_role": "Frontline",  "band": "Melee", "anchor": "Advance",  "spacing": "Tight",  "retreat": "none",              "engage": "advance" },
+    "PT-013": { "formation_role": "Backline",   "band": "Long",  "anchor": "Hold",     "spacing": "Loose",  "retreat": "none",              "engage": "standoff" },
+    "PT-014": { "formation_role": "Frontline",  "band": "Melee", "anchor": "Hold",     "spacing": "Tight",  "retreat": "none",              "engage": "advance" },
+    "PT-015": { "formation_role": "Skirmisher", "band": "Melee", "anchor": "Advance",  "spacing": "Loose",  "retreat": "none",              "engage": "advance",  "chase_speed_mult": 1.1 },
+    "PT-016": { "formation_role": "Support",    "band": "Mid",   "anchor": "Hold",     "spacing": "Loose",  "retreat": "flee_if_melee",     "engage": "kite" }
+  }
+}

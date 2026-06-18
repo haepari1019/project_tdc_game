@@ -30,6 +30,12 @@ var attack_cooldown_s: float = 0.0
 var abilities: Array = []
 ## Basic-attack archetype id (rom_*, EN-COR-000) — resolved vs enemy_basics catalog.
 var basic_attack: String = ""
+## Engaged combat pattern (PT-###, EN-AI-000) + its resolved catalog row (patterns.json).
+## engage_profile drives per-enemy positioning in EnemyAI (advance/standoff/kite/zone/orbit/probe/surround).
+var pattern_ref: String = ""
+var engage_profile: Dictionary = {}
+## Probe (EN-006/PT-006) hit-and-back-off timer: set on each strike, retreats while > 0.
+var probe_backstep_s: float = 0.0
 var attack_count: int = 0
 # F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
 # object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.
@@ -112,6 +118,9 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 	var ab = row.get("abilities", [])
 	abilities = ab if typeof(ab) == TYPE_ARRAY else []
 	basic_attack = String(row.get("basic_attack", ""))
+	# Resolve the engaged positioning pattern (PT-###) once at spawn — EnemyAI reads engage_profile.
+	pattern_ref = String(row.get("pattern_ref", ""))
+	engage_profile = Slice01Data.get_pattern(pattern_ref) if pattern_ref != "" else {}
 	# ENC-bound torch carry (EN-AI-000 §6 worldInteractProfile) is set at spawn, not from the
 	# unit catalog (spec: not an enemyId property). Demo binding = ENC-PAT-003 (P2-S3) → false now.
 	interacts_with_objects = bool(row.get("interacts_with_objects", false))

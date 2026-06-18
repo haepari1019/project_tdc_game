@@ -29,7 +29,8 @@
     "rom_trash_sustain_tap"
   ],
   "_note_enemy_basics": "spec EN-COR-000 §rom_* (enemyBasicAttackArchetypeId) — NOT D-016 AB-###. Catalog = data/slice01/enemy_basics.json. Bound per unit via enemies.json basic_attack.",
-  "pattern_ids": ["PT-010", "PT-020", "PT-021", "PT-022"],
+  "pattern_ids": ["PT-001", "PT-002", "PT-003", "PT-004", "PT-005", "PT-006", "PT-007", "PT-008", "PT-009", "PT-010", "PT-012", "PT-013", "PT-014", "PT-015", "PT-016", "PT-020", "PT-021", "PT-022"],
+  "_note_pattern_ids": "PT-001~009/012~016 = enemy combat patterns (EN-AI-000, catalog data/slice01/patterns.json). PT-010/020/021/022 = player role auto-patterns (identities.json). PT-011 (TankPlayerToolkit) unused in demo.",
   "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
   "base_gear_ids": [
     "gear_ward_tank_anchor_set",

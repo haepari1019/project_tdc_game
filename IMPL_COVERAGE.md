@@ -3,7 +3,7 @@
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`.
 
 - spec_ref_pin: `4422e50` (`staging`, 2026-06-18)
-- last_sprint: P2-S1 (구현 완료 · Hard 플레이 스모크 user-pending)
+- last_sprint: P2-S2 (S2a 커밋 · S2b 구현 · 교전 체감 F5 user-pending · S2c 잔여)
 - last_updated: 2026-06-18
 
 ## Sprint log
@@ -11,6 +11,17 @@
 | Sprint | Done | Notes |
 |--------|------|-------|
 | P2-S1 | ◐ | S1a~e 완료 + 헤드리스 검증 통과. S1f 문서 완료 · **인터랙티브 Hard 플레이 스모크(§9.1)는 F5 수동** 잔여 |
+| P2-S2 | ◐ | S2a 커밋(186a024) · S2b 구현+헤드리스 PASS. **교전 포지셔닝/적 기본타 체감 F5 수동** 잔여 · S2c(시그니처 AB+Provoked) 미착수 |
+
+## P2-S2 checklist (combat redesign)
+
+| ID | Item | Status |
+|----|------|--------|
+| S2a | Combat ID 1:1 — rom_* basics·비-spec AB 제거·EN-014 Gutter Chanter·ENC-NORM-001 | ☑ 커밋 186a024 (헤드리스) |
+| S2b | Per-enemy 포지셔닝 — patterns.json(PT-### 미러)·`engage` 7프로필·enemy_ai 분기 | ☑ 헤드리스 PASS · **체감 F5 잔여** |
+| S2c | 시그니처 AB-004/006/008/012/013·AB-098(EN-014 힐)·AB-099(EN-001 Provoked)·interrupt/channel | ☐ 미착수 |
+
+> S2b engage 맵: advance(EN-001/010/012/013)·standoff(EN-002/007/011)·kite(EN-005/014)·zone(EN-004)·orbit(EN-003/008)·probe(EN-006)·surround(EN-009). PT-### 정본=EN 유닛문서 patternRef(EN-010~013→PT-012~015). 상세 DRIFT-040.
 
 ## P2-S1 checklist (game)
 
@@ -58,3 +69,4 @@
 | 031 | Recovery persistence/revisit deferred (P2-S1 밖) |
 | 037/038 | F-011 fog · See-Through ✅ MERGED (daa1114 · 재핀 4422e50) |
 | 039 | P2-S1 dungeon scale — EN-002/003/004/007/008/009 스텁·ENC 9 스텁·맵 placeholder 기하 (kit·폴리시=P2-S2) |
+| 040 | P2-S2b per-enemy 포지셔닝 — PT-### `engage` 파생·이동 PH 튜닝. 교전 체감 F5 잔여 |

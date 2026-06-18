@@ -27,6 +27,18 @@ const INVESTIGATE_ARRIVE_M := 1.0    # reached last-seen point → give up the s
 ## re-hide before the enemy re-acquires; grace then disengages it.
 const CHASE_BLIND_SPEED_FRAC := 0.55
 
+# --- Engaged positioning (EN-AI-000 / PT-###; profile per enemy.engage_profile) ---
+# Demo PH tuning → DRIFT log. Movement only — strike gating is shared & profile-agnostic.
+const MELEE_THREAT_M := 4.0        # kite: flee when a target closes inside this (EN-014 §1 = 4m)
+const RETREAT_STEP_M := 3.0        # how far ahead to aim a retreat/backstep destination
+const RETREAT_SPEED_FRAC := 1.0    # flee at full speed (being chased)
+const ENGAGE_LEASH_M := 18.0       # kite/zone: don't stray past this from spawn anchor (§3 default)
+const ZONE_RADIUS_DEFAULT := 8.0   # zone: engage only while target is within this of the anchor
+const ZONE_RETURN_SLACK_M := 1.0   # zone: already-home tolerance (don't jitter at the anchor)
+const ORBIT_ARC_M := 4.0           # orbit: lateral flank offset blended in by approach distance
+const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
+const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
+
 # Dormant roaming (alive feel): wander within this radius of the spawn home, pausing between legs.
 const ROAM_RADIUS_M := 5.0
 const ROAM_SPEED_FRAC := 0.4
@@ -233,26 +245,135 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	if enemy.interacts_with_objects and _try_object_interaction(enemy, target, has_los, delta):
 		enemy.move_and_slide()
 		return
+	# Per-enemy engaged behavior (EN-AI-000 / PT-###): MOVEMENT is profile-specific
+	# (_engage_move owns velocity incl. ZERO = plant); the ATTACK gate below is shared —
+	# in range + LOS + off cooldown → strike, even while a kiter keeps backpedalling.
+	var move_vel := _engage_move(enemy, target, dist, has_los, delta)
 	if has_los and dist <= enemy.attack_range_m:
-		# In range with LOS: stop and attack on cooldown (data-driven ability).
-		enemy.face_toward(target.global_position)
-		enemy.velocity = Vector3.ZERO
+		enemy.face_toward(target.global_position)  # face to strike even while repositioning
 		if enemy.attack_cooldown_s <= 0.0 and not enemy.winding:
 			_begin_enemy_attack(enemy, target)
 			enemy.attack_cooldown_s = enemy.attack_interval_s
-	else:
-		# Seen → chase the live position at full speed. Lost sight → head to the
-		# LAST-SEEN spot at a reduced, cautious pace (so a fleeing target can break
-		# away and re-hide before re-acquisition; grace disengages it). Navmesh routes
-		# around walls either way.
-		var dest: Vector3 = target.global_position
-		var spd: float = enemy.current_move_speed()
-		if not has_los:
-			dest = enemy.investigate_pos
-			spd *= CHASE_BLIND_SPEED_FRAC
-		enemy.face_toward(dest)
-		enemy.velocity = _nav_move(enemy, dest, spd)
+			if String(enemy.engage_profile.get("engage", "")) == "probe":
+				enemy.probe_backstep_s = PROBE_BACKSTEP_S  # hit landed → back off (EN-006)
+	enemy.velocity = move_vel
 	enemy.move_and_slide()
+
+
+## Engaged movement by per-enemy pattern (EN-AI-000 §1 / PT-### via enemy.engage_profile).
+## Returns the desired velocity (ZERO = plant & attack). Blind (no LOS) is shared: every
+## profile falls back to a cautious advance toward the last-seen spot so it can re-acquire.
+func _engage_move(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool, delta: float) -> Vector3:
+	var spd: float = enemy.current_move_speed()
+	if not has_los:
+		if not enemy.has_investigate:
+			return Vector3.ZERO
+		enemy.face_toward(enemy.investigate_pos)
+		return _nav_move(enemy, enemy.investigate_pos, spd * CHASE_BLIND_SPEED_FRAC)
+	var tp: Vector3 = target.global_position
+	match String(enemy.engage_profile.get("engage", "advance")):
+		"standoff": return _move_standoff(enemy, tp, dist, spd)
+		"kite":     return _move_kite(enemy, tp, dist, spd)
+		"zone":     return _move_zone(enemy, tp, dist, spd)
+		"orbit":    return _move_orbit(enemy, tp, dist, spd)
+		"probe":    return _move_probe(enemy, tp, dist, spd, delta)
+		"surround": return _move_surround(enemy, tp, dist, spd)
+		_:          return _move_advance(enemy, tp, dist, spd)
+
+
+## advance (PT-001/012/014 + skitter PT-015): close to melee, then plant. chase_speed_mult
+## lets Skitter (EN-013) chase 10% faster (EN-AI-000 §1).
+func _move_advance(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
+	enemy.face_toward(tp)
+	if dist <= enemy.attack_range_m:
+		return Vector3.ZERO
+	return _nav_move(enemy, tp, spd * float(enemy.engage_profile.get("chase_speed_mult", 1.0)))
+
+
+## standoff (PT-002/007/013): ranged hold — close to attack band if out of range, else plant
+## and shoot. No flee even when crowded (EN-002 "후퇴 bias 없음").
+func _move_standoff(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
+	enemy.face_toward(tp)
+	if dist > enemy.attack_range_m:
+		return _nav_move(enemy, tp, spd)
+	return Vector3.ZERO
+
+
+## kite (PT-005/016): flee when a target closes inside MELEE_THREAT_M (clamped to leash from
+## the spawn anchor so it can't run off the map); else hold/close to band like standoff.
+func _move_kite(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
+	enemy.face_toward(tp)
+	if dist < MELEE_THREAT_M:
+		var away := enemy.global_position - tp
+		away.y = 0.0
+		if away.length() < 0.01:
+			away = -enemy.facing
+		var anchor: Vector3 = enemy.home_pos if enemy.home_pos != Vector3.INF else enemy.global_position
+		var dest := enemy.global_position + away.normalized() * RETREAT_STEP_M
+		if Vector2(dest.x - anchor.x, dest.z - anchor.z).length() > ENGAGE_LEASH_M:
+			return Vector3.ZERO  # cornered at the leash → hold & shoot rather than flee further
+		return _nav_move(enemy, dest, spd * RETREAT_SPEED_FRAC)
+	if dist > enemy.attack_range_m:
+		return _nav_move(enemy, tp, spd)
+	return Vector3.ZERO
+
+
+## zone (PT-004): hold near the spawn anchor — engage only while the target is inside the
+## zone radius; if it leaves, return to the anchor instead of chasing out (EN-004 zone > chase).
+func _move_zone(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
+	enemy.face_toward(tp)
+	if dist <= enemy.attack_range_m:
+		return Vector3.ZERO
+	var anchor: Vector3 = enemy.home_pos if enemy.home_pos != Vector3.INF else enemy.global_position
+	var zr := float(enemy.engage_profile.get("zone_radius_m", ZONE_RADIUS_DEFAULT))
+	if Vector2(tp.x - anchor.x, tp.z - anchor.z).length() <= zr:
+		return _nav_move(enemy, tp, spd)  # target inside the zone → approach to attack band
+	if Vector2(enemy.global_position.x - anchor.x, enemy.global_position.z - anchor.z).length() > ZONE_RETURN_SLACK_M:
+		enemy.face_toward(anchor)
+		return _nav_move(enemy, anchor, spd)  # target fled the zone → fall back to the anchor
+	return Vector3.ZERO
+
+
+## orbit (PT-003/008): arc toward a lateral flank offset (side fixed per-enemy) that shrinks as
+## it closes, so it approaches from the side/rear rather than head-on (EN-008 탱커 정면 회피).
+func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
+	enemy.face_toward(tp)
+	if dist <= enemy.attack_range_m:
+		return Vector3.ZERO
+	var to := tp - enemy.global_position
+	to.y = 0.0
+	var perp := Vector3(-to.z, 0.0, to.x).normalized()  # left/right normal of the approach line
+	var side := 1.0 if (enemy.get_instance_id() % 2 == 0) else -1.0
+	var arc := clampf(dist - enemy.attack_range_m, 0.0, ORBIT_ARC_M)
+	return _nav_move(enemy, tp + perp * (side * arc), spd)
+
+
+## probe (PT-006): hit-and-back-off. While the post-strike backstep timer runs, retreat;
+## otherwise close to melee and plant (the strike sets probe_backstep_s in tick()).
+func _move_probe(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float, delta: float) -> Vector3:
+	enemy.face_toward(tp)
+	if enemy.probe_backstep_s > 0.0:
+		enemy.probe_backstep_s -= delta
+		var away := enemy.global_position - tp
+		away.y = 0.0
+		if away.length() < 0.01:
+			away = -enemy.facing
+		return _nav_move(enemy, enemy.global_position + away.normalized() * RETREAT_STEP_M, spd)
+	if dist <= enemy.attack_range_m:
+		return Vector3.ZERO
+	return _nav_move(enemy, tp, spd)
+
+
+## surround (PT-009): converge on a ring point around the target (angle fixed per-enemy) so the
+## swarm encircles instead of stacking on one face; attack gate fires once within real range.
+func _move_surround(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
+	enemy.face_toward(tp)
+	if dist <= enemy.attack_range_m:
+		return Vector3.ZERO
+	var ang := float(enemy.get_instance_id() % 8) / 8.0 * TAU
+	var ring: float = enemy.attack_range_m * SURROUND_RING_M
+	var slot: Vector3 = tp + Vector3(cos(ang), 0.0, sin(ang)) * ring
+	return _nav_move(enemy, slot, spd)
 
 
 ## Object-priority interaction (F-021 §3.1.2): if holding an object, run ITS combat behavior;

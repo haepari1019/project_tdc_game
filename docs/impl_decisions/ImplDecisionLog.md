@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260618-004 — P2-S2b: Per-enemy 교전 포지셔닝 (EN-AI-000 / PT-### → engage 프로필)
+- **결정(사용자 "잘된 s2b ㄱㄱ"):** F-013 Engaged 위에 **유닛별 이동 차별**을 데이터 주도로 얹음. 적이 전원 "최고위협 추격→사거리서 평타"하던 균일 행동 → 아키타입별 포지셔닝.
+  - **`data/slice01/patterns.json`(신규)** — D-017/`PT-###` 카탈로그 미러(`formation_role`/`band`/`anchor`/`spacing`/`retreat` verbatim) + 게임 파생 키 **`engage`**. SSOT=spec `patterns/PT-*.md`@`4422e50`. 14패턴(PT-001~009/012~016). `id_registry.pattern_ids`에 적 PT 13종 추가(기존 PT-010/020/021/022 = 플레이어 역할 패턴 유지). `enemies.json` 각 행 **`pattern_ref: PT-###`**(EN 유닛문서 `patternRef` 정본 — EN-010~013→**PT-012~015**, EN-AI-000 §1표의 "PT-010~013"은 loose).
+  - **`engage` 7종 디스패치**(enemy_ai `_engage_move` + 헬퍼): `advance`(EN-001/010/012 근접추격→평타, EN-013 `chase_speed_mult` 1.1)·`standoff`(EN-002/007/011 사거리 hold·도주無, "후퇴 bias 없음")·`kite`(EN-005/014 적 `MELEE_THREAT_M` 4m 진입 시 leash 클램프 후퇴)·`zone`(EN-004 앵커 `zone_radius_m` 내만 교전·이탈 시 복귀)·`orbit`(EN-003/008 측면 arc 접근, side=instance_id%2)·`probe`(EN-006 타격 후 `PROBE_BACKSTEP_S` 백스텝)·`surround`(EN-009 instance_id%8 링 포위).
+  - **이동만 분기, 공격 게이트는 공통** — `tick()`이 `_engage_move`로 velocity 결정(ZERO=plant) 후 `dist<=attack_range && LOS && off-cd`면 동일하게 strike(kiter는 후퇴하며 사격). 앵커=`home_pos`(스폰), leash 18m 클램프로 맵 밖 도주 방지.
+- **1:1 근거:** `PT-###`·카탈로그 필드는 spec verbatim(등록 ID). `engage` enum·이동 수치(`MELEE_THREAT_M`/`ENGAGE_LEASH_M`/`ZONE_RADIUS_DEFAULT`/`ORBIT_ARC_M`/`PROBE_BACKSTEP_S`)는 **게임 측 파생/PH 튜닝**(EN-AI-000 "Engaged 우선" + §3 leash default) → `SPEC_DRIFT` DRIFT-040.
+- **검증:** Godot 4.5.1 헤드리스 — `ci_smoke.sh`(hub+던전 부트, parse/load/validate 무오류) PASS; 던전 300프레임 4분대 prespawn·dormant/roam 무오류. **교전 포지셔닝 체감(백라인 카이팅·플랭크·서스테인 후퇴)은 F5 수동 검증 잔여**(라이브 입력 필요).
+- **잔여 → S2c:** 시그니처 AB 캐스트/채널(AB-004/006/008/012/013)·AB-098 Mire Mend Pulse(EN-014 후열 힐)·AB-099 Iron Mockery(EN-001 Provoked 신규 party-side 상태)·AB-007 HP≤50% 후퇴 점프(EN-003)·**거리 기반 leash 이탈**(현 grace-timer 유지) + interrupt/channel 정책(EN-AI-000 §2).
+- **영향:** `data/slice01/{patterns.json(신)·id_registry·enemies}`, `scripts/{autoload/slice01_data·combat/enemy_unit·combat/enemy_ai}`. (S2a 잔재 orphan `.uid` 4종 정리 동반.)
+
 ### IMPL-DEC-20260618-003 — P2-S2a: Combat ID 1:1 정합 (rom_* basics + 비-spec AB 제거)
 - **결정(사용자 지시 "최종형은 spec과 1:1, 비-spec combat 객체 제거"):**
   - **적 기본타 → `rom_*`** — 신규 `data/slice01/enemy_basics.json`(12 archetype, EN-COR-000 §rom_* 표) + `id_registry.enemy_basic_attack_ids`. **AB-### 카탈로그와 분리**(spec: rom_*는 D-016 미등록, DEC-20260618-004). `slice01_data.get_enemy_basic()`; `enemy_unit.basic_attack`; `enemy_ai`가 `rom_` 접두 ref는 enemy_basics에서, 그 외는 AB 카탈로그에서 해석. multi-hit는 1회 total로 fold(true 순차 = S2b).

@@ -16,6 +16,7 @@ const SKILLBOOKS_PATH := SLICE01_DIR + "skillbooks.json"
 const CONSUMABLES_PATH := SLICE01_DIR + "consumables.json"
 const SPAWN_TABLE_PATH := SLICE01_DIR + "spawn_table.json"
 const ENEMY_BASICS_PATH := SLICE01_DIR + "enemy_basics.json"
+const PATTERNS_PATH := SLICE01_DIR + "patterns.json"
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -37,6 +38,8 @@ var _spawn_rows: Array = []
 var _spawn_overrides: Dictionary = {}
 ## Enemy basic-attack archetypes (rom_*) — EN-COR-000 §rom_*. Keyed by rom id.
 var _enemy_basics: Dictionary = {}
+## Enemy combat patterns (PT-###) — D-017 / EN-AI-000 §1. Keyed by pattern id.
+var _patterns: Dictionary = {}
 
 
 func _ready() -> void:
@@ -174,6 +177,13 @@ func get_enemy_basic(rom_id: String) -> Dictionary:
 	return b.duplicate(true) if typeof(b) == TYPE_DICTIONARY else {}
 
 
+## Enemy combat pattern (PT-###) catalog row by id — D-017 / EN-AI-000. {} if unknown.
+## Drives engaged positioning (engage profile + tuning) in enemy_ai.
+func get_pattern(pattern_id: String) -> Dictionary:
+	var p = _patterns.get(pattern_id, {})
+	return p.duplicate(true) if typeof(p) == TYPE_DICTIONARY else {}
+
+
 func get_blueprint() -> Dictionary:
 	return _blueprint.duplicate(true)
 
@@ -244,6 +254,7 @@ func _load_and_validate() -> bool:
 	var consumables_doc := _read_json_dict(CONSUMABLES_PATH, "consumables", errors)
 	var spawn_table_doc := _read_json_dict(SPAWN_TABLE_PATH, "spawn_table", errors)
 	var enemy_basics_doc := _read_json_dict(ENEMY_BASICS_PATH, "enemy_basics", errors)
+	var patterns_doc := _read_json_dict(PATTERNS_PATH, "patterns", errors)
 
 	if errors.is_empty():
 		_validate_blueprint(errors)
@@ -252,6 +263,7 @@ func _load_and_validate() -> bool:
 		_parse_skillbooks(skillbooks_doc, errors)
 		_parse_consumables(consumables_doc, errors)
 		_parse_enemy_basics(enemy_basics_doc, errors)
+		_parse_patterns(patterns_doc, errors)
 		_parse_enemies(enemies_doc, errors)
 		_parse_abilities(abilities_doc, errors)
 		_validate_manifest(errors)
@@ -456,6 +468,30 @@ func _parse_enemy_basics(doc: Dictionary, errors: Array[String]) -> void:
 			_enemy_basics[String(rom_id)] = raw[rom_id]
 
 
+## Enemy combat patterns (PT-###, D-017 / EN-AI-000 §1). Keyed by pattern id, validated
+## against id_registry. 'engage' (positioning dispatch) gated to the known profile enum.
+const _ENGAGE_PROFILES := ["advance", "standoff", "kite", "zone", "orbit", "probe", "surround"]
+
+
+func _parse_patterns(doc: Dictionary, errors: Array[String]) -> void:
+	_patterns.clear()
+	var raw = doc.get("patterns", {})
+	if typeof(raw) != TYPE_DICTIONARY:
+		errors.append("patterns.json: 'patterns' must be an object")
+		return
+	var allowed: Array = _registry_list("pattern_ids")
+	for pat_id in raw.keys():
+		IdValidate.require_id(String(pat_id), allowed, "pattern_id", errors)
+		var row = raw[pat_id]
+		if typeof(row) != TYPE_DICTIONARY:
+			errors.append("patterns.json %s: row must be an object" % pat_id)
+			continue
+		var engage := String(row.get("engage", ""))
+		if not _ENGAGE_PROFILES.has(engage):
+			errors.append("patterns.json %s: invalid engage '%s'" % [pat_id, engage])
+		_patterns[String(pat_id)] = row
+
+
 func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:
 	var raw = doc.get("enemies", [])
 	if typeof(raw) != TYPE_ARRAY:
@@ -465,6 +501,7 @@ func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:
 	var allowed: Array = _registry_list("enemy_ids")
 	var allowed_basics: Array = _registry_list("enemy_basic_attack_ids")
 	var allowed_ability: Array = _registry_list("ability_ids")
+	var allowed_pattern: Array = _registry_list("pattern_ids")
 	for row in raw:
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
@@ -477,6 +514,11 @@ func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:
 		for ab in row.get("abilities", []):
 			if typeof(ab) == TYPE_DICTIONARY:
 				IdValidate.require_id(String(ab.get("ref", "")), allowed_ability, "ability_id", errors)
+		# Engaged positioning pattern (EN-AI-000) — must resolve to patterns.json (PT-###).
+		var pat := String(row.get("pattern_ref", ""))
+		IdValidate.require_id(pat, allowed_pattern, "pattern_ref", errors)
+		if not pat.is_empty() and not _patterns.has(pat):
+			errors.append("enemies.json %s: pattern_ref '%s' not in patterns.json" % [eid, pat])
 		_enemies[eid] = row
 
 
