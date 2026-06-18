@@ -6,6 +6,18 @@
 
 ---
 
+### IMPL-DEC-20260618-003 — P2-S2a: Combat ID 1:1 정합 (rom_* basics + 비-spec AB 제거)
+- **결정(사용자 지시 "최종형은 spec과 1:1, 비-spec combat 객체 제거"):**
+  - **적 기본타 → `rom_*`** — 신규 `data/slice01/enemy_basics.json`(12 archetype, EN-COR-000 §rom_* 표) + `id_registry.enemy_basic_attack_ids`. **AB-### 카탈로그와 분리**(spec: rom_*는 D-016 미등록, DEC-20260618-004). `slice01_data.get_enemy_basic()`; `enemy_unit.basic_attack`; `enemy_ai`가 `rom_` 접두 ref는 enemy_basics에서, 그 외는 AB 카탈로그에서 해석. multi-hit는 1회 total로 fold(true 순차 = S2b).
+  - **삭제(비-spec):** `AB-001/014/015/016`(spec에서 rom_*로 통합·삭제됨) + `AB-S01~04`(비-spec 데모 플레이어 서브). abilities.json·id_registry·skillbooks.json(데모 starter 4종)·identities.json(`sub_ability_id` 필드)·effects/{taunt,lunge,nova,sanctuary}.gd(4) 삭제·ability_dispatch `cast_sub`·combat_controller `cast_sub`·party_member `_init_starter_skillbook` 제거. 서브는 이제 **루팅 스킬북만**(F-009, Q/E/R 빈 상태 시작).
+  - **EN-014 → Gutter Chanter (SustainTrash)** — 게임 데모의 "Torch Bearer"(비-spec, DRIFT-033) 폐기. **횃불 carry는 ENC-bound `worldInteractProfile`**(EN-AI-000 §6), 유닛/별도-EN 아님; 데모 바인딩 EN-010@`ENC-PAT-003`=Patrol=**P2-S3**. 현재 미바인딩(휴면) — 오브젝트 프로토콜 코드·ENT-TORCH·파티 carry(F-021)는 유지.
+  - **ENC-NORM-001 정합** — EN-014(이제 specialist) 제거 → Elite1+Fodder4(variant 3종)+Specialist0.
+  - **검증 강화:** `_parse_enemies`가 `basic_attack`(∈enemy_basic_attack_ids)·`abilities[].ref`(∈ability_ids) 검증 → 적 기본타·시그니처 1:1 강제.
+- **검증:** Godot 4.5.1 헤드리스 — hub/던전 Normal·Hard 로드·prespawn·부트 무오류. 실제 교전(rom_* 기본타 체감)은 F5.
+- **해소:** `SPEC_DRIFT` DRIFT-001(AB-S0x 제거로 종결)·DRIFT-033(EN-014→Gutter Chanter)·DRIFT-026(서브=스킬북 전환 완료).
+- **잔여:** 시그니처 AB-004/006/008/012/013(EN-002/003/004/007/008)·AB-098(EN-014)·AB-099(EN-001) = **S2c**; per-enemy 행동 훅 = **S2b**; `pattern_ids`(PT-010/020/021/022) 1:1 점검; party_member 잔여 `sub_params`/`sub_ability_id`/`sub_cooldown_s` inert 필드 = 후속 dead-code 정리.
+- **영향:** `data/slice01/{enemy_basics.json(신)·id_registry·enemies·abilities·identities·skillbooks·encounters/ENC-NORM-001}`, `scripts/{autoload/slice01_data·combat/enemy_unit·combat/enemy_ai·combat/combat_controller·combat/abilities/ability_dispatch·party/party_member}`, effects/{taunt,lunge,nova,sanctuary}.gd 삭제.
+
 ### IMPL-DEC-20260618-002 — Vision fog 미탐지 프롭 가림 + 천장 패스 계획(이연)
 - **결정(구현):** 미방문(never-reached) 방에서 **발광 프롭이 fog를 뚫고 보이던** 문제 수정. ① fog 미탐지 색을 휘도비례(`vec3(g)*dark_dim`) → **평면 검정**(`vec3(dark_dim)`, `dark_dim` 기본 0)으로 — 오브젝트 밝기 무관 완전 가림. ② `occluded_lum_cap`(0.3) 신설 — **explored 기억** 영역의 밝은 프롭이 비콘처럼 튀지 않게 휘도 클램프(미탐지=평면, 가시=discard라 둘은 영향 없음). ③ `vision_fog.fog_object()` 공개 — `dungeon_run`이 setup **이후** 스폰하는 `door/trap/chest/lever/barrel/torch`에 fog `next_pass`를 명시 적용(`$Rooms` 밖이라 초기 `_apply_fog_to_world` sweep이 못 잡음).
 - **결정(이연 = 천장 패스, 천장 지오메트리 도입 시):** ① 벽/천장 높이↑(현 `WALL_HEIGHT 3.5`), **천장=벽높이 커플**(full-height 벽이라야 옆방 차단). ② **카메라를 천장 아래 유지**(천장 ≳ `max_zoom·sin(85°)` + 여유) → 전 피치에서 천장 미차폐. ③ **폴백:** 카메라가 천장선 초과 시 **룸단위 천장 페이드-투-0**(메시만, 광원 유지). 벽 see-through=반투명(0.16) vs **천장=완전투명(0)**. ④ **광원 `shadow_enabled` ON**(현 `lantern.gd` false → 빛이 벽 투과; 개구부로만 새려면 필요). ⑤ **fog dim 복원**(`dark_dim` 0→~0.07 + `dark_col` 휘도반영 복귀, **1줄 플립**) → 미탐지역에 *빛/그림자 샘*만 보이고 구조는 천장이 차단. ⑥ 대안: 고피치서 줌 강제축소로 천장 높이 절감.

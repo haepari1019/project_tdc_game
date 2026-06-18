@@ -26,8 +26,10 @@ var attack_range_m: float = 1.6
 var attack_interval_s: float = 1.2
 ## Per-unit attack timer, ticked by CombatController.
 var attack_cooldown_s: float = 0.0
-## Ability instances [{ref, trigger, n}] from data (resolved vs ability_catalog).
+## Ability instances [{ref, trigger, n}] from data — SIGNATURE AB-### only (every_n etc.).
 var abilities: Array = []
+## Basic-attack archetype id (rom_*, EN-COR-000) — resolved vs enemy_basics catalog.
+var basic_attack: String = ""
 var attack_count: int = 0
 # F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
 # object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.
@@ -109,6 +111,9 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 	attack_interval_s = float(stats.get("attack_interval_s", 1.2))
 	var ab = row.get("abilities", [])
 	abilities = ab if typeof(ab) == TYPE_ARRAY else []
+	basic_attack = String(row.get("basic_attack", ""))
+	# ENC-bound torch carry (EN-AI-000 §6 worldInteractProfile) is set at spawn, not from the
+	# unit catalog (spec: not an enemyId property). Demo binding = ENC-PAT-003 (P2-S3) → false now.
 	interacts_with_objects = bool(row.get("interacts_with_objects", false))
 	name = enemy_id
 	_base_albedo = color

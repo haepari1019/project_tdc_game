@@ -15,6 +15,7 @@ const GEAR_PATH := SLICE01_DIR + "gear.json"
 const SKILLBOOKS_PATH := SLICE01_DIR + "skillbooks.json"
 const CONSUMABLES_PATH := SLICE01_DIR + "consumables.json"
 const SPAWN_TABLE_PATH := SLICE01_DIR + "spawn_table.json"
+const ENEMY_BASICS_PATH := SLICE01_DIR + "enemy_basics.json"
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -34,6 +35,8 @@ var _consumable_by_id: Dictionary = {}
 ## LDG-SPAWN-DEMO-001 — (pool, difficulty, world_layer) -> encounter_ref rows + force overrides.
 var _spawn_rows: Array = []
 var _spawn_overrides: Dictionary = {}
+## Enemy basic-attack archetypes (rom_*) — EN-COR-000 §rom_*. Keyed by rom id.
+var _enemy_basics: Dictionary = {}
 
 
 func _ready() -> void:
@@ -164,6 +167,13 @@ func get_ability(ability_id: String) -> Dictionary:
 	return ab.duplicate(true) if typeof(ab) == TYPE_DICTIONARY else {}
 
 
+## Enemy basic-attack archetype (rom_*) effect/params by id. {} if unknown.
+## Separate catalog from AB-### (EN-COR-000 §rom_*; not D-016). Enemy basics bind here.
+func get_enemy_basic(rom_id: String) -> Dictionary:
+	var b = _enemy_basics.get(rom_id, {})
+	return b.duplicate(true) if typeof(b) == TYPE_DICTIONARY else {}
+
+
 func get_blueprint() -> Dictionary:
 	return _blueprint.duplicate(true)
 
@@ -233,6 +243,7 @@ func _load_and_validate() -> bool:
 	var skillbooks_doc := _read_json_dict(SKILLBOOKS_PATH, "skillbooks", errors)
 	var consumables_doc := _read_json_dict(CONSUMABLES_PATH, "consumables", errors)
 	var spawn_table_doc := _read_json_dict(SPAWN_TABLE_PATH, "spawn_table", errors)
+	var enemy_basics_doc := _read_json_dict(ENEMY_BASICS_PATH, "enemy_basics", errors)
 
 	if errors.is_empty():
 		_validate_blueprint(errors)
@@ -240,6 +251,7 @@ func _load_and_validate() -> bool:
 		_parse_gear(gear_doc, errors)
 		_parse_skillbooks(skillbooks_doc, errors)
 		_parse_consumables(consumables_doc, errors)
+		_parse_enemy_basics(enemy_basics_doc, errors)
 		_parse_enemies(enemies_doc, errors)
 		_parse_abilities(abilities_doc, errors)
 		_validate_manifest(errors)
@@ -297,9 +309,6 @@ func _parse_identities(doc: Dictionary, errors: Array[String]) -> void:
 		IdValidate.require_id(iid, allowed_identity, "identity_skill_id", errors)
 		IdValidate.require_id(String(row.get("class_id", "")), allowed_class, "class_id", errors)
 		IdValidate.require_id(String(row.get("ability_id", "")), allowed_ability, "ability_id", errors)
-		var sub_id := String(row.get("sub_ability_id", ""))
-		if not sub_id.is_empty():
-			IdValidate.require_id(sub_id, allowed_ability, "sub_ability_id", errors)
 		IdValidate.require_id(String(row.get("pattern_id", "")), allowed_pattern, "pattern_id", errors)
 		_identities.append(row)
 
@@ -433,6 +442,20 @@ func _parse_spawn_table(doc: Dictionary, errors: Array[String]) -> void:
 			_spawn_overrides[String(pool_key)] = String(ov[pool_key])
 
 
+## Enemy basic-attack archetypes (rom_*). Keyed by rom id, validated against id_registry.
+func _parse_enemy_basics(doc: Dictionary, errors: Array[String]) -> void:
+	_enemy_basics.clear()
+	var raw = doc.get("basics", {})
+	if typeof(raw) != TYPE_DICTIONARY:
+		errors.append("enemy_basics.json: 'basics' must be an object")
+		return
+	var allowed: Array = _registry_list("enemy_basic_attack_ids")
+	for rom_id in raw.keys():
+		IdValidate.require_id(String(rom_id), allowed, "enemy_basic_attack_id", errors)
+		if typeof(raw[rom_id]) == TYPE_DICTIONARY:
+			_enemy_basics[String(rom_id)] = raw[rom_id]
+
+
 func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:
 	var raw = doc.get("enemies", [])
 	if typeof(raw) != TYPE_ARRAY:
@@ -440,11 +463,20 @@ func _parse_enemies(doc: Dictionary, errors: Array[String]) -> void:
 		return
 	_enemies.clear()
 	var allowed: Array = _registry_list("enemy_ids")
+	var allowed_basics: Array = _registry_list("enemy_basic_attack_ids")
+	var allowed_ability: Array = _registry_list("ability_ids")
 	for row in raw:
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		var eid := String(row.get("enemy_id", ""))
 		IdValidate.require_id(eid, allowed, "enemy_id", errors)
+		# Basic attack = rom_* archetype (enemy_basics); signature abilities[].ref = AB-### catalog.
+		var basic := String(row.get("basic_attack", ""))
+		if not basic.is_empty():
+			IdValidate.require_id(basic, allowed_basics, "enemy_basic_attack_id", errors)
+		for ab in row.get("abilities", []):
+			if typeof(ab) == TYPE_DICTIONARY:
+				IdValidate.require_id(String(ab.get("ref", "")), allowed_ability, "ability_id", errors)
 		_enemies[eid] = row
 
 

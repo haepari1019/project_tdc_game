@@ -2,12 +2,12 @@
   "encounter_id": "ENC-NORM-001",
   "difficulty_profile": "Normal",
   "risk_pattern_ref": "RP-02",
-  "group_size": 6,
+  "group_size": 5,
+  "_note": "ENC-000 §0.1: Shield Wall + Fodder Mix — Elite 1 + Fodder 4 (variant 3종) + Specialist 0. EN-014 is now SustainTrash (specialist) → removed from this fodder-mix; lives in HARD-006/009.",
   "units": [
     { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
     { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
     { "enemy_id": "EN-011", "count": 1, "slot": "fodder" },
-    { "enemy_id": "EN-012", "count": 1, "slot": "fodder" },
-    { "enemy_id": "EN-014", "count": 1, "slot": "fodder" }
+    { "enemy_id": "EN-013", "count": 1, "slot": "fodder" }
   ]
 }

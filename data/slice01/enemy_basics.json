@@ -1,0 +1,17 @@
+{
+  "_note": "Enemy basic-attack archetypes (rom_*) — spec EN-COR-000 §rom_* table. SSOT for enemy basic form/exec. NOT registered in D-016 AB-### (DEC-20260618-004). Bound per unit via enemies.json `basic_attack`. Game maps coeff (e.g. 0P4X→0.4) to damage_mult; hits = multi-hit count; range_band informative. Numbers = design examples (F-025 §11), tuning.",
+  "basics": {
+    "rom_melee_kb_light":      { "kind": "enemy_melee",  "range_band": "Melee", "damage_mult": 1.0,  "hits": 1, "knockback_m": 0.6, "telegraph_s": 0.25, "cooldown_s": 1.2, "vfx": "" },
+    "rom_fodder_melee_tap":    { "kind": "enemy_melee",  "range_band": "Melee", "damage_mult": 0.4,  "hits": 1, "knockback_m": 0.0, "telegraph_s": 0.20, "cooldown_s": 1.4, "vfx": "" },
+    "rom_fodder_pebble_toss":  { "kind": "enemy_ranged", "range_band": "Long",  "damage_mult": 0.3,  "hits": 1, "knockback_m": 0.0, "telegraph_s": 0.30, "cooldown_s": 2.0, "vfx": "projectile" },
+    "rom_swarm_nip":           { "kind": "enemy_melee",  "range_band": "Melee", "damage_mult": 0.6,  "hits": 1, "knockback_m": 0.0, "telegraph_s": 0.15, "cooldown_s": 0.9, "vfx": "" },
+    "rom_elite_voltaic_double":{ "kind": "enemy_ranged", "range_band": "Long",  "damage_mult": 0.5,  "hits": 2, "knockback_m": 0.0, "telegraph_s": 0.25, "cooldown_s": 1.6, "vfx": "projectile" },
+    "rom_elite_melee_flurry":  { "kind": "enemy_melee",  "range_band": "Melee", "damage_mult": 0.45, "hits": 3, "knockback_m": 0.0, "telegraph_s": 0.20, "cooldown_s": 1.1, "vfx": "" },
+    "rom_elite_slag_toss":     { "kind": "enemy_ranged", "range_band": "Mid",   "damage_mult": 0.35, "hits": 1, "knockback_m": 0.0, "telegraph_s": 0.30, "cooldown_s": 1.8, "vfx": "projectile" },
+    "rom_trash_spit_poke":     { "kind": "enemy_ranged", "range_band": "Long",  "damage_mult": 0.4,  "hits": 1, "knockback_m": 0.0, "telegraph_s": 0.25, "cooldown_s": 1.5, "vfx": "projectile" },
+    "rom_trash_bell_tap":      { "kind": "enemy_melee",  "range_band": "Melee", "damage_mult": 0.35, "hits": 1, "knockback_m": 0.0, "telegraph_s": 0.20, "cooldown_s": 1.3, "vfx": "" },
+    "rom_trash_hex_bolt":      { "kind": "enemy_ranged", "range_band": "Long",  "damage_mult": 0.3,  "hits": 1, "knockback_m": 0.0, "telegraph_s": 0.28, "cooldown_s": 1.7, "vfx": "projectile" },
+    "rom_trash_flank_stab":    { "kind": "enemy_melee",  "range_band": "Melee", "damage_mult": 0.4,  "hits": 2, "knockback_m": 0.0, "telegraph_s": 0.18, "cooldown_s": 1.0, "vfx": "" },
+    "rom_trash_sustain_tap":   { "kind": "enemy_melee",  "range_band": "Melee", "damage_mult": 0.25, "hits": 1, "knockback_m": 0.0, "telegraph_s": 0.20, "cooldown_s": 1.5, "vfx": "" }
+  }
+}

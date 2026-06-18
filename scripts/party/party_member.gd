@@ -96,7 +96,6 @@ func setup(gear: Dictionary, index: int, color: Color, collision_radius: float =
 	_base_color = color
 	_role_scale = role_scale
 	_bind_gear(gear, true)
-	_init_starter_skillbook()
 	name = identity_skill_id
 	_apply_collision_size(collision_radius, collision_height)
 	_build_cylinder_mesh(color, role_scale)
@@ -181,29 +180,6 @@ func set_skillbook(slot_index: int, inst):
 	var prev = skillbook_slots[slot_index]
 	skillbook_slots[slot_index] = inst
 	return prev
-
-
-## Seed the identity's themed sub (legacy AB-S0x) into Q at spawn, as a skillbook
-## instance — so play starts with the role's sub equipped, not empty (user request).
-func _init_starter_skillbook() -> void:
-	var row: Dictionary = Slice01Data.get_identity_row(identity_skill_id)
-	var said := String(row.get("sub_ability_id", ""))
-	if said.is_empty():
-		return
-	var master: Dictionary = Slice01Data.get_skillbook_master(said)
-	if master.is_empty():
-		return
-	var cmax := int(master.get("charges_max", 30))
-	skillbook_slots[0] = {
-		"base_ability_id": said,
-		"display_name": String(master.get("display_name", said)),
-		"params": master.get("cast", {}),
-		"charges": cmax,
-		"charges_max": cmax,
-		"cooldown_s": 0.0,
-		"equip_classes": master.get("equip_classes", [class_id]),
-		"color": _base_color,
-	}
 
 
 ## Equip a skillbook into a Q/E/R slot by base_ability_id (deployment loadout apply, F-010).

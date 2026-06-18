@@ -234,13 +234,6 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 		m.attack_cooldown_s = m.basic_interval_s
 
 
-## Player-activated SUB (key 1) on the controlled member — delegated to AbilityDispatch
-## (Identity auto-cast is dispatched there too, via _tick_party_attacks). NC never
-## auto-subs (QA-005 §2.6). dungeon_run calls this on the sub key.
-func cast_sub(member: CharacterBody3D, target_pos: Vector3 = Vector3.ZERO) -> void:
-	_ability_dispatch.cast_sub(member, target_pos)
-
-
 func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
 	_ability_dispatch.cast_skillbook(member, slot_index, target_pos)
 

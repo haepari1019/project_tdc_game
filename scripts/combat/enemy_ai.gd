@@ -298,7 +298,9 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 	var chosen: Dictionary = _select_enemy_ability(enemy)
 	var eff: Dictionary = {}
 	if not chosen.is_empty():
-		eff = Slice01Data.get_ability(String(chosen.get("ref", "")))
+		var ref := String(chosen.get("ref", ""))
+		# Basics are rom_* (enemy_basics catalog); signatures are AB-### (abilities catalog).
+		eff = Slice01Data.get_enemy_basic(ref) if ref.begins_with("rom_") else Slice01Data.get_ability(ref)
 	var tele: float = float(eff.get("telegraph_s", 0.0))
 	if tele > 0.0:
 		# Warning cue now; the strike resolves when the wind-up timer elapses.
@@ -335,7 +337,10 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
 	var kind := String(eff.get("kind", "enemy_melee"))
 	var from := enemy.global_position
-	var dmg: float = enemy.contact_damage * float(eff.get("damage_mult", 1.0))
+	# Multi-hit rom_* (voltaic double / melee flurry / flank stab) fold into one resolved total
+	# for now (true sequential hits = S2b polish). hits defaults 1.
+	var hits: int = maxi(1, int(eff.get("hits", 1)))
+	var dmg: float = enemy.contact_damage * float(eff.get("damage_mult", 1.0)) * float(hits)
 	target.take_damage(dmg)
 	_combat._engage_enemy(enemy)  # D-010 §4.1: keep engaged (target already has threat/LOS)
 	_combat.party_damaged.emit()  # follower formation-break trigger
@@ -399,6 +404,10 @@ func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
 				return ab
 		elif trig == "basic" and basic.is_empty():
 			basic = ab
+	# Basic = the unit's rom_* archetype (EN-COR-000 §rom_*); legacy abilities `basic` entry
+	# is only a transition fallback for rows without a bound basic_attack.
+	if enemy.basic_attack != "":
+		return {"ref": enemy.basic_attack, "trigger": "basic"}
 	return basic
 
 

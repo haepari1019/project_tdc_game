@@ -18,11 +18,17 @@
     "healer_mend_circle"
   ],
   "ability_ids": [
-    "AB-001", "AB-002", "AB-015", "AB-016", "AB-010", "AB-011",
-    "AB-020", "AB-024", "AB-025", "AB-026", "AB-037",
-    "AB-S01", "AB-S02", "AB-S03", "AB-S04"
+    "AB-002", "AB-010", "AB-011",
+    "AB-020", "AB-024", "AB-025", "AB-026", "AB-037"
   ],
-  "_note_ability_ids": "AB-001/002/010/011/015/016 = enemy abilities in use. AB-S01..S04 = non-spec demo sub-skills (DRIFT-001), pending spec reconciliation to skillbook AB-### (F-009).",
+  "_note_ability_ids": "AB-002/010/011 = enemy signature/lootable. AB-020/024/025/026 = player Identity. AB-037 = Ember (skillbook). AB-001/014/015/016 removed (spec→rom_*); AB-S01..S04 removed (non-spec demo subs).",
+  "enemy_basic_attack_ids": [
+    "rom_melee_kb_light", "rom_fodder_melee_tap", "rom_fodder_pebble_toss", "rom_swarm_nip",
+    "rom_elite_voltaic_double", "rom_elite_melee_flurry", "rom_elite_slag_toss",
+    "rom_trash_spit_poke", "rom_trash_bell_tap", "rom_trash_hex_bolt", "rom_trash_flank_stab",
+    "rom_trash_sustain_tap"
+  ],
+  "_note_enemy_basics": "spec EN-COR-000 §rom_* (enemyBasicAttackArchetypeId) — NOT D-016 AB-###. Catalog = data/slice01/enemy_basics.json. Bound per unit via enemies.json basic_attack.",
   "pattern_ids": ["PT-010", "PT-020", "PT-021", "PT-022"],
   "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
   "base_gear_ids": [

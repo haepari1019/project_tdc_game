@@ -17,10 +17,6 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/press_line.gd"),
 	preload("res://scripts/combat/abilities/effects/mark_ruin.gd"),
 	preload("res://scripts/combat/abilities/effects/mend_circle.gd"),
-	preload("res://scripts/combat/abilities/effects/taunt.gd"),
-	preload("res://scripts/combat/abilities/effects/lunge.gd"),
-	preload("res://scripts/combat/abilities/effects/nova.gd"),
-	preload("res://scripts/combat/abilities/effects/sanctuary.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_strike.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_poison.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_stun.gd"),
@@ -60,19 +56,6 @@ func try_identity(m: CharacterBody3D) -> bool:
 	return false
 
 
-## Player-activated SUB on the controlled member (key 1). NC never auto-subs.
-func cast_sub(member: CharacterBody3D, target_pos: Vector3 = Vector3.ZERO) -> void:
-	if member == null or not is_instance_valid(member) or not member.is_alive():
-		return
-	if member.sub_cooldown_s > 0.0:
-		print("[SUB] on cooldown (%.1fs)" % member.sub_cooldown_s)
-		return
-	var p: Dictionary = member.sub_params
-	if p.is_empty():
-		return
-	var skill = _skills.get(String(p.get("kind", "")))
-	if skill != null and skill.cast(member, p, target_pos, self):
-		member.sub_cooldown_s = float(p.get("cooldown_s", 10.0))
 
 
 ## Player-cast a sub skillbook from slot Q/E/R. Charges + cooldown gated; on success

@@ -1,11 +1,10 @@
 {
-  "_combat_note": "combat = character stats (DEMO PH). ability_id = identity(main) skill, sub_ability_id = player-activated sub skill (key 1). Both LINK to abilities.json.",
+  "_combat_note": "combat = character stats (DEMO PH). ability_id = identity(main) skill → abilities.json. Player SUB skills are looted skillbooks (F-009, Q/E/R via skillbooks.json), NOT a fixed identity sub — the old sub_ability_id (AB-S0x) is removed (DRIFT-001/026).",
   "identities": [
     {
       "identity_skill_id": "tank_anchor_guard",
       "class_id": "Tank",
       "ability_id": "AB-020",
-      "sub_ability_id": "AB-S01",
       "pattern_id": "PT-010",
       "combat": { "hp": 180, "basic_damage": 8, "basic_range_m": 2.2, "basic_interval_s": 1.0, "threat_mult": 2.2 }
     },
@@ -13,7 +12,6 @@
       "identity_skill_id": "dps_press_line",
       "class_id": "DPS",
       "ability_id": "AB-024",
-      "sub_ability_id": "AB-S02",
       "pattern_id": "PT-020",
       "combat": { "hp": 110, "basic_damage": 16, "basic_range_m": 10.0, "basic_interval_s": 0.7 }
     },
@@ -21,7 +19,6 @@
       "identity_skill_id": "nuker_mark_ruin",
       "class_id": "Nuker",
       "ability_id": "AB-025",
-      "sub_ability_id": "AB-S03",
       "pattern_id": "PT-021",
       "combat": { "hp": 90, "basic_damage": 14, "basic_range_m": 2.4, "basic_interval_s": 1.1 }
     },
@@ -29,7 +26,6 @@
       "identity_skill_id": "healer_mend_circle",
       "class_id": "Healer",
       "ability_id": "AB-026",
-      "sub_ability_id": "AB-S04",
       "pattern_id": "PT-022",
       "combat": { "hp": 100, "basic_damage": 6, "basic_range_m": 2.0, "basic_interval_s": 1.0 }
     }

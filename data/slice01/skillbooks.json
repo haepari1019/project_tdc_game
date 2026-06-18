@@ -1,5 +1,5 @@
 {
-  "_note": "Skillbook masters (Slice-01). SSOT: F-009/D-018/D-016 + DEC-20260611-002 (per-kill drop). base_ability_id = the enemy's lootable AB (Shared, F-009 §1.1). charges = limited consumable (탄수, 1 cast = 1 charge, 0 = unusable but kept). equip_classes = role gate (F-009 §3.2.1). At-Risk even equipped (F-009 §3.7). cast = player-cast effect targeting enemies. charges_max demo-tuned low (spec rec 50-80, DRIFT) for restrictive feel.",
+  "_note": "Skillbook masters. SSOT: F-009/D-018/D-016 + DEC-20260611-002 (per-kill drop). base_ability_id = the enemy's lootable Shared AB (F-009 §1.1). charges = limited (탄수). equip_classes = role gate (F-009 §3.2.1). At-Risk even equipped (F-009 §3.7). cast = player-cast effect (effects/sb_*.gd). Subs are looted (start empty, F-009) — the AB-S0x demo 'starter' skillbooks were removed (non-spec).",
   "skillbooks": [
     {
       "base_ability_id": "AB-002",
@@ -24,42 +24,6 @@
       "range_band": "Mid",
       "charges_max": 6,
       "cast": { "kind": "skillbook_stun", "cooldown_s": 8, "radius_m": 4.5, "damage_mult": 0.6, "stun_s": 1.4 }
-    },
-    {
-      "base_ability_id": "AB-S01",
-      "display_name": "Taunt Slam",
-      "equip_classes": ["Tank"],
-      "range_band": "Melee",
-      "charges_max": 30,
-      "starter": true,
-      "cast": { "kind": "sub_taunt", "cooldown_s": 12, "radius_m": 6.5, "knockback_m": 3.0, "threat_amount": 1500, "shield": 220, "shield_duration_s": 5 }
-    },
-    {
-      "base_ability_id": "AB-S02",
-      "display_name": "Lunge Strike",
-      "equip_classes": ["DPS"],
-      "range_band": "Mid",
-      "charges_max": 30,
-      "starter": true,
-      "cast": { "kind": "sub_lunge", "cooldown_s": 8, "targeted": true, "range_m": 9, "damage_mult": 5.0, "aoe_radius_m": 2.8 }
-    },
-    {
-      "base_ability_id": "AB-S03",
-      "display_name": "Nova Burst",
-      "equip_classes": ["Nuker"],
-      "range_band": "Mid",
-      "charges_max": 30,
-      "starter": true,
-      "cast": { "kind": "sub_nova", "cooldown_s": 14, "targeted": true, "range_m": 12, "radius_m": 5.5, "damage_mult": 3.0, "slow_factor": 0.4, "slow_duration_s": 4 }
-    },
-    {
-      "base_ability_id": "AB-S04",
-      "display_name": "Sanctuary",
-      "equip_classes": ["Healer"],
-      "range_band": "Mid",
-      "charges_max": 30,
-      "starter": true,
-      "cast": { "kind": "sub_sanctuary", "cooldown_s": 16, "radius_m": 6.5, "heal_pct": 0.40, "shield": 140, "shield_duration_s": 6 }
     },
     {
       "base_ability_id": "AB-037",
