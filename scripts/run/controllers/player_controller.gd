@@ -36,6 +36,12 @@ func _physics_process(delta: float) -> void:
 		body.move_and_slide()
 		_move_active = false
 		return
+	# Provoked (AB-099): movement input is locked — the member is forced toward the caster
+	# (so it gets into basic range; the forced attack itself runs in CombatController).
+	if body.has_method("is_provoked") and body.is_provoked():
+		_drive_provoked(body)
+		_move_active = false
+		return
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if input != Vector2.ZERO:
 		_move_active = false   # manual WASD cancels an auto-move order
@@ -50,6 +56,30 @@ func _physics_process(delta: float) -> void:
 		body.velocity = body.velocity.move_toward(v_target, a * delta)
 	else:
 		body.velocity = v_target
+	body.move_and_slide()
+
+
+## Provoked forced movement: walk toward the taunt caster until inside basic range, then
+## hold (the forced attack runs in CombatController). Navmesh-routed; faces the caster.
+func _drive_provoked(body: CharacterBody3D) -> void:
+	var src = body.get_provoke_source()
+	if src == null or not is_instance_valid(src):
+		body.velocity = Vector3.ZERO
+		body.move_and_slide()
+		return
+	var to: Vector3 = src.global_position - body.global_position
+	to.y = 0.0
+	var stop_at: float = maxf(float(body.get("basic_range_m")) - 0.3, 0.6)
+	if to.length() <= stop_at:
+		body.velocity = Vector3.ZERO
+	else:
+		var wp: Vector3 = src.global_position
+		if body.has_method("nav_set_target"):
+			body.nav_set_target(src.global_position)  # route around walls
+			wp = body.nav_get_next_position()
+		var d: Vector3 = wp - body.global_position
+		d.y = 0.0
+		body.velocity = (d.normalized() * move_speed) if d.length() > 0.05 else Vector3.ZERO
 	body.move_and_slide()
 
 

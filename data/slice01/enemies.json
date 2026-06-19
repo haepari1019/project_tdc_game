@@ -4,7 +4,7 @@
     { "enemy_id": "EN-001", "role": "elite",  "display_name": "Aegis Bearer", "pattern_ref": "PT-001",
       "stats": { "hp": 760, "move_speed": 5.5, "contact_damage": 18, "attack_range_m": 1.8, "attack_interval_s": 1.4 },
       "basic_attack": "rom_melee_kb_light",
-      "abilities": [ { "ref": "AB-002", "trigger": "every_n", "n": 3 } ] },
+      "abilities": [ { "ref": "AB-099", "trigger": "signature" }, { "ref": "AB-002", "trigger": "every_n", "n": 3 } ] },
 
     { "enemy_id": "EN-002", "role": "nuker", "display_name": "Voltaic Acolyte", "pattern_ref": "PT-002",
       "stats": { "hp": 300, "move_speed": 5.0, "contact_damage": 14, "attack_range_m": 9.0, "attack_interval_s": 1.8 },

@@ -210,6 +210,18 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		return
 	enemy.attack_cooldown_s = maxf(0.0, enemy.attack_cooldown_s - delta)
 	enemy.tick_slow(delta)
+	enemy.tick_stun(delta)
+	# Stunned (EN-AI-000 §2): frozen + INTERRUPT — any channel/cast or dash in progress fails
+	# (no resolve; its cooldown stays consumed). Player counterplay: stun EN-001 mid-Mockery.
+	if enemy.is_stunned():
+		if enemy.winding:
+			enemy.winding = false
+			enemy.windup_target = null
+			print("[EN] %s cast interrupted (stun)" % enemy.enemy_id)
+		enemy.dashing = false
+		enemy.velocity = Vector3.ZERO
+		enemy.move_and_slide()
+		return
 	# Smoothed knockback push takes over movement for its short duration.
 	if enemy.tick_knockback(delta):
 		return
@@ -472,9 +484,12 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 	var target: CharacterBody3D = enemy.windup_target
 	enemy.winding = false
 	enemy.windup_target = null
-	# Heal (AB-098) is target-less — resolve before the party-target validation/LOS gate.
+	# Zone/ally signatures are target-less — resolve before the party-target validation/LOS gate.
 	if String(eff.get("kind", "")) == "enemy_heal":
 		_apply_enemy_heal(enemy, eff, chosen)
+		return
+	if String(eff.get("kind", "")) == "enemy_provoke":
+		_apply_enemy_provoke(enemy, eff, chosen)
 		return
 	if not is_instance_valid(target) or not target.is_alive():
 		return
@@ -566,6 +581,8 @@ func _telegraph_color(kind: String) -> Color:
 			return Color(0.95, 0.6, 0.25, 0.5)
 		"enemy_dash":  # AB-006/013 dash — sharp cyan crouch-tell
 			return Color(0.5, 0.95, 0.95, 0.55)
+		"enemy_provoke":  # AB-099 Iron Mockery — metallic gold fan (방패 금속 울림)
+			return Color(0.9, 0.8, 0.4, 0.55)
 	return Color(0.9, 0.3, 0.2, 0.5)
 
 
@@ -590,8 +607,12 @@ func _try_cast_signature(enemy: CharacterBody3D) -> bool:
 					break
 			if not wounded:
 				continue  # nothing to heal → save the cooldown
+		elif kind == "enemy_provoke":
+			# Condition (PT-001): 1+ party actor in the forward fan (no point taunting an empty zone).
+			if _party_in_fan(enemy, float(eff.get("zone_radius_m", 4.0)), float(eff.get("zone_deg", 60.0))).is_empty():
+				continue
 		else:
-			continue  # only heal-style signatures use the cooldown pass for now
+			continue  # only zone/ally signatures use the cooldown pass (dashes use _try_cast_dash)
 		# Begin the channel — windup_target null (target-less); resolved by _resolve_enemy_attack.
 		enemy.winding = true
 		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.55))
@@ -616,6 +637,39 @@ func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictiona
 			healed += 1
 	SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_heal"))
 	print("[EN] %s %s heal x%d (r%.1f %d%%)" % [enemy.enemy_id, String(chosen.get("ref", "")), healed, r, int(pct * 100.0)])
+
+
+## Resolve AB-099 Iron Mockery — apply Provoked to every party actor in the forward fan
+## (front zone_deg°, zone_radius_m from the caster). Target-less zone. ref: AB-099 / EN-001.
+func _apply_enemy_provoke(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+	var r := float(eff.get("zone_radius_m", 4.0))
+	var deg := float(eff.get("zone_deg", 60.0))
+	var dur := float(eff.get("provoke_dur_s", 2.0))
+	var n := 0
+	for a in _party_in_fan(enemy, r, deg):
+		if a.has_method("apply_provoke"):
+			a.apply_provoke(enemy, dur)
+			n += 1
+	SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_provoke"))
+	print("[EN] %s %s Provoked x%d (r%.1f %d° %.1fs)" % [enemy.enemy_id, String(chosen.get("ref", "")), n, r, int(deg), dur])
+
+
+## Party actors inside the caster's forward fan (front `deg`° cone, `radius_m`). Used by
+## AB-099 for both the cast condition and the resolve hit. facing = the caster's look dir.
+func _party_in_fan(enemy: CharacterBody3D, radius_m: float, deg: float) -> Array:
+	var out: Array = []
+	var cos_half := cos(deg_to_rad(deg * 0.5))
+	var ep: Vector3 = enemy.global_position
+	var f: Vector3 = enemy.facing
+	for a in _combat._allies_in_radius(ep, radius_m):
+		if not is_instance_valid(a) or (a.has_method("is_alive") and not a.is_alive()):
+			continue
+		var to: Vector3 = a.global_position - ep
+		to.y = 0.0
+		var d := to.length()
+		if d < 0.01 or to.normalized().dot(f) >= cos_half:
+			out.append(a)
+	return out
 
 
 ## Cooldown dash signature (AB-006 gap-close / AB-013 backstab): when there's a real gap to a

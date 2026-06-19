@@ -747,6 +747,9 @@ func _sv1_update_follow(
 		if member.has_method("is_mia") and member.is_mia():
 			member.velocity = Vector3.ZERO
 			continue  # MIA — holds in place for player regroup (F-004 §3.4)
+		if member.has_method("is_provoked") and member.is_provoked():
+			planned[member] = _provoked_seek_vel(member)  # forced toward the taunt caster (AB-099)
+			continue
 		var slot_target: Vector3 = peer_slot_targets[member]
 		# Rejoin fallback (member-POV): the clamped slot is always in the anchor's
 		# room, so this only fires when the member itself is physically stuck in
@@ -785,6 +788,12 @@ func _sv1_update_follow(
 	# would otherwise stand at the formation origin while everyone else engages, so
 	# drive it into combat here too. Outside combat it holds (the formation reference).
 	if not anchor.is_controlled() and (not anchor.has_method("is_alive") or anchor.is_alive()):
+		# A provoked NC anchor is forced to the caster like any other member (AB-099).
+		if anchor.has_method("is_provoked") and anchor.is_provoked():
+			anchor.velocity = _provoked_seek_vel(anchor)
+			_clamp_fatal(anchor, delta)
+			anchor.move_and_slide()
+			return
 		var av := Vector3.ZERO
 		if _combat_engaging:
 			var atgt: Vector3 = _combat_pos.engage_target(anchor, anchor.global_position)
@@ -803,6 +812,27 @@ func _sv1_update_follow(
 		if anchor.has_method("move_speed_mult"):
 			anchor.velocity *= anchor.move_speed_mult()
 		anchor.move_and_slide()
+
+
+## Provoked (AB-099) forced movement: velocity toward the taunt caster until inside basic
+## range, then hold (the forced attack runs in CombatController). Navmesh-routed. Shared by
+## NC followers (Pass 1) and an NC anchor (Pass 3); the controlled member uses player_controller.
+func _provoked_seek_vel(member: CharacterBody3D) -> Vector3:
+	var src = member.get_provoke_source()
+	if src == null or not is_instance_valid(src):
+		return Vector3.ZERO
+	var to: Vector3 = src.global_position - member.global_position
+	to.y = 0.0
+	var stop_at: float = maxf(float(member.get("basic_range_m")) - 0.3, 0.6)
+	if to.length() <= stop_at:
+		return Vector3.ZERO
+	var wp: Vector3 = src.global_position
+	if member.has_method("nav_set_target"):
+		member.nav_set_target(src.global_position)
+		wp = member.nav_get_next_position()
+	var d: Vector3 = wp - member.global_position
+	d.y = 0.0
+	return (d.normalized() * _follower_move_speed_near) if d.length() > 0.05 else Vector3.ZERO
 
 
 func _sv1_effective_radius(member: CharacterBody3D) -> float:

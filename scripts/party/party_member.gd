@@ -73,6 +73,12 @@ var _poison_accum: float = 0.0
 var _stun_dur: float = 1.0
 var _poison_dur: float = 1.0
 var _shield_dur: float = 1.0
+## Provoked (AB-099 Iron Mockery): movement input + active skills locked, forced basic attack
+## on the caster. Character-bound (swap keeps it). Stunned suppresses the EFFECTS (is_provoked
+## returns false while stunned) but the timer keeps running. ref: AB-099 / STATUS-ACTOR-CORE.
+var provoked_timer_s: float = 0.0
+var _provoke_dur: float = 1.0
+var provoke_source: Node = null
 var _status_orb: MeshInstance3D
 var _flash_heal_tw: Tween
 
@@ -450,6 +456,30 @@ func apply_slow(factor: float, duration: float) -> void:
 	_slow_dur = maxf(_slow_dur, _slow_timer)
 
 
+## Provoke (AB-099): force this member to basic-attack `source`; movement/skills lock.
+func apply_provoke(source: Node, duration: float) -> void:
+	if not _alive:
+		return
+	provoke_source = source
+	provoked_timer_s = maxf(provoked_timer_s, duration)
+	_provoke_dur = maxf(_provoke_dur, provoked_timer_s)
+	_update_status_orb()
+
+
+## Provoked AND able to act on it. False while stunned — Stunned suppresses Provoked's
+## effects (forced attack/move/skill-lock) though the timer keeps running (AB-099 edge case).
+func is_provoked() -> bool:
+	return _alive and provoked_timer_s > 0.0 and stun_timer_s <= 0.0
+
+
+## The taunt caster to force-attack — null (and unlinked) if it died / went away.
+func get_provoke_source() -> Node:
+	if provoke_source != null and (not is_instance_valid(provoke_source) \
+			or (provoke_source.has_method("is_alive") and not provoke_source.is_alive())):
+		provoke_source = null
+	return provoke_source
+
+
 func move_speed_mult() -> float:
 	return _slow_factor if _slow_timer > 0.0 else 1.0
 
@@ -482,6 +512,12 @@ func get_status_list() -> Array:
 			"ratio": 1.0 - clampf(_slow_timer / maxf(_slow_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
+	if provoked_timer_s > 0.0:  # debuff (Provoked — forced taunt, AB-099)
+		out.append({
+			"color": Color(0.95, 0.35, 0.2),
+			"ratio": 1.0 - clampf(provoked_timer_s / maxf(_provoke_dur, 0.01), 0.0, 1.0),
+			"buff": false,
+		})
 	return out
 
 
@@ -506,6 +542,13 @@ func _tick_status(delta: float) -> void:
 			poison_dps = 0.0
 			_poison_accum = 0.0
 			changed = true
+	if provoked_timer_s > 0.0:
+		provoked_timer_s -= delta
+		# End early if the caster died (tauntSourceId 무효화, AB-099 edge case).
+		if provoked_timer_s <= 0.0 or get_provoke_source() == null:
+			provoked_timer_s = 0.0
+			provoke_source = null
+			changed = true
 	if changed:
 		_update_status_orb()
 
@@ -522,7 +565,7 @@ func _apply_dot(amount: float) -> void:
 
 ## Small overhead orb signalling active status (stun = yellow, poison = green).
 func _update_status_orb() -> void:
-	var active := is_stunned() or poison_timer_s > 0.0
+	var active := is_stunned() or poison_timer_s > 0.0 or provoked_timer_s > 0.0
 	if not active:
 		if _status_orb:
 			_status_orb.visible = false
@@ -539,7 +582,11 @@ func _update_status_orb() -> void:
 		mat.no_depth_test = true
 		_status_orb.material_override = mat
 		add_child(_status_orb)
-	var col: Color = Color(1.0, 0.85, 0.2) if is_stunned() else Color(0.35, 0.9, 0.3)
+	var col: Color = Color(0.35, 0.9, 0.3)  # poison (default)
+	if is_stunned():
+		col = Color(1.0, 0.85, 0.2)            # stun (yellow, highest display priority)
+	elif provoked_timer_s > 0.0:
+		col = Color(0.95, 0.35, 0.2)           # provoked (red-orange)
 	(_status_orb.material_override as StandardMaterial3D).albedo_color = col
 	_status_orb.visible = true
 

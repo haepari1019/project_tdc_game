@@ -6,6 +6,30 @@
 
 ---
 
+### IMPL-DEC-20260619-004 — P2-S2c(4): 채널 interrupt + 적 stun primitive (EN-AI-000 §2)
+- **결정(사용자 "interrupt-on-channel 마무리"):** S2c-1~3 전반에 누적됐던 §2 갭 종결 — 적 채널/캐스트를 **stun으로 끊으면 시전 실패 + 쿨 소모**. 선행 조건이던 **적 stun primitive 자체가 없어서**(적은 slow만 가능, Toll Stun이 `apply_slow(0.05)` 프록시였음) 같이 신설.
+  - **적 stun(`enemy_unit`)**: `stun_timer_s`·`apply_stun`·`is_stunned`·`tick_stun`(party_member API 대칭). HP 0 no-op.
+  - **interrupt(`enemy_ai.tick`)**: 매 틱 `tick_stun` 후 `is_stunned()`면 **winding/dashing 취소(=cast 실패, resolve 안 함) + velocity 0 + return**. winding-countdown **앞**에 배치 → stun이 resolve보다 먼저 이김. 시그니처 쿨(`sig_cooldown_s`)은 cast 시작 시 설정돼 **그대로 소모 유지**(AB-099/098 "쿨 전액 소모" 정합). every_n 캐스트(AB-004/008/012)는 쿨 없어 그 스윙만 취소(AB-004 "50% 환급"=N/A).
+  - **Toll Stun 실화(`sb_stun`)**: 적에게 `apply_slow(0.05)` 프록시 → **`apply_stun(stun_s)` 실제 스턴**(freeze + interrupt). 플레이어 카운터플레이 성립: "EN-001 Mockery 채널 중 Toll Stun으로 끊기". apply_stun 없는 대상은 slow 폴백.
+  - **interrupt 범위**: channel:true뿐 아니라 **모든 winding + dashing** 취소(stun은 진행 중 모든 행동 차단; §2 표가 AB-011 telegraph도 interruptible로 명시한 것과 정합).
+- **1:1 근거:** §2 interrupt 정책·"쿨 전액 소모"는 spec 그대로. 적 stun primitive·"모든 winding 취소"·Toll Stun=실제 stun 전환은 게임 인코딩(스펙은 stun을 전제) → DRIFT-044.
+- **검증:** `ci_smoke.sh` PASS(enemy_unit/enemy_ai/sb_stun 컴파일·부트 무오류). **채널 중 stun→취소 체감은 F5 잔여**.
+- **해소:** DRIFT-041/042/043의 "interrupt-on-channel 미구현" 공통 잔여 종결(→ DRIFT-044).
+- **미구현(정직):** AB-004 "쿨 50% 환급"(every_n이라 N/A)·적 stun 시각 피드백(VFX 없음, freeze만)·dormant 적이 stun되면 engage 전까지 미틱(희소, Toll Stun은 교전용).
+- **영향:** `scripts/combat/{enemy_unit·enemy_ai·abilities/effects/sb_stun}`.
+
+### IMPL-DEC-20260619-003 — P2-S2c(3): AB-099 Iron Mockery / Provoked (EN-001 존 도발 + party-side 상태)
+- **결정(사용자 "진행"):** P2-S2 마지막 — 신규 **party-side `Provoked` 상태** + 입력 게이트. EN-001이 전방 부채꼴 존으로 파티를 도발해 **이동·스킬 잠금 + 시전자 강제 평타**.
+  - **Provoked 상태(`party_member`)**: `provoked_timer_s`·`provoke_source`·`apply_provoke`·`is_provoked`(**stunned 시 false** = Stunned이 효과 억제, 타이머는 지속)·`get_provoke_source`(시전자 사망 시 무효화). `_tick_status` 감소 + 시전자 사망 조기종료. status orb/리스트에 red-orange 항목.
+  - **AB-099 캐스트(EN-001 signature)**: `enemy_provoke` kind — telegraph 0.85s **channel**(channel-freeze 제자리), 쿨 14s, 전방 **60°/4m 부채꼴**. 타겟리스 zone → `_try_cast_signature`(조건=부채꼴 내 파티 1+, heal과 같은 조기 패스)·`_resolve`가 target 검증 **전** `_apply_enemy_provoke` 분기. `_party_in_fan`(facing 기준)로 조건·판정 공유. AB-002(every_n 3)와 자연 배타(채널 중 평타 게이트 `not winding`).
+  - **효과 게이트(4곳)**: ① `combat_controller._tick_party_attacks` — provoked면 Identity/일반타겟 **스킵**, 시전자 대상 강제 평타(사거리 내). ② `player_controller` — 조작 멤버 입력 무시, 시전자로 **강제 접근**(nav, 사거리서 정지). ③ `party_controller` — NC provoked는 슬롯 대신 시전자 seek(`_provoked_seek_vel`, Pass1+Pass3 앵커). ④ `dungeon_run._on_sub_key` — Q/E/R 서브 캐스트 차단.
+  - **스왑 허용(F-001)**: provoke는 **멤버 귀속** — 스왑해도 해제 X. 도발된 캐릭은 NC 경로로 시전자 강제 평타 지속, 플레이어는 다른 슬롯으로 계속 플레이. try_swap_to는 상태 비게이트라 자동 충족.
+- **1:1 근거:** AB-099·telegraph 0.85·쿨 14·존 60°/4m·dur 2.0·스왑허용·Stunned우선 = spec `AB-099` Draft 그대로. `enemy_provoke` kind·강제이동 구현·존 facing(cast-start 대신 resolve, 채널 freeze라 ≈동일) = 게임 인코딩 → DRIFT-043.
+- **검증:** `ci_smoke.sh` PASS(AB-099 등록·catalog·EN-001 ref 정합; party_member/party_controller/player_controller/combat_controller/enemy_ai 전부 컴파일·부트 무오류). **존 도발→조작상실→강제평타→스왑 회피는 F5 잔여**(교전+입력 필요).
+- **미구현(정직):** ① **interrupt-on-channel**(채널 중 stun→시전 실패+쿨 전액 소모, AB-099/§2) — 현재 채널이 stun 무관 완주. ② **AB-031 Ward Pulse 클렌즈** 미구현(데모 무). ③ aim 모달 활성 중 provoke 진입 시 confirm 캐스트가 게이트 우회(희소 엣지).
+- **P2-S2 완료:** S2a(ID 1:1)·S2b(포지셔닝)·S2c-1(캐스트)·S2c-2(대시)·S2c-3(Provoked). EN-001~014 전원 spec kit 반영(시그니처 AB + 패턴 + 기본타).
+- **영향:** `data/slice01/{id_registry·abilities·enemies}`, `scripts/{party/party_member·party/party_controller·run/controllers/player_controller·combat/combat_controller·combat/enemy_ai·run/dungeon_run}`.
+
 ### IMPL-DEC-20260619-002 — P2-S2c(2): 대시 mobility primitive (AB-006 갭클로즈 · AB-013 백스탭)
 - **결정(사용자 "C-2 진행"):** EN-003/008 플랭커의 시그니처 **대시**를 신규 mobility primitive로 추가. S2c-1 캐스트(데미지/상태/힐)와 분리한 이유 = 돌진은 **이동 takeover**라 라이브 이동 회귀면이 다름.
   - **Dash 모델 = knockback 미러**: 텔레그래프(crouch, `channel:true` → channel-freeze로 제자리) → `_begin_dash`가 dest·clamped 속도 산출 → `tick()`의 dash takeover 블록이 `DASH_TIME`(0.2s) 동안 `dash_vel`로 `move_and_slide`(벽 충돌 정지) → `_resolve_dash_hit`. enemy_unit에 dash 상태 6필드.

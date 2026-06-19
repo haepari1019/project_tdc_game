@@ -218,6 +218,17 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 			continue
 		m.attack_cooldown_s = maxf(0.0, m.attack_cooldown_s - delta)
 		m.identity_cooldown_s = maxf(0.0, m.identity_cooldown_s - delta)
+		# Provoked (AB-099): forced basic on the caster only — NO Identity/Sub, no normal target,
+		# bypasses the tank-first gate. Movement toward the caster is driven by the controllers.
+		if m.has_method("is_provoked") and m.is_provoked():
+			var src = m.get_provoke_source()
+			if src != null and is_instance_valid(src) and m.attack_cooldown_s <= 0.0:
+				var to_src: Vector3 = src.global_position - m.global_position
+				to_src.y = 0.0
+				if to_src.length() <= m.basic_range_m:
+					_deal_damage(src, m, m.basic_damage)
+					m.attack_cooldown_s = m.basic_interval_s
+			continue
 		if tank_alive and not _tank_engaged and not m.is_controlled():
 			var gcid: String = String(m.get("class_id"))
 			if gcid == "DPS" or gcid == "Nuker":

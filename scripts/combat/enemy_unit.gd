@@ -227,6 +227,10 @@ const THREAT_RETAIN_PER_S := 0.6
 var slow_timer_s: float = 0.0
 var slow_factor: float = 1.0
 
+# --- Status: stun / interrupt (party Toll Stun etc.) — freezes the enemy AND cancels any
+# in-progress cast/dash (EN-AI-000 §2 channel interrupt). Ticked by EnemyAI while engaged. ---
+var stun_timer_s: float = 0.0
+
 # --- Status: knockback (smoothed push over KB_TIME, not an instant teleport) ---
 const KB_TIME := 0.18
 var kb_vel: Vector3 = Vector3.ZERO
@@ -243,6 +247,23 @@ func tick_slow(delta: float) -> void:
 		slow_timer_s -= delta
 		if slow_timer_s <= 0.0:
 			slow_factor = 1.0
+
+
+## Stun / interrupt (EN-AI-000 §2). Freezes the enemy; EnemyAI cancels any channel/dash in
+## progress (cast fails — cooldown stays consumed). No-op on the dead.
+func apply_stun(duration: float) -> void:
+	if hp <= 0.0 or duration <= 0.0:
+		return
+	stun_timer_s = maxf(stun_timer_s, duration)
+
+
+func is_stunned() -> bool:
+	return stun_timer_s > 0.0
+
+
+func tick_stun(delta: float) -> void:
+	if stun_timer_s > 0.0:
+		stun_timer_s = maxf(0.0, stun_timer_s - delta)
 
 
 func current_move_speed() -> float:

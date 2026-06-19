@@ -3,7 +3,7 @@
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`.
 
 - spec_ref_pin: `4422e50` (`staging`, 2026-06-18)
-- last_sprint: P2-S2 (S2a/S2b/S2c-1 커밋 · S2c-2 대시 구현 · 교전 체감 F5 user-pending · S2c-3 Provoked 잔여)
+- last_sprint: P2-S2 (S2a/S2b/S2c-1/S2c-2 커밋 · S2c-3 Provoked + S2c-4 §2 interrupt 구현 — P2-S2 전체 완료 · 교전 체감 F5 user-pending)
 - last_updated: 2026-06-19
 
 ## Sprint log
@@ -11,7 +11,7 @@
 | Sprint | Done | Notes |
 |--------|------|-------|
 | P2-S1 | ◐ | S1a~e 완료 + 헤드리스 검증 통과. S1f 문서 완료 · **인터랙티브 Hard 플레이 스모크(§9.1)는 F5 수동** 잔여 |
-| P2-S2 | ◐ | S2a 커밋(186a024) · S2b 구현+헤드리스 PASS. **교전 포지셔닝/적 기본타 체감 F5 수동** 잔여 · S2c(시그니처 AB+Provoked) 미착수 |
+| P2-S2 | ◐ | S2a~c(1~4) 전부 구현+헤드리스 PASS (ID 1:1·포지셔닝·시그니처 캐스트·대시·Provoked·§2 채널 interrupt). EN-001~014 spec kit 반영. **전체 교전 체감 F5 수동 스모크** 잔여 |
 
 ## P2-S2 checklist (combat redesign)
 
@@ -21,7 +21,8 @@
 | S2b | Per-enemy 포지셔닝 — patterns.json(PT-### 미러)·`engage` 7프로필·enemy_ai 분기 | ☑ 헤드리스 PASS · **체감 F5 잔여** (2210d30) |
 | S2c-1 | 시그니처 캐스트 — AB-004 차지·AB-008 스플래시·AB-012 헥스·**AB-098 EN-014 힐**(+channel-freeze) | ☑ 헤드리스 PASS · **체감 F5 잔여** |
 | S2c-2 | AB-006/013 대시 (EN-003 갭클로즈 · EN-008 백스탭 mobility) | ☑ 헤드리스 PASS · **체감 F5 잔여** |
-| S2c-3 | AB-099 Iron Mockery / **Provoked** (EN-001 party-side 상태 + 입력 게이트) | ☐ 미착수 |
+| S2c-3 | AB-099 Iron Mockery / **Provoked** (EN-001 존 도발 + party-side 상태 + 입력 게이트) | ☑ 헤드리스 PASS · **체감 F5 잔여** |
+| S2c-4 | 채널 interrupt + 적 stun primitive (EN-AI-000 §2 — Toll Stun으로 채널 끊기) | ☑ 헤드리스 PASS · **체감 F5 잔여** |
 
 > S2b engage 맵: advance(EN-001/010/012/013)·standoff(EN-002/007/011)·kite(EN-005/014)·zone(EN-004)·orbit(EN-003/008)·probe(EN-006)·surround(EN-009). PT-### 정본=EN 유닛문서 patternRef(EN-010~013→PT-012~015). 상세 DRIFT-040.
 
@@ -74,3 +75,5 @@
 | 040 | P2-S2b per-enemy 포지셔닝 — PT-### `engage` 파생·이동 PH 튜닝. 교전 체감 F5 잔여 |
 | 041 | P2-S2c-1 시그니처 캐스트 — AB-004/008/012/098 + channel-freeze. HEX 피해감소·interrupt·zone = 후속. F5 잔여 |
 | 042 | P2-S2c-2 대시 mobility — AB-006/013. 벽 라우팅·AB-005 flurry·AB-007 hop = 후속. F5 잔여 |
+| 043 | P2-S2c-3 AB-099 Provoked — EN-001 존 도발 + party 상태. AB-031 클렌즈 = 후속. F5 잔여 |
+| 044 | P2-S2c-4 채널 interrupt + 적 stun — Toll Stun으로 채널 끊기. 적 stun VFX = 후속. F5 잔여 |
