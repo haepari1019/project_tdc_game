@@ -34,6 +34,40 @@ static func telegraph(parent: Node3D, pos: Vector3, color: Color) -> void:
 	_ground_pulse(parent, pos, 1.9, color, 0.5)
 
 
+## Forward FAN telegraph (AB-099 전방 부채꼴 결계) — a flat ground sector spanning `deg`° around
+## `facing`, radius `radius`, apex at `apex`. Conveys a directional zone (not a self-centered disc).
+static func fan_telegraph(parent: Node3D, apex: Vector3, facing: Vector3, radius: float, deg: float, color: Color, dur: float) -> void:
+	var f := facing
+	f.y = 0.0
+	if f.length() < 0.01:
+		f = Vector3(0, 0, 1)
+	f = f.normalized()
+	var half := deg_to_rad(deg * 0.5)
+	var segs := 14
+	var verts := PackedVector3Array()
+	for i in segs:
+		var t0: float = lerpf(-half, half, float(i) / float(segs))
+		var t1: float = lerpf(-half, half, float(i + 1) / float(segs))
+		var d0 := f.rotated(Vector3.UP, t0) * radius
+		var d1 := f.rotated(Vector3.UP, t1) * radius
+		verts.append(Vector3.ZERO)
+		verts.append(Vector3(d0.x, 0.0, d0.z))
+		verts.append(Vector3(d1.x, 0.0, d1.z))
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var mat := _mat(color)
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = Vector3(apex.x, GROUND_Y, apex.z)
+	_fade_out(mi, mat, Vector3.ONE, dur)
+
+
 ## Revive channel — a green light pillar rising on a downed ally for `duration`s, then fades.
 static func revive_pillar(parent: Node3D, pos: Vector3, duration: float) -> void:
 	var mi := MeshInstance3D.new()

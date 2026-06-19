@@ -292,6 +292,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# pass above, which is target-less). Starts a telegraph → channel-freeze holds it this frame.
 	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0:
 		_try_cast_dash(enemy, target, dist, has_los)
+	# Provoke signature (AB-099): aims the FRONT fan at the engaged target (so it's directional,
+	# not stale-facing) and only fires when a party actor is actually in that fan. Needs target.
+	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0 and has_los:
+		_try_cast_provoke(enemy, target)
 	# Per-enemy engaged behavior (EN-AI-000 / PT-###): MOVEMENT is profile-specific
 	# (_engage_move owns velocity incl. ZERO = plant); the ATTACK gate below is shared —
 	# in range + LOS + off cooldown → strike, even while a kiter keeps backpedalling.
@@ -626,12 +630,8 @@ func _try_cast_signature(enemy: CharacterBody3D) -> bool:
 					break
 			if not wounded:
 				continue  # nothing to heal → save the cooldown
-		elif kind == "enemy_provoke":
-			# Condition (PT-001): 1+ party actor in the forward fan (no point taunting an empty zone).
-			if _party_in_fan(enemy, float(eff.get("zone_radius_m", 4.0)), float(eff.get("zone_deg", 60.0))).is_empty():
-				continue
 		else:
-			continue  # only zone/ally signatures use the cooldown pass (dashes use _try_cast_dash)
+			continue  # this early pass is target-less only (heal). provoke=_try_cast_provoke, dash=_try_cast_dash
 		# Begin the channel — windup_target null (target-less); resolved by _resolve_enemy_attack.
 		enemy.winding = true
 		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.55))
@@ -658,8 +658,35 @@ func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictiona
 	print("[EN] %s %s heal x%d (r%.1f %d%%)" % [enemy.enemy_id, String(chosen.get("ref", "")), healed, r, int(pct * 100.0)])
 
 
+## Cooldown provoke signature (AB-099 Iron Mockery): face the engaged target (aim the front fan),
+## fire only if a party actor is in that fan. Channeled (channel-freeze holds it); a fan-shaped
+## telegraph shows the zone. Resolved by _resolve_enemy_attack → _apply_enemy_provoke.
+func _try_cast_provoke(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY or String(ab.get("trigger", "")) != "signature":
+			continue
+		var ref := String(ab.get("ref", ""))
+		var eff: Dictionary = Slice01Data.get_ability(ref)
+		if String(eff.get("kind", "")) != "enemy_provoke":
+			continue
+		var r := float(eff.get("zone_radius_m", 4.0))
+		var deg := float(eff.get("zone_deg", 60.0))
+		enemy.face_toward(target.global_position)  # aim the fan at the party it's fighting (cast-start)
+		if _party_in_fan(enemy, r, deg).is_empty():
+			return false  # no party actor in the front fan → don't taunt an empty zone
+		enemy.winding = true
+		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.85))
+		enemy.windup_eff = eff
+		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
+		enemy.windup_target = null
+		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 14.0))
+		SkillVfx.fan_telegraph(self, enemy.global_position, enemy.facing, r, deg, _telegraph_color("enemy_provoke"), float(eff.get("telegraph_s", 0.85)))
+		return true
+	return false
+
+
 ## Resolve AB-099 Iron Mockery — apply Provoked to every party actor in the forward fan
-## (front zone_deg°, zone_radius_m from the caster). Target-less zone. ref: AB-099 / EN-001.
+## (front zone_deg°, zone_radius_m from the caster). Fan aimed by enemy.facing (set at cast).
 func _apply_enemy_provoke(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
 	var r := float(eff.get("zone_radius_m", 4.0))
 	var deg := float(eff.get("zone_deg", 60.0))
@@ -669,7 +696,6 @@ func _apply_enemy_provoke(enemy: CharacterBody3D, eff: Dictionary, chosen: Dicti
 		if a.has_method("apply_provoke"):
 			a.apply_provoke(enemy, dur)
 			n += 1
-	SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_provoke"))
 	print("[EN] %s %s Provoked x%d (r%.1f %d° %.1fs)" % [enemy.enemy_id, String(chosen.get("ref", "")), n, r, int(deg), dur])
 
 

@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260619-010 — AB-099 Provoke 버그 3종 수정 (샌드박스 검증발)
+- **결정(샌드박스에서 사용자 발견):** EN-001 도발이 ① 자기중심 원형으로 보이고 ② 파티가 전방 fan에 없는데도 시전 ③ 두 번 쓰는 듯 보임 — 셋 다 수정.
+  - **① 원형 VFX → 부채꼴:** 기존 `SkillVfx.telegraph`(반경 1.9m 원형 디스크, 자기중심) → **`SkillVfx.fan_telegraph`**(전방 `deg`°/`radius` 평면 sector 메시) 신설. 방향성이 보임.
+  - **② false-cast:** provoke 트리거가 **early target-less 패스**(`_try_cast_signature`)에 있어 **stale `enemy.facing`**로 fan 판정 → 엉뚱. **late 패스 `_try_cast_provoke(enemy, target)`로 이동** — 교전 타겟을 `face_toward`로 조준(cast-start facing) 후 fan 판정. 전방 4m fan에 파티 있을 때만 시전.
+  - **③ 두번:** `_apply_enemy_provoke`(resolve)가 텔레그래프를 **재차** 그려 두 번 시전처럼 보임 → resolve의 telegraph 호출 제거(시전 시작 fan_telegraph 하나만).
+- **부수:** `_try_cast_signature`는 이제 heal(target-less)만 담당. provoke=`_try_cast_provoke`(타겟 필요)·dash=`_try_cast_dash`로 3분리.
+- **검증:** ci_smoke PASS · 샌드박스 부트 무오류. 실제 도발 거동(전방 조준·빈존 미시전·단발)은 F6/샌드박스.
+- **잔여:** 채널 중 attack-gate가 타겟 재조준 → 존이 cast-start에 완전 고정은 아님(근사, DRIFT-043 기존 항목).
+- **영향:** `scripts/combat/enemy_ai.gd`, `scripts/combat/abilities/skill_vfx.gd`.
+
 ### IMPL-DEC-20260619-009 — Combat Sandbox (dev) — 단일 룸 + ENC 드롭다운
 - **결정(사용자 디버깅 편의 요청):** 인카운터별 전투 거동을 격리 검증하는 **dev 전용 샌드박스 씬**. 던전 순회·fog·run-loop 없이 ENC 하나만 스폰.
   - `scenes/dev/combat_sandbox.tscn`(루트만) + `scripts/dev/combat_sandbox.gd`(오케스트레이터, 코드로 전부 빌드 — .tscn 취약성 회피) + `scripts/dev/sandbox_map.gd`(48×48 단일 룸: 바닥·벽 layer1 + navmesh bake + 조명 + `get_spawn_position`/`get_deep_spawn_position`).
