@@ -104,6 +104,12 @@ const ROOM_SPECS: Dictionary = {
 		"profile": "standard",
 		"label": "South Catacomb",
 	},
+	"RM-ADV-09": {
+		"center": Vector3(0, 0, -112.5),
+		"size": Vector3(27, 0, 22.5),
+		"profile": "standard",
+		"label": "South Deepvault",
+	},
 }
 
 ## Connections: rooms share wall edges — only arch openings needed, no corridors.
@@ -125,6 +131,7 @@ const CONNECTIONS: Array = [
 	["RM-ADV-03", "RM-ADV-06", 8.0],
 	["RM-ADV-06", "RM-ADV-07", 8.0],
 	["RM-ADV-07", "RM-ADV-08", 8.0],
+	["RM-ADV-08", "RM-ADV-09", 8.0],
 ]
 
 const PROFILE_COLORS: Dictionary = {

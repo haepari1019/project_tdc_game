@@ -19,6 +19,7 @@
     { "pool_slot": "P-ADV-05",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-012", "placement": "Fixed" },
     { "pool_slot": "P-ADV-06",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-002", "placement": "Fixed" },
     { "pool_slot": "P-ADV-07",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-003", "placement": "Fixed" },
-    { "pool_slot": "P-ADV-08",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-004", "placement": "Fixed" }
+    { "pool_slot": "P-ADV-08",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-004", "placement": "Fixed" },
+    { "pool_slot": "P-ADV-09",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-005", "placement": "Fixed" }
   ]
 }

@@ -6,6 +6,17 @@
 
 ---
 
+### IMPL-DEC-20260619-006 — P2-S2-fin A2: phase 증원 rear/flank (HARD-005 신 + HARD-010 수정)
+- **결정(사용자 "A2"):** 기존 증원 시스템(`reinforcement{delay_s,units}` + `_tick_reinforcement`, HARD-001 활용)에 **방향(rear/flank)** 추가 + 2 ENC를 스펙 phase-2로 정합.
+  - **방향 enrichment(`combat_controller`):** `_reinforce_center`(rear 고정) → `_reinforce_point(room_ref, direction)`: `rear`=spawn−z8(입구쪽, 기본)·`flank`=spawn+x9(측면 arc). `_reinforce_direction(squad)`로 squad.reinforce.direction 조회, telegraph·spawn 양쪽 적용.
+  - **HARD-010 정합(수정):** 기존 JSON이 flatten(EN-008 opening·EN-001 누락·EN-011 오기) → 스펙대로 **phase-1**(EN-001·EN-010×2·EN-013) + **phase-2 flank 증원**(EN-008, delay 10s, direction flank).
+  - **HARD-005 신규:** phase-1(EN-001·EN-010×2·EN-013×2) + **phase-2 rear 증원**(EN-005, delay 12s) → reachability용 RM-ADV-09(체인 남쪽 1칸 연장, P-ADV-09). HARD-010(flank)과 대칭.
+  - 배선: rooms.json(+RM-ADV-09·ADV-08 connects)·spawn_table(+P-ADV-09 Hard)·id_registry(+ENC-HARD-005·RM-ADV-09·P-ADV-09).
+- **검증:** 데이터 정합·RM-ADV-09 인접·HARD-010 opening에 EN-008 없음(Python) · `ci_smoke` PASS · navmesh 274→**284** · **Hard 헤드리스: HARD-010@ADV-03·HARD-005@ADV-09 prespawn, 12분대, 무오류**. 증원 wave 발동은 교전 필요(F5).
+- **스펙 관계(DRIFT-046):** 스펙은 phase-2 런타임 spawn을 "F-006 Population 후속, ENC는 문서 훅만"(HARD-005 non-goal)이라 했으나 게임은 이미 reinforcement 런타임 구현 — **게임이 앞섬**(역전파 후보).
+- **잔여 → A3/A4:** Assassin transform(NORM-003/HARD-011)·Boss phase(BOSS-001).
+- **영향:** `scripts/combat/combat_controller.gd`, `data/slice01/{encounters/ENC-HARD-005(신)·ENC-HARD-010·id_registry·rooms·spawn_table}`, `scripts/world/map_demo_layout.gd`.
+
 ### IMPL-DEC-20260619-005 — P2-S2-fin A1: 조합 Hard ENC (HARD-002/003/004) + Upper 맵 확장
 - **결정(사용자 "조합 ENC 먼저, 맵확장 포함"):** Full Coverage 잔여 ENC 중 **고정 조합 Hard 3종**을 구현 enemy kit로 채움. reachability가 데모맵 Upper Hard 풀 만석에 묶여 있어(P-ADV-01~05·EXT-ROUTE 6개 full) **Upper 룸 3개 확장** 동반.
   - **ENC JSON 3종**(기존 schema): HARD-002(RP-03 미끼+flank: EN-001·008·010×2·011·012)·HARD-003(RP-09 split: EN-003·006·010×2·012)·HARD-004(RP-04 mark: EN-001·007·010×2·012). 전부 구현 enemy(EN-001/003/006/007/008/010/011/012) — kit 완비(EN-007 zone은 F-027 잔여, hex만).

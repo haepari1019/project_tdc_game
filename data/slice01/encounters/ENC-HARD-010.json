@@ -3,10 +3,17 @@
   "difficulty_profile": "Hard",
   "risk_pattern_ref": "RP-05",
   "group_size": 4,
-  "_note": "Flank Reinforcement (RP-05 variant, phase-2 flank). ENC-000 §0.1. Phase spawn = P2-S2.",
+  "_note": "Flank Reinforcement (ENC-000 RP-05 변주). Phase-1: Elite EN-001 + Fodder(FrontRush×2, Skitter×1). Phase-2(~10s telegraph): EN-008 측면 flank 증원(direction=flank). group_size=opening(증원 별도, HARD-001 관례). ENC-HARD-005(rear)와 대칭.",
   "units": [
-    { "enemy_id": "EN-008", "count": 1, "slot": "fodder" },
+    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
     { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
-    { "enemy_id": "EN-011", "count": 1, "slot": "fodder" }
-  ]
+    { "enemy_id": "EN-013", "count": 1, "slot": "fodder" }
+  ],
+  "reinforcement": {
+    "delay_s": 10,
+    "direction": "flank",
+    "units": [
+      { "enemy_id": "EN-008", "count": 1, "slot": "specialist" }
+    ]
+  }
 }

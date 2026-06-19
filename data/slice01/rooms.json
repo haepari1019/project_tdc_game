@@ -109,9 +109,16 @@
     {
       "room_ref": "RM-ADV-08",
       "world_layer": "Upper",
-      "connects": ["RM-ADV-07"],
+      "connects": ["RM-ADV-07", "RM-ADV-09"],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-08"
+    },
+    {
+      "room_ref": "RM-ADV-09",
+      "world_layer": "Upper",
+      "connects": ["RM-ADV-08"],
+      "lighting_profile": "standard",
+      "pool_slot": "P-ADV-09"
     }
   ]
 }

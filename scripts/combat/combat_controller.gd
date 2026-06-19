@@ -179,8 +179,8 @@ func _tick_reinforcement(squad: Dictionary, delta: float) -> void:
 	var cleared := _squad_alive_count(squad["id"]) == 0
 	if not squad.get("warned", false) and (float(squad["timer"]) <= 2.0 or cleared):
 		squad["warned"] = true
-		print("[TDC] Reinforcements incoming!")
-		SkillVfx.telegraph(self, _reinforce_center(String(squad["room_ref"])), Color(0.95, 0.3, 0.2, 0.55))
+		print("[TDC] Reinforcements incoming! (%s)" % _reinforce_direction(squad))
+		SkillVfx.telegraph(self, _reinforce_point(String(squad["room_ref"]), _reinforce_direction(squad)), Color(0.95, 0.3, 0.2, 0.55))
 	if float(squad["timer"]) <= 0.0 or cleared:
 		squad["pending"] = false
 		_spawn_reinforcement(squad)
@@ -488,12 +488,21 @@ func _init_enemy_perception(unit: CharacterBody3D) -> void:
 		unit.set_base_facing(dir)
 
 
-## Rear point for a squad's reinforcements — behind its spawn (toward entrance).
-func _reinforce_center(room_ref: String) -> Vector3:
+## Entry point for a squad's reinforcement wave by direction (ENC reinforcement.direction):
+## "rear" (default, ENC-HARD-005 — behind the spawn toward the entrance) or "flank"
+## (ENC-HARD-010 — lateral arc, a new side threat rather than the front).
+func _reinforce_point(room_ref: String, direction: String) -> Vector3:
 	var c := Vector3.ZERO
 	if _map and _map.has_method("get_spawn_position"):
 		c = _map.get_spawn_position(room_ref)
-	return c + Vector3(0, 0, -8)
+	if direction == "flank":
+		return c + Vector3(9.0, 0, 2.0)   # 측면 — side arc, not the front entrance
+	return c + Vector3(0, 0, -8)          # rear — toward the entrance (default)
+
+
+func _reinforce_direction(squad: Dictionary) -> String:
+	var reinf = squad.get("reinforce", {})
+	return String(reinf.get("direction", "rear")) if typeof(reinf) == TYPE_DICTIONARY else "rear"
 
 
 ## Spawn a squad's reinforcement wave (already engaged — they arrive into the fight).
@@ -502,8 +511,8 @@ func _spawn_reinforcement(squad: Dictionary) -> void:
 	var units: Array = reinf.get("units", [])
 	if units.is_empty():
 		return
-	_spawn_at(units, _reinforce_center(String(squad["room_ref"])), int(squad["id"]), true)
-	print("[TDC] Squad %d reinforcement wave spawned" % int(squad["id"]))
+	_spawn_at(units, _reinforce_point(String(squad["room_ref"]), _reinforce_direction(squad)), int(squad["id"]), true)
+	print("[TDC] Squad %d reinforcement wave spawned (%s)" % [int(squad["id"]), _reinforce_direction(squad)])
 
 
 ## Deterministic scatter near room center, biased deeper (+Z, away from entrance).

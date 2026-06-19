@@ -1,0 +1,19 @@
+{
+  "encounter_id": "ENC-HARD-005",
+  "difficulty_profile": "Hard",
+  "risk_pattern_ref": "RP-05",
+  "group_size": 5,
+  "_note": "Rear Reinforcement (ENC-000 RP-05). Phase-1: Elite EN-001 + Fodder(FrontRush×2, Skitter×2). Phase-2(~12s telegraph): EN-005 후방 증원(direction=rear, 새 threat). group_size=opening(증원 별도). ENC-HARD-010(flank)과 대칭.",
+  "units": [
+    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
+    { "enemy_id": "EN-013", "count": 2, "slot": "fodder" }
+  ],
+  "reinforcement": {
+    "delay_s": 12,
+    "direction": "rear",
+    "units": [
+      { "enemy_id": "EN-005", "count": 1, "slot": "specialist" }
+    ]
+  }
+}
