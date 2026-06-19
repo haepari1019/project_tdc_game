@@ -288,10 +288,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	if enemy.interacts_with_objects and _try_object_interaction(enemy, target, has_los, delta):
 		enemy.move_and_slide()
 		return
-	# Dash signature (AB-006/013): needs the target + gap, so it triggers here (after the heal
-	# pass above, which is target-less). Starts a telegraph → channel-freeze holds it this frame.
+	# Dash signature (AB-006/013): TANK-BYPASS — aims at a backline actor (not the threat target),
+	# so it gets the full party list. Starts a telegraph → channel-freeze holds it this frame.
 	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0:
-		_try_cast_dash(enemy, target, dist, has_los)
+		_try_cast_dash(enemy, targets)
 	# Provoke signature (AB-099): aims the FRONT fan at the engaged target (so it's directional,
 	# not stale-facing) and only fires when a party actor is actually in that fan. Needs target.
 	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0 and has_los:
@@ -734,12 +734,11 @@ func _party_in_fan(enemy: CharacterBody3D, radius_m: float, deg: float) -> Array
 	return out
 
 
-## Cooldown dash signature (AB-006 gap-close / AB-013 backstab): when there's a real gap to a
-## seen target within dash reach, start the telegraph (crouch) → _begin_dash on resolve.
-## Needs the target/dist, so it's called after target selection (unlike the target-less heal).
-func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool) -> bool:
-	if not has_los:
-		return false
+## Cooldown dash signature (AB-006 gap-close / AB-013 backstab). The dash is a TANK-BYPASS move:
+## it aims at a BACKLINE party actor (squishiest non-Tank), NOT the threat target (usually the
+## tank) — EN-003 lunges past the front line onto the DPS/Healer; EN-008 flanks them. Fires when
+## there's a real gap to a SEEN backline actor within dash reach.
+func _try_cast_dash(enemy: CharacterBody3D, targets: Array) -> bool:
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY or String(ab.get("trigger", "")) != "signature":
 			continue
@@ -747,16 +746,24 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 		var eff: Dictionary = Slice01Data.get_ability(ref)
 		if String(eff.get("kind", "")) != "enemy_dash":
 			continue
-		# Only when a gap exists (out of melee) and the target is within dash reach.
-		if dist <= enemy.attack_range_m + DASH_TRIGGER_BUFFER_M:
+		var bt := _pick_backline_target(targets)  # bypass the tank → squishy backline
+		if bt == null or not is_instance_valid(bt):
 			return false
-		if dist > float(eff.get("dash_range_m", DASH_MAX_M)):
+		var to: Vector3 = bt.global_position - enemy.global_position
+		to.y = 0.0
+		var d := to.length()
+		# Only when there's a gap (not already on the backline) + it's in dash reach + seen.
+		if d <= enemy.attack_range_m + DASH_TRIGGER_BUFFER_M:
+			return false
+		if d > float(eff.get("dash_range_m", DASH_MAX_M)):
+			return false
+		if not _has_los(enemy, bt):
 			return false
 		enemy.winding = true
 		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.3))
 		enemy.windup_eff = eff
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
-		enemy.windup_target = target
+		enemy.windup_target = bt
 		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 5.0))
 		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_dash"))
 		return true
