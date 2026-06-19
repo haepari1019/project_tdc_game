@@ -156,6 +156,28 @@ static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color
 	tw.tween_callback(mi.queue_free)
 
 
+## Wind-up cue ON the caster (target-locked attacks) — a small emissive orb at the enemy's body
+## that pulses over the telegraph, then fades. Says "this enemy is about to strike" — react via
+## cover/interrupt/swap, NOT a ground "dodge this zone" marker (you can't sidestep a locked hit).
+static func windup_cue(parent: Node3D, pos: Vector3, dur: float, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.32
+	s.height = 0.64
+	mi.mesh = s
+	var mat := _emat(color)
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = pos + Vector3(0, 1.4, 0)  # at the enemy's chest/head
+	mi.scale = Vector3(0.35, 0.35, 0.35)
+	var d := maxf(dur, 0.12)
+	var tw := mi.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(1.0, 1.0, 1.0), d)
+	tw.tween_property(mat, "albedo_color:a", 0.0, d).from(0.85)
+	tw.chain().tween_callback(mi.queue_free)
+
+
 ## Charge-up build (AB-004 channel) — an emissive orb on the caster that grows + intensifies
 ## over `dur` (the telegraph), then snaps out as the bolt fires. Conveys "charging".
 static func charge_up(parent: Node3D, pos: Vector3, dur: float, color: Color) -> void:
