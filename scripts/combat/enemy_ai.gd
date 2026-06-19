@@ -33,11 +33,12 @@ const MELEE_THREAT_M := 4.0        # kite: flee when a target closes inside this
 const RETREAT_STEP_M := 3.0        # how far ahead to aim a retreat/backstep destination
 const RETREAT_SPEED_FRAC := 1.0    # flee at full speed (being chased)
 const ENGAGE_LEASH_M := 18.0       # kite/zone: don't stray past this from spawn anchor (§3 default)
-# healer (PT-016 EN-014): hug the most-wounded squad-mate (below HEAL_HUG_THRESHOLD HP) within
-# HEAL_SEEK_M, keeping it within HEAL_HUG_M (inside the AB-098 heal radius). No melee-close on the
-# player (avoids the kite jitter that hit a melee-range support).
+# healer (PT-016 EN-014): FOLLOW the squad — prefer the most-wounded mate (below HEAL_HUG_THRESHOLD),
+# else just the nearest ally, keeping within HEAL_HUG_M (inside the AB-098 heal radius) so it tags
+# along as the pack chases (doesn't get left behind). HEAL_SEEK_M is generous so a moving group
+# stays acquirable. No melee-close on the player (avoids the kite jitter that hit a melee support).
 const HEAL_HUG_M := 2.5
-const HEAL_SEEK_M := 14.0
+const HEAL_SEEK_M := 30.0
 const HEAL_HUG_THRESHOLD := 0.9
 const ZONE_RADIUS_DEFAULT := 8.0   # zone: engage only while target is within this of the anchor
 const ZONE_RETURN_SLACK_M := 1.0   # zone: already-home tolerance (don't jitter at the anchor)
@@ -411,29 +412,36 @@ func _move_healer(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) 
 	enemy.face_toward(tp)
 	if dist < MELEE_THREAT_M:
 		return _kite_flee(enemy, tp, spd)  # player too close → kite away
-	var ally := _most_wounded_ally(enemy)
+	var ally := _heal_follow_target(enemy)
 	if ally != null:
 		var to_ally := ally.global_position - enemy.global_position
 		to_ally.y = 0.0
 		if to_ally.length() > HEAL_HUG_M:
 			enemy.face_toward(ally.global_position)
-			return _nav_move(enemy, ally.global_position, spd)  # close to keep it in heal range
-	return Vector3.ZERO  # in heal range / nobody to heal → hold (no melee-close, no jitter)
+			return _nav_move(enemy, ally.global_position, spd)  # tag along / close to heal range
+	return Vector3.ZERO  # already with the group / truly alone → hold (no melee-close, no jitter)
 
 
-## Lowest-HP-fraction living squad-mate (excl. self) under HEAL_HUG_THRESHOLD within HEAL_SEEK_M —
-## the one EN-014 hugs to keep in heal range. null if none. (Self-heals work in place → self excluded.)
-func _most_wounded_ally(enemy: CharacterBody3D) -> CharacterBody3D:
-	var best: CharacterBody3D = null
-	var best_frac := HEAL_HUG_THRESHOLD
+## Who EN-014 should follow: the most-wounded squad-mate (below HEAL_HUG_THRESHOLD) so it can heal,
+## ELSE the nearest living ally so it tags along with the moving group (never left behind). null if
+## truly alone. Self excluded (self-heals work in place). Searched within HEAL_SEEK_M.
+func _heal_follow_target(enemy: CharacterBody3D) -> CharacterBody3D:
+	var wounded: CharacterBody3D = null
+	var wounded_frac := HEAL_HUG_THRESHOLD
+	var nearest: CharacterBody3D = null
+	var nearest_d := INF
 	for a in _combat._enemies_in_radius(enemy.global_position, HEAL_SEEK_M):
 		if a == enemy or not is_instance_valid(a) or (a.has_method("is_alive") and not a.is_alive()):
 			continue
 		var frac: float = a.hp / maxf(float(a.max_hp), 1.0)
-		if frac < best_frac:
-			best_frac = frac
-			best = a
-	return best
+		if frac < wounded_frac:
+			wounded_frac = frac
+			wounded = a
+		var d: float = enemy.global_position.distance_to(a.global_position)
+		if d < nearest_d:
+			nearest_d = d
+			nearest = a
+	return wounded if wounded != null else nearest
 
 
 ## zone (PT-004): hold near the spawn anchor — engage only while the target is inside the

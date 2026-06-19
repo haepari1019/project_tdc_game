@@ -384,6 +384,6 @@
 
 ### DRIFT-051 — EN-014 'healer' 거동 (아군 힐러식 포지셔닝) + kite jitter 픽스 🔶 impl
 - **현실(2026-06-19, 사용자: "EN-014 체력없는 자기팀에 붙도록 + 4m 혼자일 때 부들부들 떨림"):** PT-016(Support)이 `kite` 거동이었는데, EN-014는 attack_range 1.7m < MELEE_THREAT 4m라 "4m 안이면 후퇴 / attack_range 밖이면 접근"이 4m 경계에서 상충 → **제자리 진동(jitter)**. 또 힐러인데 평타 접근만 해서 팀 케어 동작 없음.
-- **변경:** 새 engage `healer`(게임측 dispatch key) 신설 + PT-016에 배정. `_move_healer` = ① 플레이어 근접 시 kite 후퇴(공용 `_kite_flee`), ② **체력 최저(<90%) 아군에게 붙어** AB-098 힐 사거리 유지(`_most_wounded_ally`/HEAL_HUG_M 2.5), ③ 그 외 hold(평타-접근 안 함 → jitter 제거). 검증기 `_ENGAGE_PROFILES`에 healer 추가.
+- **변경:** 새 engage `healer`(게임측 dispatch key) 신설 + PT-016에 배정. `_move_healer` = ① 플레이어 근접 시 kite 후퇴(공용 `_kite_flee`), ② **무리를 따라 이동**(`_heal_follow_target` = 체력 최저<90% 우선, 없으면 최근접 아군; HEAL_SEEK 30m)해 AB-098 힐 사거리(HEAL_HUG 2.5) 유지 → 무리가 플레이어를 쫓아 이동해도 **낙오 안 함**, ③ 혼자/이미 무리와 함께면 hold(평타-접근 안 함 → jitter 제거). 검증기 `_ENGAGE_PROFILES`에 healer 추가.
 - **분류\전파:** **impl(거동 인코딩) + code-bug(jitter).** spec PT-016 = Support/Hold/Mid/flee_if_melee — healer는 그 'Engaged 우선'을 게임측에서 힐러 포지셔닝으로 구현. 수치(HUG 2.5·SEEK 14·<90%) DEMO PH.
 - **잔여:** 아군이 플레이어와 근접교전 중일 때 hug↔flee 미세 진동 가능(엣지) — 체감 F6.
