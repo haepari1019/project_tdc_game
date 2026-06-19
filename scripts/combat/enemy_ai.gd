@@ -838,6 +838,15 @@ func _party_in_fan(enemy: CharacterBody3D, radius_m: float, deg: float) -> Array
 	return out
 
 
+## Dash intent colour: crimson = a damaging STRIKE (AB-013 backstab), teal = a non-damaging
+## REPOSITION (AB-006 gap-close). Used for the telegraph, the trail, and the landing cue so the
+## two dashes read as different actions at a glance.
+func _dash_color(eff: Dictionary) -> Color:
+	if bool(eff.get("hit_on_arrival", false)):
+		return Color(0.92, 0.22, 0.24, 0.55)  # backstab — attack
+	return Color(0.22, 0.9, 0.88, 0.5)         # gap-close — reposition
+
+
 ## Cooldown dash signature (AB-006 gap-close / AB-013 backstab): close the gap on the unit's
 ## current target (which is already the backline for flankers via target_pref). Fires when there's
 ## a real gap to the seen target within dash reach.
@@ -863,7 +872,7 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
 		enemy.windup_target = target
 		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 5.0))
-		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_dash"))
+		SkillVfx.telegraph(self, enemy.global_position, _dash_color(eff))  # teal reposition / crimson strike
 		return true
 	return false
 
@@ -897,6 +906,9 @@ func _begin_dash(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary, ta
 	enemy.dash_chosen = chosen
 	enemy.dash_target = target
 	enemy.face_toward(target.global_position)
+	# Trail in the dash's intent colour (teal reposition vs crimson strike) — the clearest tell
+	# apart, since the flank dest also makes AB-013's streak curve to the side vs AB-006's straight-in.
+	SkillVfx.dash_streak(self, enemy.global_position, enemy.global_position + move, _dash_color(eff))
 
 
 ## End of a dash: AB-013 lands its backstab if the target is still in reach (AB-006 is mobility
@@ -907,6 +919,7 @@ func _resolve_dash_hit(enemy: CharacterBody3D) -> void:
 	var target: CharacterBody3D = enemy.dash_target
 	enemy.dash_target = null
 	if not bool(eff.get("hit_on_arrival", false)):
+		SkillVfx.dash_land(self, enemy.global_position, _dash_color(eff))  # teal "repositioned" ring
 		return  # AB-006 gap-close — no damage; normal flurry/orbit resumes
 	if not is_instance_valid(target) or not target.is_alive():
 		return

@@ -240,6 +240,35 @@ static func _poison_puff(target: Node3D, color: Color, delay: float = SHOT_FLIGH
 	tw.tween_callback(mi.queue_free)
 
 
+## Dash trail — an emissive streak along the lunge path, colored by the dash's INTENT (teal =
+## reposition / crimson = strike) so AB-006 gap-close and AB-013 backstab read differently mid-dash.
+static func dash_streak(parent: Node3D, from: Vector3, to: Vector3, color: Color) -> void:
+	var a := from + Vector3(0, 0.7, 0)
+	var b := to + Vector3(0, 0.7, 0)
+	var seg := a.distance_to(b)
+	if seg < 0.15:
+		return
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.16, 0.16, seg)  # thin, long along local Z (the path)
+	mi.mesh = box
+	var mat := _emat(color)
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = (a + b) * 0.5
+	mi.look_at(b, Vector3.UP)  # local Z spans a→b
+	var tw := mi.create_tween()
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.3).from(maxf(color.a, 0.6))
+	tw.parallel().tween_property(mi, "scale", Vector3(0.3, 0.3, 1.0), 0.3)  # thin out as it fades
+	tw.tween_callback(mi.queue_free)
+
+
+## Dash landing ring — a soft ground pulse where a NON-damaging gap-close ends (reads "repositioned
+## here", no strike). Distinguishes AB-006's blink from AB-013's crimson stab.
+static func dash_land(parent: Node3D, pos: Vector3, color: Color) -> void:
+	_ground_pulse(parent, pos, 1.3, Color(color.r, color.g, color.b, 0.45), 0.4)
+
+
 ## Wind-up cue ON the caster (target-locked attacks) — a small emissive orb at the enemy's body
 ## that pulses over the telegraph, then fades. Says "this enemy is about to strike" — react via
 ## cover/interrupt/swap, NOT a ground "dodge this zone" marker (you can't sidestep a locked hit).
