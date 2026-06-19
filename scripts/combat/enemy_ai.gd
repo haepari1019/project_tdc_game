@@ -182,8 +182,7 @@ func _tick_dormant(enemy: CharacterBody3D, members: Array, delta: float) -> void
 ## Dormant idle movement: wander to random points near the spawn home, pausing (and scanning)
 ## between legs. Navmesh-routed so it skirts walls. Keeps dormant enemies alive, not frozen.
 func _tick_roam(enemy: CharacterBody3D, delta: float) -> void:
-	if enemy.home_pos == Vector3.INF:
-		enemy.home_pos = enemy.global_position   # first dormant tick → spawn point is home
+	# home_pos is captured at the top of tick() (any state) — no need to re-capture here.
 	enemy.roam_timer_s -= delta
 	if enemy.roaming:
 		var to: Vector3 = enemy.roam_target - enemy.global_position
@@ -213,6 +212,11 @@ func _tick_roam(enemy: CharacterBody3D, delta: float) -> void:
 ## Per-enemy tick entry. Dormant (휴식중) enemies perceive (see _tick_dormant);
 ## engaged ones chase the highest-threat party member and attack at range (with LOS).
 func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
+	# Anchor home on the FIRST tick in ANY state — an enemy spawned directly into combat (sandbox,
+	# or aggro'd before ever roaming) must still capture its spawn point, or zone (PT-004) has no
+	# anchor and follows the enemy → infinite chase, never returns.
+	if enemy.home_pos == Vector3.INF:
+		enemy.home_pos = enemy.global_position
 	if not enemy.engaged:
 		_tick_dormant(enemy, targets, delta)
 		return
@@ -249,11 +253,12 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 			enemy.dashing = false
 			_resolve_dash_hit(enemy)
 		return
-	# Cooldown-triggered signature (AB-098 heal): independent of the basic-attack rhythm —
-	# EN-014 kites and rarely melees, so its heal can't ride every_n. Targets allies, no LOS
-	# to the party needed; starts a channel (then channel-freeze holds it in place).
-	enemy.sig_cooldown_s = maxf(0.0, enemy.sig_cooldown_s - delta)
-	if not enemy.winding and enemy.sig_cooldown_s <= 0.0:
+	# Per-ability cooldowns tick down while engaged (each AB on its own clock). Heal (AB-098) is
+	# target-less, so its pass runs early — EN-014 kites + rarely melees, can't ride the attack
+	# gate. Every cast pass checks its own ability_cd[ref] internally.
+	for r in enemy.ability_cd.keys():
+		enemy.ability_cd[r] = maxf(0.0, float(enemy.ability_cd[r]) - delta)
+	if not enemy.winding:
 		_try_cast_signature(enemy)
 	# F-022: target highest-threat party member. With no threat, fall back to the
 	# nearest member the enemy can actually SEE (LOS) — NOT the global nearest — so a
@@ -301,11 +306,11 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		enemy.move_and_slide()
 		return
 	# Dash signature (AB-006/013): close the gap on the current target (backline for flankers).
-	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0:
+	if not enemy.winding and not enemy.dashing:
 		_try_cast_dash(enemy, target, dist, has_los)
 	# Provoke signature (AB-099): aims the FRONT fan at the engaged target (so it's directional,
 	# not stale-facing) and only fires when a party actor is actually in that fan. Needs target.
-	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0 and has_los:
+	if not enemy.winding and not enemy.dashing and has_los:
 		_try_cast_provoke(enemy, target)
 	# Per-enemy engaged behavior (EN-AI-000 / PT-###): MOVEMENT is profile-specific
 	# (_engage_move owns velocity incl. ZERO = plant); the ATTACK gate below is shared —
@@ -487,7 +492,7 @@ func _nearest_usable_object(enemy: CharacterBody3D) -> Node:
 	return best
 
 
-## Data-driven enemy attack: choose ability (every_n pattern > basic). Telegraphed
+## Data-driven enemy attack: choose ability (ready cooldown signature > basic). Telegraphed
 ## casts start a frame-driven wind-up (resolved in tick); others hit now.
 ## Extensible — assign any ability to any unit via enemies.json abilities[].ref.
 func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> void:
@@ -498,6 +503,9 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 		var ref := String(chosen.get("ref", ""))
 		# Basics are rom_* (enemy_basics catalog); signatures are AB-### (abilities catalog).
 		eff = Slice01Data.get_enemy_basic(ref) if ref.begins_with("rom_") else Slice01Data.get_ability(ref)
+		# A signature picked via the gate fires now → start its own per-ability cooldown.
+		if String(chosen.get("trigger", "")) == "signature":
+			enemy.ability_cd[ref] = float(eff.get("cooldown_s", 0.0))
 	var tele: float = float(eff.get("telegraph_s", 0.0))
 	if enemy.boss_phased and tele > 0.0:
 		tele = maxf(0.3, tele + enemy.boss_phase2_telegraph_delta)  # MiniBoss phase-2: faster cast
@@ -609,7 +617,7 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	var vfx := String(eff.get("vfx", ""))
 	if vfx != "":
 		SkillVfx.enemy_vfx(vfx, self, from, target.global_position)
-	if String(chosen.get("trigger", "")) == "every_n" or kind in ["enemy_stun", "enemy_poison"]:
+	if String(chosen.get("trigger", "")) == "signature" or kind in ["enemy_stun", "enemy_poison"]:
 		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), target.identity_skill_id])
 	if kind == "enemy_execute":
 		enemy.assassin_revealed = true  # disguise dropped after the execute lands
@@ -643,36 +651,37 @@ func _telegraph_color(kind: String) -> Color:
 	return Color(0.9, 0.3, 0.2, 0.5)
 
 
-## Cooldown-triggered signature cast (AB-098 heal): if a ready signature's condition holds,
-## start its channel (telegraph) and set the cooldown. Returns true if a cast began.
-## Distinct from _select_enemy_ability (basic-rhythm every_n) — this drives off sig_cooldown_s.
+## Target-less heal signature (AB-098): if off its own cooldown and a squad-mate is wounded,
+## start the channel (telegraph) and reset ability_cd[ref]. Runs early (target-less); provoke/dash
+## have their own passes. Returns true if a cast began.
 func _try_cast_signature(enemy: CharacterBody3D) -> bool:
 	for ab in enemy.abilities:
-		if typeof(ab) != TYPE_DICTIONARY or String(ab.get("trigger", "")) != "signature":
+		if typeof(ab) != TYPE_DICTIONARY:
 			continue
 		var ref := String(ab.get("ref", ""))
 		var eff: Dictionary = Slice01Data.get_ability(ref)
 		var kind := String(eff.get("kind", ""))
-		if kind == "enemy_heal":
-			# Condition: a squad-mate (incl. self) within heal radius below the HP threshold.
-			var r := float(eff.get("radius_m", 3.0))
-			var thr := float(eff.get("ally_threshold_pct", 0.9))
-			var wounded := false
-			for a in _combat._enemies_in_radius(enemy.global_position, r):
-				if is_instance_valid(a) and a.is_alive() and a.hp < a.max_hp * thr:
-					wounded = true
-					break
-			if not wounded:
-				continue  # nothing to heal → save the cooldown
-		else:
-			continue  # this early pass is target-less only (heal). provoke=_try_cast_provoke, dash=_try_cast_dash
+		if kind != "enemy_heal":
+			continue  # this early pass is heal only (provoke=_try_cast_provoke, dash=_try_cast_dash)
+		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
+			continue  # AB still on cooldown
+		# Condition: a squad-mate (incl. self) within heal radius below the HP threshold.
+		var r := float(eff.get("radius_m", 3.0))
+		var thr := float(eff.get("ally_threshold_pct", 0.9))
+		var wounded := false
+		for a in _combat._enemies_in_radius(enemy.global_position, r):
+			if is_instance_valid(a) and a.is_alive() and a.hp < a.max_hp * thr:
+				wounded = true
+				break
+		if not wounded:
+			continue  # nothing to heal → save the cooldown
 		# Begin the channel — windup_target null (target-less); resolved by _resolve_enemy_attack.
 		enemy.winding = true
 		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.55))
 		enemy.windup_eff = eff
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
 		enemy.windup_target = null
-		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 8.0))
+		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 8.0))
 		# Telegraph the heal AoE at the caster, radius = actual heal radius (was a fixed 1.9 disc).
 		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color(kind), float(eff.get("radius_m", 3.0)))
 		return true
@@ -698,12 +707,14 @@ func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictiona
 ## telegraph shows the zone. Resolved by _resolve_enemy_attack → _apply_enemy_provoke.
 func _try_cast_provoke(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
 	for ab in enemy.abilities:
-		if typeof(ab) != TYPE_DICTIONARY or String(ab.get("trigger", "")) != "signature":
+		if typeof(ab) != TYPE_DICTIONARY:
 			continue
 		var ref := String(ab.get("ref", ""))
 		var eff: Dictionary = Slice01Data.get_ability(ref)
 		if String(eff.get("kind", "")) != "enemy_provoke":
 			continue
+		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
+			continue  # AB still on cooldown
 		var r := float(eff.get("zone_radius_m", 4.0))
 		var deg := float(eff.get("zone_deg", 60.0))
 		enemy.face_toward(target.global_position)  # aim the fan at the party it's fighting (cast-start)
@@ -714,7 +725,7 @@ func _try_cast_provoke(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
 		enemy.windup_eff = eff
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
 		enemy.windup_target = null
-		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 14.0))
+		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 14.0))
 		SkillVfx.fan_telegraph(self, enemy.global_position, enemy.facing, r, deg, _telegraph_color("enemy_provoke"), float(eff.get("telegraph_s", 0.85)))
 		return true
 	return false
@@ -759,12 +770,14 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 	if not has_los:
 		return false
 	for ab in enemy.abilities:
-		if typeof(ab) != TYPE_DICTIONARY or String(ab.get("trigger", "")) != "signature":
+		if typeof(ab) != TYPE_DICTIONARY:
 			continue
 		var ref := String(ab.get("ref", ""))
 		var eff: Dictionary = Slice01Data.get_ability(ref)
 		if String(eff.get("kind", "")) != "enemy_dash":
 			continue
+		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
+			continue  # AB still on cooldown
 		if dist <= enemy.attack_range_m + DASH_TRIGGER_BUFFER_M:
 			return false
 		if dist > float(eff.get("dash_range_m", DASH_MAX_M)):
@@ -774,7 +787,7 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 		enemy.windup_eff = eff
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
 		enemy.windup_target = target
-		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 5.0))
+		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 5.0))
 		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_dash"))
 		return true
 	return false
@@ -865,24 +878,27 @@ func _pick_backline_target(nodes: Array) -> CharacterBody3D:
 	return best
 
 
-## Pattern ability (every_n match) takes priority; else the basic ability.
+## Choose this attack-gate's strike: a ready in-range signature (its AB cooldown elapsed) takes
+## priority over the basic. Heal/provoke/dash are NOT picked here — they fire via their own cooldown
+## passes. The chosen signature's cooldown is reset in _begin_enemy_attack when it's committed.
 func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
-	var basic: Dictionary = {}
+	# Signature kinds that fire as a "special attack" through the attack gate (need in-range + LOS).
+	var gate_kinds := ["enemy_charge", "enemy_splash", "enemy_hex", "enemy_melee", "enemy_stun", "enemy_poison"]
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue
-		var trig := String(ab.get("trigger", ""))
-		if trig == "every_n":
-			var n := int(ab.get("n", 0))
-			if n > 0 and enemy.attack_count % n == 0:
-				return ab
-		elif trig == "basic" and basic.is_empty():
-			basic = ab
-	# Basic = the unit's rom_* archetype (EN-COR-000 §rom_*); legacy abilities `basic` entry
-	# is only a transition fallback for rows without a bound basic_attack.
+		var ref := String(ab.get("ref", ""))
+		if ref.is_empty():
+			continue
+		var eff: Dictionary = Slice01Data.get_ability(ref)
+		if not gate_kinds.has(String(eff.get("kind", ""))):
+			continue  # heal/provoke/dash → own passes
+		if float(enemy.ability_cd.get(ref, 0.0)) <= 0.0:
+			return {"ref": ref, "trigger": "signature"}  # off cooldown → cast (cd set on commit)
+	# Otherwise the unit's rom_* basic archetype (EN-COR-000 §rom_*).
 	if enemy.basic_attack != "":
 		return {"ref": enemy.basic_attack, "trigger": "basic"}
-	return basic
+	return {}
 
 
 func _alive_members(nodes: Array) -> Array:

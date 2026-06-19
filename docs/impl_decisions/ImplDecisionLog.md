@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260619-015 — 적 시그니처 발동 모델: every-N-평타 → AB별 개별 cooldown
+- **결정(사용자: "AB를 쓰는거니까 평타 N번마다보다 AB 명시 쿨마다가 맞다 — 전체 EN 적용"):** 시그니처 발동을 평타 카운트(`attack_count % n`)가 아니라 **각 AB의 `cooldown_s`** 로 구동. 스펙 AB 카탈로그가 이미 `cooldown_s`를 정의(every_n은 데모 단축)하므로 **스펙 정합 방향**.
+- **모델:**
+  - `enemy_unit.ability_cd: Dictionary {ref -> 남은초}` (단일 `sig_cooldown_s` 폐기) — EN-001처럼 AB 2개(AB-099+AB-002)여도 **개별 타이머**.
+  - 데이터: `enemies.json abilities[]`에서 `trigger`/`n` 제거(전부 `{ref}`). `abilities.json` AB-002/004/008/010/011/012에 스펙 `cooldown_s` 추가(3/5/2.5/2/5/4).
+  - 디스패치 = AB **kind**별: 사거리 데미지(charge/splash/hex/melee/stun/poison)는 공격 게이트(`_select_enemy_ability`, 쿨 경과 시 평타보다 우선)에서, heal/provoke/dash는 각자 패스에서. 발동 시 `ability_cd[ref]=cooldown_s` 리셋.
+- **체감:** 시그니처가 "쿨 경과 후 첫 공격"에 평타를 대체(평타 cadence로 약간 coarsen되나 의도대로 ~쿨마다).
+- **검증:** JSON 로드·ci_smoke·샌드박스 부트 PASS.
+- **영향:** `data/slice01/{abilities,enemies}.json`, `scripts/combat/{enemy_ai,enemy_unit}.gd`, `scripts/dev/combat_sandbox.gd`. 관련: DRIFT-049.
+
 ### IMPL-DEC-20260619-014 — 플랭커 타겟 우선순위 = backline (AB 특수처리 대신 디폴트 타겟 변경)
 - **결정(사용자: "AB를 바꾸기보다 EN-003 디폴트 공격대상을 비-탱커로"):** 플랭커가 후열을 노리는 건 대시뿐 아니라 **유닛 전체 거동의 전제**여야 함 → 타겟 선정 자체를 backline-우선으로.
   - **patterns.json `target_pref`**: PT-003(EN-003)·PT-008(EN-008)에 `"target_pref": "backline"`. enemy_ai의 tick 타겟 선정에서 이 패턴이면 threat 타겟 대신 `_pick_backline_target`(비-Tank 최저HP) 우선(없으면 threat fallback). → 평타·오빗·대시 **전부** 후열(딜러/힐러)을 노림. EN-AI-000 §1 "정면 Tank 무시 시도" 정합.

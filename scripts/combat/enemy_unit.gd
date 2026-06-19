@@ -26,7 +26,8 @@ var attack_range_m: float = 1.6
 var attack_interval_s: float = 1.2
 ## Per-unit attack timer, ticked by CombatController.
 var attack_cooldown_s: float = 0.0
-## Ability instances [{ref, trigger, n}] from data — SIGNATURE AB-### only (every_n etc.).
+## Ability instances [{ref}] from data — SIGNATURE AB-### refs. Each fires on its own AB cooldown_s
+## (per-ability timer in ability_cd), NOT every-N-basics. Dispatch is by AB kind in EnemyAI.
 var abilities: Array = []
 ## Basic-attack archetype id (rom_*, EN-COR-000) — resolved vs enemy_basics catalog.
 var basic_attack: String = ""
@@ -36,9 +37,10 @@ var pattern_ref: String = ""
 var engage_profile: Dictionary = {}
 ## Probe (EN-006/PT-006) hit-and-back-off timer: set on each strike, retreats while > 0.
 var probe_backstep_s: float = 0.0
-## Cooldown-triggered signature (e.g. AB-098 heal, AB-006/013 dash) — ticked while engaged,
-## independent of the basic-attack rhythm (every_n). One per enemy is enough for the demo set.
-var sig_cooldown_s: float = 0.0
+## Per-ability cooldown timers {ref -> remaining_s} — ticked while engaged. Every signature AB
+## (damage casts, heal, provoke, dash) fires on its own AB cooldown_s; independent timers so an
+## enemy with multiple ABs (e.g. EN-001 AB-099+AB-002) doesn't share one clock.
+var ability_cd: Dictionary = {}
 ## Dash state (AB-006 gap-close / AB-013 backstab) — a short velocity-takeover lunge after the
 ## telegraph, resolved (and AB-013's hit applied) by EnemyAI when dash_timer_s elapses.
 var dashing: bool = false

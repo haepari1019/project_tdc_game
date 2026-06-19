@@ -395,7 +395,9 @@ func _unit_info_text(eid: String) -> String:
 	var sigs: Array = []
 	for ab in row.get("abilities", []):
 		if typeof(ab) == TYPE_DICTIONARY:
-			sigs.append("%s(%s)" % [ab.get("ref", "?"), ab.get("trigger", "?")])
+			var aref := String(ab.get("ref", "?"))
+			var acd := float(Slice01Data.get_ability(aref).get("cooldown_s", 0.0))
+			sigs.append("%s(cd%.1fs)" % [aref, acd])
 	var stats: Dictionary = row.get("stats", {})
 	var t := "[b]%s — %s[/b]\n" % [eid, row.get("display_name", "?")]
 	t += "role [b]%s[/b] · pattern [b]%s → %s[/b]\n" % [row.get("role", "?"), row.get("pattern_ref", "?"), engage]
