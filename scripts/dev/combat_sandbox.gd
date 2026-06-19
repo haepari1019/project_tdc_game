@@ -8,6 +8,8 @@ const SandboxMap := preload("res://scripts/dev/sandbox_map.gd")
 const PartyController := preload("res://scripts/party/party_controller.gd")
 const CombatController := preload("res://scripts/combat/combat_controller.gd")
 const CameraRig := preload("res://scripts/run/controllers/camera_rig.gd")
+const PartySheet := preload("res://scripts/ui/party_sheet.gd")          # UI-002 party HP + sub radials
+const ControlledSheet := preload("res://scripts/ui/controlled_sheet.gd")  # UI-003 Identity + Q/E/R cooldowns
 
 # Skillbooks auto-equipped so Q/E/R subs (incl. Toll Stun for channel-interrupt testing) work
 # without the hub deploy step. slot -> base_ability_id (role gate is bypassed for the sandbox).
@@ -136,8 +138,32 @@ func _build_environment() -> void:
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	_build_game_hud(layer)      # real in-game HUD (party sheet + controlled skill cooldowns)
 	_build_control_panel(layer)
 	_build_info_panel(layer)
+
+
+## The shipping HUD pieces that show ally skill cooldowns/charges — UI-002 PartySheet (HP + Q/E/R
+## sub radials) + UI-003 ControlledSheet (Identity cooldown + Q/E/R charges/cooldown). Both
+## self-build in setup() + self-update via their own _process. Consumable bar omitted (needs
+## the inventory system). party sheet sits beside the dev panel; char sheet bottom-center (game).
+func _build_game_hud(layer: CanvasLayer) -> void:
+	var party_sheet := Control.new()
+	party_sheet.set_script(PartySheet)
+	party_sheet.position = Vector2(300, 16)   # right of the dev control panel (avoid overlap)
+	layer.add_child(party_sheet)
+	party_sheet.setup(_party.get_members())
+
+	var ctrl_sheet := Control.new()
+	ctrl_sheet.set_script(ControlledSheet)
+	ctrl_sheet.anchor_left = 0.0
+	ctrl_sheet.anchor_right = 1.0
+	ctrl_sheet.anchor_top = 1.0
+	ctrl_sheet.anchor_bottom = 1.0
+	ctrl_sheet.offset_top = -140.0           # bottom strip → its CenterContainer centers = bottom-center
+	ctrl_sheet.offset_bottom = -12.0
+	layer.add_child(ctrl_sheet)
+	ctrl_sheet.setup(_party)
 
 
 ## Top-LEFT control panel — ENC spawn (replace) + single-unit spawn (additive) + shared toggles.

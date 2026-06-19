@@ -13,6 +13,7 @@
   - **UI**: ENC 드롭다운(`Slice01Data.get_encounter_ids` 신설)·"spawn engaged" 체크(perception 스킵)·Spawn/Clear. 입력: 1-4 스왑·WASD·Q/E/R sub·휠 줌·RMB 오빗·`[ ]` 피치. Q/E/R 테스트용 스킬북 자동장착(AB-011 Toll Stun 포함 → 채널 interrupt 검증).
   - **CombatController.debug_spawn_only(enc, room, engaged)**(전 wipe→_spawn_squad) + **debug_spawn_unit(eid, count, room, engaged)**(단일 유닛 additive) 신설. `Slice01Data.get_encounter_ids()`/`get_enemy_ids()` 신설.
   - **UI 확장**: ENCOUNTER 드롭다운(replace)·SINGLE UNIT 드롭다운+count(additive)·spawn engaged·Clear. **우상단 info 패널**(RichTextLabel) — 단일 유닛 선택 시 그 유닛의 라이브 데이터(role/pattern→engage/기본타/시그니처/stats) + per-engage 거동 설명 + per-EN **검증 체크리스트**(UNIT_VERIFY); 유닛 (none)이면 선택 ENC 구성(유닛별 engage·assassin/boss 태그·증원) 표시.
+  - **게임 HUD 동반**: 실 shipping UI-002 PartySheet(파티 HP + Q/E/R sub 쿨 radial) + UI-003 ControlledSheet(Identity 쿨 + Q/E/R 충전/쿨, 하단 중앙) 그대로 인스턴스 — 두 시트 모두 setup()에서 자가 빌드 + 자체 `_process`로 자가 갱신이라 추가 배선 불필요. 아군 스킬 쿨/충전이 게임과 동일하게 보임. (consumable_bar는 inventory_ui 의존이라 제외.)
 - **격리:** shipping 플로우 미참조(직접 실행). 헤드리스 로드 PASS(party 스폰·navmesh bake·UI 인스턴스·무오류).
 - **영향:** `scenes/dev/combat_sandbox.tscn`·`scripts/dev/{combat_sandbox,sandbox_map}.gd`(신), `scripts/{autoload/slice01_data·combat/combat_controller}.gd`(getter+debug 메서드).
 
