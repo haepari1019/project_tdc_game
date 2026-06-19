@@ -1,17 +1,29 @@
 # Implementation Coverage
 
-> Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`.
+> Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`. 실행 로드맵: [docs/ROADMAP_P2_FullCoverage.md](docs/ROADMAP_P2_FullCoverage.md).
 
 - spec_ref_pin: `4422e50` (`staging`, 2026-06-18)
-- last_sprint: P2-S2 (S2a/S2b/S2c-1/S2c-2 커밋 · S2c-3 Provoked + S2c-4 §2 interrupt 구현 — P2-S2 전체 완료 · 교전 체감 F5 user-pending)
+- last_sprint: P2-S2 (S2a~c 커밋 — **적 전투행동 축 완료**; ENC 잔여·zone·party풀은 후속 스프린트). 다음: P2-S2-fin(조합 ENC) → P2-S3(Interaction)
 - last_updated: 2026-06-19
+
+## Full Spec Coverage — AB-### 스냅샷 (2026-06-19)
+
+전체 스펙 어빌리티 **AB-### 15/84**. 적 전투행동(EN-001~014)은 완료지만 AB 전체·ENC·zone은 진행 중 (상세·로드맵: [ROADMAP](docs/ROADMAP_P2_FullCoverage.md)).
+
+| 군 | 구현/전체 | 미구현 핵심 |
+|----|:---:|------|
+| 적 kit (비-zone) | 10/13 | AB-003·005·007 (대체평타·연타후속·후퇴hop) |
+| 적 zone/원소 | 0/7 | AB-009/036/039/040/041/042/043 — **F-027 ZONE 서브시스템(P2-S3)** |
+| 파티 능력 풀 | 5/64 | ~48 lootable sub(데이터행+~11 신규 effect kind) + 6 identity 후보 (P2-S6) |
+| 적 기본타 rom_* (별도) | 12/12 | — |
+| PT-### 적 패턴 (별도) | 14/14 | — |
 
 ## Sprint log
 
 | Sprint | Done | Notes |
 |--------|------|-------|
 | P2-S1 | ◐ | S1a~e 완료 + 헤드리스 검증 통과. S1f 문서 완료 · **인터랙티브 Hard 플레이 스모크(§9.1)는 F5 수동** 잔여 |
-| P2-S2 | ◐ | S2a~c(1~4) 전부 구현+헤드리스 PASS (ID 1:1·포지셔닝·시그니처 캐스트·대시·Provoked·§2 채널 interrupt). EN-001~014 spec kit 반영. **전체 교전 체감 F5 수동 스모크** 잔여 |
+| P2-S2 | ◐ | S2a~c(1~4): 적 **전투행동 축** 완료+헤드리스 PASS (ID 1:1·포지셔닝·시그니처 캐스트·대시·Provoked·§2 interrupt). EN-001~014 행동 kit 반영. **잔여(P2-S2 스펙범위):** 조합/PAT/AMB/BOSS-phase ENC(12 missing)·적 zone AB(F-027 의존)·교전 체감 F5 |
 
 ## P2-S2 checklist (combat redesign)
 
