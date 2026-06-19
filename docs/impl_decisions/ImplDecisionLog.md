@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260619-012 — AB-004 차지 VFX 재작 (차징 모션 + 즉발 번개 + 셰이크 타이밍)
+- **결정(사용자: "차지 후 강력한 전기 볼트" — 현재 느린 파란 구 + 셰이크 타이밍 어긋남):**
+  - **차징 모션:** `SkillVfx.charge_up(caster, dur, color)` 신설 — 시전자에 발광 오브가 채널(`telegraph_s`) 동안 커지며 강해지다 release 시 snap. `_begin_enemy_attack`의 `enemy_charge` 분기가 타겟 지면 디스크 대신 이걸 시전자에 띄움 + 타겟 조준(face_toward).
+  - **즉발 번개:** `SkillVfx.lightning_bolt(from, to, color)` 신설 — perpendicular jitter 7-세그먼트 지그재그 아크가 **거의 즉시 플래시 후 0.14s 페이드**(`_bolt_seg` 얇은 emissive 박스). `shot_lightning`을 느린 `_enemy_shot`(0.55s 이동 구) → 이걸로 교체.
+  - **셰이크 타이밍:** 셰이크는 resolve(피해 적용 프레임)에 발생하는데 기존 구는 0.55s 뒤 도착 → 어긋남. **볼트가 즉발이라 임팩트=resolve=셰이크 동시** → 정합(셰이크 코드 변경 없이 해결).
+- **검증:** ci_smoke PASS · 샌드박스 부트 무오류. 차징·번개·셰이크 동시성은 F6.
+- **잔여(동일 패턴 후보):** AB-012 hex·AB-008 slag도 `_enemy_shot`(0.55s 구)이라 셰이크-임팩트 약한 lag — hex는 fast bolt화 후보, slag(투척)은 도착 시 셰이크로 옮기는 게 정석. 사용자 요청은 AB-004 한정이라 보류.
+- **영향:** `scripts/combat/abilities/skill_vfx.gd`, `scripts/combat/enemy_ai.gd`.
+
 ### IMPL-DEC-20260619-011 — S2c 적 스킬 VFX 정합 (원소색·찌르기·힐 이중/반경)
 - **결정(샌드박스 발견 — "vfx 전반 불일치"):** S2c 시그니처들의 히트/텔레그래프 VFX가 원소·형태와 안 맞던 것 정리.
   - **발사체 색 하드코딩(주황) → 원소별**: `enemy_vfx`가 `projectile`/`shield_bash` 2키뿐 + `_enemy_shot` 색 고정(주황)이라 AB-004(전기)·AB-012(헥스)가 주황으로 발사됨. **키 추가**: `shot_lightning`(파랑)·`shot_hex`(보라)·`shot_slag`(주황)·`strike`(크림슨). abilities.json vfx 재지정(AB-004→shot_lightning·AB-008→shot_slag·AB-012→shot_hex·AB-013→strike).

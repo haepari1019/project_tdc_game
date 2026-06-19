@@ -126,8 +126,8 @@ static func enemy_vfx(key: String, parent: Node3D, from: Vector3, to: Vector3) -
 	match key:
 		"projectile":  # generic (poison/pebble) — warm
 			_enemy_shot(parent, from + y, to + y, Color(0.7, 0.85, 0.4))
-		"shot_lightning":  # AB-004 Voltaic — electric blue
-			_enemy_shot(parent, from + y, to + y, Color(0.45, 0.7, 1.0))
+		"shot_lightning":  # AB-004 Voltaic — fast jagged bolt (lands on the damage/shake frame)
+			lightning_bolt(parent, from, to, Color(0.55, 0.8, 1.0))
 		"shot_hex":  # AB-012 Hex Bolt — purple rune
 			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95))
 		"shot_slag":  # AB-008 Slag Spit — slag orange
@@ -154,6 +154,74 @@ static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color
 	tw.tween_property(mi, "scale", Vector3(4.5, 4.5, 4.5), 0.35)  # impact pop
 	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.35)
 	tw.tween_callback(mi.queue_free)
+
+
+## Charge-up build (AB-004 channel) — an emissive orb on the caster that grows + intensifies
+## over `dur` (the telegraph), then snaps out as the bolt fires. Conveys "charging".
+static func charge_up(parent: Node3D, pos: Vector3, dur: float, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.45
+	s.height = 0.9
+	mi.mesh = s
+	var mat := _emat(color)
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = pos + Vector3(0, 1.0, 0)
+	mi.scale = Vector3(0.22, 0.22, 0.22)
+	var tw := mi.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(1.4, 1.4, 1.4), dur).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw.tween_property(mat, "emission_energy_multiplier", 5.5, dur).from(1.5)
+	tw.chain().tween_property(mat, "albedo_color:a", 0.0, 0.1)
+	tw.tween_callback(mi.queue_free)
+
+
+## Fast lightning bolt (AB-004 release) — a jagged segmented arc from `from` to `to` that flashes
+## near-instantly then fades (~0.14s), so the impact lands ON the damage/shake frame (not a slow
+## travelling orb). Built from thin emissive segments along a perpendicular-jittered path.
+static func lightning_bolt(parent: Node3D, from: Vector3, to: Vector3, color: Color) -> void:
+	var a := from + Vector3(0, 1.0, 0)
+	var b := to + Vector3(0, 1.0, 0)
+	var holder := Node3D.new()
+	parent.add_child(holder)
+	var mat := _emat(color)
+	mat.emission_energy_multiplier = 4.5
+	var axis := b - a
+	axis.y = 0.0
+	var perp := Vector3(-axis.z, 0.0, axis.x)
+	perp = perp.normalized() if perp.length() > 0.01 else Vector3.RIGHT
+	var segs := 7
+	var prev := a
+	for i in range(1, segs + 1):
+		var t := float(i) / float(segs)
+		var p := a.lerp(b, t)
+		if i < segs:
+			p += perp * randf_range(-0.7, 0.7) + Vector3(0, randf_range(-0.5, 0.5), 0)
+		_bolt_seg(holder, prev, p, mat)
+		prev = p
+	var tw := holder.create_tween()
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.14).from(0.95)
+	tw.tween_callback(holder.queue_free)
+
+
+## One thin emissive box spanning p0→p1 (a lightning segment), oriented along the segment.
+static func _bolt_seg(holder: Node3D, p0: Vector3, p1: Vector3, mat: StandardMaterial3D) -> void:
+	var d := p1 - p0
+	var seg_len := d.length()
+	if seg_len < 0.05:
+		return
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.14, 0.14, seg_len)
+	mi.mesh = bm
+	mi.material_override = mat
+	holder.add_child(mi)
+	var z := d / seg_len
+	var up := Vector3.UP if absf(z.dot(Vector3.UP)) < 0.95 else Vector3.RIGHT
+	var x := up.cross(z).normalized()
+	var y := z.cross(x).normalized()
+	mi.global_transform = Transform3D(Basis(x, y, z), (p0 + p1) * 0.5)
 
 
 ## Directional stab (flank backstab) — a short narrow wedge in the strike direction + a tight
