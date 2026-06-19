@@ -36,9 +36,17 @@ var pattern_ref: String = ""
 var engage_profile: Dictionary = {}
 ## Probe (EN-006/PT-006) hit-and-back-off timer: set on each strike, retreats while > 0.
 var probe_backstep_s: float = 0.0
-## Cooldown-triggered signature (e.g. AB-098 heal) — ticked while engaged, independent of the
-## basic-attack rhythm (every_n). One per enemy is enough for the demo signature set.
+## Cooldown-triggered signature (e.g. AB-098 heal, AB-006/013 dash) — ticked while engaged,
+## independent of the basic-attack rhythm (every_n). One per enemy is enough for the demo set.
 var sig_cooldown_s: float = 0.0
+## Dash state (AB-006 gap-close / AB-013 backstab) — a short velocity-takeover lunge after the
+## telegraph, resolved (and AB-013's hit applied) by EnemyAI when dash_timer_s elapses.
+var dashing: bool = false
+var dash_vel: Vector3 = Vector3.ZERO
+var dash_timer_s: float = 0.0
+var dash_eff: Dictionary = {}
+var dash_chosen: Dictionary = {}
+var dash_target: CharacterBody3D = null
 var attack_count: int = 0
 # F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
 # object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.

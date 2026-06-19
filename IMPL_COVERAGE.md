@@ -3,7 +3,7 @@
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`.
 
 - spec_ref_pin: `4422e50` (`staging`, 2026-06-18)
-- last_sprint: P2-S2 (S2a/S2b 커밋 · S2c-1 시그니처 캐스트 구현 · 교전 체감 F5 user-pending · S2c-2/3 잔여)
+- last_sprint: P2-S2 (S2a/S2b/S2c-1 커밋 · S2c-2 대시 구현 · 교전 체감 F5 user-pending · S2c-3 Provoked 잔여)
 - last_updated: 2026-06-19
 
 ## Sprint log
@@ -20,7 +20,7 @@
 | S2a | Combat ID 1:1 — rom_* basics·비-spec AB 제거·EN-014 Gutter Chanter·ENC-NORM-001 | ☑ 커밋 186a024 (헤드리스) |
 | S2b | Per-enemy 포지셔닝 — patterns.json(PT-### 미러)·`engage` 7프로필·enemy_ai 분기 | ☑ 헤드리스 PASS · **체감 F5 잔여** (2210d30) |
 | S2c-1 | 시그니처 캐스트 — AB-004 차지·AB-008 스플래시·AB-012 헥스·**AB-098 EN-014 힐**(+channel-freeze) | ☑ 헤드리스 PASS · **체감 F5 잔여** |
-| S2c-2 | AB-006/013 대시 (EN-003/008 mobility primitive) | ☐ 미착수 |
+| S2c-2 | AB-006/013 대시 (EN-003 갭클로즈 · EN-008 백스탭 mobility) | ☑ 헤드리스 PASS · **체감 F5 잔여** |
 | S2c-3 | AB-099 Iron Mockery / **Provoked** (EN-001 party-side 상태 + 입력 게이트) | ☐ 미착수 |
 
 > S2b engage 맵: advance(EN-001/010/012/013)·standoff(EN-002/007/011)·kite(EN-005/014)·zone(EN-004)·orbit(EN-003/008)·probe(EN-006)·surround(EN-009). PT-### 정본=EN 유닛문서 patternRef(EN-010~013→PT-012~015). 상세 DRIFT-040.
@@ -73,3 +73,4 @@
 | 039 | P2-S1 dungeon scale — EN-002/003/004/007/008/009 스텁·ENC 9 스텁·맵 placeholder 기하 (kit·폴리시=P2-S2) |
 | 040 | P2-S2b per-enemy 포지셔닝 — PT-### `engage` 파생·이동 PH 튜닝. 교전 체감 F5 잔여 |
 | 041 | P2-S2c-1 시그니처 캐스트 — AB-004/008/012/098 + channel-freeze. HEX 피해감소·interrupt·zone = 후속. F5 잔여 |
+| 042 | P2-S2c-2 대시 mobility — AB-006/013. 벽 라우팅·AB-005 flurry·AB-007 hop = 후속. F5 잔여 |

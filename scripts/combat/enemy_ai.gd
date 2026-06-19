@@ -39,6 +39,12 @@ const ORBIT_ARC_M := 4.0           # orbit: lateral flank offset blended in by a
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
 const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
 
+# --- Dash signatures (AB-006 gap-close / AB-013 backstab; EN-003/008) ---
+const DASH_TIME := 0.2             # lunge duration (velocity takeover, mirrors knockback)
+const DASH_MAX_M := 9.0            # cap a single lunge so it never teleports across the map
+const DASH_FLANK_OFFSET_M := 1.3   # AB-013: lateral offset so the dash ends at the target's flank
+const DASH_TRIGGER_BUFFER_M := 0.5 # only dash when farther than attack_range + this (a real gap)
+
 # Dormant roaming (alive feel): wander within this radius of the spawn home, pausing between legs.
 const ROAM_RADIUS_M := 5.0
 const ROAM_SPEED_FRAC := 0.4
@@ -212,7 +218,17 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	if enemy.winding:
 		enemy.windup_timer_s -= delta
 		if enemy.windup_timer_s <= 0.0:
-			_resolve_enemy_attack(enemy)
+			_resolve_enemy_attack(enemy)  # dash abilities set enemy.dashing here
+	# Dash takeover (AB-006/013): a short post-telegraph lunge drives movement (like knockback);
+	# on arrival, AB-013 lands its backstab. Resolves before normal steering this whole window.
+	if enemy.dashing:
+		enemy.dash_timer_s -= delta
+		enemy.velocity = enemy.dash_vel
+		enemy.move_and_slide()
+		if enemy.dash_timer_s <= 0.0:
+			enemy.dashing = false
+			_resolve_dash_hit(enemy)
+		return
 	# Cooldown-triggered signature (AB-098 heal): independent of the basic-attack rhythm —
 	# EN-014 kites and rarely melees, so its heal can't ride every_n. Targets allies, no LOS
 	# to the party needed; starts a channel (then channel-freeze holds it in place).
@@ -251,6 +267,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	if enemy.interacts_with_objects and _try_object_interaction(enemy, target, has_los, delta):
 		enemy.move_and_slide()
 		return
+	# Dash signature (AB-006/013): needs the target + gap, so it triggers here (after the heal
+	# pass above, which is target-less). Starts a telegraph → channel-freeze holds it this frame.
+	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0:
+		_try_cast_dash(enemy, target, dist, has_los)
 	# Per-enemy engaged behavior (EN-AI-000 / PT-###): MOVEMENT is profile-specific
 	# (_engage_move owns velocity incl. ZERO = plant); the ATTACK gate below is shared —
 	# in range + LOS + off cooldown → strike, even while a kiter keeps backpedalling.
@@ -460,6 +480,9 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 		return
 	if not _has_los(enemy, target):
 		return  # target broke line of sight during the wind-up — strike fizzles
+	if String(eff.get("kind", "")) == "enemy_dash":
+		_begin_dash(enemy, eff, chosen, target)  # telegraph done → start the lunge (hit on arrival)
+		return
 	if String(eff.get("kind", "")) == "enemy_stun":
 		var d := target.global_position - enemy.global_position
 		d.y = 0.0
@@ -541,6 +564,8 @@ func _telegraph_color(kind: String) -> Color:
 			return Color(0.35, 1.0, 0.5, 0.5)
 		"enemy_splash":  # AB-008 Slag — slag orange
 			return Color(0.95, 0.6, 0.25, 0.5)
+		"enemy_dash":  # AB-006/013 dash — sharp cyan crouch-tell
+			return Color(0.5, 0.95, 0.95, 0.55)
 	return Color(0.9, 0.3, 0.2, 0.5)
 
 
@@ -591,6 +616,83 @@ func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictiona
 			healed += 1
 	SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_heal"))
 	print("[EN] %s %s heal x%d (r%.1f %d%%)" % [enemy.enemy_id, String(chosen.get("ref", "")), healed, r, int(pct * 100.0)])
+
+
+## Cooldown dash signature (AB-006 gap-close / AB-013 backstab): when there's a real gap to a
+## seen target within dash reach, start the telegraph (crouch) → _begin_dash on resolve.
+## Needs the target/dist, so it's called after target selection (unlike the target-less heal).
+func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool) -> bool:
+	if not has_los:
+		return false
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY or String(ab.get("trigger", "")) != "signature":
+			continue
+		var ref := String(ab.get("ref", ""))
+		var eff: Dictionary = Slice01Data.get_ability(ref)
+		if String(eff.get("kind", "")) != "enemy_dash":
+			continue
+		# Only when a gap exists (out of melee) and the target is within dash reach.
+		if dist <= enemy.attack_range_m + DASH_TRIGGER_BUFFER_M:
+			return false
+		if dist > float(eff.get("dash_range_m", DASH_MAX_M)):
+			return false
+		enemy.winding = true
+		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.3))
+		enemy.windup_eff = eff
+		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
+		enemy.windup_target = target
+		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 5.0))
+		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_dash"))
+		return true
+	return false
+
+
+## Start the lunge after a dash telegraph: compute the destination (AB-006 = just inside melee;
+## AB-013 = the target's flank), set a clamped velocity over DASH_TIME. The hit (AB-013) lands
+## in _resolve_dash_hit when the timer elapses. Movement is driven by tick()'s dash takeover.
+func _begin_dash(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary, target: CharacterBody3D) -> void:
+	var to := target.global_position - enemy.global_position
+	to.y = 0.0
+	var d := to.length()
+	if d < 0.01:
+		return
+	var dir := to / d
+	var dest: Vector3
+	if bool(eff.get("flank", false)):
+		# AB-013: end at the target's flank (side fixed per-enemy), level with it.
+		var perp := Vector3(-dir.z, 0.0, dir.x) * (1.0 if (enemy.get_instance_id() % 2 == 0) else -1.0)
+		dest = target.global_position + perp * DASH_FLANK_OFFSET_M
+	else:
+		# AB-006: stop just inside melee range (pure gap-close, no overshoot).
+		dest = enemy.global_position + dir * maxf(0.0, d - enemy.attack_range_m * 0.8)
+	var move := dest - enemy.global_position
+	move.y = 0.0
+	if move.length() > DASH_MAX_M:
+		move = move.normalized() * DASH_MAX_M
+	enemy.dashing = true
+	enemy.dash_timer_s = DASH_TIME
+	enemy.dash_vel = move / DASH_TIME
+	enemy.dash_eff = eff
+	enemy.dash_chosen = chosen
+	enemy.dash_target = target
+	enemy.face_toward(target.global_position)
+
+
+## End of a dash: AB-013 lands its backstab if the target is still in reach (AB-006 is mobility
+## only — no hit). Re-validates the target (it may have died/moved during the 0.2s lunge).
+func _resolve_dash_hit(enemy: CharacterBody3D) -> void:
+	var eff: Dictionary = enemy.dash_eff
+	var chosen: Dictionary = enemy.dash_chosen
+	var target: CharacterBody3D = enemy.dash_target
+	enemy.dash_target = null
+	if not bool(eff.get("hit_on_arrival", false)):
+		return  # AB-006 gap-close — no damage; normal flurry/orbit resumes
+	if not is_instance_valid(target) or not target.is_alive():
+		return
+	var to := target.global_position - enemy.global_position
+	to.y = 0.0
+	if to.length() <= enemy.attack_range_m + 1.0:
+		_apply_enemy_hit(enemy, target, eff, chosen)
 
 
 ## Pattern ability (every_n match) takes priority; else the basic ability.

@@ -6,6 +6,17 @@
 
 ---
 
+### IMPL-DEC-20260619-002 — P2-S2c(2): 대시 mobility primitive (AB-006 갭클로즈 · AB-013 백스탭)
+- **결정(사용자 "C-2 진행"):** EN-003/008 플랭커의 시그니처 **대시**를 신규 mobility primitive로 추가. S2c-1 캐스트(데미지/상태/힐)와 분리한 이유 = 돌진은 **이동 takeover**라 라이브 이동 회귀면이 다름.
+  - **Dash 모델 = knockback 미러**: 텔레그래프(crouch, `channel:true` → channel-freeze로 제자리) → `_begin_dash`가 dest·clamped 속도 산출 → `tick()`의 dash takeover 블록이 `DASH_TIME`(0.2s) 동안 `dash_vel`로 `move_and_slide`(벽 충돌 정지) → `_resolve_dash_hit`. enemy_unit에 dash 상태 6필드.
+  - **AB-006 Gap-Close**(EN-003, telegraph 0.35, cd 4s): `hit_on_arrival:false` — 근접 직전까지 갭클로즈만(데미지 無), 이후 flurry/orbit 재개. dest = 타겟 방향 melee 직전.
+  - **AB-013 Backstab**(EN-008, telegraph 0.30, cd 5s): `flank:true` + `hit_on_arrival:true` dmg ×1.5 + kb 1.0 — 타겟 **측면 점**으로 대시 후 도착 시 1타. side=instance_id%2(orbit과 동일 측).
+  - **트리거 = cooldown+condition**(S2c-1 `sig_cooldown_s` 재사용): 대시는 **타겟 필요** → heal용 `_try_cast_signature`(타겟리스, 조기)와 달리 **target/dist/has_los 산출 후** `_try_cast_dash`로 트리거. 조건=LOS + 갭 존재(dist > range+0.5) + dash_range_m 내. `_resolve_enemy_attack`가 `enemy_dash` → `_begin_dash` 분기.
+- **1:1 근거:** AB-006/013·telegraph_s·cooldown_s·×1.5 백스탭 = spec `abilities/AB-006·013.md` Draft. `enemy_dash` kind·DASH_TIME/MAX/FLANK 수치·knockback-미러 구현 = 게임 인코딩/PH → DRIFT-042.
+- **검증:** `ci_smoke.sh` PASS(AB-006/013 등록·catalog·EN-003/008 ref 정합, EnemyAI 무오류). 실제 돌진(크라우치→런지→백스탭)은 F5 잔여.
+- **잔여 → S2c(3):** **AB-099 Provoked**(EN-001 party-side 상태 + 입력 게이트) = 마지막. dash 벽-라우팅(현 straight lunge + 충돌정지)·AB-005 후속 flurry 연계·AB-007 HP≤50% 후퇴 hop = 후속 폴리시.
+- **영향:** `data/slice01/{id_registry·abilities·enemies}`, `scripts/combat/{enemy_ai·enemy_unit}`.
+
 ### IMPL-DEC-20260619-001 — P2-S2c(1): 시그니처 캐스트 — 차지/스플래시/헥스/힐 (AB-004/008/012/098)
 - **결정(사용자 "S2c 진행"):** 적 시그니처 능력 중 **데미지/상태/힐 캐스트**를 먼저 구현. 기존 텔레그래프 윈드업 + `every_n` 경로 재사용(신규 mechanic 최소화).
   - **AB-004 Charged Voltaic**(EN-002, `every_n 4`): `enemy_charge` — telegraph 1.0s **channel**, dmg ×2.0 단발 + **Shock**(party `apply_slow` 0.5/2s). 전기 블루 텔레그래프.

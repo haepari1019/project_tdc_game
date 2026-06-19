@@ -330,3 +330,9 @@
 - **tuning/impl(전파금지):** Shock=slow 0.5/2s · HEX-WEAK=slow 0.6/4s · AB-004 dmg×2.0 · AB-008 ×0.8 splash r1.5 · AB-012 ×0.4 · every_n n(EN-002:4·EN-004:3·EN-007:3) · 텔레그래프 색.
 - **부분/미구현(정직):** ① **HEX-WEAK "피해 감소" 절반 미구현** — 이동감소(slow)만; 파티 outgoing-damage 훅 필요 → 후속. Shock·Hex 둘 다 slow로 표현(색/지속/소스로 구분). ② AB-008 `chains_to_status: Slippery`·AB-009 Oil SEED·zone 시스템 = 미구현(스플래시 직격만). ③ **interrupt-on-channel**(채널 중 stun→쿨 전액 소모, EN-AI-000 §2) 미구현 — 현재 stun이 적 채널을 끊지 않음.
 - **잔여:** AB-006/013 대시(mobility) · AB-099 Provoked(party-side 상태) = S2c(2/3). **교전 체감 F5 수동 검증 잔여**.
+
+### DRIFT-042 — P2-S2c(2) 대시 mobility (AB-006/013) 🔸 IMPLEMENTED
+- **구현(2026-06-19, IMPL-DEC-20260619-002):** EN-003 Gap-Close(AB-006)·EN-008 Backstab(AB-013) 대시. 텔레그래프(channel-freeze 크라우치)→knockback류 velocity-takeover 런지(`DASH_TIME` 0.2s)→AB-013 도착 1.5x 백스탭. cooldown+condition 트리거(`_try_cast_dash`).
+- **분류/전파:** **impl(구조는 spec) + tuning.** AB-006/013·telegraph_s·cooldown_s·×1.5 = spec Draft 구현. `enemy_dash` kind·DASH_TIME/MAX_M(9)/FLANK_OFFSET(1.3)·dash_range_m(10) = 게임 PH/인코딩.
+- **부분/미구현(정직):** ① 대시 **벽 라우팅 없음** — straight lunge + `move_and_slide` 충돌정지(navmesh 우회 X, 0.2s라 허용). ② **AB-005 후속 flurry**(PT-003 priority 3, gap-close 후 보조연타)·**AB-007 HP≤50% 후퇴 hop**(PT-003) 미구현. ③ "탱커가 경로 막을 때" 조건은 단순 갭(dist>range)으로 근사 — 탱커 차폐 판정 X.
+- **잔여:** AB-099 Provoked = S2c(3). **돌진 체감 F5 잔여**.
