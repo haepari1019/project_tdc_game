@@ -491,10 +491,12 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 		enemy.windup_chosen = chosen
 		enemy.windup_target = target
 		# Telegraph PLACEMENT = dodge affordance. Ground-at-impact marker ONLY for positional AoE
-		# (splash — space out to avoid). Target-LOCKED hits (basics, hex, charge) cue ON the caster
-		# (react via cover/interrupt, not a sidestep — you can't dodge a locked hit by moving).
+		# (splash — space out to avoid). Target-LOCKED signature casts cue ON the caster. BASIC pokes
+		# get NO telegraph at all (impact feedback is enough; a tell adds noise for a cheap poke).
 		var k := String(eff.get("kind", "enemy_melee"))
-		if k == "enemy_charge":
+		if String(chosen.get("trigger", "")) == "basic":
+			pass  # 평타급: no telegraph cue (windup timing kept; only the hit reads)
+		elif k == "enemy_charge":
 			SkillVfx.charge_up(self, enemy.global_position, tele, _telegraph_color(k))  # caster charge
 			enemy.face_toward(target.global_position)  # aim the bolt
 		elif k == "enemy_splash":
