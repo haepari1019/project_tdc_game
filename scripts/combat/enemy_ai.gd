@@ -477,6 +477,8 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 		# Basics are rom_* (enemy_basics catalog); signatures are AB-### (abilities catalog).
 		eff = Slice01Data.get_enemy_basic(ref) if ref.begins_with("rom_") else Slice01Data.get_ability(ref)
 	var tele: float = float(eff.get("telegraph_s", 0.0))
+	if enemy.boss_phased and tele > 0.0:
+		tele = maxf(0.3, tele + enemy.boss_phase2_telegraph_delta)  # MiniBoss phase-2: faster cast
 	if tele > 0.0:
 		# Warning cue now; the strike resolves when the wind-up timer elapses.
 		enemy.winding = true

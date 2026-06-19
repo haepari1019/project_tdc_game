@@ -365,3 +365,9 @@
 - **분류/전파:** **impl(스펙 tag 구현) + tuning.** AssassinTransform tag·전조 0.6/0.4s = spec `ENC-NORM-003`/`ENC-HARD-011`/D-013. 변장 런타임 모델(backline 타겟 재지정·execute ×3·reveal 후 정상)·crimson 조준선 = 게임 인코딩.
 - **드리프트(경미):** ① HARD-011 기존 JSON이 스펙과 불일치(EN-008/EN-010×3 오기)였던 걸 정합 — 단순 수정. ② **시각 변장**(fodder로 위장한 실루엣)은 박스 데모라 미구현 — reveal 텔레그래프(조준선)로 tell만. ③ EN-011=ranged standoff라 execute가 7.5m 원거리(스펙 "후열 처형" 의도와 정합, sneak-melee 아님).
 - **잔여:** 변장 실루엣 에셋·sneak 근접화는 폴리시. 체감 F5.
+
+### DRIFT-048 — P2-S2-fin A4 MiniBoss 오버레이 (leash_m 미배선) 🔸 IMPLEMENTED
+- **구현(2026-06-19, IMPL-DEC-20260619-008):** BOSS-001 EN-002 per-ENC MiniBoss(ccTenacity 1.2·attentionTier High·50%HP 텔레그래프 −0.15s 페이즈).
+- **분류/전파:** **impl(스펙 오버레이 구현) + tuning.** ccTenacity 1.2·phase 50%·−0.15s = spec `ENC-BOSS-001` Catalog overlay/Phase 그대로. per-ENC boss 태그·텔레그래프 delta 적용은 게임 인코딩.
+- **미배선(rule):** **leash_m 28**(EN-AI-000 §3 거리-leash, arena 밖 kite 금지) — 게임 disengage가 grace-timer라 거리-leash 전반 미구현(DRIFT-040에서도 기재). 정식화 시 거리-leash를 grace와 병행 도입 후보. 보스 한정 아닌 S2 전반 공통 잔여.
+- **잔여:** 페이즈·ccTenacity 체감 F5. MainBoss/약화스택(F-006) 스코프 밖.

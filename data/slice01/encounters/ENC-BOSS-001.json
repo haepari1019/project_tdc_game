@@ -2,11 +2,10 @@
   "encounter_id": "ENC-BOSS-001",
   "difficulty_profile": "Hard",
   "risk_pattern_ref": "RP-02",
-  "group_size": 4,
-  "_note": "Gate Warden Trial — Stage Boss gate (Mid). ENC-000 §4. EN-002 MiniBoss stub (dual-Elite/boss kit = P2-S2).",
+  "group_size": 3,
+  "_note": "Gate Warden Trial — Stage Boss gate (Mid, bossRole StageBoss_Fixed). EN-002 Voltaic = MiniBoss overlay(per-ENC tag): ccTenacity 1.2·attentionTier High·leash 28(미배선=grace). Phase-2 @50%HP: AB-004 charge telegraph −0.15s. fodder EN-010×2(전선). group_size=spec Units(보스+fodder2).",
   "units": [
-    { "enemy_id": "EN-002", "count": 1, "slot": "elite" },
-    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
-    { "enemy_id": "EN-011", "count": 1, "slot": "fodder" }
+    { "enemy_id": "EN-002", "count": 1, "slot": "boss", "boss": true, "cc_tenacity": 1.2, "phase2_hp_frac": 0.5, "phase2_telegraph_delta": -0.15 },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" }
   ]
 }

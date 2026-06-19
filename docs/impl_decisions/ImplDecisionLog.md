@@ -6,6 +6,17 @@
 
 ---
 
+### IMPL-DEC-20260619-008 — P2-S2-fin A4: Boss phase (ENC-BOSS-001 EN-002 MiniBoss) — Track A 완료
+- **결정(사용자 "진행해"):** BOSS-001의 EN-002를 **per-ENC MiniBoss 오버레이**로 승격 + 50%HP 페이즈. Track A(P2-S2 combat-pool 마감) 마지막.
+  - **MiniBoss 태그(assassin과 동형):** ENC unit 행 `"boss":true` + cc_tenacity/phase2_hp_frac/phase2_telegraph_delta. `_spawn_at`가 unit에 세팅 + `set_attention(true)`(attentionTier High).
+  - **ccTenacity 1.2(enemy_unit.apply_stun):** 들어오는 stun을 `/cc_tenacity`로 단축(보스가 CC에 강함).
+  - **50%HP 페이즈(take_damage):** hp ≤ max×0.5 교차 시 `boss_phased=true`(1회). `_begin_enemy_attack`이 phased면 텔레그래프 `+delta`(−0.15s, min 0.3) → AB-004 차지 1.0→0.85s, 페이즈2 위협 상승.
+  - **ENC 정합:** EN-002(boss) + EN-010×2(스펙 Units). 기존 오기 EN-011 제거. group_size 3.
+- **검증:** ci_smoke PASS · **Hard 헤드리스: BOSS-001@RM-BOSS-01 prespawn, 무오류**(복구). 페이즈·ccTenacity는 교전+피해 필요(F5).
+- **미배선(정직):** **leash_m 28**(EN-AI-000 §3 거리-leash) — 현 disengage는 grace-timer라 미배선(S2 전반 공통, DRIFT-048). MainBoss/약화스택(F-006)은 스코프 밖.
+- **Track A(P2-S2-fin) 완료:** A1 조합 ENC·A2 phase 증원·A3 assassin·A4 boss. ENC 12→17/24(고정 ENC + behaviors 완비). 잔여 ENC = PAT/AMB(placement 레인)·3RD(faction)·적 zone AB(F-027/P2-S3).
+- **영향:** `scripts/combat/{enemy_unit·enemy_ai·combat_controller}`, `data/slice01/encounters/ENC-BOSS-001.json`.
+
 ### IMPL-DEC-20260619-007 — P2-S2-fin A3: AssassinTransform (NORM-003 신 + HARD-011 정합)
 - **결정(사용자 "진행해"):** 위장 암살자 — fodder 무리 중 1기가 변장→reveal 전조→후열 처형. **per-ENCOUNTER 태그**(D-013 tags[], 유닛 카탈로그 아님).
   - **태그 배선:** ENC unit 행에 `"assassin": true` + `"assassin_telegraph_s"`. `combat_controller._spawn_at`가 그 행의 스폰에만 `unit.assassin`/`assassin_telegraph_s` 세팅(같은 enemy_id라도 비태그 행은 정상). enemy_unit에 `assassin`/`assassin_telegraph_s`/`assassin_revealed`.

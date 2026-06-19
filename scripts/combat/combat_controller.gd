@@ -472,6 +472,14 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool) -> v
 			if bool(u.get("assassin", false)):
 				unit.assassin = true
 				unit.assassin_telegraph_s = float(u.get("assassin_telegraph_s", 0.6))
+			# MiniBoss overlay (ENC-BOSS-001): per-ENC promotion — ccTenacity + HP-phase + High attention.
+			if bool(u.get("boss", false)):
+				unit.miniboss = true
+				unit.cc_tenacity = float(u.get("cc_tenacity", 1.2))
+				unit.boss_phase2_hp_frac = float(u.get("phase2_hp_frac", 0.5))
+				unit.boss_phase2_telegraph_delta = float(u.get("phase2_telegraph_delta", -0.15))
+				if unit.has_method("set_attention"):
+					unit.set_attention(true)
 			unit.engaged = engaged
 			if engaged:
 				unit.engage_grace_s = COMBAT_EXIT_GRACE_S

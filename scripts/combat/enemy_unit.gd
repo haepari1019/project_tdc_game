@@ -53,6 +53,13 @@ var dash_target: CharacterBody3D = null
 var assassin: bool = false
 var assassin_telegraph_s: float = 0.6
 var assassin_revealed: bool = false
+## MiniBoss overlay (ENC-BOSS-001 per-ENC tag): cc_tenacity shortens incoming stun, a 50% HP
+## phase shortens telegraphs. attentionTier=High via set_attention at spawn. ref: ENC-BOSS-001.
+var miniboss: bool = false
+var cc_tenacity: float = 1.0
+var boss_phase2_hp_frac: float = 0.0     # 0 = no phase; e.g. 0.5 → phase at 50% HP
+var boss_phase2_telegraph_delta: float = 0.0
+var boss_phased: bool = false
 var attack_count: int = 0
 # F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
 # object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.
@@ -163,6 +170,10 @@ func take_damage(amount: float) -> void:
 	if _hp_bar:
 		_hp_bar.set_ratio(hp / max_hp)
 	_flash()
+	# MiniBoss phase trigger (ENC-BOSS-001): crossing the HP threshold shortens telegraphs.
+	if miniboss and not boss_phased and boss_phase2_hp_frac > 0.0 and hp > 0.0 and hp <= max_hp * boss_phase2_hp_frac:
+		boss_phased = true
+		print("[EN] %s MiniBoss PHASE 2 (HP <= %d%%, telegraph %+.2fs)" % [enemy_id, int(boss_phase2_hp_frac * 100.0), boss_phase2_telegraph_delta])
 	if hp <= 0.0:
 		died.emit(self)
 		queue_free()
@@ -260,7 +271,7 @@ func tick_slow(delta: float) -> void:
 func apply_stun(duration: float) -> void:
 	if hp <= 0.0 or duration <= 0.0:
 		return
-	stun_timer_s = maxf(stun_timer_s, duration)
+	stun_timer_s = maxf(stun_timer_s, duration / maxf(cc_tenacity, 0.01))  # ccTenacity shortens CC
 
 
 func is_stunned() -> bool:
