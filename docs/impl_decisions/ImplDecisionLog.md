@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260619-016 — 락온 유도 투사체 + 도달 시 데미지 (피할 수 없는 hit 모델)
+- **결정(사용자: "피할 수 없는 기술(평타 포함)은 발현되면 타겟에 락온·유도되어 날아가고, 도달했을 때 데미지가 발생"):** 타겟-락(회피 불가) 원거리 공격의 VFX/데미지 타이밍을 일치시킴.
+  - **유도(homing):** `_enemy_shot`에 옵션 `target: Node3D` 추가 — 주면 매 프레임 타겟의 **현재 위치**로 lerp(락온 추적), 없으면 고정 `to`로 직진(파티 `sub_lunge` 등 위치형 유지). 움직이는 타겟이 투사체를 시각적으로 "피한 것처럼" 뒤에 떨어지던 문제 해결.
+  - **도달 시 데미지:** 데미지/상태/넉백/카메라쉐이크/히트인디케이터를 **resolve가 아니라 투사체 도달(`SHOT_FLIGHT_S`=0.4s) 시점**에 적용. `_resolve_enemy_attack`→`_deliver_enemy_hit`(VFX 발사 + 도달 타이머)→`_on_shot_arrived`(타겟 생존 시 `_apply_enemy_hit`). 비-투사체(근접 bash·번개)는 즉시(이동 없음).
+  - **대상 vfx(`_PROJECTILE_VFX`):** projectile/shot_venom/shot_slag/shot_hex. 번개(shot_lightning ~0.14s)·strike·shield_bash는 즉시(체감 무이동).
+- **부수 변경:** 스플래시(AB-008)도 락온 대상 → 전조를 지면 마커가 아니라 **시전자 큐**로(IMPL-DEC-013의 splash=지면마커 정정; primary는 락이고 splash는 도달 지점 주변 부수피해). 독 구름(`_poison_puff`)은 타겟에 **부모로 붙여 따라다님**.
+- **인터럽트 경계:** 윈드업 중 stun = 취소(기존), **비행 중**엔 이미 발사돼 락온이므로 취소 안 됨(= "발현되면 락온"). 타겟 사망 시 무피해.
+- **검증:** skill_vfx check·샌드박스·ci_smoke PASS. 체감 F6.
+- **영향:** `scripts/combat/abilities/skill_vfx.gd`(SHOT_FLIGHT_S·_aim_basis·_enemy_shot homing·_poison_puff), `scripts/combat/enemy_ai.gd`(_deliver_enemy_hit·_on_shot_arrived·_PROJECTILE_VFX·splash 전조).
+
 ### IMPL-DEC-20260619-015 — 적 시그니처 발동 모델: every-N-평타 → AB별 개별 cooldown
 - **결정(사용자: "AB를 쓰는거니까 평타 N번마다보다 AB 명시 쿨마다가 맞다 — 전체 EN 적용"):** 시그니처 발동을 평타 카운트(`attack_count % n`)가 아니라 **각 AB의 `cooldown_s`** 로 구동. 스펙 AB 카탈로그가 이미 `cooldown_s`를 정의(every_n은 데모 단축)하므로 **스펙 정합 방향**.
 - **모델:**

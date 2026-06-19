@@ -3,6 +3,9 @@ extends Node
 ## so each cast is readable at a glance. Self-animating, self-freeing (A-tier art TBD).
 
 const GROUND_Y := 0.06
+## Homing projectile flight time. EnemyAI defers the locked hit's damage by this so it lands
+## exactly when the orb reaches the target (not at resolve). _enemy_shot/_poison_puff use it too.
+const SHOT_FLIGHT_S := 0.4
 
 
 # --- public per-skill effects ---
@@ -121,20 +124,23 @@ static func sub_sanctuary(parent: Node3D, pos: Vector3, radius: float) -> void:
 
 # --- enemy ability cues (keyed by ability catalog `vfx`) ---
 
-static func enemy_vfx(key: String, parent: Node3D, from: Vector3, to: Vector3) -> void:
+## `target` is the struck actor NODE (not a frozen point): flying shots HOME to its live position
+## so a target-LOCKED hit lands ON it. Instant cues (lightning/strike/bash) use the resolve point.
+static func enemy_vfx(key: String, parent: Node3D, from: Vector3, target: Node3D) -> void:
 	var y := Vector3(0, 0.8, 0)
+	var to: Vector3 = (target.global_position if is_instance_valid(target) else from)
 	match key:
 		"projectile":  # generic basic pebble — round sphere (the plain look ABs break from)
-			_enemy_shot(parent, from + y, to + y, Color(0.7, 0.85, 0.4), "sphere")
+			_enemy_shot(parent, from + y, to + y, Color(0.7, 0.85, 0.4), "sphere", target)
 		"shot_lightning":  # AB-004 Voltaic — fast jagged bolt (lands on the damage/shake frame)
 			lightning_bolt(parent, from, to, Color(0.55, 0.8, 1.0))
 		"shot_venom":  # AB-010 Venom — toxic-green ELLIPSOID glob + lingering poison puff (DoT)
-			_enemy_shot(parent, from + y, to + y, Color(0.4, 0.95, 0.3), "ellipsoid")
-			_poison_puff(parent, to + Vector3(0, 0.4, 0), Color(0.42, 0.85, 0.22))
+			_enemy_shot(parent, from + y, to + y, Color(0.4, 0.95, 0.3), "ellipsoid", target)
+			_poison_puff(target, Color(0.42, 0.85, 0.22))
 		"shot_hex":  # AB-012 Hex Bolt — purple CONE dart (rune spike pointing forward)
-			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95), "cone")
+			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95), "cone", target)
 		"shot_slag":  # AB-008 Slag Spit — orange CUBE chunk (jagged slag lump)
-			_enemy_shot(parent, from + y, to + y, Color(0.95, 0.6, 0.25), "cube")
+			_enemy_shot(parent, from + y, to + y, Color(0.95, 0.6, 0.25), "cube", target)
 		"strike":  # AB-013 Backstab — crimson directional stab (no big ground ring)
 			_enemy_strike(parent, to + y, to - from, Color(0.92, 0.18, 0.22))
 		"shield_bash":  # AB-002 Shield Bash — blue knockback shockwave
@@ -150,10 +156,12 @@ static func _aim_basis(dir: Vector3) -> Basis:
 	return Basis(x, y, z)
 
 
-## Enemy ranged strike: a glowing projectile that flies, then bursts on impact. `shape` gives each
-## attack a DISTINCT silhouette (not just a recoloured ball): sphere(평타 pebble) / ellipsoid(독
-## glob) / cone(hex 다트) / cube(slag 덩어리). Cone/ellipsoid point along travel.
-static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color, shape: String = "sphere") -> void:
+## Enemy ranged strike: a glowing projectile that HOMES to the target's live position, then bursts
+## on impact. These hits are target-LOCKED (damage already applied at resolve) so the orb must
+## connect — not fall on the spot the target just left (which reads as a dodge). `shape` gives each
+## attack a DISTINCT silhouette (not just a recoloured ball): sphere(평타) / ellipsoid(독 glob) /
+## cone(hex 다트) / cube(slag 덩어리). Cone/ellipsoid re-aim along travel each frame.
+static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color, shape: String = "sphere", target: Node3D = null) -> void:
 	var mi := MeshInstance3D.new()
 	match shape:
 		"ellipsoid":
@@ -179,26 +187,40 @@ static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color
 	var mat := _emat(color)
 	mi.material_override = mat
 	parent.add_child(mi)
-	var dir := to - from
-	dir.y = 0.0
-	if dir.length() < 0.01:
-		dir = Vector3.FORWARD
-	if shape == "ellipsoid" or shape == "cone":
-		mi.global_transform = Transform3D(_aim_basis(dir.normalized()), from)  # long-axis → travel
-	else:
-		mi.global_position = from
-		if shape == "cube":
-			mi.rotation = Vector3(0.6, 0.8, 0.0)  # tilt the chunk so it reads as a jagged lump
+	mi.global_position = from
+	if shape == "cube":
+		mi.rotation = Vector3(0.6, 0.8, 0.0)  # tilt the chunk so it reads as a jagged lump
+	var aim := shape == "ellipsoid" or shape == "cone"
 	var tw := mi.create_tween()
-	tw.tween_property(mi, "global_position", to, 0.55)
-	tw.tween_property(mi, "scale", Vector3(4.5, 4.5, 4.5), 0.35)  # impact pop
-	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.35)
+	# Flight: if a `target` node is given, HOME to its LIVE position (locked hits can't be outrun);
+	# otherwise fly straight to the fixed `to` (positional uses like sub_lunge). At t=1 → on target.
+	tw.tween_method(func(t: float) -> void:
+		var dst := to
+		if is_instance_valid(target):
+			dst = target.global_position + Vector3(0, 0.8, 0)
+		var prev := mi.global_position
+		var pos := from.lerp(dst, t)
+		if aim:
+			var d := pos - prev
+			d.y = 0.0
+			if d.length() > 0.001:
+				mi.global_transform = Transform3D(_aim_basis(d.normalized()), pos)
+			else:
+				mi.global_position = pos
+		else:
+			mi.global_position = pos
+	, 0.0, 1.0, SHOT_FLIGHT_S)
+	tw.tween_property(mi, "scale", Vector3(4.5, 4.5, 4.5), 0.3)  # impact pop on the target
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.3)
 	tw.tween_callback(mi.queue_free)
 
 
-## Lingering poison puff at the impact point — blooms (after `delay`, so it lands when the bolt
-## arrives) then expands + slowly fades, reading as the DoT cloud (distinct from a plain pebble).
-static func _poison_puff(parent: Node3D, pos: Vector3, color: Color, delay: float = 0.5) -> void:
+## Lingering poison puff ON the target — parented to the target so it FOLLOWS it (lands on a
+## moving target, not the spot it left). Blooms after `delay` (timed to the homing bolt's arrival),
+## then expands + slowly fades, reading as the DoT cloud.
+static func _poison_puff(target: Node3D, color: Color, delay: float = SHOT_FLIGHT_S) -> void:
+	if not is_instance_valid(target):
+		return
 	var mi := MeshInstance3D.new()
 	var s := SphereMesh.new()
 	s.radius = 0.5
@@ -207,11 +229,11 @@ static func _poison_puff(parent: Node3D, pos: Vector3, color: Color, delay: floa
 	var mat := _emat(color)
 	mat.albedo_color.a = 0.0
 	mi.material_override = mat
-	parent.add_child(mi)
-	mi.global_position = pos
+	target.add_child(mi)  # follow the target
+	mi.position = Vector3(0, 0.4, 0)
 	mi.scale = Vector3(0.3, 0.3, 0.3)
 	var tw := mi.create_tween()
-	tw.tween_interval(delay)  # wait for the bolt to land
+	tw.tween_interval(delay)  # wait for the homing bolt to land
 	tw.tween_property(mat, "albedo_color:a", 0.55, 0.12)  # bloom in on impact
 	tw.parallel().tween_property(mi, "scale", Vector3(1.7, 1.2, 1.7), 0.55)  # expand cloud
 	tw.tween_property(mat, "albedo_color:a", 0.0, 0.95)  # linger + fade (DoT feel)

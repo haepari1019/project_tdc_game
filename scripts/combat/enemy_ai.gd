@@ -525,12 +525,12 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 		elif k == "enemy_charge":
 			SkillVfx.charge_up(self, enemy.global_position, tele, _telegraph_color(k))  # caster charge
 			enemy.face_toward(target.global_position)  # aim the bolt
-		elif k == "enemy_splash":
-			SkillVfx.telegraph(self, target.global_position, _telegraph_color(k), float(eff.get("splash_radius_m", 1.5)))
 		else:
-			SkillVfx.windup_cue(self, enemy.global_position, tele, _telegraph_color(k))  # caster wind-up
+			# Target-LOCKED casts (incl. splash — the primary is locked, splash is incidental): a
+			# caster wind-up cue. No ground-at-spot marker — the homing orb lands ON the moving target.
+			SkillVfx.windup_cue(self, enemy.global_position, tele, _telegraph_color(k))
 	else:
-		_apply_enemy_hit(enemy, target, eff, chosen)
+		_deliver_enemy_hit(enemy, target, eff, chosen)  # no telegraph → resolve immediately
 
 
 ## Resolve a telegraphed strike at wind-up end. Re-validates target (+ stun dodge).
@@ -559,10 +559,39 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 		d.y = 0.0
 		if d.length() > enemy.attack_range_m + 0.6:
 			return  # dodged the wind-up
-	_apply_enemy_hit(enemy, target, eff, chosen)
+	_deliver_enemy_hit(enemy, target, eff, chosen)
 
 
-## Apply an enemy hit: damage + status/knockback + vfx (shared by instant & wind-up).
+## Flying-orb vfx keys (homing projectiles). These hits are LOCKED (unavoidable) but the orb takes
+## SHOT_FLIGHT_S to reach the target, so the damage is deferred to arrival (not applied at resolve).
+const _PROJECTILE_VFX := ["projectile", "shot_venom", "shot_slag", "shot_hex"]
+
+
+## Deliver a resolved enemy hit. Launches the vfx now; for a homing PROJECTILE the orb locks onto
+## the target and the damage/feedback land when it ARRIVES (SHOT_FLIGHT_S later) — a moving target
+## can't visually outrun a locked hit, and the damage coincides with impact. Instant cues (melee
+## bash / lightning) apply immediately. ref: 사용자 — "락온 유도 + 도달 시 데미지".
+func _deliver_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+	var vfx := String(eff.get("vfx", ""))
+	if vfx != "":
+		SkillVfx.enemy_vfx(vfx, self, enemy.global_position, target)
+	if vfx in _PROJECTILE_VFX:
+		# Homing shot: the hit lands when the orb reaches the target.
+		get_tree().create_timer(SkillVfx.SHOT_FLIGHT_S).timeout.connect(
+			_on_shot_arrived.bind(enemy, target, eff, chosen))
+	else:
+		_apply_enemy_hit(enemy, target, eff, chosen)  # instant (no travel)
+
+
+## Homing projectile reached its target → apply the locked hit (if both still valid + target alive).
+func _on_shot_arrived(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+	if is_instance_valid(enemy) and is_instance_valid(target) and target.is_alive():
+		_apply_enemy_hit(enemy, target, eff, chosen)
+
+
+## Apply an enemy hit: damage + status/knockback + camera/indicator feedback. The VFX is launched
+## separately by _deliver_enemy_hit; for homing projectiles THIS runs on arrival (damage lands when
+## the orb reaches the target), so the feedback (shake/indicator) coincides with the visual impact.
 func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
 	var kind := String(eff.get("kind", "enemy_melee"))
 	var from := enemy.global_position
@@ -614,9 +643,6 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			var kb: float = float(eff.get("knockback_m", 0.0))
 			if kb > 0.0:
 				target.apply_knockback(target.global_position - from, kb)
-	var vfx := String(eff.get("vfx", ""))
-	if vfx != "":
-		SkillVfx.enemy_vfx(vfx, self, from, target.global_position)
 	if String(chosen.get("trigger", "")) == "signature" or kind in ["enemy_stun", "enemy_poison"]:
 		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), target.identity_skill_id])
 	if kind == "enemy_execute":
