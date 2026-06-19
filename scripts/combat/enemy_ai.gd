@@ -490,7 +490,9 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 		enemy.windup_eff = eff
 		enemy.windup_chosen = chosen
 		enemy.windup_target = target
-		SkillVfx.telegraph(self, target.global_position, _telegraph_color(String(eff.get("kind", "enemy_melee"))))
+		# Telegraph AT the target (incoming hit); radius = splash area for AoE, else default.
+		var k := String(eff.get("kind", "enemy_melee"))
+		SkillVfx.telegraph(self, target.global_position, _telegraph_color(k), float(eff.get("splash_radius_m", 1.9)))
 	else:
 		_apply_enemy_hit(enemy, target, eff, chosen)
 
@@ -639,7 +641,8 @@ func _try_cast_signature(enemy: CharacterBody3D) -> bool:
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
 		enemy.windup_target = null
 		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 8.0))
-		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color(kind))
+		# Telegraph the heal AoE at the caster, radius = actual heal radius (was a fixed 1.9 disc).
+		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color(kind), float(eff.get("radius_m", 3.0)))
 		return true
 	return false
 
@@ -654,7 +657,7 @@ func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictiona
 		if is_instance_valid(a) and a.has_method("heal") and a.is_alive() and a.hp < a.max_hp:
 			a.heal(a.max_hp * pct)
 			healed += 1
-	SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_heal"))
+	# (No resolve telegraph — the channel telegraph at cast is the cue; re-drawing = double-cast look.)
 	print("[EN] %s %s heal x%d (r%.1f %d%%)" % [enemy.enemy_id, String(chosen.get("ref", "")), healed, r, int(pct * 100.0)])
 
 

@@ -30,8 +30,8 @@ static func mend_circle(parent: Node3D, pos: Vector3, radius: float) -> void:
 
 
 ## Enemy cast wind-up warning at the target spot (F-021 telegraph).
-static func telegraph(parent: Node3D, pos: Vector3, color: Color) -> void:
-	_ground_pulse(parent, pos, 1.9, color, 0.5)
+static func telegraph(parent: Node3D, pos: Vector3, color: Color, radius: float = 1.9) -> void:
+	_ground_pulse(parent, pos, radius, color, 0.5)
 
 
 ## Forward FAN telegraph (AB-099 전방 부채꼴 결계) — a flat ground sector spanning `deg`° around
@@ -122,10 +122,19 @@ static func sub_sanctuary(parent: Node3D, pos: Vector3, radius: float) -> void:
 # --- enemy ability cues (keyed by ability catalog `vfx`) ---
 
 static func enemy_vfx(key: String, parent: Node3D, from: Vector3, to: Vector3) -> void:
+	var y := Vector3(0, 0.8, 0)
 	match key:
-		"projectile":
-			_enemy_shot(parent, from + Vector3(0, 0.8, 0), to + Vector3(0, 0.8, 0), Color(1.0, 0.45, 0.12))
-		"shield_bash":
+		"projectile":  # generic (poison/pebble) — warm
+			_enemy_shot(parent, from + y, to + y, Color(0.7, 0.85, 0.4))
+		"shot_lightning":  # AB-004 Voltaic — electric blue
+			_enemy_shot(parent, from + y, to + y, Color(0.45, 0.7, 1.0))
+		"shot_hex":  # AB-012 Hex Bolt — purple rune
+			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95))
+		"shot_slag":  # AB-008 Slag Spit — slag orange
+			_enemy_shot(parent, from + y, to + y, Color(0.95, 0.6, 0.25))
+		"strike":  # AB-013 Backstab — crimson directional stab (no big ground ring)
+			_enemy_strike(parent, to + y, to - from, Color(0.92, 0.18, 0.22))
+		"shield_bash":  # AB-002 Shield Bash — blue knockback shockwave
 			_knockback_blast(parent, to, to - from, Color(0.40, 0.62, 1.0))
 
 
@@ -145,6 +154,16 @@ static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color
 	tw.tween_property(mi, "scale", Vector3(4.5, 4.5, 4.5), 0.35)  # impact pop
 	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.35)
 	tw.tween_callback(mi.queue_free)
+
+
+## Directional stab (flank backstab) — a short narrow wedge in the strike direction + a tight
+## impact burst at the target. No big ground ring (that's the shield-bash shockwave).
+static func _enemy_strike(parent: Node3D, pos: Vector3, dir: Vector3, color: Color) -> void:
+	var d := dir
+	d.y = 0.0
+	if d.length() > 0.01:
+		_cone(parent, pos, d.normalized(), 1.8, deg_to_rad(18.0), Color(color.r, color.g, color.b, 0.6))
+	_burst_glow(parent, pos, 0.8, color)
 
 
 ## Knockback shockwave: blue ground ring + directional push wedge + impact glow.

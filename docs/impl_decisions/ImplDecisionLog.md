@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260619-011 — S2c 적 스킬 VFX 정합 (원소색·찌르기·힐 이중/반경)
+- **결정(샌드박스 발견 — "vfx 전반 불일치"):** S2c 시그니처들의 히트/텔레그래프 VFX가 원소·형태와 안 맞던 것 정리.
+  - **발사체 색 하드코딩(주황) → 원소별**: `enemy_vfx`가 `projectile`/`shield_bash` 2키뿐 + `_enemy_shot` 색 고정(주황)이라 AB-004(전기)·AB-012(헥스)가 주황으로 발사됨. **키 추가**: `shot_lightning`(파랑)·`shot_hex`(보라)·`shot_slag`(주황)·`strike`(크림슨). abilities.json vfx 재지정(AB-004→shot_lightning·AB-008→shot_slag·AB-012→shot_hex·AB-013→strike).
+  - **AB-013 Backstab `shield_bash`(파란 넉백 링) → `strike`**(`_enemy_strike` 신설 — 방향 쐐기 + 타이트 임팩트, 큰 지면 링 없음). 찌르기 느낌. shield_bash(넉백 충격파)는 AB-002 전용 유지.
+  - **AB-098 Heal 이중 텔레그래프 제거**(cast+resolve→cast만; provoke와 동일 패턴) + **텔레그래프 반경 = 실제 반경**(`telegraph`에 radius 인자; heal 1.9→3.0, splash→splash_radius 1.5).
+- **검증:** ci_smoke PASS. 시각 확인 F6/샌드박스.
+- **영향:** `scripts/combat/abilities/skill_vfx.gd`, `data/slice01/abilities.json`, `scripts/combat/enemy_ai.gd`.
+
 ### IMPL-DEC-20260619-010 — AB-099 Provoke 버그 3종 수정 (샌드박스 검증발)
 - **결정(샌드박스에서 사용자 발견):** EN-001 도발이 ① 자기중심 원형으로 보이고 ② 파티가 전방 fan에 없는데도 시전 ③ 두 번 쓰는 듯 보임 — 셋 다 수정.
   - **① 원형 VFX → 부채꼴:** 기존 `SkillVfx.telegraph`(반경 1.9m 원형 디스크, 자기중심) → **`SkillVfx.fan_telegraph`**(전방 `deg`°/`radius` 평면 sector 메시) 신설. 방향성이 보임.
