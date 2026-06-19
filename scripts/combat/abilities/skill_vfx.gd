@@ -124,34 +124,71 @@ static func sub_sanctuary(parent: Node3D, pos: Vector3, radius: float) -> void:
 static func enemy_vfx(key: String, parent: Node3D, from: Vector3, to: Vector3) -> void:
 	var y := Vector3(0, 0.8, 0)
 	match key:
-		"projectile":  # generic (poison/pebble) — warm
-			_enemy_shot(parent, from + y, to + y, Color(0.7, 0.85, 0.4))
+		"projectile":  # generic basic pebble — round sphere (the plain look ABs break from)
+			_enemy_shot(parent, from + y, to + y, Color(0.7, 0.85, 0.4), "sphere")
 		"shot_lightning":  # AB-004 Voltaic — fast jagged bolt (lands on the damage/shake frame)
 			lightning_bolt(parent, from, to, Color(0.55, 0.8, 1.0))
-		"shot_venom":  # AB-010 Venom — toxic-green bolt + lingering poison puff (conveys the DoT)
-			_enemy_shot(parent, from + y, to + y, Color(0.4, 0.95, 0.3))
+		"shot_venom":  # AB-010 Venom — toxic-green ELLIPSOID glob + lingering poison puff (DoT)
+			_enemy_shot(parent, from + y, to + y, Color(0.4, 0.95, 0.3), "ellipsoid")
 			_poison_puff(parent, to + Vector3(0, 0.4, 0), Color(0.42, 0.85, 0.22))
-		"shot_hex":  # AB-012 Hex Bolt — purple rune
-			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95))
-		"shot_slag":  # AB-008 Slag Spit — slag orange
-			_enemy_shot(parent, from + y, to + y, Color(0.95, 0.6, 0.25))
+		"shot_hex":  # AB-012 Hex Bolt — purple CONE dart (rune spike pointing forward)
+			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95), "cone")
+		"shot_slag":  # AB-008 Slag Spit — orange CUBE chunk (jagged slag lump)
+			_enemy_shot(parent, from + y, to + y, Color(0.95, 0.6, 0.25), "cube")
 		"strike":  # AB-013 Backstab — crimson directional stab (no big ground ring)
 			_enemy_strike(parent, to + y, to - from, Color(0.92, 0.18, 0.22))
 		"shield_bash":  # AB-002 Shield Bash — blue knockback shockwave
 			_knockback_blast(parent, to, to - from, Color(0.40, 0.62, 1.0))
 
 
-## Enemy ranged strike: big glowing projectile that flies, then bursts on impact.
-static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color) -> void:
+## Orthonormal basis with local +Y aligned to `dir` (used to point cone tips / ellipsoid long-axes
+## along the travel direction). `dir` is assumed non-vertical (callers flatten the Y component).
+static func _aim_basis(dir: Vector3) -> Basis:
+	var y := dir.normalized()
+	var x := Vector3.UP.cross(y).normalized()
+	var z := x.cross(y).normalized()
+	return Basis(x, y, z)
+
+
+## Enemy ranged strike: a glowing projectile that flies, then bursts on impact. `shape` gives each
+## attack a DISTINCT silhouette (not just a recoloured ball): sphere(평타 pebble) / ellipsoid(독
+## glob) / cone(hex 다트) / cube(slag 덩어리). Cone/ellipsoid point along travel.
+static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color, shape: String = "sphere") -> void:
 	var mi := MeshInstance3D.new()
-	var s := SphereMesh.new()
-	s.radius = 0.3
-	s.height = 0.6
-	mi.mesh = s
+	match shape:
+		"ellipsoid":
+			var e := SphereMesh.new()
+			e.radius = 0.24
+			e.height = 1.25
+			mi.mesh = e
+		"cone":
+			var c := CylinderMesh.new()
+			c.top_radius = 0.0
+			c.bottom_radius = 0.34
+			c.height = 1.1
+			mi.mesh = c
+		"cube":
+			var b := BoxMesh.new()
+			b.size = Vector3(0.52, 0.52, 0.52)
+			mi.mesh = b
+		_:
+			var s := SphereMesh.new()
+			s.radius = 0.3
+			s.height = 0.6
+			mi.mesh = s
 	var mat := _emat(color)
 	mi.material_override = mat
 	parent.add_child(mi)
-	mi.global_position = from
+	var dir := to - from
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		dir = Vector3.FORWARD
+	if shape == "ellipsoid" or shape == "cone":
+		mi.global_transform = Transform3D(_aim_basis(dir.normalized()), from)  # long-axis → travel
+	else:
+		mi.global_position = from
+		if shape == "cube":
+			mi.rotation = Vector3(0.6, 0.8, 0.0)  # tilt the chunk so it reads as a jagged lump
 	var tw := mi.create_tween()
 	tw.tween_property(mi, "global_position", to, 0.55)
 	tw.tween_property(mi, "scale", Vector3(4.5, 4.5, 4.5), 0.35)  # impact pop
