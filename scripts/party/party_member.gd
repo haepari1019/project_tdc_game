@@ -208,6 +208,51 @@ func equip_skillbook_by_id(slot_index: int, base_ability_id: String) -> void:
 	})
 
 
+## DEBUG (combat sandbox): full reset to re-run an experiment — alive, full HP, all statuses +
+## cooldowns cleared, sub charges refilled, downed members revived.
+func debug_reset() -> void:
+	_alive = true
+	if not is_in_group("party_member"):
+		add_to_group("party_member")
+	hp = max_hp
+	shield = 0.0
+	shield_timer_s = 0.0
+	stun_timer_s = 0.0
+	poison_timer_s = 0.0
+	poison_dps = 0.0
+	_poison_accum = 0.0
+	_slow_timer = 0.0
+	_slow_factor = 1.0
+	provoked_timer_s = 0.0
+	provoke_source = null
+	identity_cooldown_s = 0.0
+	sub_cooldown_s = 0.0
+	attack_cooldown_s = 0.0
+	for s in skillbook_slots:
+		if s != null:
+			s.charges = int(s.charges_max)
+			s.cooldown_s = 0.0
+	if _body_material:
+		_body_material.albedo_color = _base_color
+	if _hp_bar:
+		_hp_bar.set_ratio(1.0)
+		_hp_bar.set_shield_ratio(0.0)
+	_update_status_orb()
+	_apply_controlled_visual(_controlled)
+
+
+## DEBUG (combat sandbox): re-point the Identity skill to another identity's ability WITHOUT
+## changing class/stats/gear, so formation/slots stay stable — ability-behavior testing only.
+func debug_set_identity(identity_skill_id_new: String) -> void:
+	var row: Dictionary = Slice01Data.get_identity_row(identity_skill_id_new)
+	if row.is_empty():
+		return
+	identity_skill_id = identity_skill_id_new
+	ability_id = String(row.get("ability_id", ""))
+	identity_params = Slice01Data.get_ability(ability_id)
+	identity_cooldown_s = 0.0
+
+
 func set_controlled(active: bool) -> void:
 	if _controlled == active:
 		return

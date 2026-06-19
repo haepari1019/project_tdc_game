@@ -60,6 +60,8 @@ var _count_spin: SpinBox
 var _engaged_chk: CheckBox
 var _status: Label
 var _info_label: RichTextLabel
+var _identity_dd: OptionButton
+var _sub_dd: Array = []   # [OptionButton ×3] — Q/E/R sub loadout for the controlled member
 var _cam_dragging := false
 
 
@@ -228,12 +230,43 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	clear_btn.pressed.connect(_on_clear)
 	box.add_child(clear_btn)
 
+	var reset_btn := Button.new()
+	reset_btn.text = "Reset party (HP/status/CD)"
+	reset_btn.pressed.connect(_on_reset_party)
+	box.add_child(reset_btn)
+
+	# --- Loadout (controlled member) — swap Identity skill + Q/E/R subs for ability testing.
+	# Data-driven: auto-fills from identities.json / skillbooks.json (future ABs appear here).
+	box.add_child(_section("LOADOUT (controlled — 1-4)"))
+	_identity_dd = OptionButton.new()
+	_identity_dd.custom_minimum_size = Vector2(240, 0)
+	for row in Slice01Data.get_identity_rows():
+		_identity_dd.add_item("ID: %s (%s)" % [row.get("identity_skill_id", "?"), row.get("ability_id", "?")])
+		_identity_dd.set_item_metadata(_identity_dd.item_count - 1, String(row.get("identity_skill_id", "")))
+	_identity_dd.item_selected.connect(_on_identity_changed)
+	box.add_child(_identity_dd)
+	for slot in 3:
+		var dd := OptionButton.new()
+		dd.custom_minimum_size = Vector2(240, 0)
+		dd.add_item("%s: (none)" % ["Q", "E", "R"][slot])
+		dd.set_item_metadata(0, "")
+		for row in Slice01Data.get_skillbook_rows():
+			dd.add_item("%s: %s (%s)" % [["Q", "E", "R"][slot], row.get("display_name", "?"), row.get("base_ability_id", "?")])
+			dd.set_item_metadata(dd.item_count - 1, String(row.get("base_ability_id", "")))
+		dd.item_selected.connect(_on_sub_changed.bind(slot))
+		box.add_child(dd)
+		_sub_dd.append(dd)
+
 	var hint := Label.new()
 	hint.text = "1-4 swap · WASD · Q/E/R sub · wheel zoom · RMB-drag orbit · [ ] pitch"
 	hint.add_theme_font_size_override("font_size", 11)
 	box.add_child(hint)
 	_status = Label.new()
 	box.add_child(_status)
+
+	# Loadout dropdowns track the controlled member (swap 1-4 → reflect that member's loadout).
+	_party.controlled_changed.connect(func(_m: Node) -> void: _refresh_loadout_ui())
+	_refresh_loadout_ui()
 
 
 ## Top-RIGHT info panel — selected single unit's behavior + 검증 체크리스트 (or ENC composition).
@@ -286,6 +319,56 @@ func _on_spawn_unit() -> void:
 func _on_clear() -> void:
 	_combat.debug_spawn_only("", "SANDBOX")
 	_status.text = "cleared"
+
+
+func _on_reset_party() -> void:
+	for m in _party.get_members():
+		if m.has_method("debug_reset"):
+			m.debug_reset()
+	_refresh_loadout_ui()
+	_status.text = "party reset — full HP, status/CD cleared"
+
+
+func _on_identity_changed(index: int) -> void:
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if ctrl == null or not ctrl.has_method("debug_set_identity"):
+		return
+	var iid := String(_identity_dd.get_item_metadata(index))
+	ctrl.debug_set_identity(iid)
+	_status.text = "%s identity → %s" % [ctrl.get("class_id"), iid]
+
+
+func _on_sub_changed(index: int, slot: int) -> void:
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if ctrl == null:
+		return
+	var aid := String(_sub_dd[slot].get_item_metadata(index))
+	if aid == "":
+		ctrl.set_skillbook(slot, null)
+	else:
+		ctrl.equip_skillbook_by_id(slot, aid)
+	_status.text = "%s slot %s → %s" % [ctrl.get("class_id"), ["Q", "E", "R"][slot], aid if aid != "" else "(none)"]
+
+
+## Reflect the CONTROLLED member's current identity + Q/E/R subs in the loadout dropdowns
+## (so swapping 1-4 shows that member's loadout). Selection-only — does not re-apply.
+func _refresh_loadout_ui() -> void:
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if ctrl == null or _identity_dd == null:
+		return
+	var cur_id := String(ctrl.get("identity_skill_id"))
+	for i in _identity_dd.item_count:
+		if String(_identity_dd.get_item_metadata(i)) == cur_id:
+			_identity_dd.select(i)
+			break
+	for slot in 3:
+		var inst = ctrl.get_skillbook(slot)
+		var cur_sub := String(inst.get("base_ability_id", "")) if inst != null else ""
+		var dd: OptionButton = _sub_dd[slot]
+		for i in dd.item_count:
+			if String(dd.get_item_metadata(i)) == cur_sub:
+				dd.select(i)
+				break
 
 
 func _selected_unit_id() -> String:
