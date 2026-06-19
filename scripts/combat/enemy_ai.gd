@@ -335,7 +335,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 ## profile falls back to a cautious advance toward the last-seen spot so it can re-acquire.
 func _engage_move(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool, delta: float) -> Vector3:
 	# Channeled cast (EN-AI-000 §2): hold position for the wind-up — EN-007 hex 이동금지,
-	# EN-002 charge 제자리, EN-014 pulse 제자리. Non-channel telegraphs (AB-010/011) still move.
+	# EN-002 charge 제자리, EN-014 pulse 제자리, EN-006 stun(AB-011) 제자리. Non-channel (AB-010) still moves.
 	if enemy.winding and bool(enemy.windup_eff.get("channel", false)):
 		return Vector3.ZERO
 	var spd: float = enemy.current_move_speed()
@@ -554,11 +554,8 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 	if String(eff.get("kind", "")) == "enemy_dash":
 		_begin_dash(enemy, eff, chosen, target)  # telegraph done → start the lunge (hit on arrival)
 		return
-	if String(eff.get("kind", "")) == "enemy_stun":
-		var d := target.global_position - enemy.global_position
-		d.y = 0.0
-		if d.length() > enemy.attack_range_m + 0.6:
-			return  # dodged the wind-up
+	# AB-011 stun is a combo OPENER (spec) + channel: it LANDS once the channel completes (locked).
+	# Counterplay is INTERRUPT (stun EN-006 mid-channel) or break LOS — not stepping out of range.
 	_deliver_enemy_hit(enemy, target, eff, chosen)
 
 

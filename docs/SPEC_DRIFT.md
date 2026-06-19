@@ -376,3 +376,8 @@
 - **현실(2026-06-19, 사용자 지시):** EN-004(PT-004 zone)는 자리를 고수하므로 **보상**으로 사거리·데미지 상향. `enemies.json` EN-004 `attack_range_m` 5.0→**9.0**, `enemy_basics.json rom_elite_slag_toss` `damage_mult` 0.35→**0.55**·`range_band` Mid→Long.
 - **분류\전파:** **tuning(로깅만, 전파금지).** spec `F-025 §11` design-example 수치 조정. PT-004 `zone_radius_m` 8.0 유지 → 9m 사거리로 존 가장자리까지 타격, 존(8m) 내에서만 추격. 밸런스 PH.
 - **잔여:** zone 고수 vs 보상 밸런스 F6 체감. range_band Long은 서술 메타(기계적으론 unit attack_range_m 9가 게이트).
+
+### DRIFT-050 — AB-011 Toll Stun = channel + 락온 (OPENER 신뢰성) 🔶 impl
+- **현실(2026-06-19, 사용자: "EN-006 AB-011 스턴이 제대로 작동 안 함"):** 비-channel이라 0.5s 윈드업 중 EN-006/타겟 이동으로 사거리(+0.6) 밖이 되면 resolve에서 self-dodge → OPENER 스턴이 거의 안 들어감. `abilities.json` AB-011 `channel:true` 추가(윈드업 중 제자리·인터럽트 가능), `_resolve_enemy_attack`의 enemy_stun 거리-dodge 블록 제거 → LOS만 유지되면 락온 적중.
+- **분류\전파:** **impl(스펙 OPENER 의도 충족) + tuning.** spec `AB-011 BellRing`: `comboRole: OPENER`(층 A, 적중 전제)·telegraph 0.5·"근접 진입 시 우선". channel-freeze·거리-dodge 제거는 게임 인코딩으로 OPENER가 실제로 들어가게 함. 카운터플레이 = **인터럽트(채널 중 stun)** 또는 LOS 차단(spec 정밀 interrupt = AB-030). 스펙 명시 channel 아님 → 게임측 §2 채널 모델로 인코딩(로깅).
+- **잔여:** 스턴 적중률·인터럽트 체감 F6. 무빙 회피 불가가 과한지 밸런스 관찰.
