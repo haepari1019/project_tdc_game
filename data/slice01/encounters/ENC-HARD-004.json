@@ -1,0 +1,13 @@
+{
+  "encounter_id": "ENC-HARD-004",
+  "difficulty_profile": "Hard",
+  "risk_pattern_ref": "RP-04",
+  "group_size": 5,
+  "_note": "Execution Mark (ENC-000 RP-04). Elite1(EN-001 앵커·표식 대신받기) + Specialist1(EN-007 hex 표식 AB-012) + Fodder3(FrontRush×2, SlowBulk×1). EN-005/011 미포함(원거리 poke 이중 방지). EN-007 zone/원소(AB-036/040/041/043)는 F-027/P2-S3 — 현재 hex만. en001_mockery optional/off(스펙) vs 유닛 상시(경미 드리프트).",
+  "units": [
+    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-007", "count": 1, "slot": "specialist" },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
+    { "enemy_id": "EN-012", "count": 1, "slot": "fodder" }
+  ]
+}

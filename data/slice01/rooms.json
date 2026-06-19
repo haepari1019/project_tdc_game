@@ -52,7 +52,7 @@
     {
       "room_ref": "RM-ADV-03",
       "world_layer": "Upper",
-      "connects": ["RM-ENTRY-01"],
+      "connects": ["RM-ENTRY-01", "RM-ADV-06"],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-03"
     },
@@ -91,6 +91,27 @@
       "connects": ["RM-MID-01"],
       "lighting_profile": "dim",
       "pool_slot": "P-DEEP-01"
+    },
+    {
+      "room_ref": "RM-ADV-06",
+      "world_layer": "Upper",
+      "connects": ["RM-ADV-03", "RM-ADV-07"],
+      "lighting_profile": "standard",
+      "pool_slot": "P-ADV-06"
+    },
+    {
+      "room_ref": "RM-ADV-07",
+      "world_layer": "Upper",
+      "connects": ["RM-ADV-06", "RM-ADV-08"],
+      "lighting_profile": "standard",
+      "pool_slot": "P-ADV-07"
+    },
+    {
+      "room_ref": "RM-ADV-08",
+      "world_layer": "Upper",
+      "connects": ["RM-ADV-07"],
+      "lighting_profile": "standard",
+      "pool_slot": "P-ADV-08"
     }
   ]
 }

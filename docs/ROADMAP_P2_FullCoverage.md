@@ -12,7 +12,7 @@
 | **적 전투행동 (EN-001~014)** | ✅ 완료 | 기본타 rom_* 12/12 · 포지셔닝 7프로필 · 마퀴 시그니처 · Provoked · 채널 interrupt |
 | **AB-### (전체)** | **15/84** | 적 kit 10/13(비-zone) · 적 zone 0/7 · 파티 풀 5/64 |
 | **PT-### (적 패턴)** | ✅ 14/14 | 갭 없음 (PT-010/011/020~022는 플레이어/미사용) |
-| **ENC-### (인카운터)** | **12/24** | NORM 2/3 · HARD 7/12 · MID/DEEP/BOSS 1/1(BOSS 스텁) · PAT 0/3 · AMB 0/2 · 3RD 0/1 |
+| **ENC-### (인카운터)** | **15/24** | NORM 2/3 · HARD 10/12(HARD-002/003/004 추가; 007=Extreme deferred·005=phase 잔여) · MID/DEEP/BOSS 1/1(BOSS 스텁) · PAT 0/3 · AMB 0/2 · 3RD 0/1 |
 | **ZONE/반응 (F-021/F-027)** | RX 1/~19 | RX-OIL-FIRE만 (Smoke 드리프트) · zone 1/9 · element status 0 |
 | **Hub (F-029)** | 배치화면만 | 8시설·퀘스트/haul 게이트·vault·UI-029 미구현 |
 | **3세력 (F-028)** | 0 | event 시스템 의존 |

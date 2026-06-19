@@ -348,3 +348,9 @@
 - **분류/전파:** **impl(스펙 전제) + tuning.** §2 interrupt 정책·"쿨 전액 소모"는 spec `EN-AI-000` §2 그대로. 적 stun primitive·"모든 winding/dashing 취소"·Toll Stun=실제 stun은 게임 인코딩(스펙이 stun 효과를 전제하나 적 stun 데이터모델은 게임 측).
 - **미구현(정직):** AB-004 "쿨 50% 환급"(every_n 구현이라 쿨 자체 없음 → N/A)·적 stun 시각 피드백(freeze만, VFX 무)·dormant 중 stun 미틱(교전 전까지, 희소).
 - **잔여:** 적 stun VFX(피격 readability)는 폴리시 후보. **채널-끊기 체감 F5 잔여**.
+
+### DRIFT-045 — P2-S2-fin 조합 ENC 맵확장 + EN-001 mockery per-ENC 토글 미모델 🔸 IMPLEMENTED
+- **구현(2026-06-19, IMPL-DEC-20260619-005):** HARD-002/003/004 + Upper 룸 3개(RM-ADV-06/07/08, ADV-03 남쪽 선형 체인). navmesh 244→274.
+- **분류/전파:** **impl(스펙 구조 구현) + scope.** ENC 조합·RP는 spec `ENC-HARD-00X` 그대로. 룸 좌표/체인 배치는 데모 placeholder 기하(LDG-SPAWN-DEMO 확장 허용, FullSpecCoverage §4). 전파 불필요.
+- **드리프트(경미, rule):** **EN-001 AB-099 Mockery가 유닛 상시 시그니처** — 스펙은 `en001_mockery`를 **per-ENC 토글**(HARD-004/002 default off·HARD-006/009 on, ENC-HARD-### §Template). 게임은 encounter-level ability 게이팅 미모델 → EN-001이 들어간 모든 ENC에서 Mockery 상시. 정식화 시 ① ENC JSON에 `ability_overrides`/`en001_mockery` 필드 + 적 시그니처 조건부 게이트, 또는 ② 스펙이 상시로 단순화. **전파 보류**(per-ENC ability override 시스템 = 후속 결정).
+- **스코프:** ENC-HARD-007(Extreme)·HARD-005(phase 증원)·NORM-003(assassin)은 본 증분 제외(각각 deferred/A2/A2). **교전 체감 F5 잔여**.

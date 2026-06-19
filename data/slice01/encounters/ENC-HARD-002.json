@@ -1,0 +1,14 @@
+{
+  "encounter_id": "ENC-HARD-002",
+  "difficulty_profile": "Hard",
+  "risk_pattern_ref": "RP-03",
+  "group_size": 6,
+  "_note": "Bait Frontline + Flank (ENC-000 RP-03). Elite1(EN-001 미끼) + Specialist1(EN-008 flank) + Fodder4(variant 3종: FrontRush×2/BackPester/SlowBulk). EN-003+EN-008 금지 준수(EN-013 미포함). EN-001 AB-099 Mockery는 유닛 상시 시그니처 — 스펙 per-ENC en001_mockery 토글 미모델(경미 드리프트).",
+  "units": [
+    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-008", "count": 1, "slot": "specialist" },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
+    { "enemy_id": "EN-011", "count": 1, "slot": "fodder" },
+    { "enemy_id": "EN-012", "count": 1, "slot": "fodder" }
+  ]
+}

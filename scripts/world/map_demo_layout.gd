@@ -83,6 +83,27 @@ const ROOM_SPECS: Dictionary = {
 		"profile": "dim",
 		"label": "Deep — Gatefolk Corridor",
 	},
+	# --- P2-S2-fin: Upper Hard-branch chain (south off RM-ADV-03) for HARD-002/003/004.
+	# Linear south chain — each shares its north edge with the prior room (navmesh connected),
+	# all x∈[-13.5,13.5], descending z; zero overlap with existing rooms. Critical path unchanged.
+	"RM-ADV-06": {
+		"center": Vector3(0, 0, -45),
+		"size": Vector3(27, 0, 22.5),
+		"profile": "standard",
+		"label": "South Crypt",
+	},
+	"RM-ADV-07": {
+		"center": Vector3(0, 0, -67.5),
+		"size": Vector3(27, 0, 22.5),
+		"profile": "standard",
+		"label": "South Ossuary",
+	},
+	"RM-ADV-08": {
+		"center": Vector3(0, 0, -90),
+		"size": Vector3(27, 0, 22.5),
+		"profile": "standard",
+		"label": "South Catacomb",
+	},
 }
 
 ## Connections: rooms share wall edges — only arch openings needed, no corridors.
@@ -100,6 +121,10 @@ const CONNECTIONS: Array = [
 	["RM-ADV-02", "RM-MID-01", 8.0],
 	["RM-MID-01", "RM-DEEP-01", 8.0],
 	["RM-MID-01", "RM-BOSS-01", 8.0],
+	# P2-S2-fin: Upper Hard-branch chain (south off ADV-03).
+	["RM-ADV-03", "RM-ADV-06", 8.0],
+	["RM-ADV-06", "RM-ADV-07", 8.0],
+	["RM-ADV-07", "RM-ADV-08", 8.0],
 ]
 
 const PROFILE_COLORS: Dictionary = {

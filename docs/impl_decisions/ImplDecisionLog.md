@@ -6,6 +6,17 @@
 
 ---
 
+### IMPL-DEC-20260619-005 — P2-S2-fin A1: 조합 Hard ENC (HARD-002/003/004) + Upper 맵 확장
+- **결정(사용자 "조합 ENC 먼저, 맵확장 포함"):** Full Coverage 잔여 ENC 중 **고정 조합 Hard 3종**을 구현 enemy kit로 채움. reachability가 데모맵 Upper Hard 풀 만석에 묶여 있어(P-ADV-01~05·EXT-ROUTE 6개 full) **Upper 룸 3개 확장** 동반.
+  - **ENC JSON 3종**(기존 schema): HARD-002(RP-03 미끼+flank: EN-001·008·010×2·011·012)·HARD-003(RP-09 split: EN-003·006·010×2·012)·HARD-004(RP-04 mark: EN-001·007·010×2·012). 전부 구현 enemy(EN-001/003/006/007/008/010/011/012) — kit 완비(EN-007 zone은 F-027 잔여, hex만).
+  - **맵 확장**(`map_demo_layout` ROOM_SPECS+CONNECTIONS): RM-ADV-06/07/08 — RM-ADV-03 남쪽 **선형 체인**(center z −45/−67.5/−90, all x∈[-13.5,13.5], 각자 직전 룸과 north/south 에지 공유 → navmesh 연결, 겹침 0). 임계경로(ENTRY→ADV-01→OBJ→ROUTE→EXT) 불변. 신규 풀 P-ADV-06/07/08.
+  - **배선**: `rooms.json`(+3룸·ADV-03 connects)·`spawn_table`(+3 Hard·Upper·Advance 행)·`id_registry`(encounter_ids/room_refs/pool_slots +3씩).
+- **스코프 결정:** **ENC-HARD-007 = Extreme 프로필 → deferred**(ENC Extreme=Expansion, FullSpecCoverage §7; 난이도 셀렉터 Normal/Hard만). 4종이 아니라 3종.
+- **검증:** AABB 겹침 0·인접 3쌍 OK(Python) · `ci_smoke.sh` PASS · navmesh **244→274 폴리**(연결 bake) · **Hard 헤드리스(manifest 임시 Hard): HARD-002@ADV-06·003@ADV-07·004@ADV-08 prespawn 확인, 11분대, 무오류**(manifest·project.godot 복구). 실제 교전 F5 잔여.
+- **드리프트:** EN-001 AB-099 Mockery = 유닛 상시 시그니처 vs 스펙 per-ENC `en001_mockery` 토글(HARD-004/002 off·006/009 on) → DRIFT-045(경미, per-ENC ability 게이팅 미모델).
+- **잔여 → A2~A4:** HARD-005 phase 증원·HARD-010 flank 수정·Assassin transform(NORM-003/HARD-011)·Boss phase(BOSS-001). PAT/AMB=placement 레인.
+- **영향:** `data/slice01/{encounters/ENC-HARD-002/003/004(신)·id_registry·rooms·spawn_table}`, `scripts/world/map_demo_layout.gd`.
+
 ### IMPL-DEC-20260619-004 — P2-S2c(4): 채널 interrupt + 적 stun primitive (EN-AI-000 §2)
 - **결정(사용자 "interrupt-on-channel 마무리"):** S2c-1~3 전반에 누적됐던 §2 갭 종결 — 적 채널/캐스트를 **stun으로 끊으면 시전 실패 + 쿨 소모**. 선행 조건이던 **적 stun primitive 자체가 없어서**(적은 slow만 가능, Toll Stun이 `apply_slow(0.05)` 프록시였음) 같이 신설.
   - **적 stun(`enemy_unit`)**: `stun_timer_s`·`apply_stun`·`is_stunned`·`tick_stun`(party_member API 대칭). HP 0 no-op.
