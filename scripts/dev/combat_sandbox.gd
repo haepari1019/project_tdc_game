@@ -18,13 +18,46 @@ const SANDBOX_SUBS := {
 	"Healer": ["AB-010", "AB-002", ""],   # Venom, Shield Bash
 }
 
+# Per-engage-profile one-line behavior summary (shown in the info panel; matches _engage_move).
+const ENGAGE_DESC := {
+	"advance": "근접까지 직진 추격 후 평타 (전선)",
+	"standoff": "사거리서 hold·평타 — 적이 붙어도 도망 안 감",
+	"kite": "적이 4m 안에 들면 후퇴(leash 클램프) — 거리 유지하며 사격",
+	"zone": "스폰 앵커 zone 내에서만 교전 · 타겟이 zone 밖이면 앵커 복귀",
+	"orbit": "정면 아닌 측면 arc로 접근 (플랭크)",
+	"probe": "평타 후 짧게 백스텝 (맞고 빠지기)",
+	"surround": "타겟 둘레 링으로 포위 (여러 마리일 때)",
+}
+
+# Per-enemy 검증 체크리스트 (info 패널 우상단). 거동(engage)·기본타·시그니처는 라이브 데이터에서
+# 읽고, 아래는 "이걸 눈으로 확인" 가이드.
+const UNIT_VERIFY := {
+	"EN-001": "• 전선 hold\n• 평타 3회마다 AB-002 방패치기(넉백)\n• 전방 4m 파티 있으면 AB-099 도발(조작 멤버 이동·Q/E/R 잠김 + 강제 평타 + 스왑 탈출)\n• 도발 채널을 Toll Stun으로 끊으면 취소",
+	"EN-002": "• 사거리서 hold·안 도망(standoff)\n• 평타 4회마다 AB-004 1.0s 충전 → 2x 한 방 + Shock 둔화\n• BOSS-001로 띄우면 50%HP에서 충전 빨라짐 + 스턴 저항",
+	"EN-003": "• 측면 arc로 접근(orbit)\n• 갭 생기면 AB-006 크라우치 → 직선 돌진(갭클로즈, 데미지 X)",
+	"EN-004": "• zone 고수, 타겟이 멀어지면 앵커 복귀(추격 X)\n• 평타 3회마다 AB-008 착탄 splash(주변 파티원도 피해)\n• 원소 장판(AB-009 등)은 F-027 미구현",
+	"EN-005": "• 적 4m 진입 시 후퇴(kite)\n• 평타 2회마다 AB-010 독(둔화 아님, 도트)",
+	"EN-006": "• 때리고 짧게 빠짐(probe)\n• 평타 2회마다 AB-011 스턴",
+	"EN-007": "• 사거리 hold(standoff)\n• 평타 3회마다 AB-012 hex 둔화(보라 룬탄)\n• 원소 zone(AB-036/040/041/043)은 F-027 미구현",
+	"EN-008": "• 측면 접근(orbit)\n• 갭 생기면 AB-013 백스탭 돌진(1.5x + 넉백)",
+	"EN-009": "• 링 포위(surround) — count 여러 개로 띄워야 의미\n• rom_swarm_nip 평타만",
+	"EN-010": "• 직진 추격(advance)\n• rom_fodder_melee_tap 평타",
+	"EN-011": "• 사거리서 조약돌·안 도망(standoff)\n• AssassinTransform 태그는 ENC 전용 — 단일 스폰엔 없음(NORM-003/HARD-011 ENC로 확인)",
+	"EN-012": "• 느린 직진(advance)\n• HP 높은 탱키 fodder",
+	"EN-013": "• 빠른 추격(advance +10%) — 다른 advance(EN-010/012)보다 눈에 띄게 빠른지",
+	"EN-014": "• 적 4m 진입 시 후퇴(kite)\n• 아군 <90% HP면 AB-098 녹색 힐펄스(쿨 8s)\n• 힐 채널을 Toll Stun으로 끊기",
+}
+
 var _map: Node3D
 var _party: Node3D
 var _combat: Node3D
 var _camera: Node3D
 var _enc_dropdown: OptionButton
+var _unit_dropdown: OptionButton
+var _count_spin: SpinBox
 var _engaged_chk: CheckBox
 var _status: Label
+var _info_label: RichTextLabel
 var _cam_dragging := false
 
 
@@ -103,56 +136,187 @@ func _build_environment() -> void:
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	_build_control_panel(layer)
+	_build_info_panel(layer)
+
+
+## Top-LEFT control panel — ENC spawn (replace) + single-unit spawn (additive) + shared toggles.
+func _build_control_panel(layer: CanvasLayer) -> void:
 	var box := VBoxContainer.new()
 	box.position = Vector2(16, 16)
-	box.add_theme_constant_override("separation", 6)
+	box.add_theme_constant_override("separation", 5)
 	layer.add_child(box)
 
 	var title := Label.new()
 	title.text = "COMBAT SANDBOX (dev)"
 	box.add_child(title)
 
+	# --- Encounter (replaces all) ---
+	box.add_child(_section("ENCOUNTER (replace)"))
 	_enc_dropdown = OptionButton.new()
-	_enc_dropdown.custom_minimum_size = Vector2(220, 0)
+	_enc_dropdown.custom_minimum_size = Vector2(240, 0)
 	for eid in Slice01Data.get_encounter_ids():
 		_enc_dropdown.add_item(String(eid))
+	_enc_dropdown.item_selected.connect(func(_i: int) -> void: _refresh_info())
 	box.add_child(_enc_dropdown)
+	var spawn_enc := Button.new()
+	spawn_enc.text = "Spawn ENC (clears first)"
+	spawn_enc.pressed.connect(_on_spawn_enc)
+	box.add_child(spawn_enc)
 
+	# --- Single unit (additive) ---
+	box.add_child(_section("SINGLE UNIT (add)"))
+	_unit_dropdown = OptionButton.new()
+	_unit_dropdown.custom_minimum_size = Vector2(240, 0)
+	_unit_dropdown.add_item("(none — show ENC)")
+	_unit_dropdown.set_item_metadata(0, "")
+	for eid in Slice01Data.get_enemy_ids():
+		var row: Dictionary = Slice01Data.get_enemy_row(String(eid))
+		_unit_dropdown.add_item("%s — %s" % [eid, row.get("display_name", "?")])
+		_unit_dropdown.set_item_metadata(_unit_dropdown.item_count - 1, String(eid))
+	_unit_dropdown.item_selected.connect(func(_i: int) -> void: _refresh_info())
+	box.add_child(_unit_dropdown)
+	var row_h := HBoxContainer.new()
+	var cnt_lbl := Label.new()
+	cnt_lbl.text = "count"
+	row_h.add_child(cnt_lbl)
+	_count_spin = SpinBox.new()
+	_count_spin.min_value = 1
+	_count_spin.max_value = 8
+	_count_spin.value = 1
+	row_h.add_child(_count_spin)
+	box.add_child(row_h)
+	var spawn_unit := Button.new()
+	spawn_unit.text = "Spawn Unit (+add)"
+	spawn_unit.pressed.connect(_on_spawn_unit)
+	box.add_child(spawn_unit)
+
+	# --- shared ---
+	box.add_child(_section("OPTIONS"))
 	_engaged_chk = CheckBox.new()
 	_engaged_chk.text = "spawn engaged (skip perception)"
 	_engaged_chk.button_pressed = true
 	box.add_child(_engaged_chk)
-
-	var spawn_btn := Button.new()
-	spawn_btn.text = "Spawn ENC"
-	spawn_btn.pressed.connect(_on_spawn)
-	box.add_child(spawn_btn)
-
 	var clear_btn := Button.new()
-	clear_btn.text = "Clear enemies"
+	clear_btn.text = "Clear all enemies"
 	clear_btn.pressed.connect(_on_clear)
 	box.add_child(clear_btn)
 
 	var hint := Label.new()
-	hint.text = "1-4 swap · WASD move · Q/E/R sub · wheel zoom · RMB-drag orbit · [ ] pitch"
-	hint.add_theme_font_size_override("font_size", 12)
+	hint.text = "1-4 swap · WASD · Q/E/R sub · wheel zoom · RMB-drag orbit · [ ] pitch"
+	hint.add_theme_font_size_override("font_size", 11)
 	box.add_child(hint)
-
 	_status = Label.new()
 	box.add_child(_status)
 
 
-func _on_spawn() -> void:
+## Top-RIGHT info panel — selected single unit's behavior + 검증 체크리스트 (or ENC composition).
+func _build_info_panel(layer: CanvasLayer) -> void:
+	var panel := PanelContainer.new()
+	panel.anchor_left = 1.0
+	panel.anchor_right = 1.0
+	panel.offset_left = -396.0
+	panel.offset_right = -16.0
+	panel.offset_top = 16.0
+	layer.add_child(panel)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	panel.add_child(margin)
+	_info_label = RichTextLabel.new()
+	_info_label.bbcode_enabled = true
+	_info_label.fit_content = true
+	_info_label.custom_minimum_size = Vector2(360, 0)
+	margin.add_child(_info_label)
+	_refresh_info()
+
+
+func _section(text: String) -> Label:
+	var l := Label.new()
+	l.text = "── %s ──" % text
+	l.add_theme_font_size_override("font_size", 11)
+	l.modulate = Color(0.7, 0.85, 1.0)
+	return l
+
+
+func _on_spawn_enc() -> void:
 	if _enc_dropdown.selected < 0:
 		return
 	var eid := _enc_dropdown.get_item_text(_enc_dropdown.selected)
 	_combat.debug_spawn_only(eid, "SANDBOX", _engaged_chk.button_pressed)
-	_status.text = "spawned: %s%s" % [eid, "  (engaged)" if _engaged_chk.button_pressed else "  (dormant)"]
+	_status.text = "ENC: %s%s" % [eid, "  (engaged)" if _engaged_chk.button_pressed else "  (dormant)"]
+
+
+func _on_spawn_unit() -> void:
+	var eid := _selected_unit_id()
+	if eid == "":
+		return
+	_combat.debug_spawn_unit(eid, int(_count_spin.value), "SANDBOX", _engaged_chk.button_pressed)
+	_status.text = "+%d × %s" % [int(_count_spin.value), eid]
 
 
 func _on_clear() -> void:
 	_combat.debug_spawn_only("", "SANDBOX")
 	_status.text = "cleared"
+
+
+func _selected_unit_id() -> String:
+	if _unit_dropdown == null or _unit_dropdown.selected < 0:
+		return ""
+	return String(_unit_dropdown.get_item_metadata(_unit_dropdown.selected))
+
+
+## Refresh the right panel: detailed single-unit behavior+verify, else ENC composition.
+func _refresh_info() -> void:
+	if _info_label == null:
+		return
+	var uid := _selected_unit_id()
+	if uid != "":
+		_info_label.text = _unit_info_text(uid)
+	else:
+		_info_label.text = _enc_info_text()
+
+
+func _unit_info_text(eid: String) -> String:
+	var row: Dictionary = Slice01Data.get_enemy_row(eid)
+	var pat: Dictionary = Slice01Data.get_pattern(String(row.get("pattern_ref", "")))
+	var engage := String(pat.get("engage", "?"))
+	var sigs: Array = []
+	for ab in row.get("abilities", []):
+		if typeof(ab) == TYPE_DICTIONARY:
+			sigs.append("%s(%s)" % [ab.get("ref", "?"), ab.get("trigger", "?")])
+	var stats: Dictionary = row.get("stats", {})
+	var t := "[b]%s — %s[/b]\n" % [eid, row.get("display_name", "?")]
+	t += "role [b]%s[/b] · pattern [b]%s → %s[/b]\n" % [row.get("role", "?"), row.get("pattern_ref", "?"), engage]
+	t += "기본타: %s · range %.1fm · int %.1fs · hp %d\n" % [row.get("basic_attack", "?"), stats.get("attack_range_m", 0.0), stats.get("attack_interval_s", 0.0), int(stats.get("hp", 0))]
+	t += "시그니처: %s\n" % ("· ".join(sigs) if not sigs.is_empty() else "없음")
+	t += "[color=#9fd]거동:[/color] %s\n" % ENGAGE_DESC.get(engage, "?")
+	t += "\n[color=#fd9][b]검증 대상[/b][/color]\n%s" % UNIT_VERIFY.get(eid, "(없음)")
+	return t
+
+
+func _enc_info_text() -> String:
+	if _enc_dropdown == null or _enc_dropdown.selected < 0:
+		return "[i]단일 유닛을 고르면 거동·검증이 여기 표시됩니다.[/i]"
+	var enc := Slice01Data.get_encounter(_enc_dropdown.get_item_text(_enc_dropdown.selected))
+	var t := "[b]%s[/b]  (%s)\n" % [enc.get("encounter_id", "?"), enc.get("difficulty_profile", "?")]
+	for u in enc.get("units", []):
+		var row: Dictionary = Slice01Data.get_enemy_row(String(u.get("enemy_id", "")))
+		var pat: Dictionary = Slice01Data.get_pattern(String(row.get("pattern_ref", "")))
+		var tags := ""
+		if u.get("assassin", false): tags += " [color=#f88][ASSASSIN][/color]"
+		if u.get("boss", false): tags += " [color=#fc8][BOSS][/color]"
+		t += "• %d× %s (%s)%s\n" % [int(u.get("count", 1)), u.get("enemy_id", "?"), pat.get("engage", "?"), tags]
+	var reinf: Dictionary = enc.get("reinforcement", {})
+	if not reinf.is_empty():
+		t += "[color=#f99]증원[/color] %s %ss: " % [reinf.get("direction", "rear"), reinf.get("delay_s", "?")]
+		for u in reinf.get("units", []):
+			t += "%d×%s " % [int(u.get("count", 1)), u.get("enemy_id", "?")]
+		t += "\n"
+	t += "\n[i]단일 유닛 드롭다운을 고르면 그 유닛의 검증 체크리스트가 뜹니다.[/i]"
+	return t
 
 
 # --- minimal input (swap + camera) — mirrors dungeon_run's forwarding ---

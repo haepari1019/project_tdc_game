@@ -11,8 +11,9 @@
   - `scenes/dev/combat_sandbox.tscn`(루트만) + `scripts/dev/combat_sandbox.gd`(오케스트레이터, 코드로 전부 빌드 — .tscn 취약성 회피) + `scripts/dev/sandbox_map.gd`(48×48 단일 룸: 바닥·벽 layer1 + navmesh bake + 조명 + `get_spawn_position`/`get_deep_spawn_position`).
   - **실 시스템 재사용**: PartyController·CombatController·CameraRig 그대로 → 거동이 게임과 동일. (Members 자식 선생성 + Camera3D 선부착 후 스크립트 set 순서로 _ready 의존 충족.)
   - **UI**: ENC 드롭다운(`Slice01Data.get_encounter_ids` 신설)·"spawn engaged" 체크(perception 스킵)·Spawn/Clear. 입력: 1-4 스왑·WASD·Q/E/R sub·휠 줌·RMB 오빗·`[ ]` 피치. Q/E/R 테스트용 스킬북 자동장착(AB-011 Toll Stun 포함 → 채널 interrupt 검증).
-  - **CombatController.debug_spawn_only(enc, room, engaged)** 신설: 전 squad/enemy wipe → _spawn_squad(검증된 경로 재사용) → engaged 옵션. `Slice01Data.get_encounter_ids()` 신설.
-- **격리:** shipping 플로우 미참조(직접 실행). 헤드리스 로드 PASS(party 스폰·navmesh bake·무오류).
+  - **CombatController.debug_spawn_only(enc, room, engaged)**(전 wipe→_spawn_squad) + **debug_spawn_unit(eid, count, room, engaged)**(단일 유닛 additive) 신설. `Slice01Data.get_encounter_ids()`/`get_enemy_ids()` 신설.
+  - **UI 확장**: ENCOUNTER 드롭다운(replace)·SINGLE UNIT 드롭다운+count(additive)·spawn engaged·Clear. **우상단 info 패널**(RichTextLabel) — 단일 유닛 선택 시 그 유닛의 라이브 데이터(role/pattern→engage/기본타/시그니처/stats) + per-engage 거동 설명 + per-EN **검증 체크리스트**(UNIT_VERIFY); 유닛 (none)이면 선택 ENC 구성(유닛별 engage·assassin/boss 태그·증원) 표시.
+- **격리:** shipping 플로우 미참조(직접 실행). 헤드리스 로드 PASS(party 스폰·navmesh bake·UI 인스턴스·무오류).
 - **영향:** `scenes/dev/combat_sandbox.tscn`·`scripts/dev/{combat_sandbox,sandbox_map}.gd`(신), `scripts/{autoload/slice01_data·combat/combat_controller}.gd`(getter+debug 메서드).
 
 ### IMPL-DEC-20260619-008 — P2-S2-fin A4: Boss phase (ENC-BOSS-001 EN-002 MiniBoss) — Track A 완료

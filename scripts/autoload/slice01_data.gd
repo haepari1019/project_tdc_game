@@ -150,6 +150,13 @@ func get_encounter_ids() -> Array:
 	return out
 
 
+## All enemy ids (EN-###) — for the dev combat sandbox single-unit dropdown.
+func get_enemy_ids() -> Array:
+	var out: Array = _enemies.keys()
+	out.sort()
+	return out
+
+
 ## Demo placeholder defaults — merged when an enemy row omits a stat field.
 const _DEFAULT_ENEMY_STATS := {
 	"hp": 50.0, "move_speed": 3.5, "contact_damage": 6.0,

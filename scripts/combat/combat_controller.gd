@@ -415,6 +415,23 @@ func debug_spawn_only(encounter_id: String, room_ref: String, engaged: bool = fa
 				e.engage_grace_s = COMBAT_EXIT_GRACE_S
 
 
+## DEBUG (sandbox): ADD `count` of ONE enemy as its own squad (additive — does NOT clear, so
+## you can build up a group, e.g. several EN-009 for surround). Clear via debug_spawn_only("").
+func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: bool = false) -> void:
+	if enemy_id.is_empty() or count <= 0:
+		return
+	if _map and _map.has_method("get_spawn_position"):
+		_spawn_origin = _map.get_spawn_position(room_ref)
+	var units := [{"enemy_id": enemy_id, "count": count}]
+	var squad_id := _next_squad_id
+	_next_squad_id += 1
+	var lane := int(_room_squad_count.get(room_ref, 0))
+	_room_squad_count[room_ref] = lane + 1
+	var center := _squad_spawn_center(room_ref, lane)
+	_spawn_at(units, center, squad_id, engaged)
+	_squads.append({"id": squad_id, "room_ref": room_ref, "reinforce": {}, "pending": false, "activated": false, "timer": 0.0, "warned": false})
+
+
 ## Spawn one encounter as a dormant squad, pushed toward the room's FAR side (away
 ## from the party) so the start-adjacent room isn't in combat range at spawn.
 func _spawn_squad(encounter_id: String, room_ref: String) -> void:
