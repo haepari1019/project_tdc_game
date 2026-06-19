@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260619-009 — Combat Sandbox (dev) — 단일 룸 + ENC 드롭다운
+- **결정(사용자 디버깅 편의 요청):** 인카운터별 전투 거동을 격리 검증하는 **dev 전용 샌드박스 씬**. 던전 순회·fog·run-loop 없이 ENC 하나만 스폰.
+  - `scenes/dev/combat_sandbox.tscn`(루트만) + `scripts/dev/combat_sandbox.gd`(오케스트레이터, 코드로 전부 빌드 — .tscn 취약성 회피) + `scripts/dev/sandbox_map.gd`(48×48 단일 룸: 바닥·벽 layer1 + navmesh bake + 조명 + `get_spawn_position`/`get_deep_spawn_position`).
+  - **실 시스템 재사용**: PartyController·CombatController·CameraRig 그대로 → 거동이 게임과 동일. (Members 자식 선생성 + Camera3D 선부착 후 스크립트 set 순서로 _ready 의존 충족.)
+  - **UI**: ENC 드롭다운(`Slice01Data.get_encounter_ids` 신설)·"spawn engaged" 체크(perception 스킵)·Spawn/Clear. 입력: 1-4 스왑·WASD·Q/E/R sub·휠 줌·RMB 오빗·`[ ]` 피치. Q/E/R 테스트용 스킬북 자동장착(AB-011 Toll Stun 포함 → 채널 interrupt 검증).
+  - **CombatController.debug_spawn_only(enc, room, engaged)** 신설: 전 squad/enemy wipe → _spawn_squad(검증된 경로 재사용) → engaged 옵션. `Slice01Data.get_encounter_ids()` 신설.
+- **격리:** shipping 플로우 미참조(직접 실행). 헤드리스 로드 PASS(party 스폰·navmesh bake·무오류).
+- **영향:** `scenes/dev/combat_sandbox.tscn`·`scripts/dev/{combat_sandbox,sandbox_map}.gd`(신), `scripts/{autoload/slice01_data·combat/combat_controller}.gd`(getter+debug 메서드).
+
 ### IMPL-DEC-20260619-008 — P2-S2-fin A4: Boss phase (ENC-BOSS-001 EN-002 MiniBoss) — Track A 완료
 - **결정(사용자 "진행해"):** BOSS-001의 EN-002를 **per-ENC MiniBoss 오버레이**로 승격 + 50%HP 페이즈. Track A(P2-S2 combat-pool 마감) 마지막.
   - **MiniBoss 태그(assassin과 동형):** ENC unit 행 `"boss":true` + cc_tenacity/phase2_hp_frac/phase2_telegraph_delta. `_spawn_at`가 unit에 세팅 + `set_attention(true)`(attentionTier High).

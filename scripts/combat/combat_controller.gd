@@ -393,6 +393,28 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 		_spawn_squad(enc_id, target_room)
 
 
+## DEBUG (dev combat sandbox): wipe every squad/enemy, then spawn ONE encounter. engaged=true
+## skips the perception dance (units start in combat). encounter_id "" clears only. dev-only.
+func debug_spawn_only(encounter_id: String, room_ref: String, engaged: bool = false) -> void:
+	for e in _enemies:
+		if is_instance_valid(e):
+			e.queue_free()
+	_enemies.clear()
+	_squads.clear()
+	_room_squad_count.clear()
+	_next_squad_id = 0
+	if _map and _map.has_method("get_spawn_position"):
+		_spawn_origin = _map.get_spawn_position(room_ref)
+	if encounter_id.is_empty():
+		return
+	_spawn_squad(encounter_id, room_ref)
+	if engaged:
+		for e in _enemies:
+			if is_instance_valid(e):
+				e.engaged = true
+				e.engage_grace_s = COMBAT_EXIT_GRACE_S
+
+
 ## Spawn one encounter as a dormant squad, pushed toward the room's FAR side (away
 ## from the party) so the start-adjacent room isn't in combat range at spawn.
 func _spawn_squad(encounter_id: String, room_ref: String) -> void:

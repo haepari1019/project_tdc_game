@@ -143,6 +143,13 @@ func get_encounter(encounter_id: String) -> Dictionary:
 	return {}
 
 
+## All loaded encounter ids (reachable via manifest/spawn table) — for the dev combat sandbox.
+func get_encounter_ids() -> Array:
+	var out: Array = _encounters.keys()
+	out.sort()
+	return out
+
+
 ## Demo placeholder defaults — merged when an enemy row omits a stat field.
 const _DEFAULT_ENEMY_STATS := {
 	"hp": 50.0, "move_speed": 3.5, "contact_damage": 6.0,
