@@ -491,12 +491,16 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 		enemy.windup_chosen = chosen
 		enemy.windup_target = target
 		var k := String(eff.get("kind", "enemy_melee"))
+		var is_basic := String(chosen.get("trigger", "")) == "basic"
 		if k == "enemy_charge":
 			# Charge build-up ON the caster over the channel; the bolt fires at resolve.
 			SkillVfx.charge_up(self, enemy.global_position, tele, _telegraph_color(k))
 			enemy.face_toward(target.global_position)  # aim the bolt
+		elif is_basic:
+			# Basic poke: a small neutral "incoming" dot — NOT the big disc (which read as an AoE hazard).
+			SkillVfx.telegraph(self, target.global_position, Color(0.95, 0.82, 0.35, 0.35), 0.55)
 		else:
-			# Telegraph AT the target (incoming hit); radius = splash area for AoE, else default.
+			# Signature/AoE cast: prominent element-colored telegraph at the target.
 			SkillVfx.telegraph(self, target.global_position, _telegraph_color(k), float(eff.get("splash_radius_m", 1.9)))
 	else:
 		_apply_enemy_hit(enemy, target, eff, chosen)
