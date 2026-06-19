@@ -128,6 +128,9 @@ static func enemy_vfx(key: String, parent: Node3D, from: Vector3, to: Vector3) -
 			_enemy_shot(parent, from + y, to + y, Color(0.7, 0.85, 0.4))
 		"shot_lightning":  # AB-004 Voltaic — fast jagged bolt (lands on the damage/shake frame)
 			lightning_bolt(parent, from, to, Color(0.55, 0.8, 1.0))
+		"shot_venom":  # AB-010 Venom — toxic-green bolt + lingering poison puff (conveys the DoT)
+			_enemy_shot(parent, from + y, to + y, Color(0.4, 0.95, 0.3))
+			_poison_puff(parent, to + Vector3(0, 0.4, 0), Color(0.42, 0.85, 0.22))
 		"shot_hex":  # AB-012 Hex Bolt — purple rune
 			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95))
 		"shot_slag":  # AB-008 Slag Spit — slag orange
@@ -153,6 +156,28 @@ static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color
 	tw.tween_property(mi, "global_position", to, 0.55)
 	tw.tween_property(mi, "scale", Vector3(4.5, 4.5, 4.5), 0.35)  # impact pop
 	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.35)
+	tw.tween_callback(mi.queue_free)
+
+
+## Lingering poison puff at the impact point — blooms (after `delay`, so it lands when the bolt
+## arrives) then expands + slowly fades, reading as the DoT cloud (distinct from a plain pebble).
+static func _poison_puff(parent: Node3D, pos: Vector3, color: Color, delay: float = 0.5) -> void:
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.5
+	s.height = 1.0
+	mi.mesh = s
+	var mat := _emat(color)
+	mat.albedo_color.a = 0.0
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = pos
+	mi.scale = Vector3(0.3, 0.3, 0.3)
+	var tw := mi.create_tween()
+	tw.tween_interval(delay)  # wait for the bolt to land
+	tw.tween_property(mat, "albedo_color:a", 0.55, 0.12)  # bloom in on impact
+	tw.parallel().tween_property(mi, "scale", Vector3(1.7, 1.2, 1.7), 0.55)  # expand cloud
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.95)  # linger + fade (DoT feel)
 	tw.tween_callback(mi.queue_free)
 
 
