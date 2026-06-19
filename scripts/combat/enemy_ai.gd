@@ -262,6 +262,13 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		enemy.velocity = Vector3.ZERO
 		enemy.move_and_slide()
 		return
+	# Flanker target preference (PT-003 EN-003 / PT-008 EN-008): seek the BACKLINE (squishiest
+	# non-Tank), ignoring the frontal tank's threat — so basics/orbit/dash all dive the DPS/Healer
+	# before the tank pulls aggro (EN-AI-000 §1 "정면 Tank 무시 시도"). Falls back to threat target.
+	if String(enemy.engage_profile.get("target_pref", "")) == "backline":
+		var bl := _pick_backline_target(targets)
+		if bl != null:
+			target = bl
 	# Disguised assassin (AssassinTransform): ignore threat, stalk a BACKLINE target (squishiest
 	# non-Tank) to execute. Reverts to normal targeting once revealed.
 	if enemy.assassin and not enemy.assassin_revealed:
@@ -288,10 +295,9 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	if enemy.interacts_with_objects and _try_object_interaction(enemy, target, has_los, delta):
 		enemy.move_and_slide()
 		return
-	# Dash signature (AB-006/013): TANK-BYPASS — aims at a backline actor (not the threat target),
-	# so it gets the full party list. Starts a telegraph → channel-freeze holds it this frame.
+	# Dash signature (AB-006/013): close the gap on the current target (backline for flankers).
 	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0:
-		_try_cast_dash(enemy, targets)
+		_try_cast_dash(enemy, target, dist, has_los)
 	# Provoke signature (AB-099): aims the FRONT fan at the engaged target (so it's directional,
 	# not stale-facing) and only fires when a party actor is actually in that fan. Needs target.
 	if not enemy.winding and not enemy.dashing and enemy.sig_cooldown_s <= 0.0 and has_los:
@@ -734,11 +740,12 @@ func _party_in_fan(enemy: CharacterBody3D, radius_m: float, deg: float) -> Array
 	return out
 
 
-## Cooldown dash signature (AB-006 gap-close / AB-013 backstab). The dash is a TANK-BYPASS move:
-## it aims at a BACKLINE party actor (squishiest non-Tank), NOT the threat target (usually the
-## tank) — EN-003 lunges past the front line onto the DPS/Healer; EN-008 flanks them. Fires when
-## there's a real gap to a SEEN backline actor within dash reach.
-func _try_cast_dash(enemy: CharacterBody3D, targets: Array) -> bool:
+## Cooldown dash signature (AB-006 gap-close / AB-013 backstab): close the gap on the unit's
+## current target (which is already the backline for flankers via target_pref). Fires when there's
+## a real gap to the seen target within dash reach.
+func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool) -> bool:
+	if not has_los:
+		return false
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY or String(ab.get("trigger", "")) != "signature":
 			continue
@@ -746,24 +753,15 @@ func _try_cast_dash(enemy: CharacterBody3D, targets: Array) -> bool:
 		var eff: Dictionary = Slice01Data.get_ability(ref)
 		if String(eff.get("kind", "")) != "enemy_dash":
 			continue
-		var bt := _pick_backline_target(targets)  # bypass the tank → squishy backline
-		if bt == null or not is_instance_valid(bt):
+		if dist <= enemy.attack_range_m + DASH_TRIGGER_BUFFER_M:
 			return false
-		var to: Vector3 = bt.global_position - enemy.global_position
-		to.y = 0.0
-		var d := to.length()
-		# Only when there's a gap (not already on the backline) + it's in dash reach + seen.
-		if d <= enemy.attack_range_m + DASH_TRIGGER_BUFFER_M:
-			return false
-		if d > float(eff.get("dash_range_m", DASH_MAX_M)):
-			return false
-		if not _has_los(enemy, bt):
+		if dist > float(eff.get("dash_range_m", DASH_MAX_M)):
 			return false
 		enemy.winding = true
 		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.3))
 		enemy.windup_eff = eff
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
-		enemy.windup_target = bt
+		enemy.windup_target = target
 		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 5.0))
 		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_dash"))
 		return true
