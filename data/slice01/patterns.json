@@ -1,6 +1,6 @@
 {
-  "_note": "Enemy combat pattern catalog — mirror of D-017 / PT-### (EN-AI-000 §1). SSOT = spec patterns/PT-*.md @ 4422e50. formation_role/band/anchor/spacing/retreat are kept verbatim from each PT 'Catalog (D-017)' block for 1:1 traceability. 'engage' = GAME-SIDE dispatch key derived from anchor+band+retreat (the EN-AI-000 'Engaged 우선' column) — consumed by enemy_ai. Movement tuning (leash_m / zone_radius_m / chase_speed_mult) is DEMO PH (DRIFT log). 'target_pref':'backline' = flanker seeks the squishiest non-Tank, ignoring threat (EN-AI-000 §1 '정면 Tank 무시 시도'; PT-003/008). Signature AB casts/channels (AB-004/006/008/012/013/098/099), HP≤50% AB-007 retreat hop, and distance-leash disengage land in P2-S2c.",
-  "_engage_enum": "advance | standoff | kite | zone | orbit | probe | surround",
+  "_note": "Enemy combat pattern catalog — mirror of D-017 / PT-### (EN-AI-000 §1). SSOT = spec patterns/PT-*.md @ 4422e50. formation_role/band/anchor/spacing/retreat are kept verbatim from each PT 'Catalog (D-017)' block for 1:1 traceability. 'engage' = GAME-SIDE dispatch key derived from anchor+band+retreat (the EN-AI-000 'Engaged 우선' column) — consumed by enemy_ai. Movement tuning (leash_m / zone_radius_m / chase_speed_mult) is DEMO PH (DRIFT log). 'target_pref':'backline' = flanker seeks the squishiest non-Tank, ignoring threat (EN-AI-000 §1 '정면 Tank 무시 시도'; PT-003/008). 'healer' (PT-016 EN-014 Support) = kite the player + hug the most-wounded ally to keep it in heal range (no melee-close; ranged 'kite' jittered for a melee-range support). Signature AB casts/channels (AB-004/006/008/012/013/098/099), HP≤50% AB-007 retreat hop, and distance-leash disengage land in P2-S2c.",
+  "_engage_enum": "advance | standoff | kite | healer | zone | orbit | probe | surround",
   "patterns": {
     "PT-001": { "formation_role": "Frontline",  "band": "Melee", "anchor": "Hold",     "spacing": "Tight",  "retreat": "none",              "engage": "advance" },
     "PT-002": { "formation_role": "Backline",   "band": "Long",  "anchor": "Hold",     "spacing": "Loose",  "retreat": "maintain_distance", "engage": "standoff" },
@@ -15,6 +15,6 @@
     "PT-013": { "formation_role": "Backline",   "band": "Long",  "anchor": "Hold",     "spacing": "Loose",  "retreat": "none",              "engage": "standoff" },
     "PT-014": { "formation_role": "Frontline",  "band": "Melee", "anchor": "Hold",     "spacing": "Tight",  "retreat": "none",              "engage": "advance" },
     "PT-015": { "formation_role": "Skirmisher", "band": "Melee", "anchor": "Advance",  "spacing": "Loose",  "retreat": "none",              "engage": "advance",  "chase_speed_mult": 1.1 },
-    "PT-016": { "formation_role": "Support",    "band": "Mid",   "anchor": "Hold",     "spacing": "Loose",  "retreat": "flee_if_melee",     "engage": "kite" }
+    "PT-016": { "formation_role": "Support",    "band": "Mid",   "anchor": "Hold",     "spacing": "Loose",  "retreat": "flee_if_melee",     "engage": "healer" }
   }
 }

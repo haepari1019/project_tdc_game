@@ -381,3 +381,9 @@
 - **현실(2026-06-19, 사용자: "EN-006 AB-011 스턴이 제대로 작동 안 함"):** 비-channel이라 0.5s 윈드업 중 EN-006/타겟 이동으로 사거리(+0.6) 밖이 되면 resolve에서 self-dodge → OPENER 스턴이 거의 안 들어감. `abilities.json` AB-011 `channel:true` 추가(윈드업 중 제자리·인터럽트 가능), `_resolve_enemy_attack`의 enemy_stun 거리-dodge 블록 제거 → LOS만 유지되면 락온 적중.
 - **분류\전파:** **impl(스펙 OPENER 의도 충족) + tuning.** spec `AB-011 BellRing`: `comboRole: OPENER`(층 A, 적중 전제)·telegraph 0.5·"근접 진입 시 우선". channel-freeze·거리-dodge 제거는 게임 인코딩으로 OPENER가 실제로 들어가게 함. 카운터플레이 = **인터럽트(채널 중 stun)** 또는 LOS 차단(spec 정밀 interrupt = AB-030). 스펙 명시 channel 아님 → 게임측 §2 채널 모델로 인코딩(로깅).
 - **잔여:** 스턴 적중률·인터럽트 체감 F6. 무빙 회피 불가가 과한지 밸런스 관찰.
+
+### DRIFT-051 — EN-014 'healer' 거동 (아군 힐러식 포지셔닝) + kite jitter 픽스 🔶 impl
+- **현실(2026-06-19, 사용자: "EN-014 체력없는 자기팀에 붙도록 + 4m 혼자일 때 부들부들 떨림"):** PT-016(Support)이 `kite` 거동이었는데, EN-014는 attack_range 1.7m < MELEE_THREAT 4m라 "4m 안이면 후퇴 / attack_range 밖이면 접근"이 4m 경계에서 상충 → **제자리 진동(jitter)**. 또 힐러인데 평타 접근만 해서 팀 케어 동작 없음.
+- **변경:** 새 engage `healer`(게임측 dispatch key) 신설 + PT-016에 배정. `_move_healer` = ① 플레이어 근접 시 kite 후퇴(공용 `_kite_flee`), ② **체력 최저(<90%) 아군에게 붙어** AB-098 힐 사거리 유지(`_most_wounded_ally`/HEAL_HUG_M 2.5), ③ 그 외 hold(평타-접근 안 함 → jitter 제거). 검증기 `_ENGAGE_PROFILES`에 healer 추가.
+- **분류\전파:** **impl(거동 인코딩) + code-bug(jitter).** spec PT-016 = Support/Hold/Mid/flee_if_melee — healer는 그 'Engaged 우선'을 게임측에서 힐러 포지셔닝으로 구현. 수치(HUG 2.5·SEEK 14·<90%) DEMO PH.
+- **잔여:** 아군이 플레이어와 근접교전 중일 때 hug↔flee 미세 진동 가능(엣지) — 체감 F6.

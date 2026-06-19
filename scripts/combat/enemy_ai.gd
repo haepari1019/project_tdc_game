@@ -33,6 +33,12 @@ const MELEE_THREAT_M := 4.0        # kite: flee when a target closes inside this
 const RETREAT_STEP_M := 3.0        # how far ahead to aim a retreat/backstep destination
 const RETREAT_SPEED_FRAC := 1.0    # flee at full speed (being chased)
 const ENGAGE_LEASH_M := 18.0       # kite/zone: don't stray past this from spawn anchor (§3 default)
+# healer (PT-016 EN-014): hug the most-wounded squad-mate (below HEAL_HUG_THRESHOLD HP) within
+# HEAL_SEEK_M, keeping it within HEAL_HUG_M (inside the AB-098 heal radius). No melee-close on the
+# player (avoids the kite jitter that hit a melee-range support).
+const HEAL_HUG_M := 2.5
+const HEAL_SEEK_M := 14.0
+const HEAL_HUG_THRESHOLD := 0.9
 const ZONE_RADIUS_DEFAULT := 8.0   # zone: engage only while target is within this of the anchor
 const ZONE_RETURN_SLACK_M := 1.0   # zone: already-home tolerance (don't jitter at the anchor)
 # orbit: circle the target while spiralling in. ORBIT_RADIUS_M = "far" reference for the inward
@@ -348,6 +354,7 @@ func _engage_move(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, 
 	match String(enemy.engage_profile.get("engage", "advance")):
 		"standoff": return _move_standoff(enemy, tp, dist, spd)
 		"kite":     return _move_kite(enemy, tp, dist, spd)
+		"healer":   return _move_healer(enemy, tp, dist, spd)
 		"zone":     return _move_zone(enemy, tp, dist, spd)
 		"orbit":    return _move_orbit(enemy, tp, dist, spd)
 		"probe":    return _move_probe(enemy, tp, dist, spd, delta)
@@ -373,23 +380,60 @@ func _move_standoff(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float
 	return Vector3.ZERO
 
 
-## kite (PT-005/016): flee when a target closes inside MELEE_THREAT_M (clamped to leash from
-## the spawn anchor so it can't run off the map); else hold/close to band like standoff.
+## Flee one step directly away from `tp`, clamped to the spawn-anchor leash (cornered → hold).
+func _kite_flee(enemy: CharacterBody3D, tp: Vector3, spd: float) -> Vector3:
+	var away := enemy.global_position - tp
+	away.y = 0.0
+	if away.length() < 0.01:
+		away = -enemy.facing
+	var anchor: Vector3 = enemy.home_pos if enemy.home_pos != Vector3.INF else enemy.global_position
+	var dest := enemy.global_position + away.normalized() * RETREAT_STEP_M
+	if Vector2(dest.x - anchor.x, dest.z - anchor.z).length() > ENGAGE_LEASH_M:
+		return Vector3.ZERO  # cornered at the leash → hold rather than flee off the map
+	return _nav_move(enemy, dest, spd * RETREAT_SPEED_FRAC)
+
+
+## kite (PT-005): flee when a target closes inside MELEE_THREAT_M; else hold/close to attack band.
+## Stable only for RANGED kiters (attack_range > MELEE_THREAT). Melee-range supports use _move_healer.
 func _move_kite(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
 	enemy.face_toward(tp)
 	if dist < MELEE_THREAT_M:
-		var away := enemy.global_position - tp
-		away.y = 0.0
-		if away.length() < 0.01:
-			away = -enemy.facing
-		var anchor: Vector3 = enemy.home_pos if enemy.home_pos != Vector3.INF else enemy.global_position
-		var dest := enemy.global_position + away.normalized() * RETREAT_STEP_M
-		if Vector2(dest.x - anchor.x, dest.z - anchor.z).length() > ENGAGE_LEASH_M:
-			return Vector3.ZERO  # cornered at the leash → hold & shoot rather than flee further
-		return _nav_move(enemy, dest, spd * RETREAT_SPEED_FRAC)
+		return _kite_flee(enemy, tp, spd)
 	if dist > enemy.attack_range_m:
 		return _nav_move(enemy, tp, spd)
 	return Vector3.ZERO
+
+
+## healer (PT-016 EN-014): enemy SUPPORT — kites the player (flee if it closes to melee) but does
+## NOT close to melee-attack (that caused jitter for a 1.7m-range unit). Instead HUGS its most-
+## wounded squad-mate to keep it inside the AB-098 heal radius. Alone / nobody wounded → just hold.
+func _move_healer(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
+	enemy.face_toward(tp)
+	if dist < MELEE_THREAT_M:
+		return _kite_flee(enemy, tp, spd)  # player too close → kite away
+	var ally := _most_wounded_ally(enemy)
+	if ally != null:
+		var to_ally := ally.global_position - enemy.global_position
+		to_ally.y = 0.0
+		if to_ally.length() > HEAL_HUG_M:
+			enemy.face_toward(ally.global_position)
+			return _nav_move(enemy, ally.global_position, spd)  # close to keep it in heal range
+	return Vector3.ZERO  # in heal range / nobody to heal → hold (no melee-close, no jitter)
+
+
+## Lowest-HP-fraction living squad-mate (excl. self) under HEAL_HUG_THRESHOLD within HEAL_SEEK_M —
+## the one EN-014 hugs to keep in heal range. null if none. (Self-heals work in place → self excluded.)
+func _most_wounded_ally(enemy: CharacterBody3D) -> CharacterBody3D:
+	var best: CharacterBody3D = null
+	var best_frac := HEAL_HUG_THRESHOLD
+	for a in _combat._enemies_in_radius(enemy.global_position, HEAL_SEEK_M):
+		if a == enemy or not is_instance_valid(a) or (a.has_method("is_alive") and not a.is_alive()):
+			continue
+		var frac: float = a.hp / maxf(float(a.max_hp), 1.0)
+		if frac < best_frac:
+			best_frac = frac
+			best = a
+	return best
 
 
 ## zone (PT-004): hold near the spawn anchor — engage only while the target is inside the

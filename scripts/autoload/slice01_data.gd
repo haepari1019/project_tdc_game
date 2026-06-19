@@ -484,7 +484,7 @@ func _parse_enemy_basics(doc: Dictionary, errors: Array[String]) -> void:
 
 ## Enemy combat patterns (PT-###, D-017 / EN-AI-000 §1). Keyed by pattern id, validated
 ## against id_registry. 'engage' (positioning dispatch) gated to the known profile enum.
-const _ENGAGE_PROFILES := ["advance", "standoff", "kite", "zone", "orbit", "probe", "surround"]
+const _ENGAGE_PROFILES := ["advance", "standoff", "kite", "healer", "zone", "orbit", "probe", "surround"]
 
 
 func _parse_patterns(doc: Dictionary, errors: Array[String]) -> void:
