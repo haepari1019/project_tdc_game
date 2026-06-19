@@ -6,6 +6,19 @@
 
 ---
 
+### IMPL-DEC-20260619-001 — P2-S2c(1): 시그니처 캐스트 — 차지/스플래시/헥스/힐 (AB-004/008/012/098)
+- **결정(사용자 "S2c 진행"):** 적 시그니처 능력 중 **데미지/상태/힐 캐스트**를 먼저 구현. 기존 텔레그래프 윈드업 + `every_n` 경로 재사용(신규 mechanic 최소화).
+  - **AB-004 Charged Voltaic**(EN-002, `every_n 4`): `enemy_charge` — telegraph 1.0s **channel**, dmg ×2.0 단발 + **Shock**(party `apply_slow` 0.5/2s). 전기 블루 텔레그래프.
+  - **AB-008 Slag Spit**(EN-004, `every_n 3`): `enemy_splash` — telegraph 0.4s, dmg ×0.8 + 착탄 `splash_radius_m` 1.5 내 파티원 splash(`_allies_in_radius`, `splash_frac` 0.6). 슬래그 오렌지.
+  - **AB-012 Hex Bolt**(EN-007, `every_n 3`): `enemy_hex` — telegraph 0.45s **channel**, dmg ×0.4 + **HEX-WEAK**(`apply_slow` 0.6/4s = 이동감소). 보라 룬탄.
+  - **AB-098 Mire Mend Pulse**(EN-014, `signature`): `enemy_heal` — telegraph 0.55s **channel**, 쿨 8s, **반경 3m 적 분대(자신 포함) 각 max HP 8% 회복**, 조건=반경 내 아군 <90%. EN-014는 kite라 평타가 드물어 `every_n` 불가 → **신규 cooldown+condition 패스**(`enemy.sig_cooldown_s` + `_try_cast_signature`). 타겟리스라 `_resolve_enemy_attack`가 party-target 검증 **전에** `_apply_enemy_heal` 분기. enemy_unit `heal()`(녹색 플래시) 신설.
+  - **Channel-freeze**: `winding && windup_eff.channel`이면 `_engage_move`가 ZERO 반환 → 채널 중 제자리(EN-AI-000 §2; EN-007 이동금지·EN-002 charge·EN-014 pulse 제자리). **비-channel 텔레그래프(AB-010/011)는 기존대로 이동 유지**(회귀 0).
+- **1:1 근거:** AB-### · telegraph_s · cooldown_s · heal 8%/r3 · Shock/Hex 상태는 spec `abilities/AB-*.md` Draft "design examples". `enemy_*` kind·이동 freeze·splash_frac은 게임 측 인코딩/PH → DRIFT-041.
+- **부분 구현(정직):** HEX-WEAK "**피해 감소**" 절반은 미구현(이동감소만) — 파티 공격 데미지 경로 훅 필요, 후속. Shock/Hex 둘 다 slow로 표현(텔레그래프 색·지속·소스로 구분).
+- **검증:** `ci_smoke.sh` PASS(hub+던전 부트, parse/load/validate 무오류 — AB-004/008/012/098 등록·catalog·enemies ref 정합). 실제 교전 체감(차지 한 방·헥스 둔화·**EN-014 힐 펄스로 분대 장기화**)은 F5 잔여(헤드리스는 입력 없어 교전 미발생).
+- **잔여 → S2c(2/3):** **AB-006 Gap-Close·AB-013 Backstab 대시**(EN-003/008, 신규 mobility primitive) · **AB-099 Iron Mockery / Provoked**(EN-001, 신규 party-side 상태 + 입력 게이트) · HEX 피해감소 half · interrupt-on-channel(채널 중 stun → 쿨 소모).
+- **영향:** `data/slice01/{id_registry·abilities·enemies}`, `scripts/combat/{enemy_ai·enemy_unit}`.
+
 ### IMPL-DEC-20260618-004 — P2-S2b: Per-enemy 교전 포지셔닝 (EN-AI-000 / PT-### → engage 프로필)
 - **결정(사용자 "잘된 s2b ㄱㄱ"):** F-013 Engaged 위에 **유닛별 이동 차별**을 데이터 주도로 얹음. 적이 전원 "최고위협 추격→사거리서 평타"하던 균일 행동 → 아키타입별 포지셔닝.
   - **`data/slice01/patterns.json`(신규)** — D-017/`PT-###` 카탈로그 미러(`formation_role`/`band`/`anchor`/`spacing`/`retreat` verbatim) + 게임 파생 키 **`engage`**. SSOT=spec `patterns/PT-*.md`@`4422e50`. 14패턴(PT-001~009/012~016). `id_registry.pattern_ids`에 적 PT 13종 추가(기존 PT-010/020/021/022 = 플레이어 역할 패턴 유지). `enemies.json` 각 행 **`pattern_ref: PT-###`**(EN 유닛문서 `patternRef` 정본 — EN-010~013→**PT-012~015**, EN-AI-000 §1표의 "PT-010~013"은 loose).

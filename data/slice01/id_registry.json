@@ -18,9 +18,10 @@
     "healer_mend_circle"
   ],
   "ability_ids": [
-    "AB-002", "AB-010", "AB-011",
+    "AB-002", "AB-004", "AB-008", "AB-010", "AB-011", "AB-012", "AB-098",
     "AB-020", "AB-024", "AB-025", "AB-026", "AB-037"
   ],
+  "_note_ability_ids": "AB-002/010/011 = enemy lootable-shared (S2a). AB-004/008/012/098 = enemy SIGNATURE casts (S2c, EN-002/004/007/014). AB-020/024/025/026 = party identity. AB-037 = lootable skillbook. AB-006/013 dashes + AB-099 Provoked = S2c-2 (미등록).",
   "_note_ability_ids": "AB-002/010/011 = enemy signature/lootable. AB-020/024/025/026 = player Identity. AB-037 = Ember (skillbook). AB-001/014/015/016 removed (spec→rom_*); AB-S01..S04 removed (non-spec demo subs).",
   "enemy_basic_attack_ids": [
     "rom_melee_kb_light", "rom_fodder_melee_tap", "rom_fodder_pebble_toss", "rom_swarm_nip",

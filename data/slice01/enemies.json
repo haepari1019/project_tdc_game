@@ -9,7 +9,7 @@
     { "enemy_id": "EN-002", "role": "nuker", "display_name": "Voltaic Acolyte", "pattern_ref": "PT-002",
       "stats": { "hp": 300, "move_speed": 5.0, "contact_damage": 14, "attack_range_m": 9.0, "attack_interval_s": 1.8 },
       "basic_attack": "rom_elite_voltaic_double",
-      "abilities": [] },
+      "abilities": [ { "ref": "AB-004", "trigger": "every_n", "n": 4 } ] },
     { "enemy_id": "EN-003", "role": "elite", "display_name": "Skirting Raptor", "pattern_ref": "PT-003",
       "stats": { "hp": 340, "move_speed": 6.3, "contact_damage": 13, "attack_range_m": 1.6, "attack_interval_s": 1.1 },
       "basic_attack": "rom_elite_melee_flurry",
@@ -17,7 +17,7 @@
     { "enemy_id": "EN-004", "role": "elite", "display_name": "Slag Siphon", "pattern_ref": "PT-004",
       "stats": { "hp": 420, "move_speed": 4.8, "contact_damage": 13, "attack_range_m": 5.0, "attack_interval_s": 1.8 },
       "basic_attack": "rom_elite_slag_toss",
-      "abilities": [] },
+      "abilities": [ { "ref": "AB-008", "trigger": "every_n", "n": 3 } ] },
 
     { "enemy_id": "EN-005", "role": "nuker", "display_name": "Gutter Spitter", "pattern_ref": "PT-005",
       "stats": { "hp": 165, "move_speed": 5.3, "contact_damage": 9, "attack_range_m": 8.5, "attack_interval_s": 1.5 },
@@ -30,7 +30,7 @@
     { "enemy_id": "EN-007", "role": "nuker", "display_name": "Mire Hexer", "pattern_ref": "PT-007",
       "stats": { "hp": 220, "move_speed": 5.2, "contact_damage": 8, "attack_range_m": 8.0, "attack_interval_s": 1.7 },
       "basic_attack": "rom_trash_hex_bolt",
-      "abilities": [] },
+      "abilities": [ { "ref": "AB-012", "trigger": "every_n", "n": 3 } ] },
     { "enemy_id": "EN-008", "role": "fodder", "display_name": "Corner Knife", "pattern_ref": "PT-008",
       "stats": { "hp": 240, "move_speed": 6.0, "contact_damage": 12, "attack_range_m": 1.5, "attack_interval_s": 1.0 },
       "basic_attack": "rom_trash_flank_stab",
@@ -60,7 +60,7 @@
     { "enemy_id": "EN-014", "role": "support", "display_name": "Gutter Chanter", "pattern_ref": "PT-016",
       "stats": { "hp": 280, "move_speed": 5.2, "contact_damage": 7, "attack_range_m": 1.7, "attack_interval_s": 1.5 },
       "basic_attack": "rom_trash_sustain_tap",
-      "_role_note": "SustainTrash (EN-AI-000 PT-016). worldInteractProfile: none (torch carry is ENC-bound, demo home ENC-PAT-003=P2-S3 — NOT a unit property). Signature AB-098 Mire Mend Pulse = P2-S2c.",
-      "abilities": [] }
+      "_role_note": "SustainTrash (EN-AI-000 PT-016). worldInteractProfile: none (torch carry is ENC-bound, demo home ENC-PAT-003=P2-S3 — NOT a unit property).",
+      "abilities": [ { "ref": "AB-098", "trigger": "signature" } ] }
   ]
 }

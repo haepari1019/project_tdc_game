@@ -213,6 +213,12 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		enemy.windup_timer_s -= delta
 		if enemy.windup_timer_s <= 0.0:
 			_resolve_enemy_attack(enemy)
+	# Cooldown-triggered signature (AB-098 heal): independent of the basic-attack rhythm —
+	# EN-014 kites and rarely melees, so its heal can't ride every_n. Targets allies, no LOS
+	# to the party needed; starts a channel (then channel-freeze holds it in place).
+	enemy.sig_cooldown_s = maxf(0.0, enemy.sig_cooldown_s - delta)
+	if not enemy.winding and enemy.sig_cooldown_s <= 0.0:
+		_try_cast_signature(enemy)
 	# F-022: target highest-threat party member. With no threat, fall back to the
 	# nearest member the enemy can actually SEE (LOS) — NOT the global nearest — so a
 	# far, never-perceived group (e.g. the hidden 본대) is never chased. No threat and
@@ -264,6 +270,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 ## Returns the desired velocity (ZERO = plant & attack). Blind (no LOS) is shared: every
 ## profile falls back to a cautious advance toward the last-seen spot so it can re-acquire.
 func _engage_move(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool, delta: float) -> Vector3:
+	# Channeled cast (EN-AI-000 §2): hold position for the wind-up — EN-007 hex 이동금지,
+	# EN-002 charge 제자리, EN-014 pulse 제자리. Non-channel telegraphs (AB-010/011) still move.
+	if enemy.winding and bool(enemy.windup_eff.get("channel", false)):
+		return Vector3.ZERO
 	var spd: float = enemy.current_move_speed()
 	if not has_los:
 		if not enemy.has_investigate:
@@ -442,6 +452,10 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 	var target: CharacterBody3D = enemy.windup_target
 	enemy.winding = false
 	enemy.windup_target = null
+	# Heal (AB-098) is target-less — resolve before the party-target validation/LOS gate.
+	if String(eff.get("kind", "")) == "enemy_heal":
+		_apply_enemy_heal(enemy, eff, chosen)
+		return
 	if not is_instance_valid(target) or not target.is_alive():
 		return
 	if not _has_los(enemy, target):
@@ -492,6 +506,16 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 5.0)))
 		"enemy_stun":
 			target.apply_stun(float(eff.get("stun_s", 1.0)))
+		"enemy_charge":  # AB-004 Charged Voltaic — Shock = brief movement stutter (이동 감소)
+			target.apply_slow(float(eff.get("shock_slow", 0.5)), float(eff.get("shock_dur_s", 2.0)))
+		"enemy_hex":  # AB-012 Hex Bolt — HEX-WEAK soft CC (이동 감소; 피해감소 half = 후속)
+			target.apply_slow(float(eff.get("hex_slow", 0.6)), float(eff.get("hex_dur_s", 4.0)))
+		"enemy_splash":  # AB-008 Slag Spit — splash to party members near the impact point
+			var sr := float(eff.get("splash_radius_m", 1.5))
+			var sfrac := float(eff.get("splash_frac", 0.6))
+			for a in _combat._allies_in_radius(target.global_position, sr):
+				if a != target and is_instance_valid(a) and a.has_method("take_damage"):
+					a.take_damage(dmg * sfrac)
 		_:
 			var kb: float = float(eff.get("knockback_m", 0.0))
 			if kb > 0.0:
@@ -509,7 +533,64 @@ func _telegraph_color(kind: String) -> Color:
 			return Color(1.0, 0.85, 0.2, 0.5)
 		"enemy_poison":
 			return Color(0.4, 0.9, 0.3, 0.5)
+		"enemy_charge":  # AB-004 Voltaic — electric blue
+			return Color(0.4, 0.7, 1.0, 0.55)
+		"enemy_hex":  # AB-012 Hex — purple rune (보라색 룬탄)
+			return Color(0.7, 0.35, 0.95, 0.5)
+		"enemy_heal":  # AB-098 Mire Mend — green ward pulse (녹색 결계)
+			return Color(0.35, 1.0, 0.5, 0.5)
+		"enemy_splash":  # AB-008 Slag — slag orange
+			return Color(0.95, 0.6, 0.25, 0.5)
 	return Color(0.9, 0.3, 0.2, 0.5)
+
+
+## Cooldown-triggered signature cast (AB-098 heal): if a ready signature's condition holds,
+## start its channel (telegraph) and set the cooldown. Returns true if a cast began.
+## Distinct from _select_enemy_ability (basic-rhythm every_n) — this drives off sig_cooldown_s.
+func _try_cast_signature(enemy: CharacterBody3D) -> bool:
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY or String(ab.get("trigger", "")) != "signature":
+			continue
+		var ref := String(ab.get("ref", ""))
+		var eff: Dictionary = Slice01Data.get_ability(ref)
+		var kind := String(eff.get("kind", ""))
+		if kind == "enemy_heal":
+			# Condition: a squad-mate (incl. self) within heal radius below the HP threshold.
+			var r := float(eff.get("radius_m", 3.0))
+			var thr := float(eff.get("ally_threshold_pct", 0.9))
+			var wounded := false
+			for a in _combat._enemies_in_radius(enemy.global_position, r):
+				if is_instance_valid(a) and a.is_alive() and a.hp < a.max_hp * thr:
+					wounded = true
+					break
+			if not wounded:
+				continue  # nothing to heal → save the cooldown
+		else:
+			continue  # only heal-style signatures use the cooldown pass for now
+		# Begin the channel — windup_target null (target-less); resolved by _resolve_enemy_attack.
+		enemy.winding = true
+		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.55))
+		enemy.windup_eff = eff
+		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
+		enemy.windup_target = null
+		enemy.sig_cooldown_s = float(eff.get("cooldown_s", 8.0))
+		SkillVfx.telegraph(self, enemy.global_position, _telegraph_color(kind))
+		return true
+	return false
+
+
+## Resolve AB-098 Mire Mend Pulse — heal every squad-mate (incl. self) within radius by
+## heal_pct of their max HP. Target-less (allies, not the party). ref: AB-098 / EN-014.
+func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+	var r := float(eff.get("radius_m", 3.0))
+	var pct := float(eff.get("heal_pct", 0.08))
+	var healed := 0
+	for a in _combat._enemies_in_radius(enemy.global_position, r):
+		if is_instance_valid(a) and a.has_method("heal") and a.is_alive() and a.hp < a.max_hp:
+			a.heal(a.max_hp * pct)
+			healed += 1
+	SkillVfx.telegraph(self, enemy.global_position, _telegraph_color("enemy_heal"))
+	print("[EN] %s %s heal x%d (r%.1f %d%%)" % [enemy.enemy_id, String(chosen.get("ref", "")), healed, r, int(pct * 100.0)])
 
 
 ## Pattern ability (every_n match) takes priority; else the basic ability.
