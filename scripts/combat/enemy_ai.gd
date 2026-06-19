@@ -35,7 +35,12 @@ const RETREAT_SPEED_FRAC := 1.0    # flee at full speed (being chased)
 const ENGAGE_LEASH_M := 18.0       # kite/zone: don't stray past this from spawn anchor (§3 default)
 const ZONE_RADIUS_DEFAULT := 8.0   # zone: engage only while target is within this of the anchor
 const ZONE_RETURN_SLACK_M := 1.0   # zone: already-home tolerance (don't jitter at the anchor)
-const ORBIT_ARC_M := 4.0           # orbit: lateral flank offset blended in by approach distance
+# orbit: circle the target while spiralling in. ORBIT_RADIUS_M = "far" reference for the inward
+# scaling (bigger → wider circle held longer); ORBIT_INWARD_FAR = inward weight when far (smaller
+# → more tangential = rounder detour); ORBIT_LOOKAHEAD_M = steer point ahead along the orbit dir.
+const ORBIT_RADIUS_M := 6.0
+const ORBIT_INWARD_FAR := 0.22
+const ORBIT_LOOKAHEAD_M := 3.5
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
 const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
 
@@ -398,18 +403,25 @@ func _move_zone(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) ->
 	return Vector3.ZERO
 
 
-## orbit (PT-003/008): arc toward a lateral flank offset (side fixed per-enemy) that shrinks as
-## it closes, so it approaches from the side/rear rather than head-on (EN-008 탱커 정면 회피).
+## orbit (PT-003/008): steer TANGENTIALLY around the target (circle it) while spiralling inward —
+## a wide circular detour to the side/rear, not a near-straight diagonal. Far → mostly tangential
+## (wide arc); the closer to attack range, the more it cuts inward to close. Side fixed per-enemy.
 func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
 	enemy.face_toward(tp)
 	if dist <= enemy.attack_range_m:
 		return Vector3.ZERO
 	var to := tp - enemy.global_position
 	to.y = 0.0
-	var perp := Vector3(-to.z, 0.0, to.x).normalized()  # left/right normal of the approach line
+	if to.length() < 0.01:
+		return Vector3.ZERO
+	var radial := to.normalized()                                    # toward the target (close in)
 	var side := 1.0 if (enemy.get_instance_id() % 2 == 0) else -1.0
-	var arc := clampf(dist - enemy.attack_range_m, 0.0, ORBIT_ARC_M)
-	return _nav_move(enemy, tp + perp * (side * arc), spd)
+	var tangent := Vector3(-radial.z, 0.0, radial.x) * side          # perpendicular (circle around)
+	# Far past attack range → small inward weight (wide circle); near → full inward (spiral in).
+	var far := clampf((dist - enemy.attack_range_m) / ORBIT_RADIUS_M, 0.0, 1.0)
+	var radial_w := lerpf(1.0, ORBIT_INWARD_FAR, far)
+	var move_dir := (tangent + radial * radial_w).normalized()
+	return _nav_move(enemy, enemy.global_position + move_dir * ORBIT_LOOKAHEAD_M, spd)
 
 
 ## probe (PT-006): hit-and-back-off. While the post-strike backstep timer runs, retreat;
