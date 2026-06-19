@@ -45,6 +45,9 @@ const DASH_MAX_M := 9.0            # cap a single lunge so it never teleports ac
 const DASH_FLANK_OFFSET_M := 1.3   # AB-013: lateral offset so the dash ends at the target's flank
 const DASH_TRIGGER_BUFFER_M := 0.5 # only dash when farther than attack_range + this (a real gap)
 
+# --- AssassinTransform (NORM-003/HARD-011): disguised → reveal → backline execute ---
+const ASSASSIN_EXECUTE_MULT := 3.0  # backline execute burst (vs normal basic) — 후열 처형
+
 # Dormant roaming (alive feel): wander within this radius of the spawn home, pausing between legs.
 const ROAM_RADIUS_M := 5.0
 const ROAM_SPEED_FRAC := 0.4
@@ -259,6 +262,12 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		enemy.velocity = Vector3.ZERO
 		enemy.move_and_slide()
 		return
+	# Disguised assassin (AssassinTransform): ignore threat, stalk a BACKLINE target (squishiest
+	# non-Tank) to execute. Reverts to normal targeting once revealed.
+	if enemy.assassin and not enemy.assassin_revealed:
+		var ex := _pick_backline_target(targets)
+		if ex != null:
+			target = ex
 	enemy.set_target_marker(target)
 	enemy.set_alert_mark(2)  # 전투 (!)
 	var to := target.global_position - enemy.global_position
@@ -290,7 +299,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	if has_los and dist <= enemy.attack_range_m:
 		enemy.face_toward(target.global_position)  # face to strike even while repositioning
 		if enemy.attack_cooldown_s <= 0.0 and not enemy.winding:
-			_begin_enemy_attack(enemy, target)
+			if enemy.assassin and not enemy.assassin_revealed:
+				_begin_assassin_execute(enemy, target)  # disguised → reveal telegraph → execute
+			else:
+				_begin_enemy_attack(enemy, target)
 			enemy.attack_cooldown_s = enemy.attack_interval_s
 			if String(enemy.engage_profile.get("engage", "")) == "probe":
 				enemy.probe_backstep_s = PROBE_BACKSTEP_S  # hit landed → back off (EN-006)
@@ -563,6 +575,9 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 		SkillVfx.enemy_vfx(vfx, self, from, target.global_position)
 	if String(chosen.get("trigger", "")) == "every_n" or kind in ["enemy_stun", "enemy_poison"]:
 		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), target.identity_skill_id])
+	if kind == "enemy_execute":
+		enemy.assassin_revealed = true  # disguise dropped after the execute lands
+		print("[EN] %s ASSASSIN execute (x%.1f) -> %s" % [enemy.enemy_id, float(eff.get("damage_mult", 1.0)), target.identity_skill_id])
 
 
 func _telegraph_color(kind: String) -> Color:
@@ -583,6 +598,8 @@ func _telegraph_color(kind: String) -> Color:
 			return Color(0.5, 0.95, 0.95, 0.55)
 		"enemy_provoke":  # AB-099 Iron Mockery — metallic gold fan (방패 금속 울림)
 			return Color(0.9, 0.8, 0.4, 0.55)
+		"enemy_execute":  # AssassinTransform reveal — crimson aim line (조준선)
+			return Color(0.85, 0.05, 0.15, 0.6)
 	return Color(0.9, 0.3, 0.2, 0.5)
 
 
@@ -747,6 +764,43 @@ func _resolve_dash_hit(enemy: CharacterBody3D) -> void:
 	to.y = 0.0
 	if to.length() <= enemy.attack_range_m + 1.0:
 		_apply_enemy_hit(enemy, target, eff, chosen)
+
+
+## Disguised assassin reveal+execute (AssassinTransform): telegraph (assassin_telegraph_s) →
+## a high-burst strike on the backline target. Resolved via _resolve_enemy_attack → _apply_enemy_hit
+## (kind enemy_execute), which sets assassin_revealed. ref: ENC-NORM-003 / ENC-HARD-011.
+func _begin_assassin_execute(enemy: CharacterBody3D, target: CharacterBody3D) -> void:
+	enemy.attack_count += 1
+	var eff := {
+		"kind": "enemy_execute",
+		"telegraph_s": float(enemy.assassin_telegraph_s),
+		"damage_mult": ASSASSIN_EXECUTE_MULT,
+		"knockback_m": 1.0,
+		"vfx": "projectile",
+	}
+	enemy.winding = true
+	enemy.windup_timer_s = float(enemy.assassin_telegraph_s)
+	enemy.windup_eff = eff
+	enemy.windup_chosen = {"ref": "", "trigger": "assassin"}
+	enemy.windup_target = target
+	SkillVfx.telegraph(self, target.global_position, _telegraph_color("enemy_execute"))
+	print("[EN] %s ASSASSIN reveal (%.2fs) -> %s" % [enemy.enemy_id, float(enemy.assassin_telegraph_s), target.identity_skill_id])
+
+
+## Backline execute target for the disguised assassin: the squishiest NON-Tank living member
+## (Tanks pushed to the back of the queue) — the "후열 처형" victim. null if no member.
+func _pick_backline_target(nodes: Array) -> CharacterBody3D:
+	var best: CharacterBody3D = null
+	var best_score := INF
+	for n in _alive_members(nodes):
+		if not is_instance_valid(n):
+			continue
+		var is_tank := String(n.get("class_id")) == "Tank"
+		var score: float = float(n.hp) + (100000.0 if is_tank else 0.0)  # prefer non-Tank, then low HP
+		if score < best_score:
+			best_score = score
+			best = n
+	return best
 
 
 ## Pattern ability (every_n match) takes priority; else the basic ability.

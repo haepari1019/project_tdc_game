@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260619-007 — P2-S2-fin A3: AssassinTransform (NORM-003 신 + HARD-011 정합)
+- **결정(사용자 "진행해"):** 위장 암살자 — fodder 무리 중 1기가 변장→reveal 전조→후열 처형. **per-ENCOUNTER 태그**(D-013 tags[], 유닛 카탈로그 아님).
+  - **태그 배선:** ENC unit 행에 `"assassin": true` + `"assassin_telegraph_s"`. `combat_controller._spawn_at`가 그 행의 스폰에만 `unit.assassin`/`assassin_telegraph_s` 세팅(같은 enemy_id라도 비태그 행은 정상). enemy_unit에 `assassin`/`assassin_telegraph_s`/`assassin_revealed`.
+  - **AI(enemy_ai):** 미리빌 시 ① 타겟을 **backline 재지정**(`_pick_backline_target` — 비-Tank 최저 HP) ② 공격 게이트에서 `_begin_assassin_execute` — 텔레그래프(`assassin_telegraph_s`, 크림슨 조준선) → `enemy_execute`(dmg ×3.0 + kb) → `_apply_enemy_hit`가 `assassin_revealed=true`. 이후 정상 EN-011(standoff) 거동.
+  - **ENC:** NORM-003 신(fodder 5: EN-010×2·EN-011×2[1 assassin 0.6s]·EN-012). HARD-011 정합(기존 JSON 오기 EN-008/EN-010×3 → 스펙대로 EN-011 assassin 0.4s + EN-010×2·EN-011·EN-012). reachability: HARD-011 기존 P-ADV-05, NORM-003 = **P-ADV-03 Normal 행**(RM-ADV-03 기존, ENTRY→ADV-03 — 신규 룸 불필요).
+- **검증:** assassin 태그 1기/ENC·텔레그래프(Python) · `ci_smoke` PASS · **Normal 헤드리스: NORM-003@RM-ADV-03 prespawn, 무오류**. 변장→reveal→execute 체감은 교전 필요(F5).
+- **드리프트:** DRIFT-047 — 변장 모델(backline 재지정·execute·reveal 후 정상복귀)은 게임 인코딩(스펙은 tag+전조 수치만). 시각 변장 연출은 reveal 텔레그래프로 근사(박스 데모).
+- **잔여 → A4:** Boss phase(BOSS-001 MiniBoss+50%HP) = Track A 마지막.
+- **영향:** `scripts/combat/{enemy_ai·enemy_unit·combat_controller}`, `data/slice01/{encounters/ENC-NORM-003(신)·ENC-HARD-011·id_registry·spawn_table}`.
+
 ### IMPL-DEC-20260619-006 — P2-S2-fin A2: phase 증원 rear/flank (HARD-005 신 + HARD-010 수정)
 - **결정(사용자 "A2"):** 기존 증원 시스템(`reinforcement{delay_s,units}` + `_tick_reinforcement`, HARD-001 활용)에 **방향(rear/flank)** 추가 + 2 ENC를 스펙 phase-2로 정합.
   - **방향 enrichment(`combat_controller`):** `_reinforce_center`(rear 고정) → `_reinforce_point(room_ref, direction)`: `rear`=spawn−z8(입구쪽, 기본)·`flank`=spawn+x9(측면 arc). `_reinforce_direction(squad)`로 squad.reinforce.direction 조회, telegraph·spawn 양쪽 적용.

@@ -47,6 +47,12 @@ var dash_timer_s: float = 0.0
 var dash_eff: Dictionary = {}
 var dash_chosen: Dictionary = {}
 var dash_target: CharacterBody3D = null
+## AssassinTransform (ENC tag — NORM-003/HARD-011): disguised among fodder, stalks a backline
+## target, then reveals with a telegraph and EXECUTES (high burst). Reverts to normal after.
+## Set per-encounter at spawn (not a unit-catalog property). ref: ENC-NORM-003 / D-013 tags.
+var assassin: bool = false
+var assassin_telegraph_s: float = 0.6
+var assassin_revealed: bool = false
 var attack_count: int = 0
 # F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
 # object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.

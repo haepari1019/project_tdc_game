@@ -3,7 +3,7 @@
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`. 실행 로드맵: [docs/ROADMAP_P2_FullCoverage.md](docs/ROADMAP_P2_FullCoverage.md).
 
 - spec_ref_pin: `4422e50` (`staging`, 2026-06-18)
-- last_sprint: P2-S2-fin A1+A2 (조합 ENC + Upper 맵확장 + phase 증원 rear/flank — ENC 12→16/24, navmesh 284). 다음: A3 assassin·A4 boss → P2-S3(Interaction)
+- last_sprint: P2-S2-fin A1+A2+A3 (조합 ENC·Upper 맵확장·phase 증원·AssassinTransform — ENC 12→17/24, NORM 3/3). 다음: A4 Boss phase → P2-S3(Interaction)
 - last_updated: 2026-06-19
 
 ## Full Spec Coverage — AB-### 스냅샷 (2026-06-19)
@@ -24,7 +24,7 @@
 |--------|------|-------|
 | P2-S1 | ◐ | S1a~e 완료 + 헤드리스 검증 통과. S1f 문서 완료 · **인터랙티브 Hard 플레이 스모크(§9.1)는 F5 수동** 잔여 |
 | P2-S2 | ◐ | S2a~c(1~4): 적 **전투행동 축** 완료+헤드리스 PASS (ID 1:1·포지셔닝·시그니처 캐스트·대시·Provoked·§2 interrupt). EN-001~014 행동 kit 반영. |
-| P2-S2-fin | ◐ | A1: 조합 ENC HARD-002/003/004 + Upper 룸 3개. A2: phase 증원 rear/flank(HARD-005 신·HARD-010 정합)+RM-ADV-09. ENC 12→16/24, navmesh 244→284, Hard 헤드리스 12분대 PASS. **잔여:** A3 Assassin transform·A4 Boss phase · PAT/AMB=placement · 적 zone AB(F-027) · 교전 체감 F5 |
+| P2-S2-fin | ◐ | A1: 조합 ENC HARD-002/003/004 + Upper 룸 3개. A2: phase 증원 rear/flank(HARD-005·HARD-010)+RM-ADV-09. A3: AssassinTransform(NORM-003 신·HARD-011 정합) per-ENC 태그+reveal execute. ENC 12→17/24(NORM 3/3), navmesh 284, 헤드리스 PASS. **잔여:** A4 Boss phase · PAT/AMB=placement · 적 zone AB(F-027) · 교전 체감 F5 |
 
 ## P2-S2 checklist (combat redesign)
 

@@ -1,0 +1,13 @@
+{
+  "encounter_id": "ENC-NORM-003",
+  "difficulty_profile": "Normal",
+  "risk_pattern_ref": "RP-01",
+  "group_size": 5,
+  "_note": "Disguised Assassin (ENC-000 RP-01). Fodder 무리 5기 중 EN-011 1기에 AssassinTransform(per-ENC tag): 변장→reveal 전조 0.6s→후열 처형. Elite/Specialist 0(axes 0) — 전조 읽기가 전부. (per-unit assassin/assassin_telegraph_s = 인카운터 태그, 유닛 카탈로그 아님.)",
+  "units": [
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
+    { "enemy_id": "EN-011", "count": 1, "slot": "fodder", "assassin": true, "assassin_telegraph_s": 0.6 },
+    { "enemy_id": "EN-011", "count": 1, "slot": "fodder" },
+    { "enemy_id": "EN-012", "count": 1, "slot": "fodder" }
+  ]
+}

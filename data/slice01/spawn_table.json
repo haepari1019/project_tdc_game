@@ -14,6 +14,7 @@
     { "pool_slot": "P-DEEP-01",  "run_phase": "AdvanceExtraction", "world_layer": "Deep",  "difficulty": "Normal", "encounter_ref": "ENC-DEEP-001", "placement": "Fixed" },
     { "pool_slot": "P-BOSS-01",  "run_phase": "Objective",         "world_layer": "Mid",   "difficulty": "Hard",   "encounter_ref": "ENC-BOSS-001", "placement": "Fixed" },
     { "pool_slot": "P-EXT-ROUTE-01", "run_phase": "AdvanceExtraction", "world_layer": "Upper", "difficulty": "Hard", "encounter_ref": "ENC-HARD-009", "placement": "Fixed" },
+    { "pool_slot": "P-ADV-03",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-NORM-003", "placement": "Fixed" },
     { "pool_slot": "P-ADV-03",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-010", "placement": "Fixed" },
     { "pool_slot": "P-ADV-04",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-011", "placement": "Fixed" },
     { "pool_slot": "P-ADV-05",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-012", "placement": "Fixed" },

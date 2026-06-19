@@ -359,3 +359,9 @@
 - **구현(2026-06-19, IMPL-DEC-20260619-006):** reinforcement에 direction(rear/flank) 추가 + HARD-010(flank)·HARD-005(rear) phase-2 정합. RM-ADV-09 추가(navmesh 284).
 - **분류/전파:** **impl ahead-of-spec.** 스펙 `ENC-HARD-005` non-goal: "Phase-2 spawn 런타임 SSOT = F-006 Population 후속; 본 ENC는 문서 훅만"·HARD-010 "phase spawn = P2-S2". 게임은 이미 reinforcement 런타임(delay·engage-gated·telegraph·rear/flank)을 구현 → **게임이 F-006 phase-spawn 모델을 앞서 구현**. 정식화 시 reinforcement 런타임 모델(delay_s/direction/engage-trigger)을 F-006/ENC-000에 역전파 후보. rear/flank 좌표 오프셋(z−8/x+9)은 데모 PH 튜닝.
 - **잔여:** 증원 wave 실제 발동 체감 F5(교전 필요). HARD-005 spawn telegraph 연출(소리/그림자)은 폴리시.
+
+### DRIFT-047 — P2-S2-fin A3 AssassinTransform 변장 모델 🔸 IMPLEMENTED
+- **구현(2026-06-19, IMPL-DEC-20260619-007):** NORM-003(신)·HARD-011(정합)의 EN-011 1기에 per-ENC `assassin` 태그 → backline 재지정 + reveal 텔레그래프(0.6/0.4s) + execute(×3) + reveal 후 정상복귀.
+- **분류/전파:** **impl(스펙 tag 구현) + tuning.** AssassinTransform tag·전조 0.6/0.4s = spec `ENC-NORM-003`/`ENC-HARD-011`/D-013. 변장 런타임 모델(backline 타겟 재지정·execute ×3·reveal 후 정상)·crimson 조준선 = 게임 인코딩.
+- **드리프트(경미):** ① HARD-011 기존 JSON이 스펙과 불일치(EN-008/EN-010×3 오기)였던 걸 정합 — 단순 수정. ② **시각 변장**(fodder로 위장한 실루엣)은 박스 데모라 미구현 — reveal 텔레그래프(조준선)로 tell만. ③ EN-011=ranged standoff라 execute가 7.5m 원거리(스펙 "후열 처형" 의도와 정합, sneak-melee 아님).
+- **잔여:** 변장 실루엣 에셋·sneak 근접화는 폴리시. 체감 F5.

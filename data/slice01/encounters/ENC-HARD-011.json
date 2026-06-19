@@ -3,10 +3,11 @@
   "difficulty_profile": "Hard",
   "risk_pattern_ref": "RP-01",
   "group_size": 5,
-  "_note": "Disguised Assassin (Hard) — ENC-NORM-003 2nd. ENC-000 §0.1. AssassinTransform hook = P2-S2.",
+  "_note": "Disguised Assassin (Hard, ENC-NORM-003 2차 패밀리). EN-011 1기 AssassinTransform 전조 0.4s(NORM 0.6s 단축) → 후열 처형. fodder volume(FrontRush×2·BackPester×1·SlowBulk×1). en001_mockery off(EN-001 미포함).",
   "units": [
+    { "enemy_id": "EN-011", "count": 1, "slot": "specialist", "assassin": true, "assassin_telegraph_s": 0.4 },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
     { "enemy_id": "EN-011", "count": 1, "slot": "fodder" },
-    { "enemy_id": "EN-010", "count": 3, "slot": "fodder" },
-    { "enemy_id": "EN-008", "count": 1, "slot": "fodder" }
+    { "enemy_id": "EN-012", "count": 1, "slot": "fodder" }
   ]
 }

@@ -467,6 +467,11 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool) -> v
 			unit.setup(row, vis["color"], s)
 			unit.global_position = center + _spawn_offset(index)
 			unit.squad_id = squad_id
+			# AssassinTransform: per-ENCOUNTER tag (not a unit-catalog property) — one fodder
+			# row flagged disguised; same enemy_id rows without the flag stay normal.
+			if bool(u.get("assassin", false)):
+				unit.assassin = true
+				unit.assassin_telegraph_s = float(u.get("assassin_telegraph_s", 0.6))
 			unit.engaged = engaged
 			if engaged:
 				unit.engage_grace_s = COMBAT_EXIT_GRACE_S

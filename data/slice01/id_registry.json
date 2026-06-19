@@ -2,7 +2,7 @@
   "schema_version": 1,
   "spec_commit_short": "4422e50",
   "encounter_ids": [
-    "ENC-NORM-001", "ENC-NORM-002", "ENC-HARD-001", "ENC-HARD-002", "ENC-HARD-003", "ENC-HARD-004", "ENC-HARD-005",
+    "ENC-NORM-001", "ENC-NORM-002", "ENC-NORM-003", "ENC-HARD-001", "ENC-HARD-002", "ENC-HARD-003", "ENC-HARD-004", "ENC-HARD-005",
     "ENC-HARD-006", "ENC-HARD-008", "ENC-HARD-009", "ENC-HARD-010", "ENC-HARD-011", "ENC-HARD-012",
     "ENC-MID-001", "ENC-DEEP-001", "ENC-BOSS-001"
   ],
