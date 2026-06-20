@@ -21,6 +21,11 @@
     { "pool_slot": "P-ADV-06",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-002", "placement": "Fixed" },
     { "pool_slot": "P-ADV-07",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-003", "placement": "Fixed" },
     { "pool_slot": "P-ADV-08",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-004", "placement": "Fixed" },
-    { "pool_slot": "P-ADV-09",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-005", "placement": "Fixed" }
+    { "pool_slot": "P-ADV-09",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-005", "placement": "Fixed" },
+    { "pool_slot": "P-PAT-01",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-001", "placement": "Patrol" },
+    { "pool_slot": "P-PAT-02",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-002", "placement": "Patrol" },
+    { "pool_slot": "P-PAT-03",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-003", "placement": "Patrol" },
+    { "pool_slot": "P-AMB-01",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-001", "placement": "AmbushHold" },
+    { "pool_slot": "P-AMB-02",   "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-002", "placement": "AmbushHold" }
   ]
 }
