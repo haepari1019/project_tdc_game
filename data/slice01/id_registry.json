@@ -25,7 +25,7 @@
   ],
   "_note_ability_ids": "AB-002/010/011 = enemy lootable-shared (S2a). AB-004/008/012/098 = enemy SIGNATURE casts (S2c-1, EN-002/004/007/014). AB-006/013 = enemy mobility dashes (S2c-2, EN-003/008). AB-099 = EN-001 Iron Mockery / Provoked zone control (S2c-3, enemyOnly). AB-020/024/025/026 = party identity. AB-037 = lootable skillbook.",
   "_note_ability_ids": "AB-002/010/011 = enemy signature/lootable. AB-020/024/025/026 = player Identity. AB-037 = Ember (skillbook). AB-001/014/015/016 removed (spec→rom_*); AB-S01..S04 removed (non-spec demo subs).",
-  "_note_ability_ids_s3f": "AB-009/036/039/040/042/043 = kind 'spawn_zone' (S3f, shared) — Oil/Water/ToxicGas/Ice/Wind/Vegetation 존 생성. enemy 시전: EN-004(009/042)·EN-005(039)·EN-007(036/040/043). AB-041 = kind 'enemy_cold' Glacial Bolt(ColdDamageHit emitter, EN-007). 파티 로드아웃(skillbook 카탈로그) 미구현.",
+  "_note_ability_ids_s3f": "AB-009/036/039/040/042/043 = kind 'spawn_zone' (S3f, shared) — Oil/Water/ToxicGas/Ice/Wind/Vegetation 존 생성. enemy 시전: EN-004(009/042)·EN-005(039)·EN-007(036/040/043). AB-041 = kind 'enemy_cold' Glacial Bolt(ColdDamageHit emitter, EN-007). 파티 lootable = skillbooks.json(skillbook_zone/skillbook_cold) + sb_zone/sb_cold 이펙트.",
   "enemy_basic_attack_ids": [
     "rom_melee_kb_light", "rom_fodder_melee_tap", "rom_fodder_pebble_toss", "rom_swarm_nip",
     "rom_elite_voltaic_double", "rom_elite_melee_flurry", "rom_elite_slag_toss",

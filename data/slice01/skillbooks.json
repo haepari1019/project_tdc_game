@@ -32,6 +32,42 @@
       "range_band": "Mid",
       "charges_max": 8,
       "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 12, "radius_m": 3.0, "damage_mult": 1.8 }
+    },
+
+    {
+      "base_ability_id": "AB-009", "display_name": "Spawn Oil Patch", "equip_classes": ["Nuker", "Healer"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_zone", "cooldown_s": 8, "targeted": true, "range_m": 9, "medium": "Oil", "radius_m": 2.0, "ttl_s": 8.0 }
+    },
+    {
+      "base_ability_id": "AB-036", "display_name": "Spawn Water Patch", "equip_classes": ["Nuker", "Healer"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_zone", "cooldown_s": 8, "targeted": true, "range_m": 9, "medium": "Water", "radius_m": 2.0, "ttl_s": 8.0 }
+    },
+    {
+      "base_ability_id": "AB-039", "display_name": "Vent Spore Cloud", "equip_classes": ["Nuker", "Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_zone", "cooldown_s": 9, "targeted": true, "range_m": 9, "medium": "ToxicGas", "radius_m": 2.0, "ttl_s": 9.0, "dps": 8.0 }
+    },
+    {
+      "base_ability_id": "AB-040", "display_name": "Spawn Frost Patch", "equip_classes": ["Nuker", "Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_zone", "cooldown_s": 9, "targeted": true, "range_m": 9, "medium": "Ice", "radius_m": 2.0, "ttl_s": 9.0 }
+    },
+    {
+      "base_ability_id": "AB-042", "display_name": "Spawn Gust Patch", "equip_classes": ["Nuker", "Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_zone", "cooldown_s": 10, "targeted": true, "range_m": 9, "medium": "Wind", "radius_m": 2.0, "ttl_s": 8.0 }
+    },
+    {
+      "base_ability_id": "AB-043", "display_name": "Spawn Briar Patch", "equip_classes": ["Nuker", "Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_zone", "cooldown_s": 9, "targeted": true, "range_m": 9, "medium": "Vegetation", "radius_m": 2.0, "ttl_s": 9.0 }
+    },
+    {
+      "base_ability_id": "AB-041", "display_name": "Glacial Bolt", "equip_classes": ["DPS", "Nuker"],
+      "range_band": "Long", "charges_max": 8,
+      "cast": { "kind": "skillbook_cold", "cooldown_s": 5.5, "targeted": true, "range_m": 12, "radius_m": 2.0, "damage_mult": 1.2, "chill_dur_s": 3.0 }
     }
   ]
 }

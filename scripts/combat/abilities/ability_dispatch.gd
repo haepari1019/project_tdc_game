@@ -21,6 +21,8 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_poison.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_stun.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_fire.gd"),
+	preload("res://scripts/combat/abilities/effects/sb_zone.gd"),
+	preload("res://scripts/combat/abilities/effects/sb_cold.gd"),
 ]
 
 # F-009 §3.2.1 Family Mismatch Penalty — off-main-class (sub) skillbook use. Demo heuristic:
@@ -130,3 +132,13 @@ func damage_destructibles(pos: Vector3, r: float, dmg: float) -> bool:
 
 func fire_hit(center: Vector3, r: float, depth: int, source: Node = null) -> void:
 	_reactions.fire_hit(center, r, depth, source)
+
+
+## Spawn a medium ground zone (party spawn-zone subs: AB-009/036/039/040/042/043).
+func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null) -> void:
+	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source)
+
+
+## Emit a ColdDamageHit at a point (party Glacial Bolt, AB-041) → Cold RX (Water→Ice, Veg→Slowed).
+func cold_hit(center: Vector3, radius: float, source: Node = null) -> void:
+	_reactions.emit_event("ColdDamageHit", {"position": center, "radius": radius, "source": source})

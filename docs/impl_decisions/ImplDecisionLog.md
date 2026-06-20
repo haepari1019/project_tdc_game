@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260620-008 — P2-S3f 배치3: zone/cold AB 파티 lootable (skillbook)
+- **무엇:** S3f "enemy+**lootable**"의 lootable 절반 — 파티가 looted 스킬북으로 zone/cold AB 직접 시전.
+- **구현:** `skillbooks.json`에 7행 추가 — AB-009/036/039/040/042/043(cast.kind `skillbook_zone`)·AB-041(`skillbook_cold`). 이펙트 `effects/sb_zone.gd`(타겟 지점에 매체 zone 생성 → `ctx.spawn_zone`)·`sb_cold.gd`(AoE dmg + Chilled + `ctx.cold_hit`→ColdDamageHit). ability_dispatch에 등록 + ctx 파사드 `spawn_zone`/`cold_hit`.
+- **체감:** 샌드박스 로드아웃(스킬북 카탈로그 자동 반영)에서 Nuker/Healer에 Oil/Water/… , DPS/Nuker에 Glacial Bolt 장착 → Q/E/R로 시전. 파티가 직접 존 깔고 Ember로 점화/Glacial로 결빙 등 콤보.
+- **참고:** ability kind(spawn_zone/enemy_cold = 적 경로)와 skillbook cast.kind(skillbook_zone/skillbook_cold = 파티 경로) 분리 — 기존 AB-010(enemy_poison/skillbook_poison) 패턴과 동일.
+- **검증:** JSON·컴파일·샌드박스·ci_smoke PASS.
+- **영향:** `data/slice01/{skillbooks,id_registry}.json`, `scripts/combat/abilities/effects/{sb_zone,sb_cold}.gd`(신), `scripts/combat/abilities/ability_dispatch.gd`.
+
 ### IMPL-DEC-20260620-007 — P2-S3f 배치2: AB-041 GlacialBolt + Cold RX 매트릭스
 - **무엇:** 7번째 zone AB(AB-041, cold attack) + ColdDamageHit 콤보 — Hit-RX 매트릭스를 Fire+Cold로 확장.
 - **AB-041(kind `enemy_cold`):** telegraph 0.4·cd 5.5·dmg×1.2·Chilled 3s·range 10·vfx `shot_frost`(cyan cone 호밍). 공격 게이트(gate_kinds += enemy_cold)로 발동, 명중 시 Chilled + `ColdDamageHit` emit(타겟 위치). _PROJECTILE_VFX 추가(락온·도달 시 적용). EN-007 배선 + id_registry.
