@@ -338,6 +338,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# not stale-facing) and only fires when a party actor is actually in that fan. Needs target.
 	if not enemy.winding and not enemy.dashing and has_los:
 		_try_cast_provoke(enemy, target)
+	# Zone-spawn signature (AB-009/036/039/040/042/043): telegraph a ground marker → spawn the
+	# medium zone at the target's spot (EN-004 Oil/Wind · EN-005 ToxicGas · EN-007 Water/Ice/Veg).
+	if not enemy.winding and not enemy.dashing and has_los:
+		_try_cast_zone(enemy, target)
 	# Per-enemy engaged behavior (EN-AI-000 / PT-###): MOVEMENT is profile-specific
 	# (_engage_move owns velocity incl. ZERO = plant); the ATTACK gate below is shared —
 	# in range + LOS + off cooldown → strike, even while a kiter keeps backpedalling.
@@ -721,6 +725,12 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 	if String(eff.get("kind", "")) == "enemy_provoke":
 		_apply_enemy_provoke(enemy, eff, chosen)
 		return
+	if String(eff.get("kind", "")) == "spawn_zone":
+		# Ground-targeted: spawn at the telegraphed spot (windup_pos), even if the target moved/died.
+		_combat.spawn_zone(String(eff.get("medium", "Oil")), enemy.windup_pos,
+			float(eff.get("radius_m", 3.0)), float(eff.get("dps", 0.0)), float(eff.get("ttl_s", 8.0)), enemy)
+		print("[EN] %s %s → zone %s" % [enemy.enemy_id, String(chosen.get("ref", "")), String(eff.get("medium", "?"))])
+		return
 	if not is_instance_valid(target) or not target.is_alive():
 		return
 	if not _has_los(enemy, target):
@@ -924,6 +934,43 @@ func _try_cast_provoke(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
 		enemy.windup_target = null
 		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 14.0))
 		SkillVfx.fan_telegraph(self, enemy.global_position, enemy.facing, r, deg, _telegraph_color("enemy_provoke"), float(eff.get("telegraph_s", 0.85)))
+		return true
+	return false
+
+
+## Per-medium ground-marker colour for a spawn_zone telegraph (player CAN leave the spot → marker).
+func _zone_telegraph_color(medium: String) -> Color:
+	match medium:
+		"Oil": return Color(0.15, 0.12, 0.08, 0.5)
+		"Water": return Color(0.25, 0.50, 0.95, 0.42)
+		"Ice": return Color(0.62, 0.86, 1.0, 0.44)
+		"ToxicGas": return Color(0.45, 0.85, 0.25, 0.42)
+		"Vegetation": return Color(0.28, 0.55, 0.22, 0.46)
+		"Wind": return Color(0.70, 0.95, 0.85, 0.32)
+		_: return Color(0.60, 0.55, 0.90, 0.40)
+
+
+## Cooldown zone-spawn signature (AB-009/036/039/040/042/043): telegraph a GROUND marker at the
+## target's spot → spawn the medium zone there on resolve (a real leave-the-area AoE).
+func _try_cast_zone(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		var ref := String(ab.get("ref", ""))
+		var eff: Dictionary = Slice01Data.get_ability(ref)
+		if String(eff.get("kind", "")) != "spawn_zone":
+			continue
+		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
+			continue  # AB still on cooldown
+		var medium := String(eff.get("medium", "Oil"))
+		enemy.winding = true
+		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.5))
+		enemy.windup_eff = eff
+		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
+		enemy.windup_target = target
+		enemy.windup_pos = target.global_position  # ground-target spot captured at cast
+		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 8.0))
+		SkillVfx.telegraph(self, target.global_position, _zone_telegraph_color(medium), float(eff.get("radius_m", 3.0)))
 		return true
 	return false
 

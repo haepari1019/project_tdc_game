@@ -9,6 +9,14 @@
     "AB-011": { "kind": "enemy_stun",   "telegraph_s": 0.5, "channel": true, "cooldown_s": 5.0, "damage_mult": 0.6, "stun_s": 1.4, "vfx": "shield_bash" },
     "AB-012": { "kind": "enemy_hex",    "telegraph_s": 0.45, "channel": true, "cooldown_s": 4.0, "damage_mult": 0.4, "hex_slow": 0.6, "hex_dur_s": 4.0, "vfx": "shot_hex" },
     "AB-013": { "kind": "enemy_dash", "telegraph_s": 0.3, "channel": true, "cooldown_s": 5.0, "dash_range_m": 10.0, "flank": true, "hit_on_arrival": true, "damage_mult": 1.5, "knockback_m": 1.0, "vfx": "strike" },
+
+    "AB-009": { "kind": "spawn_zone", "medium": "Oil",        "telegraph_s": 0.55, "cooldown_s": 8.0,  "radius_m": 3.0, "ttl_s": 8.0 },
+    "AB-036": { "kind": "spawn_zone", "medium": "Water",      "telegraph_s": 0.5,  "cooldown_s": 8.0,  "radius_m": 3.0, "ttl_s": 8.0 },
+    "AB-039": { "kind": "spawn_zone", "medium": "ToxicGas",   "telegraph_s": 0.5,  "cooldown_s": 9.0,  "radius_m": 3.0, "ttl_s": 9.0, "dps": 8.0 },
+    "AB-040": { "kind": "spawn_zone", "medium": "Ice",        "telegraph_s": 0.5,  "cooldown_s": 9.0,  "radius_m": 3.0, "ttl_s": 9.0 },
+    "AB-042": { "kind": "spawn_zone", "medium": "Wind",       "telegraph_s": 0.4,  "cooldown_s": 10.0, "radius_m": 3.0, "ttl_s": 8.0 },
+    "AB-043": { "kind": "spawn_zone", "medium": "Vegetation", "telegraph_s": 0.5,  "cooldown_s": 9.0,  "radius_m": 3.0, "ttl_s": 9.0 },
+
     "AB-098": { "kind": "enemy_heal",   "telegraph_s": 0.55, "channel": true, "cooldown_s": 8.0, "radius_m": 3.0, "heal_pct": 0.08, "ally_threshold_pct": 0.90 },
     "AB-099": { "kind": "enemy_provoke", "telegraph_s": 0.85, "channel": true, "cooldown_s": 14.0, "zone_deg": 60, "zone_radius_m": 4.0, "provoke_dur_s": 2.0 },
 

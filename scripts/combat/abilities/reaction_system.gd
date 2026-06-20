@@ -111,7 +111,7 @@ func _primary_medium_of(zones: Array) -> String:
 
 
 ## Spawn a medium zone (RX result). dps>0 carries the source for aggro crediting.
-func _spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node) -> void:
+func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node) -> void:
 	var z := HazardZone.new()
 	z.setup(radius, dps, 0.0, medium, false, ttl)
 	add_child(z)
@@ -129,7 +129,7 @@ func _rx_fire_water(zones: Array, source: Node) -> void:
 			var r: float = float(z.radius)
 			z.clear_zone()
 			if not done:
-				_spawn_zone("Steam", pos, r, 0.0, STEAM_TTL, source)
+				spawn_zone("Steam", pos, r, 0.0, STEAM_TTL, source)
 				done = true
 	print("[RX] FireDamageHit + Water → Steam (RX-FIRE-WATER-001)")
 
@@ -141,7 +141,7 @@ func _rx_fire_vegetation(zones: Array, source: Node) -> void:
 			var pos: Vector3 = z.global_position
 			var r: float = float(z.radius)
 			z.clear_zone()
-			_spawn_zone("Fire", pos, r, FIRE_DPS, FIRE_TTL, source)
+			spawn_zone("Fire", pos, r, FIRE_DPS, FIRE_TTL, source)
 	print("[RX] FireDamageHit + Vegetation → burn (RX-FIRE-VEGETATION-001)")
 
 

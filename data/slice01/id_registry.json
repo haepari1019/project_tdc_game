@@ -20,10 +20,12 @@
   ],
   "ability_ids": [
     "AB-002", "AB-004", "AB-006", "AB-008", "AB-010", "AB-011", "AB-012", "AB-013", "AB-098", "AB-099",
-    "AB-020", "AB-024", "AB-025", "AB-026", "AB-037"
+    "AB-020", "AB-024", "AB-025", "AB-026", "AB-037",
+    "AB-009", "AB-036", "AB-039", "AB-040", "AB-042", "AB-043"
   ],
   "_note_ability_ids": "AB-002/010/011 = enemy lootable-shared (S2a). AB-004/008/012/098 = enemy SIGNATURE casts (S2c-1, EN-002/004/007/014). AB-006/013 = enemy mobility dashes (S2c-2, EN-003/008). AB-099 = EN-001 Iron Mockery / Provoked zone control (S2c-3, enemyOnly). AB-020/024/025/026 = party identity. AB-037 = lootable skillbook.",
   "_note_ability_ids": "AB-002/010/011 = enemy signature/lootable. AB-020/024/025/026 = player Identity. AB-037 = Ember (skillbook). AB-001/014/015/016 removed (spec→rom_*); AB-S01..S04 removed (non-spec demo subs).",
+  "_note_ability_ids_s3f": "AB-009/036/039/040/042/043 = kind 'spawn_zone' (S3f, shared) — Oil/Water/ToxicGas/Ice/Wind/Vegetation 존 생성. enemy 시전: EN-004(009/042)·EN-005(039)·EN-007(036/040/043). 파티 로드아웃(skillbook)·AB-041 cold = 배치2.",
   "enemy_basic_attack_ids": [
     "rom_melee_kb_light", "rom_fodder_melee_tap", "rom_fodder_pebble_toss", "rom_swarm_nip",
     "rom_elite_voltaic_double", "rom_elite_melee_flurry", "rom_elite_slag_toss",

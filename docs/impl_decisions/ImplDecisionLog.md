@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260620-006 — P2-S3f 배치1: zone-spawn AB(6종) + 적 시전 (EN-004/005/007)
+- **무엇:** 매체 존을 생성하는 공유 AB 6종 + 적 시전 경로. EN-004/007 "완성"(로드맵)의 콘텐츠.
+- **AB(kind `spawn_zone`, abilities.json):** AB-009 Oil·AB-036 Water·AB-039 ToxicGas(dps 8)·AB-040 Ice·AB-042 Wind·AB-043 Vegetation. radius/ttl/cooldown = spec design-example PH. id_registry 등록.
+- **적 시전(`_try_cast_zone`):** spawn_zone kind 보유 적이 쿨 차면 타겟 발밑에 **지면 마커 전조**(매체색, leave-the-spot 어포던스 = 진짜 회피 가능 AoE) → `_resolve_enemy_attack`의 `spawn_zone` 케이스가 `windup_pos`(전조 시점 위치)에 존 생성. `CombatController.spawn_zone` → `ReactionSystem.spawn_zone`(공개화).
+- **EN 배선:** EN-004 += AB-009/042(Oil+Slippery·인화 / Wind) · EN-005 += AB-039(독안개) · EN-007 += AB-036/040/043(Water/Ice/Veg). per-ability cd로 스태거.
+- **RX 연동:** 적이 깐 Oil/Water/Veg/ToxicGas에 AB-037 Ember(FireDamageHit) → S3d 매트릭스로 연쇄(Steam·점화·toxic flash·폭발). 샌드박스에서 적 스폰 + Ember로 관찰.
+- **스코프:** AB-041 GlacialBolt(ColdDamageHit) + 파티 로드아웃(skillbook 카탈로그)·spread(S3e) = 배치2/후속.
+- **검증:** JSON·id_registry·샌드박스·ci_smoke PASS.
+- **영향:** `data/slice01/{abilities,enemies,id_registry}.json`, `scripts/combat/enemy_ai.gd`(_try_cast_zone·resolve·_zone_telegraph_color), `scripts/combat/enemy_unit.gd`(windup_pos), `scripts/combat/combat_controller.gd`·`reaction_system.gd`(spawn_zone facade), `scripts/dev/combat_sandbox.gd`(검증문구).
+
 ### IMPL-DEC-20260620-005 — P2-S3d primaryMedium resolver + FireDamageHit RX 매트릭스
 - **무엇:** 이벤트→RX 파이프라인 가동 — Hit 타일의 primaryMedium을 resolver로 뽑아 **combo RX 1종** 발동(EVENT-CORE §3 / INT-002 §6.1).
 - **resolver:** `_zones_overlapping(pt)` = 그 점에 겹친 ground_zone들(= 그 타일의 **activeMedia**) → `_primary_medium_of` = `RX_PRIORITY`(Oil>ToxicGas>Water>Fire>Steam>Smoke>Ice>Veg>Wind) 최상위 1개. (다중 매체 = 존 겹침으로 표현; 단일 존은 여전히 1매체.)

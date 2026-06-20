@@ -254,6 +254,11 @@ func ignite_at(center: Vector3, radius: float, source: Node = null) -> void:
 	_reactions.ignite_at(center, radius, source)
 
 
+## Spawn a medium ground zone (AB-009/036/039/040/042/043 — enemy/lootable). ref: F-027 ZONE-*.
+func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null) -> void:
+	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source)
+
+
 func _enemies_in_radius(pos: Vector3, r: float) -> Array:
 	var out: Array = []
 	var r2 := r * r

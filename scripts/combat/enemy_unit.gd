@@ -81,6 +81,7 @@ var windup_timer_s: float = 0.0
 var windup_eff: Dictionary = {}
 var windup_chosen: Dictionary = {}
 var windup_target: CharacterBody3D = null
+var windup_pos: Vector3 = Vector3.ZERO   # ground-target capture (spawn_zone — telegraphed spot)
 
 # --- Perception facing + vision cone (Phase C2: hybrid vision cone) ---
 const SCAN_HALF_DEG := 35.0   # dormant idle scan sweep amplitude
