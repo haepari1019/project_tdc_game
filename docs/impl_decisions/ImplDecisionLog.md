@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260621-002 — P2-S4 Hub B1: haul vault 파이프 (At-Risk → 탈출 → vault)
+- **무엇:** haulMaterial이 런 인벤(At-Risk)에 쌓여 → ExtractionSuccess 시 `HubProfile.hubHaulVault`(Safe)로 이관 → 시설 승급 소모. F-029 §3.2 / D-029 §4.
+- **haul = 인벤 아이템 종류:** `ItemFactory.haul_item`(kind "haul" + haul_material_id, 1×1 ochre). `inventory_ui.add_haul_to_backpack`/`collect_haul`(backpack kind=="haul" → {id:count}). `item_drop` 픽업 라우팅에 haul 분기. → 스펙대로 haul은 run-inventory At-Risk 아이템(실패 시 lost_items, 캡 포함).
+- **드롭(PH):** `loot_service`에 haul 드롭(흔한 Upper 재료 5종·30%) — **정식 ENC 드롭표 = HUB-COR-000(B7)** 전 placeholder. vault 파이프 체감용.
+- **이관:** `run_end_controller._settle_extraction` = `collect_haul` → `HubProfile.add_haul`(런에서 제거). 실패 경로는 자동 lost(collect_run_inventory에 kind=="haul" 포함, vault 미적재). settlement_panel = "재료 N · → Vault" 표기.
+- **런→허브 복귀:** 기존 Esc→main.tscn 재사용(별도 추가 X). 복귀 시 HubProfile(autoload)에 vault 반영됨.
+- **검증:** haul_item 빌드·vault 누적·**전체 루프(vault+quest→stash 승급 tier1)**·던전 부팅·ci_smoke PASS.
+- **영향:** `item_factory.gd`·`inventory_ui.gd`·`item_drop.gd`·`loot_service.gd`·`run_end_controller.gd`·`settlement_panel.gd`. 다음 B2/B3(업그레이드 게이트 UI = UI-029 허브 맵).
+
 ### IMPL-DEC-20260621-001 — P2-S4 Hub B0: HubProfile + 시설/퀘스트/haul 데이터 (F-029/D-029)
 - **무엇:** P2-S4 Hub 1단계 — 데이터·인프라. F-029/D-029 스펙 그대로 게임 데이터화 + HubProfile 오토로드.
 - **데이터(신규):** `facilities_tiers.json`(8시설 Tier 표: effect·value·quest·haul·prereq·armory catalog) · `quests.json`(13 Q-HUB-### + completion stub) · `haul_materials.json`(9 haul). id_registry에 `facility_ids`/`quest_ids`/`haul_material_ids` 등록.

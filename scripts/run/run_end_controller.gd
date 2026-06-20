@@ -103,6 +103,10 @@ func _settle_extraction() -> void:
 			survivors.append(String(m.class_id))
 	var safe_items := _collect_at_risk()             # At-Risk → Safe (전량, §3.6.1)
 	_inv.mark_run_inventory_safe()
+	# haulMaterial: 런 인벤(At-Risk) → hubHaulVault(Safe), 런에서 제거 (F-029 §3.2 / D-029 §4).
+	var haul: Dictionary = _inv.collect_haul() if _inv.has_method("collect_haul") else {}
+	for hid in haul:
+		HubProfile.add_haul(String(hid), int(haul[hid]))
 	var partial := not casualties.is_empty()
 	_run.settle_extraction({
 		"result": "Partial Extraction Success" if partial else "Extraction Success",
@@ -110,6 +114,7 @@ func _settle_extraction() -> void:
 		"survivors": survivors,
 		"casualties": casualties,
 		"safe_items": safe_items,
+		"haul": haul,
 		"lost_items": [],
 	})
 

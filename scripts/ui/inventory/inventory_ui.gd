@@ -215,6 +215,26 @@ func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool) -> bool:
 	return _backpack.add_item_dict(ItemFactory.skillbook_item(m, at_risk))
 
 
+## Add a looted haul material to the backpack as At-Risk run inventory (D-029 §4). On Extraction
+## Success it transfers to hubHaulVault (Safe); on failure it is lost. Returns false if full.
+func add_haul_to_backpack(haul_material_id: String, at_risk: bool) -> bool:
+	var m: Dictionary = Slice01Data.get_haul_material(haul_material_id)
+	var display := String(m.get("display", haul_material_id))
+	return _backpack.add_item_dict(ItemFactory.haul_item(haul_material_id, display, at_risk))
+
+
+## Haul materials currently in the run inventory → {haulMaterialId: count}. Consumed by the run-end
+## controller on Extraction Success → HubProfile.add_haul (F-029 §3.2).
+func collect_haul() -> Dictionary:
+	var out: Dictionary = {}
+	for it in _backpack.items:
+		if String(it.get("kind", "")) == "haul":
+			var hid := String(it.get("haul_material_id", ""))
+			if not hid.is_empty():
+				out[hid] = int(out.get(hid, 0)) + int(it.get("count", 1))
+	return out
+
+
 
 
 # --- run settlement (F-007 §3.6/§3.7 — backpack = At-Risk run inventory) ---------

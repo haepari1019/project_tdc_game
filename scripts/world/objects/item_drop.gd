@@ -42,6 +42,8 @@ func interact() -> void:
 		ok = _inv.add_gear_to_backpack(String(item.get("base_gear_id", "")), true)
 	elif String(item.get("kind", "")) == "skillbook":
 		ok = _inv.add_skillbook_to_backpack(String(item.get("base_ability_id", "")), true)
+	elif String(item.get("kind", "")) == "haul":
+		ok = _inv.add_haul_to_backpack(String(item.get("haul_material_id", "")), true)
 	else:
 		ok = _inv.add_to_backpack(String(item.id), int(item.w), int(item.h), item.color)
 	if ok:

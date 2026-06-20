@@ -18,6 +18,10 @@ const LOOT_TABLE: Array = [
 const GEAR_LOOT: Array = ["gear_ward_tank_anchor_set", "gear_ward_healer_mend_set"]
 const GEAR_DROP_CHANCE := 0.08          # gear is RARE (per-kill, after the skillbook roll). (tuning)
 const SKILLBOOK_DROP_CHANCE := 0.85     # high so lootable-AB enemies almost always drop. (tuning)
+## haulMaterial (F-029/D-029) — 시설 승급 재화, 던전 At-Risk 드롭. PH 풀·확률 — 정식 ENC 드롭표 =
+## HUB-COR-000 (P2-S4 B7). 흔한 Upper 재료 위주로 둬 vault 파이프가 체감되게 함.
+const HAUL_LOOT: Array = ["haul_ward_splinter", "haul_script_fragment", "haul_arc_ink", "haul_ward_plate", "haul_ruin_glass"]
+const HAUL_DROP_CHANCE := 0.30
 
 var _inv: Node
 
@@ -48,7 +52,21 @@ func _roll_loot_def(ability_refs: Array) -> Dictionary:
 		return _make_skillbook_drop_def(String(lootable[randi() % lootable.size()]))
 	if randf() < GEAR_DROP_CHANCE and not GEAR_LOOT.is_empty():
 		return _make_gear_drop_def(String(GEAR_LOOT[randi() % GEAR_LOOT.size()]))
+	if randf() < HAUL_DROP_CHANCE and not HAUL_LOOT.is_empty():
+		return _make_haul_drop_def(String(HAUL_LOOT[randi() % HAUL_LOOT.size()]))
 	return (LOOT_TABLE[randi() % LOOT_TABLE.size()] as Dictionary).duplicate()
+
+
+## Haul drop def (F-029/D-029) — kind "haul" + haul_material_id; picked up → run inventory At-Risk.
+func _make_haul_drop_def(haul_material_id: String) -> Dictionary:
+	var m: Dictionary = Slice01Data.get_haul_material(haul_material_id)
+	return {
+		"id": String(m.get("display", haul_material_id)),
+		"w": 1, "h": 1,
+		"color": Color(0.62, 0.5, 0.32),
+		"kind": "haul",
+		"haul_material_id": haul_material_id,
+	}
 
 
 func _make_skillbook_drop_def(base_ability_id: String) -> Dictionary:

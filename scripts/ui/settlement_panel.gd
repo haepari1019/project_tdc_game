@@ -128,12 +128,14 @@ func _category_summary(items: Array) -> String:
 	var g := 0
 	var s := 0
 	var c := 0
+	var hl := 0
 	var o := 0
 	for it in items:
 		match String(it.get("kind", "")):
 			"gear": g += 1
 			"skillbook": s += 1
 			"consumable": c += 1
+			"haul": hl += 1
 			_: o += 1
 	var parts: Array = []
 	if g > 0:
@@ -142,6 +144,8 @@ func _category_summary(items: Array) -> String:
 		parts.append("스킬북 %d" % s)
 	if c > 0:
 		parts.append("소모품 %d" % c)
+	if hl > 0:
+		parts.append("재료 %d" % hl)
 	if o > 0:
 		parts.append("기타 %d" % o)
 	if parts.is_empty():
@@ -154,7 +158,8 @@ func _item_lines(items: Array, suffix: String = "") -> String:
 		return "  (없음)"
 	var lines: Array = []
 	for it in items:
-		lines.append("  • %s%s%s" % [String(it.get("label", "?")), _qty(it), suffix])
+		var suf := "  → Vault" if String(it.get("kind", "")) == "haul" else suffix
+		lines.append("  • %s%s%s" % [String(it.get("label", "?")), _qty(it), suf])
 	return "\n".join(lines)
 
 

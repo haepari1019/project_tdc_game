@@ -21,6 +21,19 @@ static func gear_item(master: Dictionary, at_risk: bool) -> Dictionary:
 	}
 
 
+## Backpack item dict from a haul material (1×1, ochre). Run-inventory At-Risk; on Extraction
+## Success → hubHaulVault Safe (F-029 §3.2 / D-029 §4). 시설 승급 전용 재화.
+static func haul_item(haul_material_id: String, display: String, at_risk: bool) -> Dictionary:
+	return {
+		"id": display if not display.is_empty() else haul_material_id,
+		"w": 1, "h": 1,
+		"color": Color(0.62, 0.5, 0.32),
+		"kind": "haul",
+		"haul_material_id": haul_material_id,
+		"at_risk": at_risk,
+	}
+
+
 ## Backpack item dict from a skillbook master (1×1, role-tinted, full charges).
 static func skillbook_item(master: Dictionary, at_risk: bool) -> Dictionary:
 	var classes: Array = master.get("equip_classes", [])
