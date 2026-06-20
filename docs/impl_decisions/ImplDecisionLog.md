@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260620-010 — RX 연쇄 per-reaction VFX (절차적 placeholder)
+- **결정(사용자):** 공용 버스트가 아니라 **반응별 고유 연출**(물+전기=물에 전기, 물+불=증기 등). 정식 아트는 후속 교체 — 지금은 **교체 가능한 절차적 기본값**.
+- **skill_vfx 추가:** `rx_explosion`(주황 blast+glow+flame licks)·`rx_steam`(흰 wisp 상승)·`rx_burn`(녹색 tinge 화염)·`rx_toxic_flash`(녹황 ignition+puff)·`rx_freeze`(cyan crystal pop)·`rx_electrify`(cyan 아크 lightning_bolt ×6 across)·`rx_slick`(검은 oil 더블 ripple). 헬퍼 `_rising_wisp`(기체 상승)·`_pop_spike`(ice/flame 콘)·`_disc_off`.
+- **reaction_system 배선:** 각 `_rx_*`/Hit 핸들러가 해당 연출 호출. 생성형(steam/burn/ice)은 spawn pos에 인라인, 결과형(electrify/slick/freeze)은 `_rx_burst`(zone 위치 dispatch). 폭발은 평면 telegraph → `rx_explosion`로 교체.
+- **체감:** 7개 연쇄가 각각 다르게 보임 — "방금 무슨 연쇄가 터졌는지" 즉시 읽힘.
+- **잔여:** 정식 아트/파티클·사운드는 후속. 존 원반 알파↑·상태 가독성(B/C)은 별도 옵션.
+- **검증:** 컴파일·샌드박스·ci_smoke PASS.
+- **영향:** `scripts/combat/abilities/skill_vfx.gd`(rx_* + 헬퍼), `scripts/combat/abilities/reaction_system.gd`(핸들러 배선·_zone_of/_rx_burst).
+
 ### IMPL-DEC-20260620-009 — P2-S3 Hit-RX 매트릭스 완성 (Lightning/Physical 축 추가)
 - **무엇:** Hit-RX 매트릭스를 4축(Fire/Cold/**Lightning/Physical**)으로 완성 — S3d 매트릭스 마감.
 - **Lightning(`RX_LIGHTNING_MATRIX`):** AB-004 enemy_charge 명중 시 `LightningHit` emit → Water→**Shock**(RX-LIGHTNING-WATER, 전도)·Steam→Shock weak(RX-STEAM-LIGHTNING). 매체 내 전 유닛 감전.

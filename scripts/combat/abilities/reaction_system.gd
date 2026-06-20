@@ -144,6 +144,7 @@ func _rx_fire_water(zones: Array, source: Node) -> void:
 			z.clear_zone()
 			if not done:
 				spawn_zone("Steam", pos, r, 0.0, STEAM_TTL, source)
+				SkillVfx.rx_steam(self, pos, r)  # hissing wisps
 				done = true
 	print("[RX] FireDamageHit + Water → Steam (RX-FIRE-WATER-001)")
 
@@ -156,6 +157,7 @@ func _rx_fire_vegetation(zones: Array, source: Node) -> void:
 			var r: float = float(z.radius)
 			z.clear_zone()
 			spawn_zone("Fire", pos, r, FIRE_DPS, FIRE_TTL, source)
+			SkillVfx.rx_burn(self, pos, r)  # green-tinged flames
 	print("[RX] FireDamageHit + Vegetation → burn (RX-FIRE-VEGETATION-001)")
 
 
@@ -171,6 +173,7 @@ func _rx_toxicgas_fire(zones: Array, source: Node) -> void:
 						u.apply_poison(4.0, FIRE_DPS)
 					elif u.has_method("take_damage"):
 						u.take_damage(GAS_FLASH_DMG)
+		SkillVfx.rx_toxic_flash(self, z.global_position, float(z.radius))  # sickly ignition
 		z.clear_zone()
 	_combat.camera_shake.emit(0.3, Vector3.ZERO)
 	print("[RX] FireDamageHit + ToxicGas → toxic flash (RX-TOXICGAS-FIRE-001)")
@@ -200,6 +203,7 @@ func _rx_cold_water(zones: Array, source: Node) -> void:
 			z.clear_zone()
 			if not done:
 				spawn_zone("Ice", pos, r, 0.0, STEAM_TTL, source)
+				SkillVfx.rx_freeze(self, pos, r)  # cyan crystal pop
 				done = true
 	print("[RX] ColdDamageHit + Water → Ice (RX-COLD-WATER-001)")
 
@@ -207,6 +211,7 @@ func _rx_cold_water(zones: Array, source: Node) -> void:
 ## RX-VEGETATION-COLD-001 — frostbitten plants → Chilled to units in the patch. out: Slowed.
 func _rx_vegetation_cold(zones: Array) -> void:
 	_rx_outcome_in(zones, "Vegetation", "Chilled", 3.0)
+	_rx_burst(zones, "Vegetation", "freeze")
 	print("[RX] ColdDamageHit + Vegetation → frostbite (RX-VEGETATION-COLD-001)")
 
 
@@ -218,9 +223,11 @@ func _on_lightning_hit(p: Dictionary) -> void:
 	match String(RX_LIGHTNING_MATRIX.get(_primary_medium_of(zones), "")):
 		"lightning_water":
 			_rx_outcome_in(zones, "Water", "Shock", 2.0)
+			_rx_burst(zones, "Water", "electrify")
 			print("[RX] LightningHit + Water → Shock (RX-LIGHTNING-WATER-001)")
 		"steam_lightning":
 			_rx_outcome_in(zones, "Steam", "Shock", 1.0)
+			_rx_burst(zones, "Steam", "electrify")
 			print("[RX] LightningHit + Steam → Shock weak (RX-STEAM-LIGHTNING-001)")
 
 
@@ -231,6 +238,7 @@ func _on_physical_impact(p: Dictionary) -> void:
 		return
 	if String(RX_PHYSICAL_MATRIX.get(_primary_medium_of(zones), "")) == "oil_physical":
 		_rx_outcome_in(zones, "Oil", "Slippery", 3.0)
+		_rx_burst(zones, "Oil", "slick")
 		print("[RX] PhysicalImpact + Oil → Slippery (RX-OIL-PHYSICAL-001)")
 
 
@@ -243,6 +251,27 @@ func _rx_outcome_in(zones: Array, medium: String, outcome: String, dur: float) -
 			for u in get_tree().get_nodes_in_group(g):
 				if u is Node3D and z.contains_point((u as Node3D).global_position) and u.has_method("apply_outcome"):
 					u.apply_outcome(outcome, dur)
+
+
+## First active zone of `medium` among `zones` (or null) — for placing a reaction VFX on it.
+func _zone_of(zones: Array, medium: String) -> Node:
+	for z in zones:
+		if String(z.status) == medium:
+			return z
+	return null
+
+
+## Fire the named reaction VFX at the medium's zone (outcome-based RX that don't consume the zone).
+func _rx_burst(zones: Array, medium: String, kind: String) -> void:
+	var z := _zone_of(zones, medium)
+	if z == null:
+		return
+	var pos: Vector3 = z.global_position
+	var r: float = float(z.radius)
+	match kind:
+		"electrify": SkillVfx.rx_electrify(self, pos, r)
+		"slick": SkillVfx.rx_slick(self, pos, r)
+		"freeze": SkillVfx.rx_freeze(self, pos, r)
 
 
 ## RX-OIL-FIRE-001 — consume the oil → explosion (+Ignited) + Fire zone + harmless Smoke (NOT
@@ -284,7 +313,7 @@ func _explosion(pos: Vector3, radius: float, dmg: float, source: Node = null) ->
 							u.perceive_attacker(source)
 	damage_destructibles(pos, radius, dmg)
 	_combat.camera_shake.emit(EXPLOSION_SHAKE, Vector3.ZERO)
-	SkillVfx.telegraph(self, pos, Color(1.0, 0.55, 0.12))
+	SkillVfx.rx_explosion(self, pos, radius)  # fireball: blast + glow + flame licks
 
 
 ## Public FireDamageHit at a point (F-027 ENT-TORCH) — a thrown/dropped torch landing, or a

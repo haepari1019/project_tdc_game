@@ -271,6 +271,95 @@ static func dash_land(parent: Node3D, pos: Vector3, color: Color) -> void:
 	_ground_pulse(parent, pos, 1.3, Color(color.r, color.g, color.b, 0.45), 0.4)
 
 
+# ── RX reaction VFX — DISTINCT per-reaction placeholders (replace with real art later). ──────────
+# Each evokes the chain (electrify = arcs on water, steam = rising wisps, freeze = ice spikes…).
+
+## Random ground offset within a disc (placement jitter for multi-element bursts).
+static func _disc_off(r: float) -> Vector3:
+	return Vector3(randf_range(-r, r), 0.12, randf_range(-r, r))
+
+## Translucent sphere rising + expanding + fading — vapor/gas (steam, toxic puff).
+static func _rising_wisp(parent: Node3D, base: Vector3, color: Color, height: float) -> void:
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.32
+	s.height = 0.64
+	mi.mesh = s
+	var mat := _mat(color)
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = base + Vector3(0, 0.2, 0)
+	mi.scale = Vector3(0.4, 0.4, 0.4)
+	var tw := mi.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "global_position", base + Vector3(0, height, 0), 1.0)
+	tw.tween_property(mi, "scale", Vector3(1.4, 1.4, 1.4), 1.0)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 1.0).from(color.a)
+	tw.chain().tween_callback(mi.queue_free)
+
+## Emissive cone popping up then fading — ice crystal / flame lick (color decides which).
+static func _pop_spike(parent: Node3D, pos: Vector3, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var c := CylinderMesh.new()
+	c.top_radius = 0.0
+	c.bottom_radius = 0.16
+	c.height = 0.8
+	mi.mesh = c
+	var mat := _emat(color)
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = pos
+	mi.scale = Vector3(0.5, 0.2, 0.5)
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3(1, 1, 1), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.35)
+	tw.tween_callback(mi.queue_free)
+
+## Oil+Fire — orange fireball: ground blast + glow + flame licks.
+static func rx_explosion(parent: Node3D, pos: Vector3, radius: float) -> void:
+	_ground_pulse(parent, pos, radius, Color(1.0, 0.5, 0.12, 0.6), 0.45)
+	_burst_glow(parent, pos + Vector3(0, 0.6, 0), radius * 0.9, Color(1.0, 0.55, 0.15))
+	for i in 4:
+		_pop_spike(parent, pos + _disc_off(radius * 0.7), Color(1.0, 0.55, 0.15))
+
+## Fire+Water — Steam: white wisps hissing upward.
+static func rx_steam(parent: Node3D, pos: Vector3, radius: float) -> void:
+	_ground_pulse(parent, pos, radius, Color(0.9, 0.92, 0.95, 0.35), 0.3)
+	for i in 7:
+		_rising_wisp(parent, pos + _disc_off(radius * 0.8), Color(0.92, 0.94, 0.97, 0.5), randf_range(1.4, 2.2))
+
+## Fire+Vegetation — burn: green-tinged flames licking up.
+static func rx_burn(parent: Node3D, pos: Vector3, radius: float) -> void:
+	_ground_pulse(parent, pos, radius, Color(0.5, 0.7, 0.2, 0.45), 0.3)
+	for i in 6:
+		_pop_spike(parent, pos + _disc_off(radius * 0.8), Color(0.75, 0.85, 0.2) if i % 2 == 0 else Color(1.0, 0.55, 0.15))
+
+## ToxicGas+Fire — toxic flash: sickly green-orange ignition burst.
+static func rx_toxic_flash(parent: Node3D, pos: Vector3, radius: float) -> void:
+	_ground_pulse(parent, pos, radius, Color(0.55, 0.85, 0.2, 0.6), 0.3)
+	_burst_glow(parent, pos + Vector3(0, 0.7, 0), radius, Color(0.72, 0.92, 0.3))
+	for i in 4:
+		_rising_wisp(parent, pos + _disc_off(radius * 0.7), Color(0.6, 0.85, 0.25, 0.5), randf_range(1.0, 1.6))
+
+## Cold+Water — freeze: cyan crystal pop + flash.
+static func rx_freeze(parent: Node3D, pos: Vector3, radius: float) -> void:
+	_ground_pulse(parent, pos, radius, Color(0.6, 0.86, 1.0, 0.6), 0.35)
+	for i in 6:
+		_pop_spike(parent, pos + _disc_off(radius * 0.8), Color(0.72, 0.92, 1.0))
+
+## Lightning+Water — Shock: arcs crackling across the surface + blue flash.
+static func rx_electrify(parent: Node3D, pos: Vector3, radius: float) -> void:
+	var col := Color(0.65, 0.88, 1.0)
+	_ground_pulse(parent, pos, radius, Color(col.r, col.g, col.b, 0.45), 0.3)
+	for i in 6:
+		lightning_bolt(parent, pos + _disc_off(radius), pos + _disc_off(radius), col)
+
+## Oil+Physical — slick: dark oil double-ripple.
+static func rx_slick(parent: Node3D, pos: Vector3, radius: float) -> void:
+	_ground_pulse(parent, pos, radius, Color(0.18, 0.14, 0.08, 0.7), 0.4)
+	_ground_pulse(parent, pos, radius * 1.3, Color(0.12, 0.10, 0.06, 0.4), 0.55)
+
+
 ## Wind-up cue ON the caster (target-locked attacks) — a small emissive orb at the enemy's body
 ## that pulses over the telegraph, then fades. Says "this enemy is about to strike" — react via
 ## cover/interrupt/swap, NOT a ground "dodge this zone" marker (you can't sidestep a locked hit).
