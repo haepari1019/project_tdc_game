@@ -497,17 +497,17 @@ func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
 			var perp := Vector3(dir.z, 0.0, -dir.x)  # 90° to the approach axis
 			center += perp * (float(lane) * SQUAD_LANE_SPACING)
 	# Seeded scatter (LDG-SPAWN-DEMO-001 §2 placement variety, game-side): nudge the spawn off the
-	# exact deep point per run so positions aren't memorizable. Snap to navmesh so it never lands
-	# inside a wall. run_seed=0 (sandbox/no run) → no scatter (deterministic).
+	# exact deep point per run so positions aren't memorizable. run_seed=0 (sandbox/no run) → none.
+	# NOTE: no navmesh snap here — at prespawn the NavigationServer map isn't synced yet, so
+	# map_get_closest_point() returns origin (0,0,0) and would collapse EVERY squad onto the party
+	# start. The deep point is interior and the scatter (±SPAWN_SCATTER_M) is within the same range
+	# the fixed _spawn_offset ring already uses safely, so a snap isn't needed.
 	var seed := int(RunLoadout.get_run_seed())
 	if seed != 0:
 		var h: int = abs(hash("%d|%s|%d" % [seed, room_ref, lane]))
 		var ang := float(h % 360) * (PI / 180.0)
 		var rad := SPAWN_SCATTER_M * (0.35 + 0.65 * float((h / 360) % 100) / 100.0)
 		center += Vector3(cos(ang), 0.0, sin(ang)) * rad
-		var nav_map := get_world_3d().navigation_map
-		if nav_map.is_valid():
-			center = NavigationServer3D.map_get_closest_point(nav_map, center)
 	return center
 
 
