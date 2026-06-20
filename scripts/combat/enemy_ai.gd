@@ -811,8 +811,10 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 5.0)))
 		"enemy_stun":
 			target.apply_stun(float(eff.get("stun_s", 1.0)))
-		"enemy_charge":  # AB-004 Charged Voltaic — Shock outcome (감전; STATUS-OUTCOME-CORE)
+		"enemy_charge":  # AB-004 Charged Voltaic — Shock + LightningHit (Water/Steam → Shock RX)
 			target.apply_outcome("Shock", float(eff.get("shock_dur_s", 2.0)))
+			get_tree().call_group("event_bus", "emit_event", "LightningHit",
+				{"position": target.global_position, "radius": 1.5, "source": enemy})
 		"enemy_cold":  # AB-041 Glacial Bolt — Chilled + ColdDamageHit (Water→Ice, Veg→Slowed RX)
 			target.apply_outcome("Chilled", float(eff.get("chill_dur_s", 3.0)))
 			get_tree().call_group("event_bus", "emit_event", "ColdDamageHit",
@@ -829,6 +831,8 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			var kb: float = float(eff.get("knockback_m", 0.0))
 			if kb > 0.0:
 				target.apply_knockback(target.global_position - from, kb)
+				get_tree().call_group("event_bus", "emit_event", "PhysicalImpact",
+					{"position": target.global_position, "radius": 1.5, "source": enemy})
 	if String(chosen.get("trigger", "")) == "signature" or kind in ["enemy_stun", "enemy_poison"]:
 		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), target.identity_skill_id])
 	if kind == "enemy_execute":

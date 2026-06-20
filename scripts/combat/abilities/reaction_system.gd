@@ -29,6 +29,10 @@ const RX_FIRE_MATRIX := {
 const RX_COLD_MATRIX := {
 	"Water": "cold_water", "Vegetation": "vegetation_cold",
 }
+## LightningHit (AB-004 charge): Water→Shock (conductive), Steam→Shock (weak).
+const RX_LIGHTNING_MATRIX := { "Water": "lightning_water", "Steam": "steam_lightning" }
+## PhysicalImpact (knockback / bash): Oil→Slippery (knocked onto a slick).
+const RX_PHYSICAL_MATRIX := { "Oil": "oil_physical" }
 
 var _combat: Node3D  # CombatController — camera shake owner
 
@@ -47,8 +51,12 @@ func emit_event(event_id: String, payload: Dictionary) -> void:
 			_on_fire_damage_hit(payload)
 		"ColdDamageHit":
 			_on_cold_damage_hit(payload)
+		"LightningHit":
+			_on_lightning_hit(payload)
+		"PhysicalImpact":
+			_on_physical_impact(payload)
 		_:
-			pass  # RX matrix consumers (RX-*-ENTER, Lightning/Physical) — S3f+/spread S3e
+			pass  # EnterZone/ExitZone aura = per-tick; WindGust spread = S3e
 
 
 ## AoE breaks barrels / destructibles (ENT-BARREL) in range. Returns true if any hit.
@@ -198,14 +206,43 @@ func _rx_cold_water(zones: Array, source: Node) -> void:
 
 ## RX-VEGETATION-COLD-001 — frostbitten plants → Chilled to units in the patch. out: Slowed.
 func _rx_vegetation_cold(zones: Array) -> void:
+	_rx_outcome_in(zones, "Vegetation", "Chilled", 3.0)
+	print("[RX] ColdDamageHit + Vegetation → frostbite (RX-VEGETATION-COLD-001)")
+
+
+## LightningHit → primaryMedium combo: Water/Steam conduct → Shock to everyone in the medium.
+func _on_lightning_hit(p: Dictionary) -> void:
+	var zones := _zones_overlapping(p.get("position", Vector3.ZERO), float(p.get("radius", 1.5)))
+	if zones.is_empty():
+		return
+	match String(RX_LIGHTNING_MATRIX.get(_primary_medium_of(zones), "")):
+		"lightning_water":
+			_rx_outcome_in(zones, "Water", "Shock", 2.0)
+			print("[RX] LightningHit + Water → Shock (RX-LIGHTNING-WATER-001)")
+		"steam_lightning":
+			_rx_outcome_in(zones, "Steam", "Shock", 1.0)
+			print("[RX] LightningHit + Steam → Shock weak (RX-STEAM-LIGHTNING-001)")
+
+
+## PhysicalImpact → Oil-Physical: knocked onto a slick → Slippery (RX-OIL-PHYSICAL-001).
+func _on_physical_impact(p: Dictionary) -> void:
+	var zones := _zones_overlapping(p.get("position", Vector3.ZERO), float(p.get("radius", 1.5)))
+	if zones.is_empty():
+		return
+	if String(RX_PHYSICAL_MATRIX.get(_primary_medium_of(zones), "")) == "oil_physical":
+		_rx_outcome_in(zones, "Oil", "Slippery", 3.0)
+		print("[RX] PhysicalImpact + Oil → Slippery (RX-OIL-PHYSICAL-001)")
+
+
+## Apply an outcome to every unit standing in zones of the given medium (피아무구분).
+func _rx_outcome_in(zones: Array, medium: String, outcome: String, dur: float) -> void:
 	for z in zones:
-		if String(z.status) != "Vegetation":
+		if String(z.status) != medium:
 			continue
 		for g in ["party_member", "enemy"]:
 			for u in get_tree().get_nodes_in_group(g):
 				if u is Node3D and z.contains_point((u as Node3D).global_position) and u.has_method("apply_outcome"):
-					u.apply_outcome("Chilled", 3.0)
-	print("[RX] ColdDamageHit + Vegetation → frostbite (RX-VEGETATION-COLD-001)")
+					u.apply_outcome(outcome, dur)
 
 
 ## RX-OIL-FIRE-001 — consume the oil → explosion (+Ignited) + Fire zone + harmless Smoke (NOT

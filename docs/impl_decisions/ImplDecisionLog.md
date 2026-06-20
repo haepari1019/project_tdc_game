@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260620-009 — P2-S3 Hit-RX 매트릭스 완성 (Lightning/Physical 축 추가)
+- **무엇:** Hit-RX 매트릭스를 4축(Fire/Cold/**Lightning/Physical**)으로 완성 — S3d 매트릭스 마감.
+- **Lightning(`RX_LIGHTNING_MATRIX`):** AB-004 enemy_charge 명중 시 `LightningHit` emit → Water→**Shock**(RX-LIGHTNING-WATER, 전도)·Steam→Shock weak(RX-STEAM-LIGHTNING). 매체 내 전 유닛 감전.
+- **Physical(`RX_PHYSICAL_MATRIX`):** knockback(넉백 AB/평타) 명중 시 `PhysicalImpact` emit → Oil→**Slippery**(RX-OIL-PHYSICAL, 슬릭에 넘어짐).
+- **공용 헬퍼 `_rx_outcome_in`**: 해당 매체 존 안의 전 유닛에 outcome 부여(피아무구분). cold/veg도 이걸로 통일.
+- **체감:** EN-007 Water 깔고 EN-002 AB-004 감전 → 물 안 전원 Shock. 넉백으로 Oil에 밀면 Slippery.
+- **잔여:** EnterZone aura = per-tick(별도)·WindGust spread = S3e(보류). 파티 Lightning/Physical emitter는 P2-S6a(파티 풀).
+- **검증:** 컴파일·샌드박스·ci_smoke PASS.
+- **영향:** `scripts/combat/abilities/reaction_system.gd`, `scripts/combat/enemy_ai.gd`. → **P2-S3 키스톤 사실상 완료.**
+
 ### IMPL-DEC-20260620-008 — P2-S3f 배치3: zone/cold AB 파티 lootable (skillbook)
 - **무엇:** S3f "enemy+**lootable**"의 lootable 절반 — 파티가 looted 스킬북으로 zone/cold AB 직접 시전.
 - **구현:** `skillbooks.json`에 7행 추가 — AB-009/036/039/040/042/043(cast.kind `skillbook_zone`)·AB-041(`skillbook_cold`). 이펙트 `effects/sb_zone.gd`(타겟 지점에 매체 zone 생성 → `ctx.spawn_zone`)·`sb_cold.gd`(AoE dmg + Chilled + `ctx.cold_hit`→ColdDamageHit). ability_dispatch에 등록 + ctx 파사드 `spawn_zone`/`cold_hit`.
