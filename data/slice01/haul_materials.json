@@ -1,0 +1,14 @@
+{
+  "_ref": "spec D-029 §3 — haulMaterial 카탈로그(Slice-01 design examples). 런 At Risk → 탈출 성공 시 hubHaulVault Safe → 시설 승급 소모. ward_scrap/skillbook/consumable/gear와 분리. ENC 드롭표=HUB-COR-000(후속).",
+  "haul_materials": [
+    { "haul_material_id": "haul_ward_splinter",  "display": "성채 파편",  "source": "일반 ENC / 상자" },
+    { "haul_material_id": "haul_script_fragment", "display": "필기 파편",  "source": "Upper" },
+    { "haul_material_id": "haul_arc_ink",         "display": "아크 잉크",  "source": "Mid / 마법" },
+    { "haul_material_id": "haul_ward_plate",      "display": "와드 판금",  "source": "Mid·정예" },
+    { "haul_material_id": "haul_ruin_glass",      "display": "폐허 유리",  "source": "Nuker·폐허" },
+    { "haul_material_id": "haul_forge_coal",      "display": "단조 연료",  "source": "Deep / 보스 근처" },
+    { "haul_material_id": "haul_deep_core",       "display": "심층 코어",  "source": "Deep rare" },
+    { "haul_material_id": "haul_boss_relay",      "display": "중계 부품",  "source": "Objective / 보스" },
+    { "haul_material_id": "haul_pack_frame",      "display": "군수 프레임", "source": "군수 상자" }
+  ]
+}

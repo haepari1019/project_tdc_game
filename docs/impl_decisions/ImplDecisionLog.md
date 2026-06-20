@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260621-001 — P2-S4 Hub B0: HubProfile + 시설/퀘스트/haul 데이터 (F-029/D-029)
+- **무엇:** P2-S4 Hub 1단계 — 데이터·인프라. F-029/D-029 스펙 그대로 게임 데이터화 + HubProfile 오토로드.
+- **데이터(신규):** `facilities_tiers.json`(8시설 Tier 표: effect·value·quest·haul·prereq·armory catalog) · `quests.json`(13 Q-HUB-### + completion stub) · `haul_materials.json`(9 haul). id_registry에 `facility_ids`/`quest_ids`/`haul_material_ids` 등록.
+- **HubProfile 오토로드:** facilities{}·hub_haul_vault{}·quest_completed{}. `upgrade_check`(D-029 §5: max/prereq/quest/haul reason)·`attempt_upgrade`(haul 소모·Tier+1)·`add_haul`(탈출 시 vault 이관)·파생(stash_capacity·run_inventory_capacity·armory_catalog_tier·can_analyze·shop_tier_ceiling). 세션 영속(디스크 저장=B6 후속).
+- **Slice01Data:** 3 JSON 로드+검증(facility/quest/haul ID + tier 행의 quest/haul 참조 등록 확인) + getter(get_facility_tier/value/def·get_quest(s)·get_haul_material(s)).
+- **결정:** armory catalog gear(gear_ward_*_iron 등)는 GEAR-COR-000 후속이라 미등록·미검증 → 카탈로그 비어있어도 승급은 동작(효과 stub). scriptorium/scribe_shop/chapel 효과는 F-009/F-020 미구현이라 Tier만 오름(pass-through).
+- **검증:** 8시설·13퀘·9haul 로드, 승급 게이팅(quest→haul→ok→Tier+cap), prereq(scribe_shop), max(barracks) 전부 정상. 부팅·ci_smoke PASS.
+- **영향:** `project.godot`(HubProfile 오토로드), `scripts/autoload/hub_profile.gd`(신), `slice01_data.gd`(hub 로드/getter), `data/slice01/{facilities_tiers,quests,haul_materials}.json`(신)·`id_registry.json`. 다음 B1(haul vault 파이프).
+
 ### IMPL-DEC-20260620-014 — Encounter Variety 목표 아키텍처 확정 + 빌드 S5 시퀀싱 (스펙 전파 예약)
 - **결정(사용자 설계 토론):** 반복 탐험 변주의 **목표 구조를 미리 확정**하되 **빌드는 P2-S5(제3세력)와 함께**. 상세 = [docs/design/encounter_variety_architecture.md](../design/encounter_variety_architecture.md).
 - **핵심 통찰(사용자):** ENC는 원자 콘텐츠가 아니라 **EN-* + 구성규칙(ENC-000 mechanicAxes/역할)의 조합 결과** → EN-* 추가 = ENC 공간 곱연산. "작은 ENC 로스터" 전제가 약해짐. 사례조사 결론(콘텐츠 아닌 *레이어*로 반복 해결)과 합치.

@@ -76,5 +76,15 @@
     "RM-ADV-08",
     "RM-ADV-09"
   ],
-  "extraction_point_ids": ["POINT-DEMO-01"]
+  "extraction_point_ids": ["POINT-DEMO-01"],
+  "facility_ids": ["barracks", "stash", "scriptorium", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"],
+  "quest_ids": [
+    "Q-HUB-002", "Q-HUB-003", "Q-HUB-010", "Q-HUB-011", "Q-HUB-012", "Q-HUB-013",
+    "Q-HUB-020", "Q-HUB-021", "Q-HUB-030", "Q-HUB-031", "Q-HUB-040", "Q-HUB-050", "Q-HUB-051"
+  ],
+  "haul_material_ids": [
+    "haul_ward_splinter", "haul_script_fragment", "haul_arc_ink", "haul_ward_plate",
+    "haul_ruin_glass", "haul_forge_coal", "haul_deep_core", "haul_boss_relay", "haul_pack_frame"
+  ],
+  "_note_hub_ids": "P2-S4 Hub(F-029/D-029). facility/quest/haul = facilities_tiers.json·quests.json·haul_materials.json. armory catalog gear(gear_ward_*_iron/weave/ward/march/guardbreak/beacon)는 GEAR-COR-000 후속 — 미등록 시 카탈로그 비어있음(효과 stub)."
 }

@@ -1,0 +1,76 @@
+{
+  "_ref": "spec F-029 §3.1/§3.5 — facility tier tables. 승급 = QuestGate AND HaulGate. value=파생수치(stash/quartermaster capacity, armory catalogTier). prereq=선행 시설.",
+  "facilities": {
+    "barracks": {
+      "display": "막사",
+      "function": "deploy",
+      "tiers": [
+        { "tier": 0, "effect": "UI-005 배치", "quest": null, "haul": {} }
+      ]
+    },
+    "stash": {
+      "display": "창고",
+      "function": "stash_capacity",
+      "tiers": [
+        { "tier": 0, "effect": "capacity 20", "value": 20, "quest": null, "haul": {} },
+        { "tier": 1, "effect": "capacity 28", "value": 28, "quest": "Q-HUB-002", "haul": { "haul_ward_splinter": 5 } },
+        { "tier": 2, "effect": "capacity 36", "value": 36, "quest": "Q-HUB-003", "haul": { "haul_ward_splinter": 10, "haul_ruin_glass": 3 } }
+      ]
+    },
+    "scriptorium": {
+      "display": "필기소",
+      "function": "analysis",
+      "tiers": [
+        { "tier": 0, "effect": "분석 Locked", "quest": null, "haul": {} },
+        { "tier": 1, "effect": "분석 오픈 (required 3)", "quest": "Q-HUB-010", "haul": { "haul_script_fragment": 3 } },
+        { "tier": 2, "effect": "분석 UI 강화", "quest": "Q-HUB-011", "haul": { "haul_script_fragment": 6, "haul_arc_ink": 2 } }
+      ]
+    },
+    "scribe_shop": {
+      "display": "필기 상점",
+      "function": "skillbook_shop",
+      "tiers": [
+        { "tier": 0, "effect": "Locked", "quest": null, "haul": {} },
+        { "tier": 1, "effect": "Basic 생본", "quest": "Q-HUB-012", "haul": { "haul_arc_ink": 4 }, "prereq": { "scriptorium": 1 } },
+        { "tier": 2, "effect": "Advanced 상점", "quest": "Q-HUB-013", "haul": { "haul_arc_ink": 8, "haul_deep_core": 1 } }
+      ]
+    },
+    "armory": {
+      "display": "무기고",
+      "function": "gear_purchasable",
+      "tiers": [
+        { "tier": 0, "effect": "starter only", "value": 0, "quest": null, "haul": {} },
+        { "tier": 1, "effect": "B세트 Purchasable", "value": 1, "quest": "Q-HUB-020", "haul": { "haul_ward_plate": 6 },
+          "catalog": { "Tank": "gear_ward_tank_iron_set", "DPS": "gear_ward_dps_weave_set", "Healer": "gear_ward_healer_ward_set" } },
+        { "tier": 2, "effect": "C세트 Purchasable", "value": 2, "quest": "Q-HUB-021", "haul": { "haul_ward_plate": 10, "haul_boss_relay": 1 },
+          "catalog": { "Tank": "gear_ward_tank_march_set", "DPS": "gear_ward_dps_guardbreak_set", "Healer": "gear_ward_healer_beacon_set" } }
+      ]
+    },
+    "quartermaster": {
+      "display": "군수",
+      "function": "run_inventory_capacity",
+      "tiers": [
+        { "tier": 0, "effect": "Capacity 12", "value": 12, "quest": null, "haul": {} },
+        { "tier": 1, "effect": "Capacity 14", "value": 14, "quest": "Q-HUB-050", "haul": { "haul_pack_frame": 4 } },
+        { "tier": 2, "effect": "Capacity 16", "value": 16, "quest": "Q-HUB-051", "haul": { "haul_pack_frame": 8 } }
+      ]
+    },
+    "smithy": {
+      "display": "대장간",
+      "function": "recombination",
+      "tiers": [
+        { "tier": 0, "effect": "미건립 / 맵 비표시", "quest": null, "haul": {} },
+        { "tier": 1, "effect": "건물·NPC · 재조합 Locked", "quest": "Q-HUB-030", "haul": { "haul_forge_coal": 8 } },
+        { "tier": 2, "effect": "안내·프리뷰 UI", "quest": "Q-HUB-031", "haul": { "haul_forge_coal": 15 } }
+      ]
+    },
+    "chapel": {
+      "display": "성소",
+      "function": "passive_tree",
+      "tiers": [
+        { "tier": 0, "effect": "트리 Locked", "quest": null, "haul": {} },
+        { "tier": 1, "effect": "역할당 passive 노드 1", "quest": "Q-HUB-040", "haul": { "haul_ward_splinter": 5 } }
+      ]
+    }
+  }
+}

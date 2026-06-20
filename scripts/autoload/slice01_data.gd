@@ -17,6 +17,9 @@ const CONSUMABLES_PATH := SLICE01_DIR + "consumables.json"
 const SPAWN_TABLE_PATH := SLICE01_DIR + "spawn_table.json"
 const ENEMY_BASICS_PATH := SLICE01_DIR + "enemy_basics.json"
 const PATTERNS_PATH := SLICE01_DIR + "patterns.json"
+const FACILITIES_PATH := SLICE01_DIR + "facilities_tiers.json"   # F-029 hub 시설 Tier 표
+const QUESTS_PATH := SLICE01_DIR + "quests.json"                 # F-029 §3.3 hub 승급 퀘스트
+const HAUL_MATERIALS_PATH := SLICE01_DIR + "haul_materials.json" # D-029 §3 haul 카탈로그
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -40,6 +43,10 @@ var _spawn_overrides: Dictionary = {}
 var _enemy_basics: Dictionary = {}
 ## Enemy combat patterns (PT-###) — D-017 / EN-AI-000 §1. Keyed by pattern id.
 var _patterns: Dictionary = {}
+## Hub (F-029/D-029): 시설 Tier 표 · 승급 퀘스트 · haul 카탈로그.
+var _facilities: Dictionary = {}      # facilityId -> {display, function, tiers:[{tier, effect, value?, quest?, haul{}, prereq{}, catalog{}}]}
+var _quests: Dictionary = {}          # questId -> {facility, tier, one_liner, completion}
+var _haul_materials: Dictionary = {}  # haulMaterialId -> {display, source}
 
 
 func _ready() -> void:
@@ -258,6 +265,38 @@ func get_encounter_for_pool(pool_slot: String, difficulty: String, world_layer: 
 	return _weighted_pick(pool, run_seed, pool_slot)
 
 
+## Hub (F-029/D-029) public reads. ---------------------------------------------------------------
+func get_facility_ids() -> Array:
+	return _facilities.keys()
+
+func get_facility_def(id: String) -> Dictionary:
+	return _facilities.get(id, {})
+
+## The tier row {tier, effect, value?, quest?, haul{}, prereq{}, catalog{}} for (id, tier), or {} if none.
+func get_facility_tier(id: String, tier: int) -> Dictionary:
+	for t in _facilities.get(id, {}).get("tiers", []):
+		if int((t as Dictionary).get("tier", -1)) == tier:
+			return t
+	return {}
+
+## A tier's derived `value` (stash/quartermaster capacity, armory catalogTier), or `def_val`.
+func get_facility_value(id: String, tier: int, def_val: int) -> int:
+	var row := get_facility_tier(id, tier)
+	return int(row.get("value", def_val)) if row.has("value") else def_val
+
+func get_quest(quest_id: String) -> Dictionary:
+	return _quests.get(quest_id, {})
+
+func get_quests() -> Dictionary:
+	return _quests
+
+func get_haul_material(id: String) -> Dictionary:
+	return _haul_materials.get(id, {})
+
+func get_haul_material_ids() -> Array:
+	return _haul_materials.keys()
+
+
 ## Deterministic weighted choice among [{enc, weight}] from (run_seed, salt). Single candidate or
 ## run_seed=0 → the first row (stable). hash() keeps it reproducible per (run, pool).
 func _weighted_pick(pool: Array, run_seed: int, salt: String) -> String:
@@ -301,6 +340,9 @@ func _load_and_validate() -> bool:
 	var spawn_table_doc := _read_json_dict(SPAWN_TABLE_PATH, "spawn_table", errors)
 	var enemy_basics_doc := _read_json_dict(ENEMY_BASICS_PATH, "enemy_basics", errors)
 	var patterns_doc := _read_json_dict(PATTERNS_PATH, "patterns", errors)
+	var facilities_doc := _read_json_dict(FACILITIES_PATH, "facilities_tiers", errors)
+	var quests_doc := _read_json_dict(QUESTS_PATH, "quests", errors)
+	var haul_doc := _read_json_dict(HAUL_MATERIALS_PATH, "haul_materials", errors)
 
 	if errors.is_empty():
 		_validate_blueprint(errors)
@@ -316,6 +358,7 @@ func _load_and_validate() -> bool:
 		_parse_spawn_table(spawn_table_doc, errors)
 		_load_encounters(errors)
 		_validate_rooms(errors)
+		_parse_hub(facilities_doc, quests_doc, haul_doc, errors)
 
 	if not errors.is_empty():
 		for err in errors:
@@ -498,6 +541,46 @@ func _parse_spawn_table(doc: Dictionary, errors: Array[String]) -> void:
 			IdValidate.require_id(String(pool_key), allowed_pools, "pool_slot", errors)
 			IdValidate.require_id(String(ov[pool_key]), allowed_enc, "encounter_id", errors)
 			_spawn_overrides[String(pool_key)] = String(ov[pool_key])
+
+
+## Hub (F-029/D-029): 시설 Tier 표 · 승급 퀘스트 · haul 카탈로그. ID는 id_registry로 검증;
+## 시설 Tier 행의 quest/haul 참조도 등록 ID인지 검증(armory catalog gear는 GEAR-COR-000 후속이라 미검증).
+func _parse_hub(facilities_doc: Dictionary, quests_doc: Dictionary, haul_doc: Dictionary, errors: Array[String]) -> void:
+	_facilities.clear()
+	_quests.clear()
+	_haul_materials.clear()
+	var allowed_fac: Array = _registry_list("facility_ids")
+	var allowed_quest: Array = _registry_list("quest_ids")
+	var allowed_haul: Array = _registry_list("haul_material_ids")
+	for row in haul_doc.get("haul_materials", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var hid := String(row.get("haul_material_id", ""))
+		IdValidate.require_id(hid, allowed_haul, "haul_material_id", errors)
+		_haul_materials[hid] = row
+	for row in quests_doc.get("quests", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var qid := String(row.get("quest_id", ""))
+		IdValidate.require_id(qid, allowed_quest, "quest_id", errors)
+		_quests[qid] = row
+	var facs: Dictionary = facilities_doc.get("facilities", {})
+	if typeof(facs) != TYPE_DICTIONARY:
+		errors.append("facilities_tiers.json: 'facilities' must be an object")
+		return
+	for fid_key in facs.keys():
+		var fid: String = fid_key
+		IdValidate.require_id(fid, allowed_fac, "facility_id", errors)
+		var def: Dictionary = facs[fid]
+		for t in def.get("tiers", []):
+			var td: Dictionary = t
+			var q = td.get("quest", null)   # may be null (no quest gate on this tier)
+			if q is String and not (q as String).is_empty():
+				IdValidate.require_id(q, allowed_quest, "quest_id", errors)
+			for hid_key in (td.get("haul", {}) as Dictionary).keys():
+				var h: String = hid_key
+				IdValidate.require_id(h, allowed_haul, "haul_material_id", errors)
+		_facilities[fid] = def
 
 
 ## Enemy basic-attack archetypes (rom_*). Keyed by rom id, validated against id_registry.
