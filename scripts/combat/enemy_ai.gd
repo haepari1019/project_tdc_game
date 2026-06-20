@@ -33,6 +33,7 @@ const MELEE_THREAT_M := 4.0        # kite: flee when a target closes inside this
 const RETREAT_STEP_M := 3.0        # how far ahead to aim a retreat/backstep destination
 const RETREAT_SPEED_FRAC := 1.0    # flee at full speed (being chased)
 const SLIP_ACCEL := 3.0            # Slippery (oil): velocity lerp rate — low = slidey/inertial
+const ZONE_CAST_RANGE_M := 9.0     # spawn_zone (rangeBand Mid): max dist to place a zone at target
 const ENGAGE_LEASH_M := 18.0       # kite/zone: don't stray past this from spawn anchor (§3 default)
 # healer (PT-016 EN-014): FOLLOW the squad — prefer the most-wounded mate (below HEAL_HUG_THRESHOLD),
 # else just the nearest ally, keeping within HEAL_HUG_M (inside the AB-098 heal radius) so it tags
@@ -953,6 +954,9 @@ func _zone_telegraph_color(medium: String) -> Color:
 ## Cooldown zone-spawn signature (AB-009/036/039/040/042/043): telegraph a GROUND marker at the
 ## target's spot → spawn the medium zone there on resolve (a real leave-the-area AoE).
 func _try_cast_zone(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
+	var to := target.global_position - enemy.global_position
+	to.y = 0.0
+	var dist := to.length()
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue
@@ -962,6 +966,8 @@ func _try_cast_zone(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
 			continue
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue  # AB still on cooldown
+		if dist > float(eff.get("range_m", ZONE_CAST_RANGE_M)):
+			continue  # target out of cast range (rangeBand Mid) — don't place across the map
 		var medium := String(eff.get("medium", "Oil"))
 		var tele := float(eff.get("telegraph_s", 0.5))
 		enemy.winding = true
