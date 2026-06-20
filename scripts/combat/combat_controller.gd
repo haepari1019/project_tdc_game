@@ -118,6 +118,8 @@ func _engage_enemy(e: CharacterBody3D, target_member: CharacterBody3D = null) ->
 	e.engage_grace_s = COMBAT_EXIT_GRACE_S
 	if has_target:
 		e.add_threat(target_member, PERCEIVE_THREAT)  # target who we saw/were hit by
+	if not was and String(e.placement_mode) == "AmbushHold":
+		SkillVfx.ambush_spring(self, e.global_position)  # sprang from hiding (reveal feedback)
 	if was:
 		return
 	var r2 := SQUAD_PROP_RADIUS_M * SQUAD_PROP_RADIUS_M
@@ -129,6 +131,8 @@ func _engage_enemy(e: CharacterBody3D, target_member: CharacterBody3D = null) ->
 		if Spatial.h_dist2(o.global_position, e.global_position) <= r2:
 			o.engaged = true
 			o.engage_grace_s = COMBAT_EXIT_GRACE_S
+			if String(o.placement_mode) == "AmbushHold":
+				SkillVfx.ambush_spring(self, o.global_position)  # squadmate springs too
 			if has_target:
 				o.add_threat(target_member, PERCEIVE_THREAT)  # squad shares the target
 

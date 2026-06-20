@@ -271,6 +271,16 @@ static func dash_land(parent: Node3D, pos: Vector3, color: Color) -> void:
 	_ground_pulse(parent, pos, 1.3, Color(color.r, color.g, color.b, 0.45), 0.4)
 
 
+## AmbushHold reveal — a one-shot "sprang from hiding" burst: dust shockwave on the ground +
+## kicked-up dust puffs + a quick motion flash. AMB telegraphTier is `none`, so this is REACTION
+## feedback (seen the instant the trap is sprung, not a warning). Placeholder — replace with art.
+static func ambush_spring(parent: Node3D, pos: Vector3, color: Color = Color(0.64, 0.57, 0.46)) -> void:
+	_ground_pulse(parent, pos, 2.2, Color(color.r, color.g, color.b, 0.55), 0.4)   # dust shockwave
+	_burst_glow(parent, pos + Vector3(0.0, 0.7, 0.0), 1.1, Color(0.95, 0.9, 0.78)) # sudden-motion flash
+	for _i in 7:
+		_rising_wisp(parent, pos + _disc_off(1.1), color, 1.3)                      # kicked dust
+
+
 # ── RX reaction VFX — DISTINCT per-reaction placeholders (replace with real art later). ──────────
 # Each evokes the chain (electrify = arcs on water, steam = rising wisps, freeze = ice spikes…).
 
