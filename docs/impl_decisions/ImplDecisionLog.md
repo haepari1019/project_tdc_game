@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260620-005 — P2-S3d primaryMedium resolver + FireDamageHit RX 매트릭스
+- **무엇:** 이벤트→RX 파이프라인 가동 — Hit 타일의 primaryMedium을 resolver로 뽑아 **combo RX 1종** 발동(EVENT-CORE §3 / INT-002 §6.1).
+- **resolver:** `_zones_overlapping(pt)` = 그 점에 겹친 ground_zone들(= 그 타일의 **activeMedia**) → `_primary_medium_of` = `RX_PRIORITY`(Oil>ToxicGas>Water>Fire>Steam>Smoke>Ice>Veg>Wind) 최상위 1개. (다중 매체 = 존 겹침으로 표현; 단일 존은 여전히 1매체.)
+- **FireDamageHit 매트릭스(`RX_FIRE_MATRIX`, live 4종):** Oil→`_ignite_oil`(폭발+Ignited+Fire+Smoke·체인) · Water→**RX-FIRE-WATER**(Water 소비→Steam) · Vegetation→**RX-FIRE-VEGETATION**(소비→Fire/Ignited) · ToxicGas→**RX-TOXICGAS-FIRE**(가스 내 flash 데미지+Poisoned, 소비). Fire/Smoke/Ice/Wind primary → combo 없음(스킬뎀만).
+- **테스트 경로:** AB-037 Ember(`ctx.fire_hit`)가 FireDamageHit emit → 샌드박스에서 매체 zone 깔고(Z) Ember 시전 → 매체별 다른 연쇄 관찰.
+- **스코프:** Lightning/Cold/PhysicalImpact RX는 **emitter AB(S3f)** 도착 시 활성(현재 미emit). EnterZone RX(매체 진입 상태)는 per-tick aura가 이미 수행(중복 안 함). spread(S3e)·full ~19 RX는 후속.
+- **검증:** 컴파일·샌드박스·ci_smoke PASS.
+- **영향:** `scripts/combat/abilities/reaction_system.gd`(resolver·매트릭스·_rx_* 핸들러). 수치 PH(DRIFT-053 계열).
+
 ### IMPL-DEC-20260620-004 — P2-S3c 이벤트 버스 + EnterZone/ExitZone 엣지 (EVENT-CORE 토대)
 - **무엇:** 상호작용을 **이벤트 모델**(EVENT-CORE)로 전환하는 인프라. 동작 변화 0 — S3d(RX 매트릭스)의 토대.
 - **이벤트 버스:** `ReactionSystem.emit_event(event_id, payload)` 중앙 디스패치 + group `"event_bus"` 등록(존/스킬이 `call_group`으로 emit). 현재 핸들러 = `FireDamageHit`→oil 점화(`_on_fire_damage_hit`). EnterZone/ExitZone/Explosion/Lightning/Cold/Physical = 토대(소비자 S3d).

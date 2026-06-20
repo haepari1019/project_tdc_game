@@ -16,6 +16,15 @@ const SMOKE_TTL := 5.0      # SPAWN-ZONE-SMOKE-5S-R3 — 연소 연기(무해·�
 const EXPLOSION_DMG := 60.0
 const MAX_CHAIN_DEPTH := 2
 const EXPLOSION_SHAKE := 0.6   # an explosion always shakes at the per-cast cap
+const STEAM_TTL := 5.0         # RX-FIRE-WATER → Steam
+const GAS_FLASH_DMG := 22.0    # RX-TOXICGAS-FIRE flash
+## EVENT-CORE §3 primaryMedium priority (high→low) — resolver picks ONE combo RX per Hit tile.
+const RX_PRIORITY := ["Oil", "ToxicGas", "Water", "Fire", "Steam", "Smoke", "Ice", "Vegetation", "Wind"]
+## Live FireDamageHit combo matrix (primaryMedium → RX). Lightning/Cold/Physical RX activate when
+## their emitter ABs land (S3f); Fire/Smoke/Ice/Wind primary = no combo (skill damage only).
+const RX_FIRE_MATRIX := {
+	"Oil": "oil_fire", "Water": "fire_water", "Vegetation": "fire_vegetation", "ToxicGas": "toxicgas_fire",
+}
 
 var _combat: Node3D  # CombatController — camera shake owner
 
@@ -54,17 +63,103 @@ func fire_hit(center: Vector3, radius: float, depth: int, source: Node = null) -
 	emit_event("FireDamageHit", {"position": center, "radius": radius, "depth": depth, "source": source})
 
 
-## RX-OIL-FIRE-001 trigger — a FireDamageHit ignites any overlapping Oil zone (primaryMedium=Oil).
+## FireDamageHit → resolve the tile's primaryMedium (EVENT-CORE §3) → ONE combo RX. Oil→explosion,
+## Water→Steam, Vegetation→burn, ToxicGas→toxic flash. (Fire/Smoke/Ice/Wind primary → no combo.)
 func _on_fire_damage_hit(p: Dictionary) -> void:
 	var center: Vector3 = p.get("position", Vector3.ZERO)
 	var radius: float = float(p.get("radius", 1.0))
 	var depth: int = int(p.get("depth", 0))
 	var source: Node = p.get("source")
+	var zones := _zones_overlapping(center, radius)
+	if zones.is_empty():
+		return  # no environment medium → skill damage only
+	match String(RX_FIRE_MATRIX.get(_primary_medium_of(zones), "")):
+		"oil_fire":
+			for z in zones:
+				if String(z.status) == "Oil":
+					_ignite_oil(z, depth, source)
+					return
+		"fire_water":
+			_rx_fire_water(zones, source)
+		"fire_vegetation":
+			_rx_fire_vegetation(zones, source)
+		"toxicgas_fire":
+			_rx_toxicgas_fire(zones, source)
+
+
+## Active ground zones overlapping a hit point (within radius + zone radius).
+func _zones_overlapping(center: Vector3, radius: float) -> Array:
+	var out: Array = []
 	for z in get_tree().get_nodes_in_group("ground_zone"):
-		if z.is_active() and String(z.status) == "Oil":
+		if z.is_active():
 			var d := Vector2(z.global_position.x - center.x, z.global_position.z - center.z)
 			if d.length() <= radius + float(z.radius):
-				_ignite_oil(z, depth, source)
+				out.append(z)
+	return out
+
+
+## primaryMedium of a tile = highest-priority medium present (EVENT-CORE §3 / INT-002 §6.1).
+func _primary_medium_of(zones: Array) -> String:
+	var best := ""
+	var best_rank := 999
+	for z in zones:
+		var rank := RX_PRIORITY.find(String(z.status))
+		if rank >= 0 and rank < best_rank:
+			best_rank = rank
+			best = String(z.status)
+	return best
+
+
+## Spawn a medium zone (RX result). dps>0 carries the source for aggro crediting.
+func _spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node) -> void:
+	var z := HazardZone.new()
+	z.setup(radius, dps, 0.0, medium, false, ttl)
+	add_child(z)
+	z.global_position = pos
+	if source != null and dps > 0.0:
+		z.set_source(source)
+
+
+## RX-FIRE-WATER-001 — Water boils off → Steam (consume Water, spawn Steam). out: Steam.
+func _rx_fire_water(zones: Array, source: Node) -> void:
+	var done := false
+	for z in zones:
+		if String(z.status) == "Water":
+			var pos: Vector3 = z.global_position
+			var r: float = float(z.radius)
+			z.clear_zone()
+			if not done:
+				_spawn_zone("Steam", pos, r, 0.0, STEAM_TTL, source)
+				done = true
+	print("[RX] FireDamageHit + Water → Steam (RX-FIRE-WATER-001)")
+
+
+## RX-FIRE-VEGETATION-001 — vegetation catches fire → Fire zone (Ignited). out: Ignited.
+func _rx_fire_vegetation(zones: Array, source: Node) -> void:
+	for z in zones:
+		if String(z.status) == "Vegetation":
+			var pos: Vector3 = z.global_position
+			var r: float = float(z.radius)
+			z.clear_zone()
+			_spawn_zone("Fire", pos, r, FIRE_DPS, FIRE_TTL, source)
+	print("[RX] FireDamageHit + Vegetation → burn (RX-FIRE-VEGETATION-001)")
+
+
+## RX-TOXICGAS-FIRE-001 — toxic flash: burst damage + Poisoned to units in the gas, consume it.
+func _rx_toxicgas_fire(zones: Array, source: Node) -> void:
+	for z in zones:
+		if String(z.status) != "ToxicGas":
+			continue
+		for g in ["party_member", "enemy"]:
+			for u in get_tree().get_nodes_in_group(g):
+				if u is Node3D and z.contains_point((u as Node3D).global_position):
+					if u.has_method("apply_poison"):
+						u.apply_poison(4.0, FIRE_DPS)
+					elif u.has_method("take_damage"):
+						u.take_damage(GAS_FLASH_DMG)
+		z.clear_zone()
+	_combat.camera_shake.emit(0.3, Vector3.ZERO)
+	print("[RX] FireDamageHit + ToxicGas → toxic flash (RX-TOXICGAS-FIRE-001)")
 
 
 ## RX-OIL-FIRE-001 — consume the oil → explosion (+Ignited) + Fire zone + harmless Smoke (NOT
