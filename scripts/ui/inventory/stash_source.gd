@@ -9,3 +9,9 @@ var items: Array = []
 # (5x8=40). open_loot() reads these to size its container grid. 10x12 = 120 cells.
 var cols := 10
 var rows := 12
+
+
+## Marks this loot source as the player's persistent Stash (vs a world chest) — InventoryUI uses
+## it to route Shift+우클릭 버리기 to a permanent owned removal (Stash autoload) instead of a drop.
+func is_stash_source() -> bool:
+	return true

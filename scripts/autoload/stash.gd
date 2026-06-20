@@ -42,3 +42,21 @@ func take_consumable(cid: String, amount: int = 1) -> bool:
 ## Return a consumable to the stash (un-brought).
 func return_consumable(cid: String, amount: int = 1) -> void:
 	consumables[cid] = int(consumables.get(cid, 0)) + amount
+
+
+## Permanently remove one owned gear from the stash (hub 버리기). True if it was present.
+func remove_gear(base_gear_id: String) -> bool:
+	var i := gear.find(base_gear_id)
+	if i < 0:
+		return false
+	gear.remove_at(i)
+	return true
+
+
+## Permanently remove one owned skillbook from the stash (hub 버리기). True if it was present.
+func remove_skillbook(base_ability_id: String) -> bool:
+	var i := skillbooks.find(base_ability_id)
+	if i < 0:
+		return false
+	skillbooks.remove_at(i)
+	return true

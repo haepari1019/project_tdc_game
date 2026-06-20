@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260621-003 — 인벤토리 버리기(Shift+우클릭): 런=바닥 드롭 / 스태시=영구 제거
+- **무엇(사용자 갭):** 런 인벤·스태시에서 아이템 제거 수단이 없었음(B1 haul로 백팩 포화 시 정리 불가). 추가.
+- **제스처:** `Shift+우클릭` = 버리기. 기존 우클릭 라우팅(`_on_item_pressed`)에 분기 추가(저수술, Shift라 오발 방지).
+- **런 백팩:** 삭제가 아니라 **바닥에 재획득 가능 드롭**(사용자 지정). `inventory_ui.item_dropped` → `dungeon_run._on_item_dropped` → `loot_service.drop_item`(ItemDrop 발치 생성, 픽업 라우팅으로 복원). gear/skillbook/haul/generic 모두 재획득 OK.
+- **허브 스태시:** 월드 없음 → **소유 영구 제거**. `inventory_ui.stash_item_discarded` → `main._on_stash_item_discarded` → `Stash.remove_gear/remove_skillbook`(신설)·consumable=take. 그리드는 lift, Stash 갱신 → 재진입 반영.
+- **소스 구분:** `stash_source.is_stash_source()` 플래그로 스태시 loot vs 월드 상자 구분(상자 아이템은 버리기 없음, stow만).
+- **범위:** 런 소모품 바(ConsumableController)는 별도 그리드라 미포함(소모품은 보통 사용; 필요 시 후속). 스펙 규칙 아님(F-010 인벤 UX 어포던스) → 전파 없음.
+- **검증:** Stash 제거(4→3·missing=false)·허브/던전 부팅·ci_smoke PASS.
+- **영향:** `inventory_ui.gd`·`stash_source.gd`·`stash.gd`·`loot_service.gd`·`dungeon_run.gd`·`main.gd`.
+
 ### IMPL-DEC-20260621-002 — P2-S4 Hub B1: haul vault 파이프 (At-Risk → 탈출 → vault)
 - **무엇:** haulMaterial이 런 인벤(At-Risk)에 쌓여 → ExtractionSuccess 시 `HubProfile.hubHaulVault`(Safe)로 이관 → 시설 승급 소모. F-029 §3.2 / D-029 §4.
 - **haul = 인벤 아이템 종류:** `ItemFactory.haul_item`(kind "haul" + haul_material_id, 1×1 ochre). `inventory_ui.add_haul_to_backpack`/`collect_haul`(backpack kind=="haul" → {id:count}). `item_drop` 픽업 라우팅에 haul 분기. → 스펙대로 haul은 run-inventory At-Risk 아이템(실패 시 lost_items, 캡 포함).

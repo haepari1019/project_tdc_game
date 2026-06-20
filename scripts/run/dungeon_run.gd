@@ -170,6 +170,7 @@ func _ready() -> void:
 	add_child(_loot)
 	_loot.setup(_inventory_ui)
 	_combat.enemy_defeated.connect(_loot.on_enemy_defeated)
+	_inventory_ui.item_dropped.connect(_on_item_dropped)  # Shift+우클릭 버리기 → 바닥에 드롭
 	_run_end = RunEndController.new()  # extraction channel + settlement + party-wipe (F-007)
 	add_child(_run_end)
 	_run_end.setup(_run, _party, _combat, _inventory_ui, _map, _extract_count)
@@ -265,6 +266,13 @@ func _process(_delta: float) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl:
 		_hud_sub.text = "Ready" if ctrl.sub_cooldown_s <= 0.0 else "%.1fs" % ctrl.sub_cooldown_s
+
+
+## Shift+우클릭 버리기 (백팩) → 컨트롤 멤버 발치에 재획득 가능한 ItemDrop 생성.
+func _on_item_dropped(def: Dictionary) -> void:
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if ctrl != null and _loot != null:
+		_loot.drop_item(def, ctrl.global_position)
 
 
 func _unhandled_input(event: InputEvent) -> void:

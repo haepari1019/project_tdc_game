@@ -30,6 +30,17 @@ func setup(inventory_ui: Node) -> void:
 	_inv = inventory_ui
 
 
+## Drop a backpack item back into the world (player Shift+우클릭 버리기) — a re-pickable ItemDrop
+## beside the player. Reuses the item's def so pickup routing (gear/skillbook/haul/generic) restores it.
+func drop_item(def: Dictionary, world_pos: Vector3) -> void:
+	if def.is_empty():
+		return
+	var drop := ItemDrop.new()
+	drop.setup(_inv, def)
+	drop.position = Vector3(world_pos.x + 1.0, 0.0, world_pos.z)
+	add_child(drop)
+
+
 ## CombatController.enemy_defeated → spawn a PH loot drop at the death position.
 func on_enemy_defeated(world_pos: Vector3, ability_refs: Array) -> void:
 	var def := _roll_loot_def(ability_refs)

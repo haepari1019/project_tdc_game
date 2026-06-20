@@ -56,6 +56,7 @@ func _setup_hub() -> void:
 	_inv = InventoryUI.new()
 	add_child(_inv)
 	_inv.setup_party(_party, null)      # combat=null → equip allowed (F-008 §4.2 in-combat gate off)
+	_inv.stash_item_discarded.connect(_on_stash_item_discarded)  # Shift+우클릭 스태시 버리기 → 영구 제거
 	_stash_src = StashSource.new()
 	_stash_src.items = _build_stash_items()
 	var edit := Button.new()
@@ -148,6 +149,15 @@ func _build_stash_items() -> Array:
 		items.append(it)
 		c += 1
 	return items
+
+
+## Shift+우클릭 스태시 버리기 → 소유 목록(Stash autoload)에서 영구 제거. 그리드는 InventoryUI가
+## 이미 lift함 → Stash만 갱신하면 다음 빌드/재진입에 반영된다.
+func _on_stash_item_discarded(item: Dictionary) -> void:
+	match String(item.get("kind", "")):
+		"gear": _stash.remove_gear(String(item.get("base_gear_id", "")))
+		"skillbook": _stash.remove_skillbook(String(item.get("base_ability_id", "")))
+		"consumable": _stash.take_consumable(String(item.get("consumable_id", "")), int(item.get("count", 1)))
 
 
 func _on_loadout_confirmed() -> void:

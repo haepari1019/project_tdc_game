@@ -12,6 +12,8 @@ const EquipPanel := preload("res://scripts/ui/inventory/equip_panel.gd")
 const ConsumableController := preload("res://scripts/ui/inventory/consumable_controller.gd")
 
 signal consumable_use_requested(consumable_id: String)  # right-click a consumable → use it
+signal item_dropped(item: Dictionary)          # Shift+우클릭 백팩 아이템 → 바닥에 드롭(런: 호스트가 ItemDrop 생성)
+signal stash_item_discarded(item: Dictionary)  # Shift+우클릭 스태시 아이템 → 소유 영구 제거(허브: 호스트가 Stash 갱신)
 
 const CELL := 48
 const GAP := 4
@@ -25,6 +27,7 @@ var _loot: InventoryGrid
 var _loot_box: VBoxContainer     # loot column wrapper (shown only while looting)
 var _loot_label: Label
 var _chest: Node = null          # currently looted chest (null = none)
+var _loot_is_stash: bool = false # the loot grid currently shows the persistent Stash (hub), not a chest
 
 # Active item drag (across containers).
 var _drag: Dictionary = {}
@@ -73,6 +76,7 @@ func toggle() -> void:  # `i` — player backpack only
 ## Open the loot view: player backpack + the chest's container (populated from its items).
 func open_loot(chest: Node) -> void:
 	_chest = chest
+	_loot_is_stash = chest != null and chest.has_method("is_stash_source")
 	_loot_label.text = chest.title if "title" in chest else "CONTAINER"
 	_loot.clear()
 	var c: int = int(chest.cols) if "cols" in chest else 5   # container sets its own size
@@ -429,6 +433,10 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 			_begin_drag(grid, item)
 		accept_event()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT:
+		if mb.shift_pressed:
+			_discard_item(grid, item)  # Shift+우클릭 = 버리기 (백팩→드롭 / 스태시→소유 제거)
+			accept_event()
+			return
 		if grid == _loot:
 			_stow_to_backpack(grid, item)  # chest → backpack: auto-stow to free space
 		elif String(item.get("kind", "")) == "gear":
@@ -438,6 +446,30 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 		elif String(item.get("kind", "")) == "consumable":
 			consumable_use_requested.emit(String(item.get("consumable_id", "")))  # → use (revive targeting)
 		accept_event()
+
+
+## Shift+우클릭 버리기. 백팩(런 인벤) → 바닥에 드롭(재획득 가능, 호스트가 ItemDrop 생성). 스태시(허브
+## 소유) → 영구 제거(호스트가 Stash 갱신). 월드 상자 아이템은 버리기 없음(남의 것 — stow만).
+func _discard_item(grid: InventoryGrid, item: Dictionary) -> void:
+	if grid == _backpack:
+		var def := _drop_def(item)
+		grid.lift(item)
+		item_dropped.emit(def)
+	elif grid == _loot and _loot_is_stash:
+		var def := _drop_def(item)
+		grid.lift(item)
+		stash_item_discarded.emit(def)
+
+
+## A clean item def for a world drop / discard signal — keeps the pickup-routing fields, drops
+## grid-internal state (col/row/node) that must not leak into a new world ItemDrop.
+func _drop_def(item: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for k in ["id", "w", "h", "color", "kind", "base_gear_id", "base_ability_id",
+			"haul_material_id", "consumable_id", "count", "charges", "charges_max"]:
+		if item.has(k):
+			out[k] = item[k]
+	return out
 
 
 ## Right-click in a loot container → move the item to the backpack's first free spot.
