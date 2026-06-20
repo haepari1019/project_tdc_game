@@ -1,7 +1,9 @@
 # ROADMAP — Phase 2 Full Spec Coverage (게임 측 정본)
 
 > **무엇:** 스펙 `ImplementationPhase_FullSpecCoverage.md`(목표 = 스펙에 정의된 ID 전부 구현)의 **게임 측 실행 로드맵**. 스펙은 P2-S3~S7을 "Planned/TBD"로만 둠 → 본 문서가 게임측 작업 정본. SSOT 아님(규칙은 각 F-###/콘텐츠).
-> **핀:** spec `4422e50` (staging). **갱신:** 스프린트 종료마다. 상세 근거: 4-에이전트 스코핑(2026-06-19).
+> **핀:** spec `ef9c0c7` (main). **갱신:** 스프린트 종료마다. 상세 근거: 4-에이전트 스코핑(2026-06-19).
+>
+> **진행(2026-06-21):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place(PAT/AMB) ✅ · **확률적 ENC resolve(가중+런시드)·스폰 위치 산포 ✅ 전파+재핀**(DEC-20260620-002) · **Encounter Variety 목표 아키텍처 확정**(빌드는 P2-S5에 편입 — [docs/design/encounter_variety_architecture.md](design/encounter_variety_architecture.md)). **현재 위치 → 다음 = P2-S4 (Hub).**
 
 ---
 
@@ -12,8 +14,9 @@
 | **적 전투행동 (EN-001~014)** | ✅ 완료 | 기본타 rom_* 12/12 · 포지셔닝 7프로필 · 마퀴 시그니처 · Provoked · 채널 interrupt |
 | **AB-### (전체)** | **15/84** | 적 kit 10/13(비-zone) · 적 zone 0/7 · 파티 풀 5/64 |
 | **PT-### (적 패턴)** | ✅ 14/14 | 갭 없음 (PT-010/011/020~022는 플레이어/미사용) |
-| **ENC-### (인카운터)** | **17/24** | NORM 3/3(003 assassin) · HARD 11/12(002/003/004/005·010 phase·011 assassin; 007=Extreme deferred) · MID/DEEP 1/1 · BOSS 1/1(MiniBoss kit) · PAT 0/3 · AMB 0/2 · 3RD 0/1 |
-| **ZONE/반응 (F-021/F-027)** | RX 1/~19 | RX-OIL-FIRE만 (Smoke 드리프트) · zone 1/9 · element status 0 |
+| **ENC-### (인카운터)** | **22/24** | NORM 3/3 · HARD 11/12(007=Extreme deferred) · MID/DEEP 1/1 · BOSS 1/1 · **PAT 3/3 ✅ · AMB 2/2 ✅** · 3RD 0/1(S5) |
+| **배치/resolve (F-006/LDG-SPAWN)** | ✅ 확률화 | placement Patrol/AmbushHold·dual-anchor 순차·torch lead · **가중 다중후보+runSeed resolve · 스폰 위치 산포**(DEC-20260620-002). 조합 제너레이터·창발 모디파이어 = S5 |
+| **ZONE/반응 (F-021/F-027)** | ✅ keystone | 9매체 zone·event bus·resolver·Hit-RX 4축(Fire/Cold/Lightning/Physical)·연쇄 per-RX VFX · zone AB 7종 enemy+lootable. S3e spread만 보류 |
 | **Hub (F-029)** | 배치화면만 | 8시설·퀘스트/haul 게이트·vault·UI-029 미구현 |
 | **3세력 (F-028)** | 0 | event 시스템 의존 |
 
@@ -39,12 +42,12 @@
 
 | 스프린트 | 범위 | 의존 | 규모 | 병렬화 |
 |---|---|---|:---:|---|
-| **P2-S2-fin** | combat-pool 잔여 ENC (조합·증원·assassin·boss) | 없음 | S–M | ★ ENC별 독립 |
-| **P2-S3** | 원소 ZONE/반응 (keystone) | — | L | 내부 부분 |
-| **P2-S2-place** | patrol/ambush placement | placement plumbing | M | S3와 독립 병렬 |
-| **P2-S4** | Hub/Meta (F-029) | — (economy 게이트) | M–L | 시설별 부분 |
+| **P2-S2-fin** ✅ | combat-pool 잔여 ENC (조합·증원·assassin·boss) | 없음 | S–M | ★ ENC별 독립 |
+| **P2-S3** ✅ | 원소 ZONE/반응 (keystone) | — | L | 내부 부분 |
+| **P2-S2-place** ✅ | patrol/ambush placement + 확률 resolve | placement plumbing | M | S3와 독립 병렬 |
+| **▶ P2-S4** | Hub/Meta (F-029) — **다음** | — (economy 게이트) | M–L | 시설별 부분 |
 | **P2-S6a** | 파티 능력 effect-kind + sub 풀 | B1 기반 | L | effect-kind∥, 데미지 sub 대량∥ |
-| **P2-S5** | 3세력 (F-028) | S3 event | M | 단독 |
+| **P2-S5** | 3세력 (F-028) **+ Encounter Variety 엔진**(조합 제너레이터·창발 모디파이어) | S3 event · EN-* 태그 | M–L | 단독 |
 | **P2-S6b** | economy/UI + gear roll-table | hub | M–L | UI∥데이터 |
 | **P2-S7** | 통합 회귀/QA | 전부 | M | 케이스별∥ |
 
@@ -66,9 +69,11 @@
 - **S3e** spread 엔진 + room 캡(2/gust·6/room·2.0s).
 - **S3f** zone AB 7종(enemy+lootable) → **EN-004(Oil+Slippery 최소)·EN-007(가장 무거움: Water/Ice/Veg/Hex+RX) 완성**.
 
-### P2-S2-place — patrol/ambush (M, S3와 병렬)
-- placement 컬럼 소비(resolver+prespawn) + patrol 웨이포인트 AI(`_tick_roam` 확장). PAT-003은 **torch carry/throw 기존 재사용**(EN-010 lead 플래그 + 경로 ENT-TORCH).
-- AMB: dormant-reveal 트리거 + AMB-002 순차 wake(`ambushAnchorCount:2`).
+### P2-S2-place — patrol/ambush + 확률 resolve ✅ (완료 2026-06-21)
+- ✅ placement_behavior(Fixed/Patrol/AmbushHold) — Patrol=spawn home 자동 루프, AmbushHold=근접 reveal+hold(facing 무시)+스프링 먼지 VFX. AMB-002 듀얼 앵커 순차 기상(14m·anchor 게이트). PAT-003 EN-010 torch(데이터 구동). ENC-PAT/AMB 5종.
+- ✅ **확률적 ENC resolve**(가중 다중후보+runSeed) + **스폰 위치 시드 산포**(navmesh 스냅). 스펙 `LDG-SPAWN-DEMO-001` §2/§3/§5 전파(DEC-20260620-002)→재핀 `ef9c0c7`. forceEncounter QA핀 유지.
+- **확장 운영(지금~)**: ① 기존 ENC에 placement 변형 후보 추가 ② **기존 EN-* 재조합으로 새 ENC**(mechanicAxes≤2) ③ 풀 후보 폭 절제 확대 — 모두 데이터만. EN-* 다듬을 때 **태그 동반**(S5 제너레이터 연료). 상세 = [design/encounter_variety_architecture.md](design/encounter_variety_architecture.md).
+- **이연→S5**: 런 내 비복원 · 조합 제너레이터 · 창발 모디파이어.
 
 ### P2-S4 — Hub/Meta (F-029, M–L)
 - 8시설 티어(barracks/stash/scriptorium/scribe_shop/armory/quartermaster/smithy/chapel) + Quest/Haul 게이트 + `hubHaulVault`(Safe) + haul drop→extract→vault 파이프 + D-029 schema + UI-029 맵.
@@ -78,8 +83,10 @@
 - **B2** 데미지 sub ~24(기존 strike/fire/stun 재사용 = 데이터행 대량 병렬).
 - **6 Identity 후보**(AB-021/022/052·027·029·031) — gear-roll-table(S6b)와 함께.
 
-### P2-S5 — 3세력 (F-028, M) — S3 event 후
-- faction-tagged 적대(player+monster 양쪽 적대) · offscreen `active_and_adjacent` 시뮬 · ENC-3RD-001. (스펙 자체 stub — EN/OBJ-3RD 확정 후.)
+### P2-S5 — 3세력 (F-028) + Encounter Variety 엔진 (M–L) — S3 event 후
+- **3세력:** faction-tagged 적대(player+monster 양쪽) · offscreen `active_and_adjacent` 시뮬 · ENC-3RD-001. (스펙 stub — EN/OBJ-3RD 확정 후.)
+- **Encounter Variety 엔진**(3세력과 동시 — 둘이 같이 값을 함): 조합 제너레이터(그룹 레시피 + mechanicAxes 예산 + seed → EN-* 조합 생성, ENC-000 가드레일) · **3세력 = 창발 런타임 모디파이어**(교전중/정리/약화/증원) · 런 내 비복원 · 하이브리드(보스·QA핀 authored). 빌드 직전 ENC-000/F-006/F-028 **스펙 전파→재핀**. 설계 = [design/encounter_variety_architecture.md](design/encounter_variety_architecture.md) · `IMPL-DEC-20260620-014`.
+- **선결:** EN-* 정식 킷 + 태그(role·tier·mechanic_axis_kind·faction·placement_affinity).
 
 ### P2-S6b — economy/UI + gear roll-table
 - 분석진척·shop·affix(hub 의존) + **gear `identityRollTable` 이행**(현 1:1 `bundled_identity_skill_id` = 레거시 핀; F-008 §3.7) + 21 gear 아키타입 + UI 폴리시(shop/analysis·HUD 확장·핑).
