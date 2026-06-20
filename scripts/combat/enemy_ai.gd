@@ -50,8 +50,10 @@ const ORBIT_RADIUS_M := 6.0
 const ORBIT_TANGENT_W := 0.65
 const ORBIT_INWARD_FAR := 0.6
 const ORBIT_LOOKAHEAD_M := 3.5
+# hit-and-run flanker (EN-008, damaging dash): the flank STANDOFF distance held between backstabs —
+# out of melee but inside dash reach. Kites to keep this until the dash is off cooldown.
+const FLANK_KEEP_M := 6.0
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
-const BACKSTAB_RETREAT_S := 0.9    # orbit: retreat window after AB-013 backstab (EN-008 치고 빠짐)
 const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
 
 # --- Dash signatures (AB-006 gap-close / AB-013 backstab; EN-003/008) ---
@@ -471,14 +473,6 @@ func _move_zone(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) ->
 ## (wide arc); the closer to attack range, the more it cuts inward to close. Side fixed per-enemy.
 func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
 	enemy.face_toward(tp)
-	if enemy.probe_backstep_s > 0.0:  # just backstabbed (AB-013) → peel out before re-flanking
-		var out_dir := enemy.global_position - tp
-		out_dir.y = 0.0
-		if out_dir.length() < 0.01:
-			out_dir = -enemy.facing
-		return _nav_move(enemy, enemy.global_position + out_dir.normalized() * RETREAT_STEP_M, spd)
-	if dist <= enemy.attack_range_m:
-		return Vector3.ZERO
 	var to := tp - enemy.global_position
 	to.y = 0.0
 	if to.length() < 0.01:
@@ -486,12 +480,36 @@ func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -
 	var radial := to.normalized()                                    # toward the target (close in)
 	var side := 1.0 if (enemy.get_instance_id() % 2 == 0) else -1.0
 	var tangent := Vector3(-radial.z, 0.0, radial.x) * side          # perpendicular (circle around)
+	# Hit-and-run flanker (EN-008): the dash does the engaging, so BETWEEN dashes it holds a flank
+	# standoff (FLANK_KEEP) — kite out if the target closes (keeps distance until the dash is ready),
+	# else circle at range WITHOUT spiralling into melee. The dash fires from here when off cooldown.
+	if _is_hit_run_flanker(enemy):
+		if dist < FLANK_KEEP_M:
+			return _kite_flee(enemy, tp, spd)  # target closing → peel out, hold distance
+		var inw := clampf((dist - FLANK_KEEP_M) / ORBIT_RADIUS_M, 0.0, 1.0) * ORBIT_INWARD_FAR
+		var hmd := (tangent * ORBIT_TANGENT_W + radial * inw).normalized()
+		return _nav_move(enemy, enemy.global_position + hmd * ORBIT_LOOKAHEAD_M, spd)
+	# Sustained flanker (EN-003, gap-close dash): spiral in to stick & flurry.
+	if dist <= enemy.attack_range_m:
+		return Vector3.ZERO
 	# Far past attack range → less inward (wider arc); near → full inward. Tangent scaled by
 	# ORBIT_TANGENT_W so the detour is a moderate diagonal flank, not a near-perpendicular circle.
 	var far := clampf((dist - enemy.attack_range_m) / ORBIT_RADIUS_M, 0.0, 1.0)
 	var radial_w := lerpf(1.0, ORBIT_INWARD_FAR, far)
 	var move_dir := (tangent * ORBIT_TANGENT_W + radial * radial_w).normalized()
 	return _nav_move(enemy, enemy.global_position + move_dir * ORBIT_LOOKAHEAD_M, spd)
+
+
+## True if the unit has a DAMAGING dash (hit_on_arrival) → it's a hit-and-run flanker (EN-008) that
+## holds distance between dives. A non-damaging gap-close dash (EN-003 AB-006) sticks instead.
+func _is_hit_run_flanker(enemy: CharacterBody3D) -> bool:
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		var eff: Dictionary = Slice01Data.get_ability(String(ab.get("ref", "")))
+		if String(eff.get("kind", "")) == "enemy_dash" and bool(eff.get("hit_on_arrival", false)):
+			return true
+	return false
 
 
 ## probe (PT-006): hit-and-back-off. While the post-strike backstep timer runs, retreat;
@@ -939,8 +957,8 @@ func _resolve_dash_hit(enemy: CharacterBody3D) -> void:
 	to.y = 0.0
 	if to.length() <= enemy.attack_range_m + 1.0:
 		_apply_enemy_hit(enemy, target, eff, chosen)
-	# Backstab landed (or whiffed) → peel out and re-flank, don't sit in melee (EN-008 치고 빠짐).
-	enemy.probe_backstep_s = BACKSTAB_RETREAT_S
+	# Re-flank: the orbit profile's hit-and-run keep-distance (FLANK_KEEP) peels EN-008 back out and
+	# holds the gap until AB-013 is off cooldown — no fixed backstep needed here.
 
 
 ## Disguised assassin reveal+execute (AssassinTransform): telegraph (assassin_telegraph_s) →
