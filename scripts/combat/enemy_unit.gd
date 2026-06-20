@@ -68,6 +68,8 @@ var attack_count: int = 0
 var placement_mode: String = "Fixed"
 var ambush_reveal_radius_m: float = 8.0   # AmbushHold: spring when a party actor is within this
 var patrol_idx: int = 0                   # current waypoint index on the patrol loop
+var anchor_id: int = 0                    # AmbushHold dual-anchor: which hiding spot this unit holds
+var wake_policy: String = "all"           # "all" = squad wakes together; "sequential" = per-anchor
 # F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
 # object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.
 var interacts_with_objects: bool = false

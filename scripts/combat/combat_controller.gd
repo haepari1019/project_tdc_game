@@ -36,6 +36,8 @@ const SQUAD_PROP_RADIUS_M := 9.0
 ## Lateral spacing between squads sharing one room (relocated start-room encounter
 ## sits beside the room's own squad instead of overlapping it).
 const SQUAD_LANE_SPACING := 12.0
+const ANCHOR_SEP_M := 14.0   # AmbushHold dual-anchor separation (> SQUAD_PROP_RADIUS_M so the two
+							 # hiding spots wake independently — sequential reveal)
 
 # F-022 threat tuning (§3.2 Draft).
 const FIRST_ATTACK_BONUS := 120.0   # §3.4 first aggressor on the hit enemy
@@ -127,6 +129,10 @@ func _engage_enemy(e: CharacterBody3D, target_member: CharacterBody3D = null) ->
 		if o == e or not is_instance_valid(o) or o.engaged:
 			continue
 		if o.squad_id != e.squad_id:
+			continue
+		# Sequential wake (ENC-AMB-002): a sprung anchor does NOT wake the OTHER anchor — it waits
+		# for the party to reach its own reveal radius. Same-anchor squadmates still wake together.
+		if String(e.wake_policy) == "sequential" and int(o.anchor_id) != int(e.anchor_id):
 			continue
 		if Spatial.h_dist2(o.global_position, e.global_position) <= r2:
 			o.engaged = true
@@ -455,7 +461,8 @@ func _spawn_squad(encounter_id: String, room_ref: String) -> void:
 	var lane := int(_room_squad_count.get(room_ref, 0))
 	_room_squad_count[room_ref] = lane + 1
 	var center: Vector3 = _squad_spawn_center(room_ref, lane)
-	_spawn_at(units, center, squad_id, false, String(enc.get("placement_behavior", "Fixed")))
+	_spawn_at(units, center, squad_id, false, String(enc.get("placement_behavior", "Fixed")),
+		int(enc.get("ambush_anchor_count", 1)), String(enc.get("wake_policy", "all")))
 	var reinf: Dictionary = enc.get("reinforcement", {})
 	_squads.append({
 		"id": squad_id,
@@ -490,13 +497,26 @@ func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
 	return center
 
 
+## AmbushHold dual-anchor: spread `anchor_count` hiding spots perpendicular to the party's approach,
+## centered on `base`, ANCHOR_SEP_M apart. anchor_count<=1 → just `base` (single corner).
+func _anchor_center(base: Vector3, anchor_id: int, anchor_count: int) -> Vector3:
+	if anchor_count <= 1:
+		return base
+	var dir := base - _spawn_origin
+	dir.y = 0.0
+	dir = dir.normalized() if dir.length() > 0.01 else Vector3(0, 0, 1)
+	var perp := Vector3(dir.z, 0.0, -dir.x)  # 90° to the approach axis
+	var t := float(anchor_id) - float(anchor_count - 1) * 0.5  # center the spread (2 → -0.5,+0.5)
+	return base + perp * (t * ANCHOR_SEP_M)
+
+
 ## First room the given room opens onto (used to relocate the start-room encounter).
 func _first_connected(room_ref: String) -> String:
 	var conns: Array = Slice01Data.get_room_row(room_ref).get("connects", [])
 	return String(conns[0]) if not conns.is_empty() else ""
 
 
-func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, placement: String = "Fixed") -> void:
+func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, placement: String = "Fixed", anchor_count: int = 1, wake_policy: String = "all") -> void:
 	var index := 0
 	for u in units:
 		if typeof(u) != TYPE_DICTIONARY:
@@ -513,7 +533,9 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, plac
 			add_child(unit)
 			# Box collision matches the visual mesh (scaled), so no corner overlap.
 			unit.setup(row, vis["color"], s)
-			unit.global_position = center + _spawn_offset(index)
+			# AmbushHold dual-anchor: distribute units round-robin across the anchor spots.
+			var aid := index % maxi(anchor_count, 1)
+			unit.global_position = _anchor_center(center, aid, anchor_count) + _spawn_offset(index)
 			unit.squad_id = squad_id
 			# AssassinTransform: per-ENCOUNTER tag (not a unit-catalog property) — one fodder
 			# row flagged disguised; same enemy_id rows without the flag stay normal.
@@ -531,6 +553,8 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, plac
 			# Placement (F-006, P2-S2-place): encounter-level Patrol/AmbushHold/Fixed. Per-unit
 			# interacts_with_objects override = torch bearer (PAT-003 EN-010).
 			unit.placement_mode = placement
+			unit.anchor_id = aid
+			unit.wake_policy = wake_policy
 			if bool(u.get("interacts_with_objects", false)):
 				unit.interacts_with_objects = true
 			unit.engaged = engaged

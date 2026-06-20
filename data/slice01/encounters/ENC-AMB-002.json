@@ -4,7 +4,9 @@
   "risk_pattern_ref": null,
   "group_size": 3,
   "placement_behavior": "AmbushHold",
-  "_note": "Dim Room Dual Anchor (ENC-AMB-002) — AmbushHold, dim room. wakePolicy sequential + dual anchor = batch 2 (currently all spring on proximity). Not Third Faction.",
+  "ambush_anchor_count": 2,
+  "wake_policy": "sequential",
+  "_note": "Dim Room Dual Anchor (ENC-AMB-002) — AmbushHold, dim room. 2 anchors 14m apart; springing one anchor does NOT wake the other (sequential) — it waits for the party to reach its own reveal radius. Not Third Faction.",
   "units": [
     { "enemy_id": "EN-010", "count": 2, "slot": "fodder" },
     { "enemy_id": "EN-012", "count": 1, "slot": "fodder" }

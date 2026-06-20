@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260620-012 — P2-S2-place 배치2: AMB-002 듀얼 앵커 순차 기상 + 스프링 reveal VFX
+- **무엇:** ENC-AMB-002 `ambushAnchorCount:2` / `wakePolicy:sequential` 이행 + AmbushHold 발동 연출.
+- **순차 기상(emergent, 타이머 아님):** 한 인카운터를 2개 앵커로 분할 스폰(라운드로빈 `index % anchor_count`), 앵커를 접근축 직교로 **ANCHOR_SEP_M 14m** 이격(> SQUAD_PROP_RADIUS_M 9m, > reveal 8m). 각 앵커는 **자기 근접(reveal)으로 독립 발동**. `_engage_enemy` 분대 기상 루프에 게이트 추가 — `wake_policy=="sequential"`이면 **다른 anchor_id는 깨우지 않음**(같은 앵커 동료만 동반 기상). → 파티가 앵커A 발동 후 이동해 앵커B reveal 진입 시 B 발동 = 자연스러운 순차.
+- **결정:** 타이머 캐스케이드 대신 **앵커 이격+근접 발동**(공간적). 위치 기반이라 파티 동선에 반응 — 스펙 "2 anchors, sequential wake"와 합치 + 저위험(기존 reveal 재사용).
+- **스프링 reveal VFX(별도 커밋 1111821):** AmbushHold dormant→engaged 전환 시 `SkillVfx.ambush_spring`(먼지 충격파+차인 먼지+모션 플래시) 1회. `_engage_enemy`에서 감지자(was=false)+동반 기상 동료 각각, placement 게이트. AMB telegraphTier=none → 전조 아닌 '당한 직후' 반응 피드백(placeholder).
+- **enemy_unit 필드:** `anchor_id`·`wake_policy`. **검증:** JSON·샌드박스·ci_smoke PASS.
+- **영향:** `combat_controller.gd`(_spawn_at anchor 분배·_anchor_center·ANCHOR_SEP_M·_engage_enemy 게이트+spring), `enemy_unit.gd`(anchor/wake 필드), `skill_vfx.gd`(ambush_spring), `data/slice01/encounters/ENC-AMB-002.json`.
+- **잔여(배치2):** PAT-003 토치 배치(테스트 수단)·던전 spawn_table 실제 런 prespawn 배선.
+
 ### IMPL-DEC-20260620-011 — P2-S2-place 배치1: 배치 거동(Patrol/AmbushHold) + PAT/AMB 5 ENC
 - **무엇:** 다음 스프린트 P2-S2-place 1단계 — 인카운터별 placement 거동 + patrol/ambush AI + PAT/AMB 인카운터 5종.
 - **placement_behavior(인카운터 레벨, F-006):** Fixed(기본 roam)·Patrol·AmbushHold. `_spawn_squad`가 enc에서 읽어 `_spawn_at(... placement)`로 전달 → 각 유닛 `placement_mode` 설정. per-unit `interacts_with_objects`(torch bearer) 오버라이드도 spawn에서.
