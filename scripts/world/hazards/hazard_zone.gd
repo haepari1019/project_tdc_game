@@ -47,6 +47,7 @@ var _lethal: bool = true        # damage gate (telegraph phase = false until it 
 var _active: bool = true
 var _tick_accum: float = 0.0
 var _age: float = 0.0
+var _inside: Dictionary = {}   # units currently inside (edge detection → EnterZone/ExitZone events)
 var _mesh: MeshInstance3D
 var _mat: StandardMaterial3D
 var _source: Node = null   # attacker credited for threat when this zone damages enemies
@@ -135,19 +136,41 @@ func _physics_process(delta: float) -> void:
 			clear_zone()
 			return
 	if not _lethal:
-		return  # telegraph phase — no effect yet
-	if dps <= 0.0 and slow_factor <= 0.0 and not MOVEMENT_MEDIA.has(status):
-		return  # inert (harmless Smoke/Vegetation, or empty)
+		return  # telegraph phase — no membership / effect yet
 	_tick_accum += delta
 	if _tick_accum < TICK_S:
 		return
 	var dmg := dps * _tick_accum
 	_tick_accum = 0.0
+	# Effects apply for hazardous / movement media. Harmless Smoke/Vegetation still track membership
+	# so EnterZone/ExitZone edges fire for the event bus (RX consumers land in S3d).
+	var apply_fx := dps > 0.0 or slow_factor > 0.0 or MOVEMENT_MEDIA.has(status)
+	var now: Dictionary = {}
 	for g in UNIT_GROUPS:
 		for u in get_tree().get_nodes_in_group(g):
 			if not (u is Node3D) or not contains_point((u as Node3D).global_position):
 				continue
-			_apply_medium(u, dmg, g)
+			now[u] = true
+			if not _inside.has(u):
+				_emit_zone_event("EnterZone", u)  # entry edge
+			if apply_fx:
+				_apply_medium(u, dmg, g)
+	for u in _inside:
+		if not now.has(u) and is_instance_valid(u):
+			_emit_zone_event("ExitZone", u)  # exit edge
+	_inside = now
+
+
+## Emit an EnterZone/ExitZone event to the bus (group "event_bus" → ReactionSystem.emit_event).
+## RX consumers (RX-*-ENTER) land in S3d; for now these are foundation edges.
+func _emit_zone_event(kind: String, u: Node) -> void:
+	get_tree().call_group("event_bus", "emit_event", kind, {
+		"subjectId": u,
+		"zoneId": self,
+		"zoneMedium": status,
+		"position": (u as Node3D).global_position,
+		"enterKind": "walk",
+	})
 
 
 ## Apply this medium's per-tick outcome to a unit inside (피아무구분, F-021). 매체→결과 디스패치.

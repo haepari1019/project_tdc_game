@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260620-004 — P2-S3c 이벤트 버스 + EnterZone/ExitZone 엣지 (EVENT-CORE 토대)
+- **무엇:** 상호작용을 **이벤트 모델**(EVENT-CORE)로 전환하는 인프라. 동작 변화 0 — S3d(RX 매트릭스)의 토대.
+- **이벤트 버스:** `ReactionSystem.emit_event(event_id, payload)` 중앙 디스패치 + group `"event_bus"` 등록(존/스킬이 `call_group`으로 emit). 현재 핸들러 = `FireDamageHit`→oil 점화(`_on_fire_damage_hit`). EnterZone/ExitZone/Explosion/Lightning/Cold/Physical = 토대(소비자 S3d).
+- **FireDamageHit 라우팅:** `fire_hit()`가 직접 oil 탐색하던 것 → `emit_event("FireDamageHit", {...})` → 버스가 RX-OIL-FIRE 핸들러로. 횃불/RX 체인 호출부 동일.
+- **EnterZone/ExitZone 엣지:** `hazard_zone`이 `_inside` 멤버십 추적 — 진입/이탈 전이에서 이벤트 emit(무해 Smoke/Veg 존도 추적). per-tick aura 적용은 유지(이벤트는 RX 트리거용).
+- **스코프:** resolver(primaryMedium)·activeMedia 다중·데이터주도 RX 매트릭스 = S3d. 버스는 그때 dispatch 확장.
+- **검증:** 컴파일·샌드박스·ci_smoke PASS(동작 무변).
+- **영향:** `scripts/combat/abilities/reaction_system.gd`(버스·fire_hit 라우팅), `scripts/world/hazards/hazard_zone.gd`(멤버십·엣지 emit).
+
 ### IMPL-DEC-20260620-003 — P2-S3b zone 매체 모델 (medium→outcome 디스패치) + RX-OIL-FIRE Smoke 정정
 - **무엇:** zone을 환경 **매체(STATUS-ENV-CORE)** 모델로 — `hazard_zone.status` = 매체(9종 프리셋), 매체가 내부 유닛에 적용할 **OUTCOME을 디스패치**.
 - **medium→effect 디스패치(`_apply_medium`):** Fire→**Ignited**(S3a 결과, dps 운반)·ToxicGas→Poisoned(party)/raw(enemy)·Water→Sodden·Ice→Chilled·Oil→Slippery·Steam→SteamHaze·Wind→WindBuffeted·**Smoke/Vegetation→무해**(Smoke=시야[deferred], Veg=가연만)·Fatal→raw. `MOVEMENT_MEDIA`는 dps 0이어도 tick(결과 적용). `STATUS_COLORS` 9매체 프리셋.

@@ -22,6 +22,18 @@ var _combat: Node3D  # CombatController — camera shake owner
 
 func setup(combat: Node3D) -> void:
 	_combat = combat
+	add_to_group("event_bus")  # zones/skills emit via call_group("event_bus", "emit_event", …)
+
+
+## Central event bus (EVENT-CORE). Skills/zones/entities emit; RX handlers dispatch here. For now
+## FireDamageHit → oil ignition; EnterZone/ExitZone/Explosion/Lightning/Cold/Physical are foundation
+## (the data-driven RX matrix + primaryMedium resolver land in P2-S3d).
+func emit_event(event_id: String, payload: Dictionary) -> void:
+	match event_id:
+		"FireDamageHit":
+			_on_fire_damage_hit(payload)
+		_:
+			pass  # RX matrix consumers (RX-*-ENTER, combo RX) — S3d
 
 
 ## AoE breaks barrels / destructibles (ENT-BARREL) in range. Returns true if any hit.
@@ -36,8 +48,18 @@ func damage_destructibles(center: Vector3, radius: float, dmg: float) -> bool:
 	return hit
 
 
-## A fire damage hit at a point — ignites any overlapping Oil zone (RX-OIL-FIRE-001).
+## Public FireDamageHit entry (callers: torch ignite_at, RX-OIL-FIRE chain) — emits the event so
+## the RX layer (event bus) handles it. ref: EVENT-CORE FireDamageHit.
 func fire_hit(center: Vector3, radius: float, depth: int, source: Node = null) -> void:
+	emit_event("FireDamageHit", {"position": center, "radius": radius, "depth": depth, "source": source})
+
+
+## RX-OIL-FIRE-001 trigger — a FireDamageHit ignites any overlapping Oil zone (primaryMedium=Oil).
+func _on_fire_damage_hit(p: Dictionary) -> void:
+	var center: Vector3 = p.get("position", Vector3.ZERO)
+	var radius: float = float(p.get("radius", 1.0))
+	var depth: int = int(p.get("depth", 0))
+	var source: Node = p.get("source")
 	for z in get_tree().get_nodes_in_group("ground_zone"):
 		if z.is_active() and String(z.status) == "Oil":
 			var d := Vector2(z.global_position.x - center.x, z.global_position.z - center.z)
