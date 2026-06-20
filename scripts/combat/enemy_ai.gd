@@ -746,7 +746,7 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 
 ## Flying-orb vfx keys (homing projectiles). These hits are LOCKED (unavoidable) but the orb takes
 ## SHOT_FLIGHT_S to reach the target, so the damage is deferred to arrival (not applied at resolve).
-const _PROJECTILE_VFX := ["projectile", "shot_venom", "shot_slag", "shot_hex"]
+const _PROJECTILE_VFX := ["projectile", "shot_venom", "shot_slag", "shot_hex", "shot_frost"]
 
 
 ## Deliver a resolved enemy hit. Launches the vfx now; for a homing PROJECTILE the orb locks onto
@@ -813,6 +813,10 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			target.apply_stun(float(eff.get("stun_s", 1.0)))
 		"enemy_charge":  # AB-004 Charged Voltaic — Shock outcome (감전; STATUS-OUTCOME-CORE)
 			target.apply_outcome("Shock", float(eff.get("shock_dur_s", 2.0)))
+		"enemy_cold":  # AB-041 Glacial Bolt — Chilled + ColdDamageHit (Water→Ice, Veg→Slowed RX)
+			target.apply_outcome("Chilled", float(eff.get("chill_dur_s", 3.0)))
+			get_tree().call_group("event_bus", "emit_event", "ColdDamageHit",
+				{"position": target.global_position, "radius": 1.5, "source": enemy})
 		"enemy_hex":  # AB-012 Hex Bolt — HEX-WEAK soft CC (이동 감소; 피해감소 half = 후속)
 			target.apply_slow(float(eff.get("hex_slow", 0.6)), float(eff.get("hex_dur_s", 4.0)))
 		"enemy_splash":  # AB-008 Slag Spit — splash to party members near the impact point
@@ -838,6 +842,8 @@ func _telegraph_color(kind: String) -> Color:
 			return Color(0.95, 0.82, 0.35, 0.7)
 		"enemy_melee":  # rom_* melee basic wind-up cue (warm, on caster)
 			return Color(1.0, 0.62, 0.3, 0.7)
+		"enemy_cold":  # AB-041 Glacial Bolt — cyan frost wind-up
+			return Color(0.6, 0.9, 1.0, 0.7)
 		"enemy_stun":
 			return Color(1.0, 0.85, 0.2, 0.5)
 		"enemy_poison":
@@ -1161,7 +1167,7 @@ func _pick_backline_target(nodes: Array) -> CharacterBody3D:
 ## passes. The chosen signature's cooldown is reset in _begin_enemy_attack when it's committed.
 func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
 	# Signature kinds that fire as a "special attack" through the attack gate (need in-range + LOS).
-	var gate_kinds := ["enemy_charge", "enemy_splash", "enemy_hex", "enemy_melee", "enemy_stun", "enemy_poison"]
+	var gate_kinds := ["enemy_charge", "enemy_splash", "enemy_hex", "enemy_melee", "enemy_stun", "enemy_poison", "enemy_cold"]
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue

@@ -16,6 +16,7 @@
     "AB-040": { "kind": "spawn_zone", "medium": "Ice",        "telegraph_s": 0.5,  "channel": true, "cooldown_s": 9.0,  "radius_m": 2.0, "ttl_s": 9.0 },
     "AB-042": { "kind": "spawn_zone", "medium": "Wind",       "telegraph_s": 0.4,  "channel": true, "cooldown_s": 10.0, "radius_m": 2.0, "ttl_s": 8.0 },
     "AB-043": { "kind": "spawn_zone", "medium": "Vegetation", "telegraph_s": 0.5,  "channel": true, "cooldown_s": 9.0,  "radius_m": 2.0, "ttl_s": 9.0 },
+    "AB-041": { "kind": "enemy_cold", "telegraph_s": 0.4, "cooldown_s": 5.5, "damage_mult": 1.2, "chill_dur_s": 3.0, "range_m": 10.0, "vfx": "shot_frost" },
 
     "AB-098": { "kind": "enemy_heal",   "telegraph_s": 0.55, "channel": true, "cooldown_s": 8.0, "radius_m": 3.0, "heal_pct": 0.08, "ally_threshold_pct": 0.90 },
     "AB-099": { "kind": "enemy_provoke", "telegraph_s": 0.85, "channel": true, "cooldown_s": 14.0, "zone_deg": 60, "zone_radius_m": 4.0, "provoke_dur_s": 2.0 },

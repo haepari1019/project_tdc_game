@@ -141,6 +141,8 @@ static func enemy_vfx(key: String, parent: Node3D, from: Vector3, target: Node3D
 			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95), "cone", target)
 		"shot_slag":  # AB-008 Slag Spit — orange CUBE chunk (jagged slag lump)
 			_enemy_shot(parent, from + y, to + y, Color(0.95, 0.6, 0.25), "cube", target)
+		"shot_frost":  # AB-041 Glacial Bolt — cyan CONE frost spike (homing)
+			_enemy_shot(parent, from + y, to + y, Color(0.6, 0.9, 1.0), "cone", target)
 		"strike":  # AB-013 Backstab — crimson directional stab (no big ground ring)
 			_enemy_strike(parent, to + y, to - from, Color(0.92, 0.18, 0.22))
 		"shield_bash":  # AB-002 Shield Bash — blue knockback shockwave

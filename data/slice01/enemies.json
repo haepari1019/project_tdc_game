@@ -30,7 +30,7 @@
     { "enemy_id": "EN-007", "role": "nuker", "display_name": "Mire Hexer", "pattern_ref": "PT-007",
       "stats": { "hp": 220, "move_speed": 5.2, "contact_damage": 8, "attack_range_m": 8.0, "attack_interval_s": 1.7 },
       "basic_attack": "rom_trash_hex_bolt",
-      "abilities": [ { "ref": "AB-012" }, { "ref": "AB-036" }, { "ref": "AB-040" }, { "ref": "AB-043" } ] },
+      "abilities": [ { "ref": "AB-012" }, { "ref": "AB-036" }, { "ref": "AB-040" }, { "ref": "AB-043" }, { "ref": "AB-041" } ] },
     { "enemy_id": "EN-008", "role": "fodder", "display_name": "Corner Knife", "pattern_ref": "PT-008",
       "stats": { "hp": 240, "move_speed": 6.0, "contact_damage": 12, "attack_range_m": 1.5, "attack_interval_s": 1.0 },
       "basic_attack": "rom_trash_flank_stab",

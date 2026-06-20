@@ -51,7 +51,7 @@ const UNIT_VERIFY := {
 	"EN-004": "• zone 고수, 타겟이 멀어지면 앵커 복귀(추격 X)\n• 쿨 2.5s마다 AB-008 착탄 splash(주변 파티원도 피해)\n• AB-009 Oil 장판(밟으면 Slippery·인화성) + AB-042 Wind 장판 설치(타겟 발밑 전조→생성)",
 	"EN-005": "• 적 4m 진입 시 후퇴(kite)\n• 쿨 2s마다 AB-010 독(둔화 아님, 도트)\n• AB-039 독안개(ToxicGas) 장판 설치 — Ember로 점화 시 toxic flash",
 	"EN-006": "• 때리고 짧게 빠짐(probe)\n• 쿨 5s마다 AB-011 스턴",
-	"EN-007": "• 사거리 hold(standoff)\n• 쿨 4s마다 AB-012 hex 둔화(보라 룬탄)\n• AB-036 Water·AB-040 Ice·AB-043 Vegetation 장판 설치(Water→Sodden·Ice→Chilled·Veg→인화성) — Ember 연쇄 fodder\n• AB-041 cold = 배치2",
+	"EN-007": "• 사거리 hold(standoff)\n• 쿨 4s마다 AB-012 hex 둔화(보라 룬탄)\n• AB-036 Water·AB-040 Ice·AB-043 Vegetation 장판 설치\n• AB-041 Glacial Bolt(cyan, Chilled) → 자기 Water에 맞히면 Ice 결빙, Veg면 frostbite. Ember(불)면 Water→증기·Veg→점화",
 	"EN-008": "• 치고-빠지는 측면 암살자(통합 루프)\n• REPOSITION: 파티 spine(탱커↔최후열)에 수직인 '옆구리'로 standoff(6m) 유지·근접하면 burst-kite\n• STRIKE: 측면 각도+쿨 차면 AB-013 백스탭(1.5x+넉백, 크림슨) — 정면에선 안 쏨\n• RESET: 찌른 뒤 다시 빠져 측면 복귀",
 	"EN-009": "• 링 포위(surround) — count 여러 개로 띄워야 의미\n• rom_swarm_nip 평타만",
 	"EN-010": "• 직진 추격(advance)\n• rom_fodder_melee_tap 평타",

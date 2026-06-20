@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260620-007 — P2-S3f 배치2: AB-041 GlacialBolt + Cold RX 매트릭스
+- **무엇:** 7번째 zone AB(AB-041, cold attack) + ColdDamageHit 콤보 — Hit-RX 매트릭스를 Fire+Cold로 확장.
+- **AB-041(kind `enemy_cold`):** telegraph 0.4·cd 5.5·dmg×1.2·Chilled 3s·range 10·vfx `shot_frost`(cyan cone 호밍). 공격 게이트(gate_kinds += enemy_cold)로 발동, 명중 시 Chilled + `ColdDamageHit` emit(타겟 위치). _PROJECTILE_VFX 추가(락온·도달 시 적용). EN-007 배선 + id_registry.
+- **Cold RX(`RX_COLD_MATRIX`):** Water→**RX-COLD-WATER**(Water 소비→Ice 결빙) · Vegetation→**RX-VEGETATION-COLD**(Veg 내 유닛 Chilled/frostbite). reaction_system emit_event에 ColdDamageHit 디스패치.
+- **체감:** EN-007이 Water 깔고 GlacialBolt → Ice. Veg면 frostbite. (불 Ember면 Water→증기·Veg→점화 — primaryMedium 우선순위로 분기.)
+- **스코프:** Lightning/Physical RX·파티 로드아웃(skillbook)·spread(S3e) 잔여.
+- **검증:** JSON·id_registry·샌드박스·ci_smoke PASS.
+- **영향:** `data/slice01/{abilities,enemies,id_registry}.json`, `scripts/combat/enemy_ai.gd`, `scripts/combat/abilities/{reaction_system,skill_vfx}.gd`, `scripts/dev/combat_sandbox.gd`.
+
 ### IMPL-DEC-20260620-006 — P2-S3f 배치1: zone-spawn AB(6종) + 적 시전 (EN-004/005/007)
 - **무엇:** 매체 존을 생성하는 공유 AB 6종 + 적 시전 경로. EN-004/007 "완성"(로드맵)의 콘텐츠.
 - **AB(kind `spawn_zone`, abilities.json):** AB-009 Oil·AB-036 Water·AB-039 ToxicGas(dps 8)·AB-040 Ice·AB-042 Wind·AB-043 Vegetation. radius/ttl/cooldown = spec design-example PH. id_registry 등록.
