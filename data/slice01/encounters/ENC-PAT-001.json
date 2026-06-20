@@ -1,0 +1,12 @@
+{
+  "encounter_id": "ENC-PAT-001",
+  "difficulty_profile": "Normal",
+  "risk_pattern_ref": null,
+  "group_size": 2,
+  "placement_behavior": "Patrol",
+  "_note": "Quiet Fodder Patrol (ENC-PAT-001) — Patrol loop, soundBiased/audio telegraph. Not Third Faction.",
+  "units": [
+    { "enemy_id": "EN-010", "count": 1, "slot": "fodder" },
+    { "enemy_id": "EN-013", "count": 1, "slot": "fodder" }
+  ]
+}

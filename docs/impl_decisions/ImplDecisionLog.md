@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260620-011 — P2-S2-place 배치1: 배치 거동(Patrol/AmbushHold) + PAT/AMB 5 ENC
+- **무엇:** 다음 스프린트 P2-S2-place 1단계 — 인카운터별 placement 거동 + patrol/ambush AI + PAT/AMB 인카운터 5종.
+- **placement_behavior(인카운터 레벨, F-006):** Fixed(기본 roam)·Patrol·AmbushHold. `_spawn_squad`가 enc에서 읽어 `_spawn_at(... placement)`로 전달 → 각 유닛 `placement_mode` 설정. per-unit `interacts_with_objects`(torch bearer) 오버라이드도 spawn에서.
+- **Patrol(`_tick_patrol`):** spawn home 둘레 자동 생성 루프(PATROL_POINTS 6·radius 6m) 연속 순찰. 지각은 `_tick_dormant` 그대로 → 발견 시 교전. (웨이포인트 수기작성 없이 맵-무관.)
+- **AmbushHold:** `_tick_dormant`에서 **근접 reveal**(ambush_reveal_radius 8m, **facing cone 무시** — 매복) + 미발각 시 **제자리 hold**(roam 안 함). 스프링 시 정상 교전.
+- **ENC 5종:** ENC-PAT-001/002/003·ENC-AMB-001/002 (data/slice01/encounters, id_registry 등록). PAT-003 EN-010 = torch bearer(interacts_with_objects, 토치 있으면 자동 픽업·투척 — 코드 0).
+- **결정(스펙 정합):** placement는 인카운터 레벨(per-unit 아님). patrol 웨이포인트 = 자동 루프(수기 미작성). AMB-002 sequential wake + 던전 spawn_table 배선 + 토치 배치 = **배치2**.
+- **검증:** JSON·id_registry·샌드박스(ENC 드롭다운에 PAT/AMB 노출, dormant 스폰 시 순찰/매복)·ci_smoke PASS.
+- **영향:** `scripts/combat/enemy_unit.gd`(placement 필드), `combat_controller.gd`(_spawn_at/_spawn_squad placement 전달), `enemy_ai.gd`(_tick_dormant 분기·_tick_patrol), `data/slice01/encounters/ENC-PAT/AMB*.json`(신), `id_registry.json`.
+
 ### IMPL-DEC-20260620-010 — RX 연쇄 per-reaction VFX (절차적 placeholder)
 - **결정(사용자):** 공용 버스트가 아니라 **반응별 고유 연출**(물+전기=물에 전기, 물+불=증기 등). 정식 아트는 후속 교체 — 지금은 **교체 가능한 절차적 기본값**.
 - **skill_vfx 추가:** `rx_explosion`(주황 blast+glow+flame licks)·`rx_steam`(흰 wisp 상승)·`rx_burn`(녹색 tinge 화염)·`rx_toxic_flash`(녹황 ignition+puff)·`rx_freeze`(cyan crystal pop)·`rx_electrify`(cyan 아크 lightning_bolt ×6 across)·`rx_slick`(검은 oil 더블 ripple). 헬퍼 `_rising_wisp`(기체 상승)·`_pop_spike`(ice/flame 콘)·`_disc_off`.

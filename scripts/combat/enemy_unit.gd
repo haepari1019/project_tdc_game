@@ -63,6 +63,11 @@ var boss_phase2_hp_frac: float = 0.0     # 0 = no phase; e.g. 0.5 → phase at 5
 var boss_phase2_telegraph_delta: float = 0.0
 var boss_phased: bool = false
 var attack_count: int = 0
+# Placement behavior (F-006, P2-S2-place; set per-encounter at spawn): Fixed = dormant roam,
+# Patrol = walk a loop around spawn home, AmbushHold = hold hidden + spring on party proximity.
+var placement_mode: String = "Fixed"
+var ambush_reveal_radius_m: float = 8.0   # AmbushHold: spring when a party actor is within this
+var patrol_idx: int = 0                   # current waypoint index on the patrol loop
 # F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
 # object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.
 var interacts_with_objects: bool = false

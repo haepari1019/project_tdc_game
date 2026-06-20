@@ -80,6 +80,9 @@ const ASSASSIN_EXECUTE_MULT := 3.0  # backline execute burst (vs normal basic) �
 const ROAM_RADIUS_M := 5.0
 const ROAM_SPEED_FRAC := 0.4
 const ROAM_ARRIVE_M := 0.8
+const PATROL_RADIUS_M := 6.0       # Patrol: loop radius around spawn home
+const PATROL_POINTS := 6           # waypoints on the loop
+const PATROL_SPEED_FRAC := 0.5     # patrol walk speed (a touch faster than roam)
 const ROAM_PAUSE_MIN_S := 1.5
 const ROAM_PAUSE_MAX_S := 4.0
 const ROAM_MAX_WALK_S := 8.0   # safety: abandon a roam leg that can't arrive
@@ -146,6 +149,10 @@ func _tick_dormant(enemy: CharacterBody3D, members: Array, delta: float) -> void
 	var facing: Vector3 = enemy.facing
 	var cos_half := cos(deg_to_rad(FOV_DEG * 0.5))
 	var combat_r := SIGHT_RANGE_M * (1.0 - ALERT_ZONE_FRAC)
+	# AmbushHold: hidden, springs on PROXIMITY only (ignore the facing cone — it's lying in wait).
+	var ambush: bool = enemy.placement_mode == "AmbushHold"
+	var prox_r: float = enemy.ambush_reveal_radius_m if ambush else PROXIMITY_M
+	var sight_r := maxf(SIGHT_RANGE_M, prox_r)
 	var zone := 0
 	var seen: CharacterBody3D = null
 	var seen_d := INF
@@ -155,10 +162,10 @@ func _tick_dormant(enemy: CharacterBody3D, members: Array, delta: float) -> void
 		var to: Vector3 = m.global_position - ep
 		to.y = 0.0
 		var dist := to.length()
-		if dist > SIGHT_RANGE_M:
+		if dist > sight_r:
 			continue
-		var in_prox := dist <= PROXIMITY_M
-		var in_cone := dist < 0.001 or to.normalized().dot(facing) >= cos_half
+		var in_prox := dist <= prox_r
+		var in_cone := false if ambush else (dist < 0.001 or to.normalized().dot(facing) >= cos_half)
 		if not in_prox and not in_cone:
 			continue  # outside cone & proximity → skip the LOS raycast entirely
 		if not _has_los(enemy, m):
@@ -197,9 +204,16 @@ func _tick_dormant(enemy: CharacterBody3D, members: Array, delta: float) -> void
 		enemy.velocity = _nav_move(enemy, enemy.investigate_pos, enemy.current_move_speed() * INVESTIGATE_SPEED_FRAC)
 		enemy.move_and_slide()
 		return
-	# Nothing perceived and no lead → idle: gentle roam near home + scan while paused (alive feel).
+	# Nothing perceived and no lead → idle by placement: AmbushHold holds hidden, Patrol walks its
+	# loop, Fixed roams near home + scans (alive feel).
 	enemy.set_alert_mark(0)
-	_tick_roam(enemy, delta)
+	if ambush:
+		enemy.velocity = Vector3.ZERO  # lie in wait — no roam until sprung
+		enemy.move_and_slide()
+	elif enemy.placement_mode == "Patrol":
+		_tick_patrol(enemy, delta)
+	else:
+		_tick_roam(enemy, delta)
 
 
 ## Dormant idle movement: wander to random points near the spawn home, pausing (and scanning)
@@ -230,6 +244,28 @@ func _tick_roam(enemy: CharacterBody3D, delta: float) -> void:
 		enemy.roam_target = enemy.home_pos + Vector3(cos(ang) * r, 0.0, sin(ang) * r)
 		enemy.roaming = true
 		enemy.roam_timer_s = ROAM_MAX_WALK_S
+
+
+## Patrol (placement Patrol): walk a continuous loop of waypoints around the spawn home (auto-
+## generated circle — map-agnostic). Perception still runs in _tick_dormant, so it engages on sight.
+func _tick_patrol(enemy: CharacterBody3D, delta: float) -> void:
+	if enemy.home_pos == Vector3.INF:
+		return
+	var wp := _patrol_point(enemy, enemy.patrol_idx)
+	var to := wp - enemy.global_position
+	to.y = 0.0
+	if to.length() <= ROAM_ARRIVE_M:
+		enemy.patrol_idx = (enemy.patrol_idx + 1) % PATROL_POINTS  # advance to the next leg
+		wp = _patrol_point(enemy, enemy.patrol_idx)
+	enemy.face_toward(wp)
+	enemy.velocity = _nav_move(enemy, wp, enemy.current_move_speed() * PATROL_SPEED_FRAC)
+	enemy.move_and_slide()
+
+
+## A point on the patrol loop — `idx` of PATROL_POINTS evenly around home at PATROL_RADIUS_M.
+func _patrol_point(enemy: CharacterBody3D, idx: int) -> Vector3:
+	var ang := float(idx) / float(PATROL_POINTS) * TAU
+	return enemy.home_pos + Vector3(cos(ang), 0.0, sin(ang)) * PATROL_RADIUS_M
 
 
 ## Per-enemy tick entry. Dormant (휴식중) enemies perceive (see _tick_dormant);

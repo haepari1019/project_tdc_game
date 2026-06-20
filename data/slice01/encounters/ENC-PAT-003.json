@@ -1,0 +1,13 @@
+{
+  "encounter_id": "ENC-PAT-003",
+  "difficulty_profile": "Normal",
+  "risk_pattern_ref": null,
+  "group_size": 3,
+  "placement_behavior": "Patrol",
+  "_note": "Torch & Footstep Patrol (ENC-PAT-003) — Patrol loop; EN-010 = torch bearer (interacts_with_objects → picks up + throws a nearby torch, F-021/ENT-TORCH). squadLight/audioVisual. Not Third Faction.",
+  "units": [
+    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-010", "count": 1, "slot": "fodder", "interacts_with_objects": true },
+    { "enemy_id": "EN-011", "count": 1, "slot": "fodder" }
+  ]
+}

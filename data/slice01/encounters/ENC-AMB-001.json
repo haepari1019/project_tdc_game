@@ -1,0 +1,12 @@
+{
+  "encounter_id": "ENC-AMB-001",
+  "difficulty_profile": "Normal",
+  "risk_pattern_ref": null,
+  "group_size": 2,
+  "placement_behavior": "AmbushHold",
+  "_note": "Corner Dormant Fodder (ENC-AMB-001) — AmbushHold: lie in wait, spring on party proximity (no telegraph). Single anchor. Not Third Faction.",
+  "units": [
+    { "enemy_id": "EN-011", "count": 1, "slot": "fodder" },
+    { "enemy_id": "EN-013", "count": 1, "slot": "fodder" }
+  ]
+}

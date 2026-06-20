@@ -1,0 +1,12 @@
+{
+  "encounter_id": "ENC-PAT-002",
+  "difficulty_profile": "Normal",
+  "risk_pattern_ref": null,
+  "group_size": 3,
+  "placement_behavior": "Patrol",
+  "_note": "Visual Telegraph Patrol (ENC-PAT-002) — Patrol loop, ambient/visual telegraph, elite 1. Not Third Faction.",
+  "units": [
+    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
+    { "enemy_id": "EN-010", "count": 2, "slot": "fodder" }
+  ]
+}

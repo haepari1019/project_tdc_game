@@ -451,7 +451,7 @@ func _spawn_squad(encounter_id: String, room_ref: String) -> void:
 	var lane := int(_room_squad_count.get(room_ref, 0))
 	_room_squad_count[room_ref] = lane + 1
 	var center: Vector3 = _squad_spawn_center(room_ref, lane)
-	_spawn_at(units, center, squad_id, false)
+	_spawn_at(units, center, squad_id, false, String(enc.get("placement_behavior", "Fixed")))
 	var reinf: Dictionary = enc.get("reinforcement", {})
 	_squads.append({
 		"id": squad_id,
@@ -492,7 +492,7 @@ func _first_connected(room_ref: String) -> String:
 	return String(conns[0]) if not conns.is_empty() else ""
 
 
-func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool) -> void:
+func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, placement: String = "Fixed") -> void:
 	var index := 0
 	for u in units:
 		if typeof(u) != TYPE_DICTIONARY:
@@ -524,6 +524,11 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool) -> v
 				unit.boss_phase2_telegraph_delta = float(u.get("phase2_telegraph_delta", -0.15))
 				if unit.has_method("set_attention"):
 					unit.set_attention(true)
+			# Placement (F-006, P2-S2-place): encounter-level Patrol/AmbushHold/Fixed. Per-unit
+			# interacts_with_objects override = torch bearer (PAT-003 EN-010).
+			unit.placement_mode = placement
+			if bool(u.get("interacts_with_objects", false)):
+				unit.interacts_with_objects = true
 			unit.engaged = engaged
 			if engaged:
 				unit.engage_grace_s = COMBAT_EXIT_GRACE_S
