@@ -42,11 +42,13 @@ const HEAL_SEEK_M := 30.0
 const HEAL_HUG_THRESHOLD := 0.9
 const ZONE_RADIUS_DEFAULT := 8.0   # zone: engage only while target is within this of the anchor
 const ZONE_RETURN_SLACK_M := 1.0   # zone: already-home tolerance (don't jitter at the anchor)
-# orbit: circle the target while spiralling in. ORBIT_RADIUS_M = "far" reference for the inward
-# scaling (bigger → wider circle held longer); ORBIT_INWARD_FAR = inward weight when far (smaller
-# → more tangential = rounder detour); ORBIT_LOOKAHEAD_M = steer point ahead along the orbit dir.
+# orbit: arc toward the target while curving to the side. ORBIT_TANGENT_W = sideways weight (lower
+# → straighter, less detour); ORBIT_INWARD_FAR = inward weight when far (higher → less circling);
+# ORBIT_RADIUS_M = "far" reference for the inward ramp; ORBIT_LOOKAHEAD_M = steer point ahead.
+# Approach angle off the direct line ≈ atan2(ORBIT_TANGENT_W, inward): ~33° near … ~47° far.
 const ORBIT_RADIUS_M := 6.0
-const ORBIT_INWARD_FAR := 0.22
+const ORBIT_TANGENT_W := 0.65
+const ORBIT_INWARD_FAR := 0.6
 const ORBIT_LOOKAHEAD_M := 3.5
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
 const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
@@ -474,10 +476,11 @@ func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -
 	var radial := to.normalized()                                    # toward the target (close in)
 	var side := 1.0 if (enemy.get_instance_id() % 2 == 0) else -1.0
 	var tangent := Vector3(-radial.z, 0.0, radial.x) * side          # perpendicular (circle around)
-	# Far past attack range → small inward weight (wide circle); near → full inward (spiral in).
+	# Far past attack range → less inward (wider arc); near → full inward. Tangent scaled by
+	# ORBIT_TANGENT_W so the detour is a moderate diagonal flank, not a near-perpendicular circle.
 	var far := clampf((dist - enemy.attack_range_m) / ORBIT_RADIUS_M, 0.0, 1.0)
 	var radial_w := lerpf(1.0, ORBIT_INWARD_FAR, far)
-	var move_dir := (tangent + radial * radial_w).normalized()
+	var move_dir := (tangent * ORBIT_TANGENT_W + radial * radial_w).normalized()
 	return _nav_move(enemy, enemy.global_position + move_dir * ORBIT_LOOKAHEAD_M, spd)
 
 
