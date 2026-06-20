@@ -56,6 +56,8 @@ const ORBIT_LOOKAHEAD_M := 3.5
 # otherwise the player just outruns the retreat and stays glued.
 const FLANK_KEEP_M := 6.0
 const FLANK_KITE_SPEED_MULT := 1.7
+const FLANK_KITE_TRIGGER_M := 4.0  # burst away only when a party actor is THIS close (< FLANK_KEEP
+                                   # so it can settle on its standoff ring slot without self-kiting)
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
 const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
 
@@ -491,16 +493,17 @@ func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -
 	# standoff (FLANK_KEEP) — kite out if the target closes (keeps distance until the dash is ready),
 	# else circle at range WITHOUT spiralling into melee. The dash fires from here when off cooldown.
 	if _is_hit_run_flanker(enemy):
-		# Keep distance from the NEAREST party member within standoff (whoever closes — including the
-		# char the player is steering, not just the dash target). Burst-flee so it can actually pull
-		# away from the faster player; the dash re-engages from the standoff when off cooldown.
-		var threat := _nearest_party(enemy, FLANK_KEEP_M)
+		# Burst away from the NEAREST party member that gets too close (whoever closes — including the
+		# char the player steers, not just the dash target). leashed=false: it dashed past the spawn
+		# leash, must still peel out (not freeze).
+		var threat := _nearest_party(enemy, FLANK_KITE_TRIGGER_M)
 		if threat != null:
-			# leashed=false: it dashed past the spawn leash, must still be able to peel out (not freeze).
 			return _kite_flee(enemy, threat.global_position, spd * FLANK_KITE_SPEED_MULT, false)
-		var inw := clampf((dist - FLANK_KEEP_M) / ORBIT_RADIUS_M, 0.0, 1.0) * ORBIT_INWARD_FAR
-		var hmd := (tangent * ORBIT_TANGENT_W + radial * inw).normalized()
-		return _nav_move(enemy, enemy.global_position + hmd * ORBIT_LOOKAHEAD_M, spd)
+		# Otherwise hold a DISTINCT ring slot at FLANK_KEEP around the target (angle fixed per-enemy)
+		# so multiple flankers spread around it instead of stacking on one arc and jostling.
+		var ang := float(enemy.get_instance_id() % 8) / 8.0 * TAU
+		var slot: Vector3 = tp + Vector3(cos(ang), 0.0, sin(ang)) * FLANK_KEEP_M
+		return _nav_move(enemy, slot, spd)
 	# Sustained flanker (EN-003, gap-close dash): spiral in to stick & flurry.
 	if dist <= enemy.attack_range_m:
 		return Vector3.ZERO
