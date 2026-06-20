@@ -963,14 +963,18 @@ func _try_cast_zone(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue  # AB still on cooldown
 		var medium := String(eff.get("medium", "Oil"))
+		var tele := float(eff.get("telegraph_s", 0.5))
 		enemy.winding = true
-		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.5))
+		enemy.windup_timer_s = tele
 		enemy.windup_eff = eff
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
 		enemy.windup_target = target
 		enemy.windup_pos = target.global_position  # ground-target spot captured at cast
 		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 8.0))
-		SkillVfx.telegraph(self, target.global_position, _zone_telegraph_color(medium), float(eff.get("radius_m", 3.0)))
+		enemy.face_toward(target.global_position)  # face the cast spot
+		var col := _zone_telegraph_color(medium)
+		SkillVfx.windup_cue(self, enemy.global_position, tele, col)  # caster cast motion
+		SkillVfx.telegraph(self, target.global_position, col, float(eff.get("radius_m", 2.0)))  # spot marker
 		return true
 	return false
 
