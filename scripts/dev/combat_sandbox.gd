@@ -60,6 +60,7 @@ var _unit_dropdown: OptionButton
 var _count_spin: SpinBox
 var _engaged_chk: CheckBox
 var _status: Label
+var _formation_lbl: Label
 var _info_label: RichTextLabel
 var _identity_dd: OptionButton
 var _sub_dd: Array = []   # [OptionButton ×3] — Q/E/R sub loadout for the controlled member
@@ -259,9 +260,13 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 		_sub_dd.append(dd)
 
 	var hint := Label.new()
-	hint.text = "1-4 swap · WASD · Q/E/R sub · wheel zoom · RMB-drag orbit · [ ] pitch"
+	hint.text = "1-4 swap · WASD · Q/E/R sub · G 진형/전투우선 · wheel zoom · RMB-drag orbit · [ ] pitch"
 	hint.add_theme_font_size_override("font_size", 11)
 	box.add_child(hint)
+	_formation_lbl = Label.new()
+	box.add_child(_formation_lbl)
+	_party.formation_priority_changed.connect(_on_formation_priority_changed)
+	_on_formation_priority_changed(_party.is_formation_priority())  # initial state
 	_status = Label.new()
 	box.add_child(_status)
 
@@ -328,6 +333,11 @@ func _on_reset_party() -> void:
 			m.debug_reset()
 	_refresh_loadout_ui()
 	_status.text = "party reset — full HP, status/CD cleared"
+
+
+func _on_formation_priority_changed(on: bool) -> void:
+	if _formation_lbl != null:
+		_formation_lbl.text = "[G] %s" % ("진형우선" if on else "전투우선")
 
 
 func _on_identity_changed(index: int) -> void:
@@ -455,6 +465,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_Q: _cast_sub(0)
 			KEY_E: _cast_sub(1)
 			KEY_R: _cast_sub(2)
+			KEY_G: _party.toggle_formation_priority()  # 전투우선 ↔ 진형우선 (game parity)
 
 
 func _cast_sub(slot: int) -> void:
