@@ -6,6 +6,18 @@
 
 ---
 
+### IMPL-DEC-20260620-002 — P2-S3a 유닛 OUTCOME 상태셋 (공용 컨테이너 + Slippery 관성)
+- **무엇:** P2-S3 Interaction(keystone) 착수 1단계 — STATUS-OUTCOME-CORE 원소 결과상태를 party+enemy 양쪽에 도입.
+- **구현:** `scripts/combat/outcome_status.gd`(RefCounted) **공용 컨테이너** — party_member·enemy_unit가 각자 `_outcome` 인스턴스 보유.
+  - 이동 결과(Sodden×0.7·Chilled×0.6·SteamHaze×0.85·Shock×0.55·Slippery×0.85)는 **하나의 move 배수로 합산**(최강 슬로우 우선) → `move_speed_mult`(party)/`current_move_speed`(enemy)에 fold.
+  - **Slippery 완전구현**(사용자 선택): move 배수 + **관성** — player_controller는 `is_slippery()`면 저(低)가속(`SLIP_ACCEL_MPS2 10`), enemy_ai는 velocity를 `lerp(SLIP_ACCEL 3)` → 미끄러져 정지·방향전환 어려움.
+  - **Ignited** = DoT(컨테이너가 whole-HP 틱 반환 → 유닛이 적용; party는 _apply_dot, enemy는 take_damage). **WindBuffeted** = 1회 impulse(소스가 knockback) + 표시 태그.
+  - 상태 오브/오버레이 색 + get_status_list 통합. debug_reset에 `_outcome.clear()`.
+- **드리프트 정리:** AB-004 `shock_slow`(ad-hoc apply_slow) → 정식 **Shock** outcome로 이관. (data shock_slow 0.5 미사용 → 컨테이너 const 0.55.) → DRIFT-052.
+- **수치:** 전부 DEMO PH(SPEC_DRIFT). 실제 RX→status 매핑·수치는 P2-S3d.
+- **검증:** outcome_status 컴파일·샌드박스·ci_smoke PASS.
+- **영향:** `scripts/combat/outcome_status.gd`(신), `scripts/party/party_member.gd`, `scripts/combat/enemy_unit.gd`, `scripts/combat/enemy_ai.gd`, `scripts/run/controllers/player_controller.gd`.
+
 ### IMPL-DEC-20260620-001 — EN-008 Corner Knife 통합 거동 모델 (증상별 패치 → 단일 hit-run 루프)
 - **배경(사용자):** EN-008에 후퇴·속도·leash·겹침 수정이 예외처리처럼 쌓여 "큰 원칙"이 없었음. 단일 원칙으로 통합 요청.
 - **원칙:** *치고-빠지는 측면 암살자.* 두 질문(측면인가? 대시 준비됐나?)으로 결정되는 단일 루프:

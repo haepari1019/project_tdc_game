@@ -17,6 +17,7 @@ var _arrive_dist: float = 2.0
 var _stuck_time: float = 0.0
 
 ## Directional speed vs facing (= camera-forward): W fastest, A/D normal, S slowest.
+const SLIP_ACCEL_MPS2 := 10.0   # Slippery (oil): low accel/decel — slidey, hard to stop/turn
 const FORWARD_SPEED_MULT := 1.0
 const STRAFE_SPEED_MULT := 0.75
 const BACK_SPEED_MULT := 0.65
@@ -51,7 +52,10 @@ func _physics_process(delta: float) -> void:
 	var v_target := _target_velocity(input)
 	if body.has_method("move_speed_mult"):
 		v_target *= body.move_speed_mult()  # Oil slick etc.
-	if use_accel_model:
+	if body.has_method("is_slippery") and body.is_slippery():
+		# Slippery (oil): low accel/decel → slides, hard to start/stop or change direction.
+		body.velocity = body.velocity.move_toward(v_target, SLIP_ACCEL_MPS2 * delta)
+	elif use_accel_model:
 		var a: float = accel_mps2 if v_target.length_squared() > 0.01 else decel_mps2
 		body.velocity = body.velocity.move_toward(v_target, a * delta)
 	else:

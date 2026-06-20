@@ -245,6 +245,9 @@ const THREAT_RETAIN_PER_S := 0.6
 # --- Status: slow (Nuker Nova sub) ---
 var slow_timer_s: float = 0.0
 var slow_factor: float = 1.0
+## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE) — shared container with party_member. Ticked
+## via tick_outcome() from EnemyAI; folds into current_move_speed; Slippery flags inertia in EnemyAI.
+var _outcome = preload("res://scripts/combat/outcome_status.gd").new()
 
 # --- Status: stun / interrupt (party Toll Stun etc.) — freezes the enemy AND cancels any
 # in-progress cast/dash (EN-AI-000 §2 channel interrupt). Ticked by EnemyAI while engaged. ---
@@ -268,6 +271,24 @@ func tick_slow(delta: float) -> void:
 			slow_factor = 1.0
 
 
+## Elemental outcome timers + Ignited DoT. Called each engaged tick by EnemyAI (like tick_slow).
+func tick_outcome(delta: float) -> void:
+	var burn := _outcome.tick(delta)
+	if burn > 0.0:
+		take_damage(burn)
+
+
+## Apply an elemental OUTCOME status (STATUS-OUTCOME-CORE). ref: zones / RX (P2-S3).
+func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
+	if hp <= 0.0:
+		return
+	_outcome.apply(id, dur, mag)
+
+
+func is_slippery() -> bool:
+	return hp > 0.0 and _outcome.is_slippery()
+
+
 ## Stun / interrupt (EN-AI-000 §2). Freezes the enemy; EnemyAI cancels any channel/dash in
 ## progress (cast fails — cooldown stays consumed). No-op on the dead.
 func apply_stun(duration: float) -> void:
@@ -286,7 +307,8 @@ func tick_stun(delta: float) -> void:
 
 
 func current_move_speed() -> float:
-	return move_speed * slow_factor if slow_timer_s > 0.0 else move_speed
+	var base := move_speed * slow_factor if slow_timer_s > 0.0 else move_speed
+	return base * _outcome.move_mult()  # fold elemental movement outcomes (Sodden/Chilled/…)
 
 
 ## Knockback away from a source — spread over KB_TIME so it reads as a push,

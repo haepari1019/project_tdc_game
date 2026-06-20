@@ -32,6 +32,7 @@ const CHASE_BLIND_SPEED_FRAC := 0.55
 const MELEE_THREAT_M := 4.0        # kite: flee when a target closes inside this (EN-014 §1 = 4m)
 const RETREAT_STEP_M := 3.0        # how far ahead to aim a retreat/backstep destination
 const RETREAT_SPEED_FRAC := 1.0    # flee at full speed (being chased)
+const SLIP_ACCEL := 3.0            # Slippery (oil): velocity lerp rate — low = slidey/inertial
 const ENGAGE_LEASH_M := 18.0       # kite/zone: don't stray past this from spawn anchor (§3 default)
 # healer (PT-016 EN-014): FOLLOW the squad — prefer the most-wounded mate (below HEAL_HUG_THRESHOLD),
 # else just the nearest ally, keeping within HEAL_HUG_M (inside the AB-098 heal radius) so it tags
@@ -244,6 +245,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	enemy.attack_cooldown_s = maxf(0.0, enemy.attack_cooldown_s - delta)
 	enemy.tick_slow(delta)
 	enemy.tick_stun(delta)
+	enemy.tick_outcome(delta)  # elemental outcome timers + Ignited DoT
 	# Stunned (EN-AI-000 §2): frozen + INTERRUPT — any channel/cast or dash in progress fails
 	# (no resolve; its cooldown stays consumed). Player counterplay: stun EN-001 mid-Mockery.
 	if enemy.is_stunned():
@@ -350,7 +352,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 			enemy.attack_cooldown_s = enemy.attack_interval_s
 			if String(enemy.engage_profile.get("engage", "")) == "probe":
 				enemy.probe_backstep_s = PROBE_BACKSTEP_S  # hit landed → back off (EN-006)
-	enemy.velocity = move_vel
+	if enemy.is_slippery():  # Slippery (oil): inertial — can't change/stop velocity instantly
+		enemy.velocity = enemy.velocity.lerp(move_vel, SLIP_ACCEL * delta)
+	else:
+		enemy.velocity = move_vel
 	enemy.move_and_slide()
 
 
@@ -795,8 +800,8 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 5.0)))
 		"enemy_stun":
 			target.apply_stun(float(eff.get("stun_s", 1.0)))
-		"enemy_charge":  # AB-004 Charged Voltaic — Shock = brief movement stutter (이동 감소)
-			target.apply_slow(float(eff.get("shock_slow", 0.5)), float(eff.get("shock_dur_s", 2.0)))
+		"enemy_charge":  # AB-004 Charged Voltaic — Shock outcome (감전; STATUS-OUTCOME-CORE)
+			target.apply_outcome("Shock", float(eff.get("shock_dur_s", 2.0)))
 		"enemy_hex":  # AB-012 Hex Bolt — HEX-WEAK soft CC (이동 감소; 피해감소 half = 후속)
 			target.apply_slow(float(eff.get("hex_slow", 0.6)), float(eff.get("hex_dur_s", 4.0)))
 		"enemy_splash":  # AB-008 Slag Spit — splash to party members near the impact point

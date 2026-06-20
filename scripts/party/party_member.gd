@@ -73,6 +73,10 @@ var _poison_accum: float = 0.0
 var _stun_dur: float = 1.0
 var _poison_dur: float = 1.0
 var _shield_dur: float = 1.0
+## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/
+## WindBuffeted — shared container with enemy_unit. Movement folds into move_speed_mult; Slippery
+## adds inertia (player_controller); Ignited DoT applied in _physics_process.
+var _outcome = preload("res://scripts/combat/outcome_status.gd").new()
 ## Provoked (AB-099 Iron Mockery): movement input + active skills locked, forced basic attack
 ## on the caster. Character-bound (swap keeps it). Stunned suppresses the EFFECTS (is_provoked
 ## returns false while stunned) but the timer keeps running. ref: AB-099 / STATUS-ACTOR-CORE.
@@ -223,6 +227,7 @@ func debug_reset() -> void:
 	_poison_accum = 0.0
 	_slow_timer = 0.0
 	_slow_factor = 1.0
+	_outcome.clear()
 	provoked_timer_s = 0.0
 	provoke_source = null
 	identity_cooldown_s = 0.0
@@ -471,6 +476,9 @@ func _physics_process(delta: float) -> void:
 	if _hp_bar:
 		_hp_bar.set_shield_ratio(shield / maxf(max_hp, 1.0))  # white overlay on the HP bar
 	_tick_status(delta)
+	var burn := _outcome.tick(delta)  # elemental outcome timers + Ignited DoT (bypasses shield)
+	if burn > 0.0:
+		_apply_dot(burn)
 
 
 # --- Status (F-021) ---
@@ -526,7 +534,21 @@ func get_provoke_source() -> Node:
 
 
 func move_speed_mult() -> float:
-	return _slow_factor if _slow_timer > 0.0 else 1.0
+	var m := _slow_factor if _slow_timer > 0.0 else 1.0
+	return m * _outcome.move_mult()  # fold elemental movement outcomes (Sodden/Chilled/…)
+
+
+## Apply an elemental OUTCOME status (STATUS-OUTCOME-CORE). WindBuffeted's push is a separate
+## knockback by the source; this carries the brief tag + the movement/DoT outcomes.
+func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
+	if not _alive:
+		return
+	_outcome.apply(id, dur, mag)
+	_update_status_orb()
+
+
+func is_slippery() -> bool:
+	return _alive and _outcome.is_slippery()
 
 
 ## Active buffs/debuffs for the party-sheet overlay (UI-002/003).
@@ -563,6 +585,7 @@ func get_status_list() -> Array:
 			"ratio": 1.0 - clampf(provoked_timer_s / maxf(_provoke_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
+	out.append_array(_outcome.status_list())  # elemental outcomes (Sodden/Chilled/Ignited/…)
 	return out
 
 
@@ -610,7 +633,7 @@ func _apply_dot(amount: float) -> void:
 
 ## Small overhead orb signalling active status (stun = yellow, poison = green).
 func _update_status_orb() -> void:
-	var active := is_stunned() or poison_timer_s > 0.0 or provoked_timer_s > 0.0
+	var active := is_stunned() or poison_timer_s > 0.0 or provoked_timer_s > 0.0 or _outcome.any()
 	if not active:
 		if _status_orb:
 			_status_orb.visible = false
@@ -632,6 +655,10 @@ func _update_status_orb() -> void:
 		col = Color(1.0, 0.85, 0.2)            # stun (yellow, highest display priority)
 	elif provoked_timer_s > 0.0:
 		col = Color(0.95, 0.35, 0.2)           # provoked (red-orange)
+	elif poison_timer_s <= 0.0:
+		var oc = _outcome.orb_color()           # elemental outcome (fire/shock/chill/…)
+		if oc != null:
+			col = oc
 	(_status_orb.material_override as StandardMaterial3D).albedo_color = col
 	_status_orb.visible = true
 
