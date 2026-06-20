@@ -57,7 +57,11 @@ const ORBIT_LOOKAHEAD_M := 3.5
 const FLANK_KEEP_M := 6.0
 const FLANK_KITE_SPEED_MULT := 1.7
 const FLANK_KITE_TRIGGER_M := 4.0  # burst away only when a party actor is THIS close (< FLANK_KEEP
-                                   # so it can settle on its standoff ring slot without self-kiting)
+                                   # so it can settle on its standoff without self-kiting)
+const FLANK_STRIKE_COS := 0.6      # backstab only when within ~53° of the flank axis (perpendicular
+                                   # to the Tank→rearmost spine) — never head-on
+const FLANK_PARTY_SCAN_M := 40.0   # radius to gather the party when computing the flank axis
+const FLANK_STAGGER_M := 2.0       # along-spine spread between same-side flankers
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
 const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
 
@@ -493,17 +497,7 @@ func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -
 	# standoff (FLANK_KEEP) — kite out if the target closes (keeps distance until the dash is ready),
 	# else circle at range WITHOUT spiralling into melee. The dash fires from here when off cooldown.
 	if _is_hit_run_flanker(enemy):
-		# Burst away from the NEAREST party member that gets too close (whoever closes — including the
-		# char the player steers, not just the dash target). leashed=false: it dashed past the spawn
-		# leash, must still peel out (not freeze).
-		var threat := _nearest_party(enemy, FLANK_KITE_TRIGGER_M)
-		if threat != null:
-			return _kite_flee(enemy, threat.global_position, spd * FLANK_KITE_SPEED_MULT, false)
-		# Otherwise hold a DISTINCT ring slot at FLANK_KEEP around the target (angle fixed per-enemy)
-		# so multiple flankers spread around it instead of stacking on one arc and jostling.
-		var ang := float(enemy.get_instance_id() % 8) / 8.0 * TAU
-		var slot: Vector3 = tp + Vector3(cos(ang), 0.0, sin(ang)) * FLANK_KEEP_M
-		return _nav_move(enemy, slot, spd)
+		return _move_hit_run_flank(enemy, tp, spd)
 	# Sustained flanker (EN-003, gap-close dash): spiral in to stick & flurry.
 	if dist <= enemy.attack_range_m:
 		return Vector3.ZERO
@@ -525,6 +519,69 @@ func _is_hit_run_flanker(enemy: CharacterBody3D) -> bool:
 		if String(eff.get("kind", "")) == "enemy_dash" and bool(eff.get("hit_on_arrival", false)):
 			return true
 	return false
+
+
+## ── EN-008 Corner Knife — hit-and-run FLANK model ─────────────────────────────────────────────
+## One loop, governed by two questions (on the flank? dash ready?):
+##   REPOSITION → STRIKE (backstab from the flank) → RESET (kite out) → REPOSITION
+## • FLANK = the party's exposed side: the axis perpendicular to the Tank→rearmost spine (user def).
+## • REPOSITION (_move_hit_run_flank): hold a standoff on that flank; burst-kite anyone who closes.
+## • STRIKE: _try_cast_dash only fires the backstab when on the flank arc + off cooldown (no head-on).
+## • RESET: post-dash the target is < kite trigger → it bursts back out to the standoff.
+## Never approaches head-on, never brawls in melee — all the old standalone tweaks collapse into this.
+
+## REPOSITION step: kite out if any party actor is too close, else move to the flank standoff. Burst
+## speed + unleashed so it holds distance vs the faster player and isn't frozen by the spawn leash.
+func _move_hit_run_flank(enemy: CharacterBody3D, tp: Vector3, spd: float) -> Vector3:
+	var threat := _nearest_party(enemy, FLANK_KITE_TRIGGER_M)
+	if threat != null:
+		return _kite_flee(enemy, threat.global_position, spd * FLANK_KITE_SPEED_MULT, false)
+	return _nav_move(enemy, _flank_standoff(enemy, tp), spd)
+
+
+## The party's FLANK axis = unit vector PERPENDICULAR to the spine (Tank → rearmost party member).
+## Vector3.ZERO if there's no Tank or the spine is degenerate (caller falls back). ref: 사용자 정의 —
+## "탱커와 가장 후열 캐릭터를 이은 선에 중앙 직교하는 방향".
+func _party_flank_axis(enemy: CharacterBody3D) -> Vector3:
+	var party: Array = _combat._allies_in_radius(enemy.global_position, FLANK_PARTY_SCAN_M)
+	var tank: CharacterBody3D = null
+	for a in party:
+		if is_instance_valid(a) and a.is_alive() and String(a.get("class_id")) == "Tank":
+			tank = a
+			break
+	if tank == null:
+		return Vector3.ZERO
+	var back: CharacterBody3D = null
+	var max_d := -1.0
+	for a in party:
+		if is_instance_valid(a) and a.is_alive() and a != tank:
+			var d: float = tank.global_position.distance_to(a.global_position)
+			if d > max_d:
+				max_d = d
+				back = a
+	if back == null:
+		return Vector3.ZERO
+	var spine := back.global_position - tank.global_position
+	spine.y = 0.0
+	if spine.length() < 1.0:
+		return Vector3.ZERO  # tank+backline stacked → no meaningful axis
+	return Vector3(-spine.z, 0.0, spine.x).normalized()  # perpendicular to the spine
+
+
+## Standoff point on the flank: target + flank-axis × FLANK_KEEP. Side fixed per-enemy (L/R of the
+## party) + a per-enemy stagger along the spine so multiple flankers spread, not stack. No readable
+## axis (no Tank) → hold the current bearing out from the target (just keep distance).
+func _flank_standoff(enemy: CharacterBody3D, tp: Vector3) -> Vector3:
+	var axis := _party_flank_axis(enemy)
+	if axis == Vector3.ZERO:
+		var out := enemy.global_position - tp
+		out.y = 0.0
+		out = out.normalized() if out.length() > 0.01 else -enemy.facing
+		return tp + out * FLANK_KEEP_M
+	var side := 1.0 if (enemy.get_instance_id() % 2 == 0) else -1.0
+	var spine_dir := Vector3(axis.z, 0.0, -axis.x)  # back along the spine
+	var stagger := (float(enemy.get_instance_id() % 3) - 1.0) * FLANK_STAGGER_M
+	return tp + axis * (side * FLANK_KEEP_M) + spine_dir * stagger
 
 
 ## Nearest living PARTY member within `r` of the enemy (or null) — the closest threat to keep
@@ -922,6 +979,15 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 			continue
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue  # AB still on cooldown
+		# Backstab (hit_on_arrival): STRIKE only from the FLANK — perpendicular to the party spine.
+		# If not on the flank arc yet, hold and let REPOSITION circle there first (no head-on dash).
+		if bool(eff.get("hit_on_arrival", false)):
+			var axis := _party_flank_axis(enemy)
+			if axis != Vector3.ZERO:
+				var toe := enemy.global_position - target.global_position
+				toe.y = 0.0
+				if toe.length() < 0.01 or absf(toe.normalized().dot(axis)) < FLANK_STRIKE_COS:
+					return false  # in the front/back arc → keep repositioning
 		if dist <= enemy.attack_range_m + DASH_TRIGGER_BUFFER_M:
 			return false
 		if dist > float(eff.get("dash_range_m", DASH_MAX_M)):

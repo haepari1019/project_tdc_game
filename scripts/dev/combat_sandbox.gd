@@ -42,7 +42,7 @@ const UNIT_VERIFY := {
 	"EN-005": "• 적 4m 진입 시 후퇴(kite)\n• 쿨 2s마다 AB-010 독(둔화 아님, 도트)",
 	"EN-006": "• 때리고 짧게 빠짐(probe)\n• 쿨 5s마다 AB-011 스턴",
 	"EN-007": "• 사거리 hold(standoff)\n• 쿨 4s마다 AB-012 hex 둔화(보라 룬탄)\n• 원소 zone(AB-036/040/041/043)은 F-027 미구현",
-	"EN-008": "• 측면 접근(orbit)\n• 갭 생기면 AB-013 [크림슨] 대시 → 타겟 측후면(flank)으로 파고들어 백스탭(1.5x + 넉백 + 칼질)",
+	"EN-008": "• 치고-빠지는 측면 암살자(통합 루프)\n• REPOSITION: 파티 spine(탱커↔최후열)에 수직인 '옆구리'로 standoff(6m) 유지·근접하면 burst-kite\n• STRIKE: 측면 각도+쿨 차면 AB-013 백스탭(1.5x+넉백, 크림슨) — 정면에선 안 쏨\n• RESET: 찌른 뒤 다시 빠져 측면 복귀",
 	"EN-009": "• 링 포위(surround) — count 여러 개로 띄워야 의미\n• rom_swarm_nip 평타만",
 	"EN-010": "• 직진 추격(advance)\n• rom_fodder_melee_tap 평타",
 	"EN-011": "• 사거리서 조약돌·안 도망(standoff)\n• AssassinTransform 태그는 ENC 전용 — 단일 스폰엔 없음(NORM-003/HARD-011 ENC로 확인)",

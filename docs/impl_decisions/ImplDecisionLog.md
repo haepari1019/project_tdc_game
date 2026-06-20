@@ -6,6 +6,21 @@
 
 ---
 
+### IMPL-DEC-20260620-001 — EN-008 Corner Knife 통합 거동 모델 (증상별 패치 → 단일 hit-run 루프)
+- **배경(사용자):** EN-008에 후퇴·속도·leash·겹침 수정이 예외처리처럼 쌓여 "큰 원칙"이 없었음. 단일 원칙으로 통합 요청.
+- **원칙:** *치고-빠지는 측면 암살자.* 두 질문(측면인가? 대시 준비됐나?)으로 결정되는 단일 루프:
+  `REPOSITION → STRIKE(측면 백스탭) → RESET(kite out) → REPOSITION`. 정면 접근·근접 브롤 안 함.
+- **FLANK 정의(사용자):** 파티 **spine = Tank(class_id "Tank") → 최후열(탱커에서 가장 먼 파티원)** 선에 **수직인 축**(`_party_flank_axis`, perpendicular). 파티의 노출된 옆구리.
+- **구현:**
+  - REPOSITION `_move_hit_run_flank`: 근접(<FLANK_KITE_TRIGGER 4m) 파티원 있으면 burst-kite(×1.7·leash해제), 아니면 `_flank_standoff`(타겟 + flank축×FLANK_KEEP 6m, L/R side + spine 스태거로 다중 분산)로 이동.
+  - STRIKE `_try_cast_dash`(hit_on_arrival만): 현재 위치가 **flank 축 ±53°(FLANK_STRIKE_COS 0.6)** 안일 때만 백스탭 발동 → **정면 발사 제거**("직선적" 문제 해결). 아니면 hold(REPOSITION이 측면으로 돌게 둠).
+  - RESET: 백스탭 후 타겟이 kite 트리거 안 → 자동 burst-kite로 standoff 복귀.
+- **흡수된 기존 노브:** target_pref backline(타겟), FLANK_KEEP/KITE_TRIGGER/KITE_SPEED_MULT, leashed=false, 다중분산 — 전부 이 루프의 파라미터로 정렬. 폐기: 고정 backstep·월드각 링슬롯·tangent 서클(EN-008 한정).
+- **분리 유지:** EN-003(AB-006 비데미지 갭클로즈)은 `_is_hit_run_flanker`=false → 기존 spiral-in으로 붙어 flurry(지속 딜러). flank 게이트는 hit_on_arrival 대시에만.
+- **폴백:** Tank 없음/스파인 퇴화 → flank축 ZERO → standoff는 현재 베어링 유지(거리만 keep), 대시 게이트는 통과(정면 제한 없음).
+- **검증:** 샌드박스·ci_smoke PASS. 체감 F6.
+- **영향:** `scripts/combat/enemy_ai.gd`(_move_hit_run_flank·_party_flank_axis·_flank_standoff·_try_cast_dash 게이트·FLANK_* consts), `scripts/dev/combat_sandbox.gd`(검증문구). 관련 DRIFT-050/051·IMPL-DEC-014/016.
+
 ### IMPL-DEC-20260619-016 — 락온 유도 투사체 + 도달 시 데미지 (피할 수 없는 hit 모델)
 - **결정(사용자: "피할 수 없는 기술(평타 포함)은 발현되면 타겟에 락온·유도되어 날아가고, 도달했을 때 데미지가 발생"):** 타겟-락(회피 불가) 원거리 공격의 VFX/데미지 타이밍을 일치시킴.
   - **유도(homing):** `_enemy_shot`에 옵션 `target: Node3D` 추가 — 주면 매 프레임 타겟의 **현재 위치**로 lerp(락온 추적), 없으면 고정 `to`로 직진(파티 `sub_lunge` 등 위치형 유지). 움직이는 타겟이 투사체를 시각적으로 "피한 것처럼" 뒤에 떨어지던 문제 해결.
