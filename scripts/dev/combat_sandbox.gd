@@ -10,6 +10,16 @@ const CombatController := preload("res://scripts/combat/combat_controller.gd")
 const CameraRig := preload("res://scripts/run/controllers/camera_rig.gd")
 const PartySheet := preload("res://scripts/ui/party_sheet.gd")          # UI-002 party HP + sub radials
 const ControlledSheet := preload("res://scripts/ui/controlled_sheet.gd")  # UI-003 Identity + Q/E/R cooldowns
+const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")  # S3b zone media (test laying)
+
+# ZONE laying (S3b test): medium → spawn defaults. Fire/ToxicGas damage; movement media outcome-only
+# (dps 0, tick via MOVEMENT_MEDIA); Smoke/Vegetation harmless; Fatal lethal+impassable.
+const ZONE_MEDIA := ["Oil", "Fire", "Smoke", "ToxicGas", "Water", "Ice", "Steam", "Wind", "Vegetation", "Fatal"]
+const ZONE_SPAWN := {
+	"Fire": {"dps": 8.0}, "ToxicGas": {"dps": 8.0},
+	"Fatal": {"dps": 30.0, "impassable": true},
+}
+const ZONE_RADIUS := 3.0
 
 # Skillbooks auto-equipped so Q/E/R subs (incl. Toll Stun for channel-interrupt testing) work
 # without the hub deploy step. slot -> base_ability_id (role gate is bypassed for the sandbox).
@@ -57,6 +67,7 @@ var _combat: Node3D
 var _camera: Node3D
 var _enc_dropdown: OptionButton
 var _unit_dropdown: OptionButton
+var _zone_dropdown: OptionButton
 var _count_spin: SpinBox
 var _engaged_chk: CheckBox
 var _status: Label
@@ -237,6 +248,26 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	reset_btn.pressed.connect(_on_reset_party)
 	box.add_child(reset_btn)
 
+	# --- ZONE (S3b: lay a medium zone at the controlled member; X ignites overlapping Oil) ---
+	box.add_child(_section("ZONE (lay @ controlled — Z)"))
+	_zone_dropdown = OptionButton.new()
+	_zone_dropdown.custom_minimum_size = Vector2(240, 0)
+	for m in ZONE_MEDIA:
+		_zone_dropdown.add_item(m)
+	box.add_child(_zone_dropdown)
+	var lay_btn := Button.new()
+	lay_btn.text = "Lay Zone (Z)"
+	lay_btn.pressed.connect(_on_lay_zone)
+	box.add_child(lay_btn)
+	var ignite_btn := Button.new()
+	ignite_btn.text = "Ignite @ controlled (X) — RX-OIL-FIRE"
+	ignite_btn.pressed.connect(_on_ignite)
+	box.add_child(ignite_btn)
+	var clear_zones_btn := Button.new()
+	clear_zones_btn.text = "Clear zones"
+	clear_zones_btn.pressed.connect(_on_clear_zones)
+	box.add_child(clear_zones_btn)
+
 	# --- Loadout (controlled member) — swap Identity skill + Q/E/R subs for ability testing.
 	# Data-driven: auto-fills from identities.json / skillbooks.json (future ABs appear here).
 	box.add_child(_section("LOADOUT (controlled — 1-4)"))
@@ -260,7 +291,7 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 		_sub_dd.append(dd)
 
 	var hint := Label.new()
-	hint.text = "1-4 swap · WASD · Q/E/R sub · G 진형/전투우선 · wheel zoom · RMB-drag orbit · [ ] pitch"
+	hint.text = "1-4 swap · WASD · Q/E/R sub · G 진형/전투우선 · Z zone깔기 · X 점화 · wheel zoom · RMB-drag orbit · [ ] pitch"
 	hint.add_theme_font_size_override("font_size", 11)
 	box.add_child(hint)
 	_formation_lbl = Label.new()
@@ -338,6 +369,36 @@ func _on_reset_party() -> void:
 func _on_formation_priority_changed(on: bool) -> void:
 	if _formation_lbl != null:
 		_formation_lbl.text = "[G] %s" % ("진형우선" if on else "전투우선")
+
+
+## Lay the selected medium zone at the controlled member (S3b test). Outcome applies on contact.
+func _on_lay_zone() -> void:
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if ctrl == null:
+		return
+	var medium: String = ZONE_MEDIA[_zone_dropdown.selected] if _zone_dropdown != null else "Fire"
+	var preset: Dictionary = ZONE_SPAWN.get(medium, {})
+	var z := HazardZone.new()
+	z.setup(ZONE_RADIUS, float(preset.get("dps", 0.0)), 0.0, medium, bool(preset.get("impassable", false)), -1.0)
+	_map.add_child(z)
+	z.global_position = ctrl.global_position
+	_status.text = "zone: %s @ controlled (r%.0f)" % [medium, ZONE_RADIUS]
+
+
+## Ignite at the controlled member — fires RX-OIL-FIRE-001 on overlapping Oil (explosion+fire+smoke).
+func _on_ignite() -> void:
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if ctrl == null or not _combat.has_method("ignite_at"):
+		return
+	_combat.ignite_at(ctrl.global_position, 2.5, ctrl)
+	_status.text = "ignite @ controlled — RX-OIL-FIRE (Oil 위면 폭발+화염+연기)"
+
+
+func _on_clear_zones() -> void:
+	for z in get_tree().get_nodes_in_group("ground_zone"):
+		if z.has_method("clear_zone"):
+			z.clear_zone()
+	_status.text = "zones cleared"
 
 
 func _on_identity_changed(index: int) -> void:
@@ -466,6 +527,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_E: _cast_sub(1)
 			KEY_R: _cast_sub(2)
 			KEY_G: _party.toggle_formation_priority()  # 전투우선 ↔ 진형우선 (game parity)
+			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
+			KEY_X: _on_ignite()     # RX-OIL-FIRE ignite @ controlled
 
 
 func _cast_sub(slot: int) -> void:
