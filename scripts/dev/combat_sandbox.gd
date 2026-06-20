@@ -11,6 +11,7 @@ const CameraRig := preload("res://scripts/run/controllers/camera_rig.gd")
 const PartySheet := preload("res://scripts/ui/party_sheet.gd")          # UI-002 party HP + sub radials
 const ControlledSheet := preload("res://scripts/ui/controlled_sheet.gd")  # UI-003 Identity + Q/E/R cooldowns
 const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")  # S3b zone media (test laying)
+const Torch := preload("res://scripts/world/objects/torch.gd")  # ENT-TORCH — PAT-003 EN-010 bearer test
 
 # ZONE laying (S3b test): medium → spawn defaults. Fire/ToxicGas damage; movement media outcome-only
 # (dps 0, tick via MOVEMENT_MEDIA); Smoke/Vegetation harmless; Fatal lethal+impassable.
@@ -263,6 +264,10 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	clear_zones_btn.text = "Clear zones"
 	clear_zones_btn.pressed.connect(_on_clear_zones)
 	box.add_child(clear_zones_btn)
+	var torch_btn := Button.new()
+	torch_btn.text = "Lay Torch (north) — PAT-003 EN-010 test"
+	torch_btn.pressed.connect(_on_lay_torch)
+	box.add_child(torch_btn)
 
 	# --- Loadout (controlled member) — swap Identity skill + Q/E/R subs for ability testing.
 	# Data-driven: auto-fills from identities.json / skillbooks.json (future ABs appear here).
@@ -394,6 +399,17 @@ func _on_clear_zones() -> void:
 		if z.has_method("clear_zone"):
 			z.clear_zone()
 	_status.text = "zones cleared"
+
+
+## Lay a lit, carriable torch in the enemy spawn area (north) so a PAT-003 torch bearer (EN-010,
+## interacts_with_objects) seeks + picks it up + throws once engaged. ENT-TORCH (F-021 §3.1.2).
+func _on_lay_torch() -> void:
+	var t := Torch.new()
+	t.position = _map.get_deep_spawn_position("SANDBOX") + Vector3(2.0, 0.0, 0.0)
+	_map.add_child(t)
+	if t.has_method("setup"):
+		t.setup(_combat)  # wires ignite_at so the thrown torch lands as FireDamageHit
+	_status.text = "Torch laid @ north — spawn ENC-PAT-003 (dormant) + 접근 → EN-010 픽업/투척"
 
 
 func _on_identity_changed(index: int) -> void:
