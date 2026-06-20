@@ -337,8 +337,16 @@ func _on_spawn_enc() -> void:
 	if _enc_dropdown.selected < 0:
 		return
 	var eid := _enc_dropdown.get_item_text(_enc_dropdown.selected)
-	_combat.debug_spawn_only(eid, "SANDBOX", _engaged_chk.button_pressed)
-	_status.text = "ENC: %s%s" % [eid, "  (engaged)" if _engaged_chk.button_pressed else "  (dormant)"]
+	# Patrol/AmbushHold only read while DORMANT — engaged "skip perception" would bypass the whole
+	# placement behavior. Force dormant for those so the patrol loop / ambush spring is observable.
+	var placement := String(Slice01Data.get_encounter(eid).get("placement_behavior", "Fixed"))
+	var is_placement := placement == "Patrol" or placement == "AmbushHold"
+	var engaged: bool = _engaged_chk.button_pressed and not is_placement
+	_combat.debug_spawn_only(eid, "SANDBOX", engaged)
+	var hint := "  (engaged)" if engaged else "  (dormant — 북쪽으로 걸어가 트리거)"
+	if is_placement:
+		hint = "  [%s] dormant — 북쪽으로 접근" % placement
+	_status.text = "ENC: %s%s" % [eid, hint]
 
 
 func _on_spawn_unit() -> void:
