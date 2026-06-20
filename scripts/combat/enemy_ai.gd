@@ -51,8 +51,11 @@ const ORBIT_TANGENT_W := 0.65
 const ORBIT_INWARD_FAR := 0.6
 const ORBIT_LOOKAHEAD_M := 3.5
 # hit-and-run flanker (EN-008, damaging dash): the flank STANDOFF distance held between backstabs —
-# out of melee but inside dash reach. Kites to keep this until the dash is off cooldown.
+# out of melee but inside dash reach. Kites to keep this until the dash is off cooldown. The kite
+# gets a speed BURST (× base) so it can actually open a gap vs the faster player (9.0 > base 6.0);
+# otherwise the player just outruns the retreat and stays glued.
 const FLANK_KEEP_M := 6.0
+const FLANK_KITE_SPEED_MULT := 1.7
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
 const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
 
@@ -484,8 +487,12 @@ func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -
 	# standoff (FLANK_KEEP) — kite out if the target closes (keeps distance until the dash is ready),
 	# else circle at range WITHOUT spiralling into melee. The dash fires from here when off cooldown.
 	if _is_hit_run_flanker(enemy):
-		if dist < FLANK_KEEP_M:
-			return _kite_flee(enemy, tp, spd)  # target closing → peel out, hold distance
+		# Keep distance from the NEAREST party member within standoff (whoever closes — including the
+		# char the player is steering, not just the dash target). Burst-flee so it can actually pull
+		# away from the faster player; the dash re-engages from the standoff when off cooldown.
+		var threat := _nearest_party(enemy, FLANK_KEEP_M)
+		if threat != null:
+			return _kite_flee(enemy, threat.global_position, spd * FLANK_KITE_SPEED_MULT)
 		var inw := clampf((dist - FLANK_KEEP_M) / ORBIT_RADIUS_M, 0.0, 1.0) * ORBIT_INWARD_FAR
 		var hmd := (tangent * ORBIT_TANGENT_W + radial * inw).normalized()
 		return _nav_move(enemy, enemy.global_position + hmd * ORBIT_LOOKAHEAD_M, spd)
@@ -510,6 +517,21 @@ func _is_hit_run_flanker(enemy: CharacterBody3D) -> bool:
 		if String(eff.get("kind", "")) == "enemy_dash" and bool(eff.get("hit_on_arrival", false)):
 			return true
 	return false
+
+
+## Nearest living PARTY member within `r` of the enemy (or null) — the closest threat to keep
+## distance from. Uses the combat's party query (same source as the provoke fan check).
+func _nearest_party(enemy: CharacterBody3D, r: float) -> CharacterBody3D:
+	var best: CharacterBody3D = null
+	var best_d := INF
+	for a in _combat._allies_in_radius(enemy.global_position, r):
+		if not is_instance_valid(a) or (a.has_method("is_alive") and not a.is_alive()):
+			continue
+		var d: float = enemy.global_position.distance_to(a.global_position)
+		if d < best_d:
+			best_d = d
+			best = a
+	return best
 
 
 ## probe (PT-006): hit-and-back-off. While the post-strike backstep timer runs, retreat;
