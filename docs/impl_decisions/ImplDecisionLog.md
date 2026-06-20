@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260620-014 — Encounter Variety 목표 아키텍처 확정 + 빌드 S5 시퀀싱 (스펙 전파 예약)
+- **결정(사용자 설계 토론):** 반복 탐험 변주의 **목표 구조를 미리 확정**하되 **빌드는 P2-S5(제3세력)와 함께**. 상세 = [docs/design/encounter_variety_architecture.md](../design/encounter_variety_architecture.md).
+- **핵심 통찰(사용자):** ENC는 원자 콘텐츠가 아니라 **EN-* + 구성규칙(ENC-000 mechanicAxes/역할)의 조합 결과** → EN-* 추가 = ENC 공간 곱연산. "작은 ENC 로스터" 전제가 약해짐. 사례조사 결론(콘텐츠 아닌 *레이어*로 반복 해결)과 합치.
+- **아키텍처:** Site→Group(레시피)→Scale(mechanicAxes 예산)→[generate|set-piece]→Modifiers(authored affix + **창발 런타임 주입**)→Pick(seed+비복원). 그룹=ENC ID 리스트가 아니라 **레시피**(ENC-000 역할 패밀리=proto-그룹) → 로스터 비의존 확장.
+- **제3세력=창발 모디파이어:** F-028이 자기 전투로 ENC를 런타임 변조(교전중/정리/약화/증원) → authored affix에 과투자 불필요, Modifiers에 주입 훅만. 그래서 **제너레이터 + 3세력 모디파이어를 S5에 동시 빌드**(둘이 같이 값을 함).
+- **하이브리드(중요):** 생성기는 ENC-000 가드레일(mechanicAxes≤2·역할캡·F-024) 필수 — 보스·QA핀은 authored set-piece 유지, "랜덤 슬롯"만 생성. full-gen 아님(손맛 리스크).
+- **인터림 유지:** 가중+시드 resolve(DEC-20260620-002)+placement 변주+큐레이션 24 ENC = S5까지 충분. 지금 추가 빌드 없음.
+- **스펙 전파 예약:** 빌드 시 ENC-000(group=recipe·예산 생성)/F-006(placement·modifier 주입)/F-028(3세력 훅) SSOT 편집 → OPS_30 → 재핀. **지금은 스펙 미편집**(설계 target 기록만).
+- **영향:** `docs/design/encounter_variety_architecture.md`(신규). 코드 변경 없음.
+
 ### IMPL-DEC-20260620-013 — 확률적 ENC resolve(가중+런시드) + 스폰 위치 시드 산포
 - **결정(사용자):** 방마다 ENC를 확률적으로 배치, 런 시작 시 결정 → 반복 변주 + 방보다 많은 ENC 소화. **스펙 전파 후** 게임 구현 (DEC-20260620-002, spec `ef9c0c7` 재핀).
 - **resolver:** `Slice01Data.get_encounter_for_pool(... run_seed)` = `(pool, difficulty, layer)` 후보집합 수집 → `_weighted_pick`(weight·run_seed 결정론). forceEncounter override 우선(P-ADV-01=NORM-001 QA 핀 유지). run_seed=0(샌드박스)=첫 후보(결정론). placement는 기존대로 ENC `placement_behavior`에서 흐름.
