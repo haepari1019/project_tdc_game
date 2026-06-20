@@ -2,7 +2,7 @@
 
 > **무엇:** 구현이 spec(SSOT)과 달라진 지점의 **단일 추적 대장**. 발견 즉시 `DRIFT-###`로 기록하고, 분류·결정·상태를 유지한다.
 > **규칙:** [AGENTS.md](../AGENTS.md) §Spec drift & propagation. 튜닝수치=로깅만 / 아이디어=`OPS_08·I-002` / 규칙변경=spec repo `OPS_30` 전파 후 `spec_ref.json` 재핀.
-> **최종 갱신:** 2026-06-18 · **스펙 핀:** `spec_ref.json` @ `staging` `4422e50` (**Phase 2 Full Spec Coverage 채택** — 데모 스코프 상한 해제, `ImplementationPhase_FullSpecCoverage.md` · DRIFT-037 F-011 fog·DRIFT-038 F-012 see-through 전파 `daa1114`/DEC-20260618-001 머지+재핀). **PENDING-PROP 없음.** 이전 핀: 0edf55c=DRIFT-035/036(F-004 §3.5·F-012 §3.1.2), b84e975=DEC-20260611-003~006, c795fee=DEC-001/002, f7739a1=DRIFT-021.
+> **최종 갱신:** 2026-06-20 · **스펙 핀:** `spec_ref.json` @ `main` `d62df49` (DRIFT-050 AB-011 channel 전파·DEC-20260620-001 재핀). 이전: (**Phase 2 Full Spec Coverage 채택** — 데모 스코프 상한 해제, `ImplementationPhase_FullSpecCoverage.md` · DRIFT-037 F-011 fog·DRIFT-038 F-012 see-through 전파 `daa1114`/DEC-20260618-001 머지+재핀). **PENDING-PROP 없음.** 이전 핀: 4422e50=Phase2 채택·DRIFT-037/038, 0edf55c=DRIFT-035/036(F-004 §3.5·F-012 §3.1.2), b84e975=DEC-20260611-003~006, c795fee=DEC-001/002, f7739a1=DRIFT-021.
 > **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조 검증).
 
 ## 범례
@@ -377,10 +377,11 @@
 - **분류\전파:** **tuning(로깅만, 전파금지).** spec `F-025 §11` design-example 수치 조정. PT-004 `zone_radius_m` 8.0 유지 → 9m 사거리로 존 가장자리까지 타격, 존(8m) 내에서만 추격. 밸런스 PH.
 - **잔여:** zone 고수 vs 보상 밸런스 F6 체감. range_band Long은 서술 메타(기계적으론 unit attack_range_m 9가 게이트).
 
-### DRIFT-050 — AB-011 Toll Stun = channel + 락온 (OPENER 신뢰성) 🔶 impl
+### DRIFT-050 — AB-011 Toll Stun = channel + 락온 (OPENER 신뢰성) ✅ 전파+재핀
 - **현실(2026-06-19, 사용자: "EN-006 AB-011 스턴이 제대로 작동 안 함"):** 비-channel이라 0.5s 윈드업 중 EN-006/타겟 이동으로 사거리(+0.6) 밖이 되면 resolve에서 self-dodge → OPENER 스턴이 거의 안 들어감. `abilities.json` AB-011 `channel:true` 추가(윈드업 중 제자리·인터럽트 가능), `_resolve_enemy_attack`의 enemy_stun 거리-dodge 블록 제거 → LOS만 유지되면 락온 적중.
 - **분류\전파:** **impl(스펙 OPENER 의도 충족) + tuning.** spec `AB-011 BellRing`: `comboRole: OPENER`(층 A, 적중 전제)·telegraph 0.5·"근접 진입 시 우선". channel-freeze·거리-dodge 제거는 게임 인코딩으로 OPENER가 실제로 들어가게 함. 카운터플레이 = **인터럽트(채널 중 stun)** 또는 LOS 차단(spec 정밀 interrupt = AB-030). 스펙 명시 channel 아님 → 게임측 §2 채널 모델로 인코딩(로깅).
-- **잔여:** 스턴 적중률·인터럽트 체감 F6. 무빙 회피 불가가 과한지 밸런스 관찰.
+- **✅ 전파(2026-06-20, DEC-20260620-001, spec `d62df49`):** `EN-AI-000 §2`가 이미 AB-011을 interruptible 채널(`channel_s 0.7`, "stun 실패")로 규정 → 게임 동작은 **정합**, 누락은 **AB-011 ability 문서**(채널 명시 없음)였음. Catalog에 `channel:true`·`interruptible:true` + "채널 완료 시 LOS 적중(무빙 회피 불가)·실패=인터럽트/LOS차단" 명문화, `related`에 EN-AI-000. OPS_30(mapper/xref 신규 drift 0) → `spec_ref` 재핀 `4422e50`→`d62df49`.
+- **잔여:** 스턴 적중률·인터럽트 체감 F6. 수치 불일치(EN-AI-000 §2 `channel_s 0.7` vs AB-011 `telegraph_s 0.50`·게임 0.5) = tuning, 별도 reconcile.
 
 ### DRIFT-052 — P2-S3a OUTCOME 상태 수치 PH + AB-004 Shock 이관 🔶 tuning/impl
 - **현실(2026-06-20, P2-S3a):** STATUS-OUTCOME-CORE 결과상태(Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/WindBuffeted)를 공용 컨테이너로 도입(IMPL-DEC-20260620-002). 이동 슬로우 배수(0.6~0.85)·Ignited 8dps·Slippery 가속(player 10·enemy lerp3) = **DEMO PH**. AB-004 `shock_slow`(ad-hoc apply_slow) → 정식 **Shock** 상태 이관(데이터 shock_slow 0.5 미사용, 컨테이너 0.55).
