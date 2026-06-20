@@ -36,6 +36,7 @@ const SQUAD_PROP_RADIUS_M := 9.0
 ## Lateral spacing between squads sharing one room (relocated start-room encounter
 ## sits beside the room's own squad instead of overlapping it).
 const SQUAD_LANE_SPACING := 12.0
+const SPAWN_SCATTER_M := 4.5   # per-run seeded scatter of the squad spawn center (navmesh-snapped)
 const ANCHOR_SEP_M := 14.0   # AmbushHold dual-anchor separation (> SQUAD_PROP_RADIUS_M so the two
 							 # hiding spots wake independently — sequential reveal)
 
@@ -388,13 +389,14 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 		_spawn_origin = _map.get_spawn_position(spawn_room)
 	# Resolve per room via the spawn table: (pool, run difficulty, room world_layer).
 	var difficulty := RunLoadout.get_difficulty()   # hub selection > manifest default (single source)
+	var run_seed := int(RunLoadout.get_run_seed())  # weighted ENC resolve + spawn scatter (LDG-SPAWN §2)
 	for row in Slice01Data.get_rooms_document().get("rooms", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		var room_ref := String(row.get("room_ref", ""))
 		var pool := String(row.get("pool_slot", ""))
 		var layer := String(row.get("world_layer", "Upper"))
-		var enc_id := Slice01Data.get_encounter_for_pool(pool, difficulty, layer)
+		var enc_id := Slice01Data.get_encounter_for_pool(pool, difficulty, layer, run_seed)
 		if enc_id.is_empty():
 			continue
 		print("[TDC] prespawn resolve: room=%s pool=%s layer=%s diff=%s -> %s" % [room_ref, pool, layer, difficulty, enc_id])
@@ -494,6 +496,18 @@ func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
 			dir = dir.normalized()
 			var perp := Vector3(dir.z, 0.0, -dir.x)  # 90° to the approach axis
 			center += perp * (float(lane) * SQUAD_LANE_SPACING)
+	# Seeded scatter (LDG-SPAWN-DEMO-001 §2 placement variety, game-side): nudge the spawn off the
+	# exact deep point per run so positions aren't memorizable. Snap to navmesh so it never lands
+	# inside a wall. run_seed=0 (sandbox/no run) → no scatter (deterministic).
+	var seed := int(RunLoadout.get_run_seed())
+	if seed != 0:
+		var h: int = abs(hash("%d|%s|%d" % [seed, room_ref, lane]))
+		var ang := float(h % 360) * (PI / 180.0)
+		var rad := SPAWN_SCATTER_M * (0.35 + 0.65 * float((h / 360) % 100) / 100.0)
+		center += Vector3(cos(ang), 0.0, sin(ang)) * rad
+		var nav_map := get_world_3d().navigation_map
+		if nav_map.is_valid():
+			center = NavigationServer3D.map_get_closest_point(nav_map, center)
 	return center
 
 

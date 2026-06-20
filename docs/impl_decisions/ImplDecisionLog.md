@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260620-013 — 확률적 ENC resolve(가중+런시드) + 스폰 위치 시드 산포
+- **결정(사용자):** 방마다 ENC를 확률적으로 배치, 런 시작 시 결정 → 반복 변주 + 방보다 많은 ENC 소화. **스펙 전파 후** 게임 구현 (DEC-20260620-002, spec `ef9c0c7` 재핀).
+- **resolver:** `Slice01Data.get_encounter_for_pool(... run_seed)` = `(pool, difficulty, layer)` 후보집합 수집 → `_weighted_pick`(weight·run_seed 결정론). forceEncounter override 우선(P-ADV-01=NORM-001 QA 핀 유지). run_seed=0(샌드박스)=첫 후보(결정론). placement는 기존대로 ENC `placement_behavior`에서 흐름.
+- **run_seed:** `RunLoadout.roll_run_seed()`(randi) — dungeon_run 시작 시 1회 롤, ENC resolve + 스폰 산포 공용. 런 내 안정·재현.
+- **스폰 위치 산포:** `_squad_spawn_center`가 run_seed로 deep point ±SPAWN_SCATTER_M(4.5m) 산포 + `NavigationServer3D.map_get_closest_point` 스냅(벽 안 방지). seed 0 → 산포 없음.
+- **spawn_table.json:** `weight` 컬럼 + 전체 후보표(Normal PAT/AMB 편입·Hard 풀링·P-ADV-06~09). 임시 P-PAT/AMB pool_slot 제거(후보가 ADV/ENTRY/ROUTE 행에 편입돼 ENC 로드 유지 — 22 ENC 검증).
+- **선택(중요):** picker는 `hash(run_seed|salt)` placeholder — 가중 순서는 맞으나 통계적 균등성은 근사(40 시드 테스트서 등가중 후보 15:4 편차; 실제 randi 시드는 더 고름). 정식 RNG는 필요 시. F-006 미편집(§3.1.2가 이미 허용).
+- **검증:** resolver 변주·결정론·override·seed0·22 ENC 로드·샌드박스·ci_smoke PASS.
+- **영향:** `scripts/autoload/slice01_data.gd`(resolver+_weighted_pick), `run_loadout.gd`(run_seed), `combat/combat_controller.gd`(resolve seed·스폰 산포·SPAWN_SCATTER_M), `run/dungeon_run.gd`(roll), `data/slice01/spawn_table.json`·`id_registry.json`. DRIFT-054.
+
 ### IMPL-DEC-20260620-012 — P2-S2-place 배치2: AMB-002 듀얼 앵커 순차 기상 + 스프링 reveal VFX
 - **무엇:** ENC-AMB-002 `ambushAnchorCount:2` / `wakePolicy:sequential` 이행 + AmbushHold 발동 연출.
 - **순차 기상(emergent, 타이머 아님):** 한 인카운터를 2개 앵커로 분할 스폰(라운드로빈 `index % anchor_count`), 앵커를 접근축 직교로 **ANCHOR_SEP_M 14m** 이격(> SQUAD_PROP_RADIUS_M 9m, > reveal 8m). 각 앵커는 **자기 근접(reveal)으로 독립 발동**. `_engage_enemy` 분대 기상 루프에 게이트 추가 — `wake_policy=="sequential"`이면 **다른 anchor_id는 깨우지 않음**(같은 앵커 동료만 동반 기상). → 파티가 앵커A 발동 후 이동해 앵커B reveal 진입 시 B 발동 = 자연스러운 순차.

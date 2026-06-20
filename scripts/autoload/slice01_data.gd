@@ -223,25 +223,57 @@ func get_pool_encounter(pool_slot: String) -> String:
 
 
 ## Resolve a pool slot's encounter via the spawn table (LDG-SPAWN-DEMO-001):
-## force override > exact (pool, difficulty, world_layer) > (pool, difficulty) any-layer > "".
-## Returns "" when no row matches the run's difficulty for this pool (difficulty-gated slot).
-func get_encounter_for_pool(pool_slot: String, difficulty: String, world_layer: String) -> String:
+## Resolve a pool slot → encounter (LDG-SPAWN-DEMO-001 §2, weighted multi-candidate).
+## force override > weighted pick among exact (pool, difficulty, world_layer) candidates >
+## (pool, difficulty) any-layer candidates > "". Each candidate row may carry `weight` (default 1);
+## `run_seed` picks one deterministically (same run+pool → same result, reproducible). run_seed=0
+## (sandbox/no run) → first candidate. Returns "" when no row matches the run's difficulty.
+func get_encounter_for_pool(pool_slot: String, difficulty: String, world_layer: String, run_seed: int = 0) -> String:
 	if pool_slot.is_empty():
 		return ""
 	if _spawn_overrides.has(pool_slot):
 		return String(_spawn_overrides[pool_slot])
-	var any_layer := ""
+	var exact: Array = []       # [{enc, weight}] — matching world_layer
+	var any_layer: Array = []   # fallback: right pool+difficulty, other layer
 	for row in _spawn_rows:
 		var r := row as Dictionary
 		if String(r.get("pool_slot", "")) != pool_slot:
 			continue
 		if String(r.get("difficulty", "")) != difficulty:
 			continue
+		var enc := String(r.get("encounter_ref", ""))
+		if enc.is_empty():
+			continue
+		var w := float(r.get("weight", 1.0))
+		if w <= 0.0:
+			continue  # weight 0 = disabled candidate
+		var cand := {"enc": enc, "weight": w}
 		if String(r.get("world_layer", "")) == world_layer:
-			return String(r.get("encounter_ref", ""))
-		if any_layer.is_empty():
-			any_layer = String(r.get("encounter_ref", ""))
-	return any_layer
+			exact.append(cand)
+		else:
+			any_layer.append(cand)
+	var pool: Array = exact if not exact.is_empty() else any_layer
+	if pool.is_empty():
+		return ""
+	return _weighted_pick(pool, run_seed, pool_slot)
+
+
+## Deterministic weighted choice among [{enc, weight}] from (run_seed, salt). Single candidate or
+## run_seed=0 → the first row (stable). hash() keeps it reproducible per (run, pool).
+func _weighted_pick(pool: Array, run_seed: int, salt: String) -> String:
+	if pool.size() == 1 or run_seed == 0:
+		return String(pool[0]["enc"])
+	var total := 0.0
+	for c in pool:
+		total += float(c["weight"])
+	var h: int = abs(hash("%d|%s" % [run_seed, salt]))
+	var roll := (float(h % 100000) / 100000.0) * total
+	var acc := 0.0
+	for c in pool:
+		acc += float(c["weight"])
+		if roll < acc:
+			return String(c["enc"])
+	return String(pool[pool.size() - 1]["enc"])
 
 
 func get_summary() -> String:

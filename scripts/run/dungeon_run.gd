@@ -110,7 +110,9 @@ func _ready() -> void:
 	var spawn: Vector3 = _map.get_spawn_position("RM-ENTRY-01")
 	_party.spawn_at(spawn)
 	# Pre-spawn all encounters as dormant squads, pushed to each room's far side
-	# (away from the party) so the start-adjacent room isn't in range at spawn.
+	# (away from the party) so the start-adjacent room isn't in range at spawn. Roll the per-run
+	# seed first → weighted ENC resolve + spawn scatter vary each run (LDG-SPAWN-DEMO-001 §2).
+	RunLoadout.roll_run_seed()
 	_combat.prespawn_encounters("RM-ENTRY-01")
 	_party_sheet.setup(_party.get_members())
 	_controlled_sheet.setup(_party)

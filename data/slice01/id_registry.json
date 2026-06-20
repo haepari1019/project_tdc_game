@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "spec_commit_short": "4422e50",
+  "spec_commit_short": "ef9c0c7",
   "encounter_ids": [
     "ENC-NORM-001", "ENC-NORM-002", "ENC-NORM-003", "ENC-HARD-001", "ENC-HARD-002", "ENC-HARD-003", "ENC-HARD-004", "ENC-HARD-005",
     "ENC-HARD-006", "ENC-HARD-008", "ENC-HARD-009", "ENC-HARD-010", "ENC-HARD-011", "ENC-HARD-012",
@@ -56,10 +56,8 @@
   "pool_slots": [
     "P-ENTRY-01", "P-ADV-01", "P-ADV-02", "P-OBJ-01", "P-EXT-ROUTE-01",
     "P-ADV-03", "P-ADV-04", "P-ADV-05", "P-MID-01", "P-BOSS-01", "P-DEEP-01",
-    "P-ADV-06", "P-ADV-07", "P-ADV-08", "P-ADV-09",
-    "P-PAT-01", "P-PAT-02", "P-PAT-03", "P-AMB-01", "P-AMB-02"
+    "P-ADV-06", "P-ADV-07", "P-ADV-08", "P-ADV-09"
   ],
-  "_note_pool_slots_patamb": "P-PAT-01..03 / P-AMB-01..02 = P2-S2-place placement lanes (Patrol/AmbushHold). spawn_table-bound so the ENCs load + resolve; blueprint run_phase_sequence/room prespawn wiring = batch2.",
   "room_refs": [
     "RM-ENTRY-01",
     "RM-ADV-01",
