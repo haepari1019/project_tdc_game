@@ -259,10 +259,6 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	lay_btn.text = "Lay Zone (Z)"
 	lay_btn.pressed.connect(_on_lay_zone)
 	box.add_child(lay_btn)
-	var ignite_btn := Button.new()
-	ignite_btn.text = "Ignite @ controlled (X) — RX-OIL-FIRE"
-	ignite_btn.pressed.connect(_on_ignite)
-	box.add_child(ignite_btn)
 	var clear_zones_btn := Button.new()
 	clear_zones_btn.text = "Clear zones"
 	clear_zones_btn.pressed.connect(_on_clear_zones)
@@ -291,7 +287,7 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 		_sub_dd.append(dd)
 
 	var hint := Label.new()
-	hint.text = "1-4 swap · WASD · Q/E/R sub · G 진형/전투우선 · Z zone깔기 · X 점화 · wheel zoom · RMB-drag orbit · [ ] pitch"
+	hint.text = "1-4 swap · WASD · Q/E/R sub · G 진형/전투우선 · Z zone깔기 · wheel zoom · RMB-drag orbit · [ ] pitch"
 	hint.add_theme_font_size_override("font_size", 11)
 	box.add_child(hint)
 	_formation_lbl = Label.new()
@@ -383,15 +379,6 @@ func _on_lay_zone() -> void:
 	_map.add_child(z)
 	z.global_position = ctrl.global_position
 	_status.text = "zone: %s @ controlled (r%.0f)" % [medium, ZONE_RADIUS]
-
-
-## Ignite at the controlled member — fires RX-OIL-FIRE-001 on overlapping Oil (explosion+fire+smoke).
-func _on_ignite() -> void:
-	var ctrl: CharacterBody3D = _party.get_controlled()
-	if ctrl == null or not _combat.has_method("ignite_at"):
-		return
-	_combat.ignite_at(ctrl.global_position, 2.5, ctrl)
-	_status.text = "ignite @ controlled — RX-OIL-FIRE (Oil 위면 폭발+화염+연기)"
 
 
 func _on_clear_zones() -> void:
@@ -528,7 +515,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_R: _cast_sub(2)
 			KEY_G: _party.toggle_formation_priority()  # 전투우선 ↔ 진형우선 (game parity)
 			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
-			KEY_X: _on_ignite()     # RX-OIL-FIRE ignite @ controlled
 
 
 func _cast_sub(slot: int) -> void:
