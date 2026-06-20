@@ -383,6 +383,12 @@
 - **✅ 전파(2026-06-20, DEC-20260620-001, spec `d62df49`):** `EN-AI-000 §2`가 이미 AB-011을 interruptible 채널(`channel_s 0.7`, "stun 실패")로 규정 → 게임 동작은 **정합**, 누락은 **AB-011 ability 문서**(채널 명시 없음)였음. Catalog에 `channel:true`·`interruptible:true` + "채널 완료 시 LOS 적중(무빙 회피 불가)·실패=인터럽트/LOS차단" 명문화, `related`에 EN-AI-000. OPS_30(mapper/xref 신규 drift 0) → `spec_ref` 재핀 `4422e50`→`d62df49`.
 - **잔여:** 스턴 적중률·인터럽트 체감 F6. 수치 불일치(EN-AI-000 §2 `channel_s 0.7` vs AB-011 `telegraph_s 0.50`·게임 0.5) = tuning, 별도 reconcile.
 
+### DRIFT-053 — P2-S3b zone 매체 모델 + RX-OIL-FIRE Smoke 정정 (game→spec) ✅ code-bug 수정
+- **현실(2026-06-20, P2-S3b):** `reaction_system`의 RX-OIL-FIRE가 폭발 후 **데미지 ToxicGas 존**(`GAS_DPS`)을 깔았음 — 그러나 스펙 `RX-OIL-FIRE-001`은 **Smoke(연소 연기·무해·시야), 독·ToxicGas 아님** + 유닛 **Ignited** + Fire 잔류로 명시(`STATUS-ENV-CORE`도 Smoke/ToxicGas 분리). **게임이 스펙을 어긴 code-bug.**
+- **수정:** `hazard_zone`를 매체→OUTCOME 디스패치 모델로(`_apply_medium`; Fire→Ignited·ToxicGas→Poisoned·Water/Ice/Oil/Steam/Wind→이동결과·Smoke/Veg→무해). RX-OIL-FIRE = 폭발+**Ignited**(APPLY-IGNITED-…-5S)+Fire 잔류+**Smoke(무해)**. ToxicGas는 별도 매체(`AB-039`, S3f) 전용.
+- **분류\전파:** **code-bug(game→spec 정합) + impl(매체 모델).** 스펙이 이미 Smoke로 규정 → **OPS_30 전파 불필요**. DRIFT-029의 "RX-OIL-FIRE 기존 spec 구현" 주장이 ToxicGas로 부정확했던 것 교정. 9매체 프리셋·디스패치=게임 인코딩. 수치(FIRE_DPS 8·SMOKE_TTL 5) PH.
+- **잔여(S3d):** activeMedia[] 다중 스택 + primaryMedium resolver + event bus(EnterZone/ExitZone) + RX 매트릭스 데이터화. 체감 F6(배럴 점화 → 무해 연기 vs 데미지 화염/Ignited).
+
 ### DRIFT-052 — P2-S3a OUTCOME 상태 수치 PH + AB-004 Shock 이관 🔶 tuning/impl
 - **현실(2026-06-20, P2-S3a):** STATUS-OUTCOME-CORE 결과상태(Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/WindBuffeted)를 공용 컨테이너로 도입(IMPL-DEC-20260620-002). 이동 슬로우 배수(0.6~0.85)·Ignited 8dps·Slippery 가속(player 10·enemy lerp3) = **DEMO PH**. AB-004 `shock_slow`(ad-hoc apply_slow) → 정식 **Shock** 상태 이관(데이터 shock_slow 0.5 미사용, 컨테이너 0.55).
 - **분류\전파:** **tuning(로깅만) + impl.** 상태 ID·태그는 spec STATUS-OUTCOME-CORE 그대로. 수치는 design example PH — 실제 RX→status 매핑/수치는 P2-S3d에서 RX 매트릭스로 데이터주도화 예정. HEX-WEAK(AB-012)는 S3a 범위 밖(기존 apply_slow 유지).

@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260620-003 — P2-S3b zone 매체 모델 (medium→outcome 디스패치) + RX-OIL-FIRE Smoke 정정
+- **무엇:** zone을 환경 **매체(STATUS-ENV-CORE)** 모델로 — `hazard_zone.status` = 매체(9종 프리셋), 매체가 내부 유닛에 적용할 **OUTCOME을 디스패치**.
+- **medium→effect 디스패치(`_apply_medium`):** Fire→**Ignited**(S3a 결과, dps 운반)·ToxicGas→Poisoned(party)/raw(enemy)·Water→Sodden·Ice→Chilled·Oil→Slippery·Steam→SteamHaze·Wind→WindBuffeted·**Smoke/Vegetation→무해**(Smoke=시야[deferred], Veg=가연만)·Fatal→raw. `MOVEMENT_MEDIA`는 dps 0이어도 tick(결과 적용). `STATUS_COLORS` 9매체 프리셋.
+- **RX-OIL-FIRE 정정(드리프트 ①, game→spec):** 폭발 후 **ToxicGas(데미지 gas)** → **Smoke(무해·시야)** 로 교체 + 폭발 유닛에 **Ignited**(`APPLY-IGNITED-…-5S`) 적용 + Fire 잔류(Ignited applier). 스펙 `RX-OIL-FIRE-001`이 이미 "Smoke; 독·ToxicGas 아님" 명시 → **전파 아님, 게임 버그 수정**. (DRIFT-029의 "기존 spec 구현" 주장이 ToxicGas로 부정확했던 것 교정.)
+- **스코프:** 단일 매체(`status`=primaryMedium). activeMedia[] 다중 스택 + primaryMedium resolver(Oil>ToxicGas>…)는 **S3d**. event bus(EnterZone/ExitZone)도 S3d.
+- **수치 PH:** FIRE_DPS 8·IGNITE 5s·SMOKE_TTL 5s(spec SMOKE-5S). 실제 RX 매트릭스 수치=S3d.
+- **검증:** hazard_zone/reaction_system 컴파일·샌드박스·ci_smoke PASS.
+- **영향:** `scripts/world/hazards/hazard_zone.gd`, `scripts/combat/abilities/reaction_system.gd`. → DRIFT-053.
+
 ### IMPL-DEC-20260620-002 — P2-S3a 유닛 OUTCOME 상태셋 (공용 컨테이너 + Slippery 관성)
 - **무엇:** P2-S3 Interaction(keystone) 착수 1단계 — STATUS-OUTCOME-CORE 원소 결과상태를 party+enemy 양쪽에 도입.
 - **구현:** `scripts/combat/outcome_status.gd`(RefCounted) **공용 컨테이너** — party_member·enemy_unit가 각자 `_outcome` 인스턴스 보유.

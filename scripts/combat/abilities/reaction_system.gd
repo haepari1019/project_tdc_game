@@ -1,7 +1,7 @@
 extends Node3D
 ## ReactionSystem — world-object AoE interactions + hazard chemistry, extracted from
 ## AbilityDispatch (ARCHITECTURE DEBT-GOD2). Owns: breaking destructibles (ENT-BARREL), the
-## RX-OIL-FIRE-001 oil ignition chain (explosion + Fire/ToxicGas zones, depth-limited), and
+## RX-OIL-FIRE-001 oil ignition chain (explosion + Ignited + Fire/Smoke zones, depth-limited), and
 ## the public FireDamageHit entry (torches). A child of CombatController: skill handlers call
 ## damage_destructibles()/fire_hit(); torches reach ignite_at() via the combat facade.
 ## ref: F-021 / F-027 (ZONE-OIL, RX-OIL-FIRE, ENT-BARREL/TORCH).
@@ -9,10 +9,10 @@ extends Node3D
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")
 
-const FIRE_DPS := 14.0
-const FIRE_TTL := 4.0
-const GAS_DPS := 8.0
-const GAS_TTL := 5.0
+const FIRE_DPS := 8.0       # residual fire = Ignited burn dps (hazard_zone Fire→Ignited)
+const FIRE_TTL := 4.0       # SPAWN-ZONE-FIRE-4S-R2
+const IGNITE_DUR := 5.0     # APPLY-IGNITED-…-5S — explosion ignites caught units
+const SMOKE_TTL := 5.0      # SPAWN-ZONE-SMOKE-5S-R3 — 연소 연기(무해·시야), ToxicGas 아님
 const EXPLOSION_DMG := 60.0
 const MAX_CHAIN_DEPTH := 2
 const EXPLOSION_SHAKE := 0.6   # an explosion always shakes at the per-cast cap
@@ -45,8 +45,8 @@ func fire_hit(center: Vector3, radius: float, depth: int, source: Node = null) -
 				_ignite_oil(z, depth, source)
 
 
-## RX-OIL-FIRE-001 — consume the oil → explosion + Fire zone + ToxicGas, then chain to
-## adjacent oil (depth-limited; F-021 §3.2.1 depth 1 center / 2 rare / 3+ forbidden).
+## RX-OIL-FIRE-001 — consume the oil → explosion (+Ignited) + Fire zone + harmless Smoke (NOT
+## ToxicGas; spec: 연소 연기·무해), then chain to adjacent oil (depth-limited; F-021 §3.2.1).
 func _ignite_oil(oil: Node, depth: int, source: Node = null) -> void:
 	var parent := oil.get_parent()
 	var pos: Vector3 = oil.global_position
@@ -54,17 +54,16 @@ func _ignite_oil(oil: Node, depth: int, source: Node = null) -> void:
 	oil.clear_zone()  # consume the oil (removed from group immediately → no re-ignite)
 	_explosion(pos, r + 1.0, EXPLOSION_DMG, source)
 	var fire := HazardZone.new()
-	fire.setup(r, FIRE_DPS, 0.0, "Fire", false, FIRE_TTL)
+	fire.setup(r, FIRE_DPS, 0.0, "Fire", false, FIRE_TTL)  # residual fire → Ignited (hazard_zone)
 	fire.position = pos
 	parent.add_child(fire)
-	var gas := HazardZone.new()
-	gas.setup(r + 1.5, GAS_DPS, 0.0, "ToxicGas", false, GAS_TTL)
-	gas.position = pos
-	parent.add_child(gas)
 	if source != null:
 		fire.set_source(source)
-		gas.set_source(source)
-	print("[RX] Oil ignited (depth %d) → explosion + fire + toxic gas" % depth)
+	var smoke := HazardZone.new()
+	smoke.setup(r + 1.5, 0.0, 0.0, "Smoke", false, SMOKE_TTL)  # 연소 연기 — 무해(시야), 독 아님
+	smoke.position = pos
+	parent.add_child(smoke)
+	print("[RX] Oil ignited (depth %d) → explosion + Ignited + fire + smoke (RX-OIL-FIRE-001)" % depth)
 	if depth < MAX_CHAIN_DEPTH:
 		fire_hit(pos, r + 1.5, depth + 1, source)  # explosion reaches adjacent oil → chain +1
 
@@ -77,6 +76,8 @@ func _explosion(pos: Vector3, radius: float, dmg: float, source: Node = null) ->
 				var d := Vector2(u.global_position.x - pos.x, u.global_position.z - pos.z)
 				if d.length() <= radius:
 					u.take_damage(dmg)
+					if u.has_method("apply_outcome"):
+						u.apply_outcome("Ignited", IGNITE_DUR, FIRE_DPS)  # APPLY-IGNITED-…-5S
 					if g == "enemy" and source != null and is_instance_valid(source) and u.has_method("add_threat"):
 						u.add_threat(source, dmg)
 						if u.has_method("perceive_attacker"):

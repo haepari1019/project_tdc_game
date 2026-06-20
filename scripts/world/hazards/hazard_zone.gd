@@ -1,23 +1,38 @@
 extends Node3D
-## Ground hazard zone — a persistent circular ground area with a STATUS (Fatal / Oil /
-## Fire / ToxicGas). Optionally ticks damage to ANY unit inside (피아무구분, F-021).
-## Impassable zones (Fatal) join group "fatal_zone" → carved out of the navmesh + avoided
-## by party AI (split). Passable zones (Oil/Fire/ToxicGas) only join "ground_zone" — you
-## can walk on/through them, but they're hazardous / flammable (reactions). ref: F-006 /
-## F-021 ZONE / F-027 (ZONE-OIL, RX-OIL-FIRE).
+## Ground hazard zone — a persistent circular ground area carrying an environment MEDIUM
+## (STATUS-ENV-CORE: Fatal/Oil/Water/Fire/Ice/Vegetation/Wind/Steam/Smoke/ToxicGas). The medium
+## decides the per-tick OUTCOME applied to ANY unit inside (피아무구분, F-021): Fire→Ignited,
+## ToxicGas→Poisoned, Water→Sodden, Ice→Chilled, Oil→Slippery, Steam→SteamHaze, Wind→WindBuffeted,
+## Smoke/Vegetation→harmless (Smoke=vision[deferred], Veg=flammable only), Fatal→raw damage.
+## ref: F-021 ZONE · F-027 · STATUS-ENV-CORE/OUTCOME-CORE.
 ##
-## Query: group "ground_zone" (all) / "fatal_zone" (impassable). `contains_point()`,
-## `blocks_segment()`, `status`.
+## `status` = the primary medium (single for now; activeMedia[]/primaryMedium multi-stacking = S3d).
+## Impassable (Fatal) → group "fatal_zone" (navmesh carve + party avoidance). All → "ground_zone".
+## Query: `contains_point()`, `blocks_segment()`, `status`.
 
 const TICK_S := 0.2
 const UNIT_GROUPS := ["party_member", "enemy"]
+const OUTCOME_DUR := TICK_S * 2.5   # outcome refresh while inside (~0.5s residual after leaving)
+## Media that apply a movement OUTCOME each tick (tick even with no dps).
+const MOVEMENT_MEDIA := ["Water", "Ice", "Oil", "Steam", "Wind"]
+## Medium → outcome status applied to units inside (STATUS-OUTCOME-CORE).
+const MEDIUM_OUTCOME := {
+	"Water": "Sodden", "Ice": "Chilled", "Oil": "Slippery",
+	"Steam": "SteamHaze", "Wind": "WindBuffeted",
+}
 
-## Per-status visual (albedo, emission). Fatal/Fire warm, Oil dark, ToxicGas green.
+## Per-medium visual (albedo, emission). 9-medium preset catalog (STATUS-ENV-CORE).
 const STATUS_COLORS := {
-	"Fatal":    {"albedo": Color(0.95, 0.18, 0.12, 0.5),  "emit": Color(0.95, 0.22, 0.10)},
-	"Oil":      {"albedo": Color(0.09, 0.07, 0.05, 0.80), "emit": Color(0.18, 0.12, 0.04)},
-	"Fire":     {"albedo": Color(1.0, 0.45, 0.10, 0.55),  "emit": Color(1.0, 0.40, 0.05)},
-	"ToxicGas": {"albedo": Color(0.45, 0.85, 0.25, 0.40), "emit": Color(0.40, 0.85, 0.15)},
+	"Fatal":      {"albedo": Color(0.95, 0.18, 0.12, 0.5),  "emit": Color(0.95, 0.22, 0.10)},
+	"Oil":        {"albedo": Color(0.09, 0.07, 0.05, 0.80), "emit": Color(0.18, 0.12, 0.04)},
+	"Fire":       {"albedo": Color(1.0, 0.45, 0.10, 0.55),  "emit": Color(1.0, 0.40, 0.05)},
+	"ToxicGas":   {"albedo": Color(0.45, 0.85, 0.25, 0.40), "emit": Color(0.40, 0.85, 0.15)},
+	"Water":      {"albedo": Color(0.25, 0.50, 0.95, 0.38), "emit": Color(0.18, 0.40, 0.85)},
+	"Ice":        {"albedo": Color(0.62, 0.86, 1.0, 0.42),  "emit": Color(0.50, 0.78, 1.0)},
+	"Steam":      {"albedo": Color(0.82, 0.86, 0.90, 0.34), "emit": Color(0.70, 0.74, 0.80)},
+	"Smoke":      {"albedo": Color(0.32, 0.32, 0.34, 0.42), "emit": Color(0.20, 0.20, 0.22)},
+	"Vegetation": {"albedo": Color(0.28, 0.55, 0.22, 0.45), "emit": Color(0.18, 0.42, 0.12)},
+	"Wind":       {"albedo": Color(0.70, 0.95, 0.85, 0.26), "emit": Color(0.55, 0.85, 0.72)},
 }
 const WARN_COLOR := {"albedo": Color(0.98, 0.62, 0.12, 0.42), "emit": Color(0.95, 0.55, 0.10)}
 
@@ -121,32 +136,53 @@ func _physics_process(delta: float) -> void:
 			return
 	if not _lethal:
 		return  # telegraph phase — no effect yet
-	if dps <= 0.0 and slow_factor <= 0.0:
-		return  # inert zone
+	if dps <= 0.0 and slow_factor <= 0.0 and not MOVEMENT_MEDIA.has(status):
+		return  # inert (harmless Smoke/Vegetation, or empty)
 	_tick_accum += delta
 	if _tick_accum < TICK_S:
 		return
 	var dmg := dps * _tick_accum
 	_tick_accum = 0.0
-	var is_dot := status == "Fire" or status == "ToxicGas"
 	for g in UNIT_GROUPS:
 		for u in get_tree().get_nodes_in_group(g):
 			if not (u is Node3D) or not contains_point((u as Node3D).global_position):
 				continue
-			if dps > 0.0:
-				# DoT zones (Fire/ToxicGas) apply a status so it reads on the party sheet;
-				# Fatal (and units w/o apply_poison, e.g. enemies) take raw damage.
-				if is_dot and u.has_method("apply_poison"):
-					u.apply_poison(TICK_S * 2.5, dps)
-				elif u.has_method("take_damage"):
-					u.take_damage(dmg)
-				# Torch fire pulls aggro onto its source (F-021 - the thrower / carrier).
-				if g == "enemy" and _source != null and is_instance_valid(_source) and u.has_method("add_threat"):
-					u.add_threat(_source, dmg)
-					if u.has_method("perceive_attacker"):
-						u.perceive_attacker(_source)
-			if slow_factor > 0.0 and u.has_method("apply_slow"):
-				u.apply_slow(slow_factor, TICK_S * 2.5)  # refreshed while standing in it
+			_apply_medium(u, dmg, g)
+
+
+## Apply this medium's per-tick outcome to a unit inside (피아무구분, F-021). 매체→결과 디스패치.
+func _apply_medium(u: Node, dmg: float, g: String) -> void:
+	match status:
+		"Fire":  # 점화 — Ignited DoT (carries dps); raw fallback for units w/o the outcome system
+			if u.has_method("apply_outcome"):
+				u.apply_outcome("Ignited", OUTCOME_DUR, dps)
+			elif u.has_method("take_damage"):
+				u.take_damage(dmg)
+			_credit(u, dmg, g)
+		"ToxicGas":  # 독기 — Poisoned DoT (party); raw for enemies (no poison status)
+			if u.has_method("apply_poison"):
+				u.apply_poison(OUTCOME_DUR, dps)
+			elif u.has_method("take_damage"):
+				u.take_damage(dmg)
+			_credit(u, dmg, g)
+		"Smoke", "Vegetation":
+			pass  # harmless — Smoke = vision (deferred), Vegetation = flammable only
+		_:
+			if MEDIUM_OUTCOME.has(status) and u.has_method("apply_outcome"):
+				u.apply_outcome(MEDIUM_OUTCOME[status], OUTCOME_DUR)  # Water/Ice/Oil/Steam/Wind
+			elif dps > 0.0 and u.has_method("take_damage"):  # Fatal + unknown → raw
+				u.take_damage(dmg)
+				_credit(u, dmg, g)
+	if slow_factor > 0.0 and u.has_method("apply_slow"):
+		u.apply_slow(slow_factor, OUTCOME_DUR)  # legacy explicit slow (separate from medium)
+
+
+## Torch fire / zone damage on an enemy pulls aggro onto the credited source (F-021).
+func _credit(u: Node, dmg: float, g: String) -> void:
+	if g == "enemy" and _source != null and is_instance_valid(_source) and u.has_method("add_threat"):
+		u.add_threat(_source, dmg)
+		if u.has_method("perceive_attacker"):
+			u.perceive_attacker(_source)
 
 
 func _apply_color(warn: bool) -> void:
