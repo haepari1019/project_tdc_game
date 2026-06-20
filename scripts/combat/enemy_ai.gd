@@ -51,6 +51,7 @@ const ORBIT_TANGENT_W := 0.65
 const ORBIT_INWARD_FAR := 0.6
 const ORBIT_LOOKAHEAD_M := 3.5
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
+const BACKSTAB_RETREAT_S := 0.9    # orbit: retreat window after AB-013 backstab (EN-008 치고 빠짐)
 const SURROUND_RING_M := 0.9       # surround: ring radius as a fraction of attack_range
 
 # --- Dash signatures (AB-006 gap-close / AB-013 backstab; EN-003/008) ---
@@ -262,6 +263,9 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 			enemy.dashing = false
 			_resolve_dash_hit(enemy)
 		return
+	# Post-strike back-off timer (probe hit / EN-008 backstab) — decremented centrally so any
+	# movement profile (probe AND orbit) can retreat while it runs.
+	enemy.probe_backstep_s = maxf(0.0, enemy.probe_backstep_s - delta)
 	# Per-ability cooldowns tick down while engaged (each AB on its own clock). Heal (AB-098) is
 	# target-less, so its pass runs early — EN-014 kites + rarely melees, can't ride the attack
 	# gate. Every cast pass checks its own ability_cd[ref] internally.
@@ -467,6 +471,12 @@ func _move_zone(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) ->
 ## (wide arc); the closer to attack range, the more it cuts inward to close. Side fixed per-enemy.
 func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -> Vector3:
 	enemy.face_toward(tp)
+	if enemy.probe_backstep_s > 0.0:  # just backstabbed (AB-013) → peel out before re-flanking
+		var out_dir := enemy.global_position - tp
+		out_dir.y = 0.0
+		if out_dir.length() < 0.01:
+			out_dir = -enemy.facing
+		return _nav_move(enemy, enemy.global_position + out_dir.normalized() * RETREAT_STEP_M, spd)
 	if dist <= enemy.attack_range_m:
 		return Vector3.ZERO
 	var to := tp - enemy.global_position
@@ -486,10 +496,9 @@ func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -
 
 ## probe (PT-006): hit-and-back-off. While the post-strike backstep timer runs, retreat;
 ## otherwise close to melee and plant (the strike sets probe_backstep_s in tick()).
-func _move_probe(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float, delta: float) -> Vector3:
+func _move_probe(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float, _delta: float) -> Vector3:
 	enemy.face_toward(tp)
-	if enemy.probe_backstep_s > 0.0:
-		enemy.probe_backstep_s -= delta
+	if enemy.probe_backstep_s > 0.0:  # decremented centrally in tick()
 		var away := enemy.global_position - tp
 		away.y = 0.0
 		if away.length() < 0.01:
@@ -930,6 +939,8 @@ func _resolve_dash_hit(enemy: CharacterBody3D) -> void:
 	to.y = 0.0
 	if to.length() <= enemy.attack_range_m + 1.0:
 		_apply_enemy_hit(enemy, target, eff, chosen)
+	# Backstab landed (or whiffed) → peel out and re-flank, don't sit in melee (EN-008 치고 빠짐).
+	enemy.probe_backstep_s = BACKSTAB_RETREAT_S
 
 
 ## Disguised assassin reveal+execute (AssassinTransform): telegraph (assassin_telegraph_s) →
