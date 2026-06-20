@@ -392,16 +392,20 @@ func _move_standoff(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float
 	return Vector3.ZERO
 
 
-## Flee one step directly away from `tp`, clamped to the spawn-anchor leash (cornered → hold).
-func _kite_flee(enemy: CharacterBody3D, tp: Vector3, spd: float) -> Vector3:
+## Flee one step directly away from `tp`. When `leashed`, clamp to the spawn-anchor leash so a
+## ranged kiter (EN-005) can't run off the map. Roaming units that move with the fight (EN-008's
+## post-dash hit-and-run) pass leashed=false — else, having dashed past the leash, the clamp would
+## freeze them until the next dash (a "stuck after skill" bug). Nav still keeps them off walls.
+func _kite_flee(enemy: CharacterBody3D, tp: Vector3, spd: float, leashed: bool = true) -> Vector3:
 	var away := enemy.global_position - tp
 	away.y = 0.0
 	if away.length() < 0.01:
 		away = -enemy.facing
-	var anchor: Vector3 = enemy.home_pos if enemy.home_pos != Vector3.INF else enemy.global_position
 	var dest := enemy.global_position + away.normalized() * RETREAT_STEP_M
-	if Vector2(dest.x - anchor.x, dest.z - anchor.z).length() > ENGAGE_LEASH_M:
-		return Vector3.ZERO  # cornered at the leash → hold rather than flee off the map
+	if leashed:
+		var anchor: Vector3 = enemy.home_pos if enemy.home_pos != Vector3.INF else enemy.global_position
+		if Vector2(dest.x - anchor.x, dest.z - anchor.z).length() > ENGAGE_LEASH_M:
+			return Vector3.ZERO  # cornered at the leash → hold rather than flee off the map
 	return _nav_move(enemy, dest, spd * RETREAT_SPEED_FRAC)
 
 
@@ -492,7 +496,8 @@ func _move_orbit(enemy: CharacterBody3D, tp: Vector3, dist: float, spd: float) -
 		# away from the faster player; the dash re-engages from the standoff when off cooldown.
 		var threat := _nearest_party(enemy, FLANK_KEEP_M)
 		if threat != null:
-			return _kite_flee(enemy, threat.global_position, spd * FLANK_KITE_SPEED_MULT)
+			# leashed=false: it dashed past the spawn leash, must still be able to peel out (not freeze).
+			return _kite_flee(enemy, threat.global_position, spd * FLANK_KITE_SPEED_MULT, false)
 		var inw := clampf((dist - FLANK_KEEP_M) / ORBIT_RADIUS_M, 0.0, 1.0) * ORBIT_INWARD_FAR
 		var hmd := (tangent * ORBIT_TANGENT_W + radial * inw).normalized()
 		return _nav_move(enemy, enemy.global_position + hmd * ORBIT_LOOKAHEAD_M, spd)
