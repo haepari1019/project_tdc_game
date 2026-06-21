@@ -44,6 +44,25 @@ func is_quest_done(quest_id: String) -> bool:
 	return bool(quest_completed.get(quest_id, false))
 
 
+## B4-lite: 충족 가능한 Slice-01 퀘스트 stub(vault 수량·시설 Tier 기반)을 자동 완료 처리한다
+## (F-029 §3.3.1). 런 이벤트형(ENC clear·map success·GIMMICK·party wipe·NPC)은 B4 full에서
+## 런 훅으로 완료. 비가역(완료는 유지) — 허브 진입/vault·시설 변동 시 호출.
+func evaluate_quests() -> void:
+	_q_if("Q-HUB-002", vault_count("haul_ward_splinter") >= 2)   # 창고 T1 — 파편 반입
+	_q_if("Q-HUB-011", vault_count("haul_arc_ink") >= 2)         # 필기소 T2 — 아크 잉크
+	_q_if("Q-HUB-012", facility_tier("scriptorium") >= 1)        # 상점 개장 — 필기소 선행
+	_q_if("Q-HUB-013", facility_tier("scribe_shop") >= 1)        # 상점 T2
+	_q_if("Q-HUB-021", facility_tier("armory") >= 1)             # 무기고 T2
+	_q_if("Q-HUB-030", vault_count("haul_forge_coal") >= 3)      # 대장간 건립 — 연료
+	_q_if("Q-HUB-031", facility_tier("smithy") >= 1)             # 대장간 T2
+	_q_if("Q-HUB-051", vault_count("haul_pack_frame") >= 2)      # 군수 T2
+
+
+func _q_if(quest_id: String, cond: bool) -> void:
+	if cond and not is_quest_done(quest_id):
+		quest_completed[quest_id] = true
+
+
 ## D-029 §5 — 시설 `id`를 다음 Tier로 승급 가능한지. 반환:
 ## {ok, reason("ok"|"max"|"prereq"|"quest"|"haul"), next_tier, quest, missing:{haulId:부족수량}, prereq?}
 func upgrade_check(id: String) -> Dictionary:

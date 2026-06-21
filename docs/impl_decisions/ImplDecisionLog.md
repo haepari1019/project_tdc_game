@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260621-004 — P2-S4 Hub B2/B3: UI-029 시설 패널 + 승급 + B4-lite 퀘스트
+- **무엇:** 허브에서 시설을 클릭해 다음 Tier 요구(Quest+Haul)를 보고 승급하는 UI. 승급 로직은 B0(HubProfile).
+- **패널(`hub_facilities_panel.gd`, UI-029):** 풀스크린 오버레이. 8시설 리스트(이름·Tier·상태색 MAX/승급가능/잠김) → 선택 시 상세(현재/다음 effect·prereq·퀘스트 ✓✗·재료 have/need 색상) + [승급] 버튼(`attempt_upgrade`, 게이트 미충족 시 disabled). Vault 표시. HubProfile.facilities_changed/vault_changed 구독 자동 갱신. 허브 `main.gd`에 "허브 시설(승급)" 버튼.
+- **B4-lite 퀘스트(`HubProfile.evaluate_quests`):** 충족 가능 stub(vault 수량·시설 Tier 기반) 자동완료 — Q-HUB-002/011/012/013/021/030/031/051. **런 이벤트형(010 GIMMICK·020 ENC clear·040 wipe·050 NPC·003 map success)은 B4 full**(런 훅)에서. 그 시설은 "quest"로 잠김 표시.
+- **데모 편의(dev):** 패널에 "재료 지급(테스트)" 버튼(각 haul +5) — 런 없이 승급 UI 검증용. 실전 경로(던전 회수→vault)는 그대로.
+- **검증:** 부팅·ci_smoke PASS + 흐름(재료→Q-002 자동완료→stash T1 cap28 / scribe_shop prereq 차단 / smithy ok).
+- **영향:** `scripts/ui/hub_facilities_panel.gd`(신)·`hub_profile.gd`(evaluate_quests)·`main.gd`(패널·버튼). 다음 B4 full(런 이벤트 퀘스트)·B5(시설 효과 게이트 — armory/quartermaster 실연동)·B7(haul ENC 드롭표).
+
 ### IMPL-DEC-20260621-003 — 인벤토리 버리기(Shift+우클릭): 런=바닥 드롭 / 스태시=영구 제거
 - **무엇(사용자 갭):** 런 인벤·스태시에서 아이템 제거 수단이 없었음(B1 haul로 백팩 포화 시 정리 불가). 추가.
 - **제스처:** `Shift+우클릭` **또는 인벤 창 밖으로 드래그** = 버리기. 둘 다 `_request_discard`로 모임 → **확인창(ConfirmationDialog)** → 확인 시에만 `_do_discard`. (드래그-아웃은 `_drop()` no-target에서 창 밖이면 일단 revert 후 deferred 확인 요청 — 취소 시 원위치.) 창 안 빈칸 드롭은 그냥 revert.

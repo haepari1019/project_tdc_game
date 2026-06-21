@@ -10,6 +10,7 @@ const InventoryUI := preload("res://scripts/ui/inventory/inventory_ui.gd")
 const StashSource := preload("res://scripts/ui/inventory/stash_source.gd")
 const FormationEditor := preload("res://scripts/ui/inventory/formation_editor.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
+const HubFacilitiesPanel := preload("res://scripts/ui/hub_facilities_panel.gd")  # UI-029 시설 승급
 
 @onready var _status: Label = $Panel/Margin/VBox/Status
 @onready var _loadout: VBoxContainer = $Panel/Margin/VBox/LoadoutStub
@@ -64,6 +65,14 @@ func _setup_hub() -> void:
 	edit.pressed.connect(_open_loadout_editor)
 	$Panel/Margin/VBox.add_child(edit)
 	$Panel/Margin/VBox.move_child(edit, _loadout.get_index())  # stash editor ABOVE the confirm
+	# UI-029 허브 시설 — haul로 시설 승급(F-029). 풀스크린 오버레이로 열림.
+	var facilities_panel := HubFacilitiesPanel.new()
+	add_child(facilities_panel)
+	var facilities_btn := Button.new()
+	facilities_btn.text = "허브 시설 (승급)"
+	facilities_btn.pressed.connect(facilities_panel.open_panel)
+	$Panel/Margin/VBox.add_child(facilities_btn)
+	$Panel/Margin/VBox.move_child(facilities_btn, _loadout.get_index())
 	_build_formation_editor()
 	_build_difficulty_selector()
 
