@@ -23,14 +23,20 @@ func _ready() -> void:
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP   # block clicks to the hub behind
 	add_child(dim)
 
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(center)
 	var win := PanelContainer.new()
-	win.set_anchors_preset(Control.PRESET_CENTER)
-	win.custom_minimum_size = Vector2(760, 520)
-	win.position = Vector2(-380, -260)
-	add_child(win)
+	win.custom_minimum_size = Vector2(780, 540)
+	center.add_child(win)
+	var margin := MarginContainer.new()
+	for s in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(s, 16)
+	win.add_child(margin)
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 8)
-	win.add_child(root)
+	margin.add_child(root)
 
 	var titlebar := HBoxContainer.new()
 	root.add_child(titlebar)
