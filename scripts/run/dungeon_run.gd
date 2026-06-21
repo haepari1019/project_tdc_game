@@ -171,6 +171,7 @@ func _ready() -> void:
 	_loot.setup(_inventory_ui)
 	_combat.enemy_defeated.connect(_loot.on_enemy_defeated)
 	_combat.squad_cleared.connect(_loot.on_squad_cleared)  # ENC 클리어 → haul 드롭 (HUB-COR-000)
+	_combat.squad_cleared.connect(_on_squad_cleared_quest)  # ENC 클리어 기록 → 허브 퀘스트 (B4)
 	_inventory_ui.item_dropped.connect(_on_item_dropped)  # Shift+우클릭 버리기 → 바닥에 드롭
 	_run_end = RunEndController.new()  # extraction channel + settlement + party-wipe (F-007)
 	add_child(_run_end)
@@ -267,6 +268,13 @@ func _process(_delta: float) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl:
 		_hud_sub.text = "Ready" if ctrl.sub_cooldown_s <= 0.0 else "%.1fs" % ctrl.sub_cooldown_s
+
+
+## ENC(분대) 클리어 → 허브 프로필에 기록(런 이벤트 퀘스트 판정용, 예: Q-HUB-020 armory).
+func _on_squad_cleared_quest(encounter_id: String, _pos: Vector3) -> void:
+	var hub: Node = get_node_or_null("/root/HubProfile")
+	if hub != null:
+		hub.record_enc_cleared(encounter_id)
 
 
 ## Shift+우클릭 버리기 (백팩) → 컨트롤 멤버 발치에 재획득 가능한 ItemDrop 생성.

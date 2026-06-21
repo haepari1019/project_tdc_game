@@ -2,9 +2,9 @@
 
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`. 실행 로드맵: [docs/ROADMAP_P2_FullCoverage.md](docs/ROADMAP_P2_FullCoverage.md).
 
-- spec_ref_pin: `4422e50` (`staging`, 2026-06-18)
-- last_sprint: P2-S2-fin **Track A 완료** (A1 조합 ENC·A2 phase 증원·A3 assassin·A4 MiniBoss — ENC 12→17/24, navmesh 284). 다음: P2-S2-place(PAT/AMB) 또는 P2-S3(Interaction)
-- last_updated: 2026-06-19
+- spec_ref_pin: `ef9c0c7` (`main`, 2026-06-21; 확률 ENC resolve 전파 DEC-20260620-002)
+- last_sprint: **P2-S4 Hub (F-029) 완료** (B0 데이터·HubProfile·B1 vault 파이프·B2/B3 UI-029 승급·B6 디스크 영속·B7 ENC haul 드롭표·B8 QA-029 스모크; 효과 실연동 일부 이연=F-009/F-020/GEAR-COR-000). 이전: P2-S3 Interaction ✅ · P2-S2-place(PAT/AMB)+확률 resolve ✅. 다음: P2-S6a(파티 풀) 또는 P2-S5(3세력+Variety)
+- last_updated: 2026-06-21
 
 ## Full Spec Coverage — AB-### 스냅샷 (2026-06-19)
 

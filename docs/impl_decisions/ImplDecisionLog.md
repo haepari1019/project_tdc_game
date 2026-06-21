@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260621-007 — P2-S4 Hub 마무리: B4 ENC-clear 퀘스트 + B8 QA-029 스모크 + 문서
+- **B4(런 이벤트 퀘스트, tractable 부분):** `HubProfile.enc_cleared`{} + `record_enc_cleared` — `combat.squad_cleared`(B7 신호)를 dungeon_run이 받아 기록. `evaluate_quests`에 `Q-HUB-020`(armory T1 = ENC-HARD-001 클리어) 추가 → 실제 플레이로 무기고 퀘스트 충족. enc_cleared도 영속(save/load).
+- **B8(QA-029 스모크):** `tools/hub_smoke.gd` — T-HUB-003(부족 거부)·T-HUB-004(퀘+재료→승급·차감·Tier·capacity)·prereq·B4 Q-HUB-020·haul 드롭표 assert. **`HubProfile.persist` 플래그**로 fresh 인스턴스(persist=false)에서 검증 → user:// 실 save 미오염. `ci_smoke.sh`에 편입(`--script` exit + "HUB SMOKE PASSED").
+- **이연(의존성, S4 아님):** B5 효과 실연동(armory B/C=GEAR-COR-000·분석/상점=F-009·passive=F-020·capacity friction) · B4 잔여(Q-HUB-003 맵1개·010 GIMMICK·040 recovery D6·050 NPC 미존재). 승급 메커니즘 동작, 효과/잔여는 해당 피처 소관.
+- **스펙:** F-029/D-029/HUB-COR-000 구현 + draft 데모 데이터 확장. 규칙 변경 없음 → **전파 불필요**(핀 ef9c0c7 유지).
+- **문서:** ROADMAP(P2-S4 ✅·Hub 커버리지·다음=S6a)·IMPL_COVERAGE(핀 ef9c0c7·last_sprint S4).
+- **검증:** ci_smoke(main+dungeon+hub QA-029) PASS.
+- **영향:** `hub_profile.gd`·`dungeon_run.gd`·`tools/hub_smoke.gd`(신)·`tools/ci_smoke.sh`·`ROADMAP`·`IMPL_COVERAGE`. **P2-S4 종료.**
+
 ### IMPL-DEC-20260621-006 — P2-S4 Hub B7: ENC별 haul 드롭표 (HUB-COR-000) + 분대 클리어 롤
 - **무엇:** haulMaterial 드롭을 per-kill 임시 → **ENC(분대) 클리어 시 HUB-COR-000 §3 표로 롤**(스펙 정합). 클리어 지점에 재획득 가능 At-Risk ItemDrop.
 - **데이터(`haul_drops.json`):** ENC별 [{haul,qty,chance}]. **ENC-NORM-001/002·HARD-001 = 스펙 정확값.** 그 외(NORM-003·PAT/AMB·HARD-00x·MID·DEEP·BOSS) = 데모 haul 커버리지용 **게임 확장**(레이어 적정 — HUB-COR-000 draft+Phase1b, spawn_table 확장과 동일 관례). 9 재료 모두 소스 보유. Slice01Data 로드+검증(ENC·haul id)+`get_haul_drops`.

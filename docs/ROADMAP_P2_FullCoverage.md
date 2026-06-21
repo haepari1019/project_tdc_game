@@ -3,7 +3,7 @@
 > **무엇:** 스펙 `ImplementationPhase_FullSpecCoverage.md`(목표 = 스펙에 정의된 ID 전부 구현)의 **게임 측 실행 로드맵**. 스펙은 P2-S3~S7을 "Planned/TBD"로만 둠 → 본 문서가 게임측 작업 정본. SSOT 아님(규칙은 각 F-###/콘텐츠).
 > **핀:** spec `ef9c0c7` (main). **갱신:** 스프린트 종료마다. 상세 근거: 4-에이전트 스코핑(2026-06-19).
 >
-> **진행(2026-06-21):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place(PAT/AMB) ✅ · **확률적 ENC resolve(가중+런시드)·스폰 위치 산포 ✅ 전파+재핀**(DEC-20260620-002) · **Encounter Variety 목표 아키텍처 확정**(빌드는 P2-S5에 편입 — [docs/design/encounter_variety_architecture.md](design/encounter_variety_architecture.md)). **현재 위치 → 다음 = P2-S4 (Hub).**
+> **진행(2026-06-21):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place(PAT/AMB)+확률 resolve ✅(DEC-20260620-002) · **P2-S4 Hub ✅** (데이터·HubProfile·vault 파이프·UI-029 승급·디스크 영속·ENC haul 드롭표·QA-029 스모크. 효과 실연동 일부 이연 — 아래). · **Encounter Variety 아키텍처 확정**(빌드 P2-S5). **현재 위치 → 다음 = P2-S6a(파티 풀) 또는 P2-S5(3세력+Variety).**
 
 ---
 
@@ -17,7 +17,7 @@
 | **ENC-### (인카운터)** | **22/24** | NORM 3/3 · HARD 11/12(007=Extreme deferred) · MID/DEEP 1/1 · BOSS 1/1 · **PAT 3/3 ✅ · AMB 2/2 ✅** · 3RD 0/1(S5) |
 | **배치/resolve (F-006/LDG-SPAWN)** | ✅ 확률화 | placement Patrol/AmbushHold·dual-anchor 순차·torch lead · **가중 다중후보+runSeed resolve · 스폰 위치 산포**(DEC-20260620-002). 조합 제너레이터·창발 모디파이어 = S5 |
 | **ZONE/반응 (F-021/F-027)** | ✅ keystone | 9매체 zone·event bus·resolver·Hit-RX 4축(Fire/Cold/Lightning/Physical)·연쇄 per-RX VFX · zone AB 7종 enemy+lootable. S3e spread만 보류 |
-| **Hub (F-029)** | 배치화면만 | 8시설·퀘스트/haul 게이트·vault·UI-029 미구현 |
+| **Hub (F-029)** | ✅ 시설 progression | 8시설 Tier·Quest/Haul 게이트·vault 파이프·UI-029 승급·디스크 영속·ENC haul 드롭표(HUB-COR-000)·QA-029 스모크. **효과 실연동 이연**: armory B/C(GEAR-COR-000)·분석/상점(F-009)·passive(F-020)·capacity 강제 — 해당 피처 구현 시 |
 | **3세력 (F-028)** | 0 | event 시스템 의존 |
 
 ---
@@ -45,8 +45,8 @@
 | **P2-S2-fin** ✅ | combat-pool 잔여 ENC (조합·증원·assassin·boss) | 없음 | S–M | ★ ENC별 독립 |
 | **P2-S3** ✅ | 원소 ZONE/반응 (keystone) | — | L | 내부 부분 |
 | **P2-S2-place** ✅ | patrol/ambush placement + 확률 resolve | placement plumbing | M | S3와 독립 병렬 |
-| **▶ P2-S4** | Hub/Meta (F-029) — **다음** | — (economy 게이트) | M–L | 시설별 부분 |
-| **P2-S6a** | 파티 능력 effect-kind + sub 풀 | B1 기반 | L | effect-kind∥, 데미지 sub 대량∥ |
+| **P2-S4** ✅ | Hub/Meta (F-029) — 효과 일부 이연 | — (economy 게이트) | M–L | 시설별 부분 |
+| **▶ P2-S6a** | 파티 능력 effect-kind + sub 풀 — **다음** | B1 기반 | L | effect-kind∥, 데미지 sub 대량∥ |
 | **P2-S5** | 3세력 (F-028) **+ Encounter Variety 엔진**(조합 제너레이터·창발 모디파이어) | S3 event · EN-* 태그 | M–L | 단독 |
 | **P2-S6b** | economy/UI + gear roll-table | hub | M–L | UI∥데이터 |
 | **P2-S7** | 통합 회귀/QA | 전부 | M | 케이스별∥ |
@@ -75,8 +75,11 @@
 - **확장 운영(지금~)**: ① 기존 ENC에 placement 변형 후보 추가 ② **기존 EN-* 재조합으로 새 ENC**(mechanicAxes≤2) ③ 풀 후보 폭 절제 확대 — 모두 데이터만. EN-* 다듬을 때 **태그 동반**(S5 제너레이터 연료). 상세 = [design/encounter_variety_architecture.md](design/encounter_variety_architecture.md).
 - **이연→S5**: 런 내 비복원 · 조합 제너레이터 · 창발 모디파이어.
 
-### P2-S4 — Hub/Meta (F-029, M–L)
-- 8시설 티어(barracks/stash/scriptorium/scribe_shop/armory/quartermaster/smithy/chapel) + Quest/Haul 게이트 + `hubHaulVault`(Safe) + haul drop→extract→vault 파이프 + D-029 schema + UI-029 맵.
+### P2-S4 — Hub/Meta (F-029) ✅ (완료 2026-06-21, IMPL-DEC-20260621-001~006)
+- ✅ **B0** 데이터(facilities_tiers·quests·haul_materials)+HubProfile(승급 게이트 D-029 §5). **B1** haul vault 파이프(At-Risk→탈출→vault, run_end). **B2/B3** UI-029 시설 패널(승급·재료 ± 인라인). **B6** 디스크 영속(HubProfile·Stash, user://). **B7** ENC haul 드롭표(HUB-COR-000, 분대 클리어 롤). **B8** QA-029 스모크(ci_smoke 편입).
+- ✅ **B4-lite/부분**: 충족가능 퀘스트 자동완료(vault·시설Tier) + Q-HUB-020(ENC-HARD-001 클리어, squad_cleared 훅).
+- **이연(의존성)**: B5 효과 실연동 — armory B/C(GEAR-COR-000 미존재)·분석/상점(F-009)·passive(F-020)·capacity 강제(friction+백팩40 vs 12~16 불일치). B4 잔여 — Q-HUB-003(데모 맵 1개)·010(GIMMICK)·040(recovery D6)·050(NPC) 시스템 미존재. 승급 *메커니즘*은 동작, *효과/잔여 퀘스트*는 해당 피처 스프린트 소관.
+- **스펙**: F-029/D-029/HUB-COR-000 구현 + draft 데모 데이터 확장(haul_drops). 규칙 변경 없음 → **전파 불필요**.
 
 ### P2-S6a — 파티 능력 풀 (L)
 - **B1** 신규 effect kind ~11: buff/DR-aura · ally-shield · HoT · silence · vulnerable/mark-debuff · self-dash/blink · ally-relocate · enemy knockback/pull · channel-beam · cleanse/strip · **+status-read finisher 게이트**(Stunned/Asleep/Vulnerable 소비 보너스).

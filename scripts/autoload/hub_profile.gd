@@ -13,6 +13,8 @@ signal vault_changed()
 var facilities: Dictionary = {}        # facilityId -> facilityTier (int, ≥0)
 var hub_haul_vault: Dictionary = {}    # haulMaterialId -> qty (Safe only)
 var quest_completed: Dictionary = {}   # questId -> bool
+var enc_cleared: Dictionary = {}       # encounterId -> true (런 이벤트 퀘스트 판정용, B4)
+var persist: bool = true               # false면 디스크 저장/로드 skip (테스트 인스턴스용 — 실 save 미오염)
 var _q_dirty: bool = false
 
 
@@ -25,6 +27,8 @@ func _ready() -> void:
 
 ## Persist meta progress (B6) — 변경마다 호출(승급·vault·퀘스트 완료). user:// JSON.
 func save_profile() -> void:
+	if not persist:
+		return
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
 		return
@@ -32,12 +36,13 @@ func save_profile() -> void:
 		"facilities": facilities,
 		"hub_haul_vault": hub_haul_vault,
 		"quest_completed": quest_completed,
+		"enc_cleared": enc_cleared,
 	}))
 	f.close()
 
 
 func load_profile() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
+	if not persist or not FileAccess.file_exists(SAVE_PATH):
 		return
 	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if f == null:
@@ -49,6 +54,15 @@ func load_profile() -> void:
 	facilities = d.get("facilities", {})
 	hub_haul_vault = d.get("hub_haul_vault", {})
 	quest_completed = d.get("quest_completed", {})
+	enc_cleared = d.get("enc_cleared", {})
+
+
+## 런에서 ENC(분대) 클리어 기록 (B4 런 이벤트 퀘스트 판정용). squad_cleared → dungeon_run → 여기.
+func record_enc_cleared(encounter_id: String) -> void:
+	if encounter_id.is_empty() or bool(enc_cleared.get(encounter_id, false)):
+		return
+	enc_cleared[encounter_id] = true
+	save_profile()
 
 
 func facility_tier(id: String) -> int:
@@ -98,6 +112,7 @@ func evaluate_quests() -> void:
 	_q_if("Q-HUB-011", vault_count("haul_arc_ink") >= 2)         # 필기소 T2 — 아크 잉크
 	_q_if("Q-HUB-012", facility_tier("scriptorium") >= 1)        # 상점 개장 — 필기소 선행
 	_q_if("Q-HUB-013", facility_tier("scribe_shop") >= 1)        # 상점 T2
+	_q_if("Q-HUB-020", bool(enc_cleared.get("ENC-HARD-001", false)))  # 무기고 T1 — ENC-HARD-001 클리어(B4)
 	_q_if("Q-HUB-021", facility_tier("armory") >= 1)             # 무기고 T2
 	_q_if("Q-HUB-030", vault_count("haul_forge_coal") >= 3)      # 대장간 건립 — 연료
 	_q_if("Q-HUB-031", facility_tier("smithy") >= 1)             # 대장간 T2

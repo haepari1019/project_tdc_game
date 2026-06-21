@@ -32,5 +32,15 @@ check_scene() {
 check_scene "res://scenes/main.tscn"           8  "Hub ready"
 check_scene "res://scenes/run/dungeon_run.tscn" 16 ""
 
+# Hub logic (QA-029): facility upgrade gate + vault + haul drops + run-event quest. Asserts via a
+# non-persisting HubProfile instance (does NOT touch user:// saves).
+echo "== hub logic smoke (QA-029) =="
+hublog="/tmp/ci_hub_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/hub_smoke.gd >"$hublog" 2>&1
+hcode=$?
+if [ "$hcode" -ne 0 ] || ! grep -qF "HUB SMOKE PASSED" "$hublog"; then
+  echo "  FAIL: hub smoke (exit=$hcode) —"; grep -nE "FAIL|$ERRPAT" "$hublog" | head -8; fail=1
+else echo "  PASS"; fi
+
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi
