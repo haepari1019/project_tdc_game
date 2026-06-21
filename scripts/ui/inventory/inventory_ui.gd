@@ -434,7 +434,7 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 		accept_event()
 	elif mb.button_index == MOUSE_BUTTON_RIGHT:
 		if mb.shift_pressed:
-			_discard_item(grid, item)  # Shift+우클릭 = 버리기 (백팩→드롭 / 스태시→소유 제거)
+			_request_discard(grid, item)  # Shift+우클릭 = 버리기(확인창) — 백팩→드롭 / 스태시→소유 제거
 			accept_event()
 			return
 		if grid == _loot:
@@ -448,9 +448,33 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 		accept_event()
 
 
-## Shift+우클릭 버리기. 백팩(런 인벤) → 바닥에 드롭(재획득 가능, 호스트가 ItemDrop 생성). 스태시(허브
-## 소유) → 영구 제거(호스트가 Stash 갱신). 월드 상자 아이템은 버리기 없음(남의 것 — stow만).
-func _discard_item(grid: InventoryGrid, item: Dictionary) -> void:
+## 버리기 요청 — 확인창을 띄우고, 확인 시에만 _do_discard. 버릴 수 있는 건 백팩(런)·스태시(허브)뿐
+## (월드 상자 아이템은 stow만). Shift+우클릭과 인벤 밖 드래그가 공통으로 여기로 들어온다.
+func _request_discard(grid: InventoryGrid, item: Dictionary) -> void:
+	if grid == null or item.is_empty():
+		return
+	if not (grid == _backpack or (grid == _loot and _loot_is_stash)):
+		return
+	var to_world: bool = grid == _backpack
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "버리기"
+	dlg.dialog_text = "'%s' 을(를) 버릴까요?\n%s" % [
+		String(item.get("id", "아이템")),
+		"바닥에 떨어집니다 (재획득 가능)" if to_world else "스태시에서 영구 제거됩니다",
+	]
+	dlg.ok_button_text = "버리기"
+	dlg.cancel_button_text = "취소"
+	add_child(dlg)
+	dlg.confirmed.connect(func() -> void: _do_discard(grid, item))
+	dlg.confirmed.connect(dlg.queue_free)
+	dlg.canceled.connect(dlg.queue_free)
+	dlg.close_requested.connect(dlg.queue_free)
+	dlg.popup_centered()
+
+
+## Execute the discard (after confirm). 백팩 → 바닥에 드롭(재획득 가능, 호스트가 ItemDrop 생성).
+## 스태시(허브 소유) → 영구 제거(호스트가 Stash 갱신).
+func _do_discard(grid: InventoryGrid, item: Dictionary) -> void:
 	if grid == _backpack:
 		var def := _drop_def(item)
 		grid.lift(item)
@@ -661,7 +685,14 @@ func _drop() -> void:
 				target.place(_drag, c.x, c.y)
 				placed = true
 		if not placed:  # leftover / no target → revert to source (or merge the split back)
+			# 인벤 창 밖으로 드래그 = 버리기(확인창). 일단 원위치로 되돌린 뒤(드래그 정리 안전) 확인 요청 —
+			# 확인하면 _do_discard, 취소면 그대로 둠. 창 안의 빈칸 드롭은 그냥 revert.
+			var out_of_window: bool = _window != null and not _window.get_global_rect().has_point(mouse)
+			var src_grid: InventoryGrid = _from
+			var dragged: Dictionary = _drag
 			_revert_drag()
+			if out_of_window and (src_grid == _backpack or (src_grid == _loot and _loot_is_stash)):
+				call_deferred("_request_discard", src_grid, dragged)
 	for g: InventoryGrid in _grids:
 		g.clear_preview()
 	if _equip != null:

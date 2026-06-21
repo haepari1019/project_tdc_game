@@ -8,7 +8,7 @@
 
 ### IMPL-DEC-20260621-003 — 인벤토리 버리기(Shift+우클릭): 런=바닥 드롭 / 스태시=영구 제거
 - **무엇(사용자 갭):** 런 인벤·스태시에서 아이템 제거 수단이 없었음(B1 haul로 백팩 포화 시 정리 불가). 추가.
-- **제스처:** `Shift+우클릭` = 버리기. 기존 우클릭 라우팅(`_on_item_pressed`)에 분기 추가(저수술, Shift라 오발 방지).
+- **제스처:** `Shift+우클릭` **또는 인벤 창 밖으로 드래그** = 버리기. 둘 다 `_request_discard`로 모임 → **확인창(ConfirmationDialog)** → 확인 시에만 `_do_discard`. (드래그-아웃은 `_drop()` no-target에서 창 밖이면 일단 revert 후 deferred 확인 요청 — 취소 시 원위치.) 창 안 빈칸 드롭은 그냥 revert.
 - **런 백팩:** 삭제가 아니라 **바닥에 재획득 가능 드롭**(사용자 지정). `inventory_ui.item_dropped` → `dungeon_run._on_item_dropped` → `loot_service.drop_item`(ItemDrop 발치 생성, 픽업 라우팅으로 복원). gear/skillbook/haul/generic 모두 재획득 OK.
 - **허브 스태시:** 월드 없음 → **소유 영구 제거**. `inventory_ui.stash_item_discarded` → `main._on_stash_item_discarded` → `Stash.remove_gear/remove_skillbook`(신설)·consumable=take. 그리드는 lift, Stash 갱신 → 재진입 반영.
 - **소스 구분:** `stash_source.is_stash_source()` 플래그로 스태시 loot vs 월드 상자 구분(상자 아이템은 버리기 없음, stow만).
