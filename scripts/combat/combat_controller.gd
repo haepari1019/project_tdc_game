@@ -575,6 +575,9 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, plac
 			unit.global_position = _anchor_center(center, aid, anchor_count) + _spawn_offset(index)
 			unit.squad_id = squad_id
 			unit.faction = String(u.get("faction", faction))   # F-028 — ENC faction; 유닛별 override 가능(혼합 진영)
+			# F-028 비주얼 마커: 비-Dungeon 진영은 콘(원뿔)+violet 틴트로 박스 적과 구분.
+			if unit.faction != "Dungeon" and unit.has_method("apply_faction_shape"):
+				unit.apply_faction_shape()
 			# AssassinTransform: per-ENCOUNTER tag (not a unit-catalog property) — one fodder
 			# row flagged disguised; same enemy_id rows without the flag stay normal.
 			if bool(u.get("assassin", false)):

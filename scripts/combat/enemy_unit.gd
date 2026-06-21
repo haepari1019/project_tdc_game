@@ -134,6 +134,7 @@ var _body_material: StandardMaterial3D
 var _base_albedo: Color = Color.WHITE
 var _hp_bar: Node3D
 var _flash_tw: Tween
+var _box_size: Vector3 = BOX_BASE   # cached so apply_faction_shape() can swap box→cone post-spawn
 
 
 func setup(row: Dictionary, color: Color, box_scale: float) -> void:
@@ -164,6 +165,7 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 	name = enemy_id
 	_base_albedo = color
 	var box_size := BOX_BASE * box_scale
+	_box_size = box_size
 	_apply_collision_size(box_size)
 	_build_box_mesh(color, box_size)
 	_build_hp_bar(box_size)
@@ -615,6 +617,30 @@ func _build_box_mesh(color: Color, box_size: Vector3) -> void:
 	_body_material.albedo_color = color
 	_body_material.roughness = 0.5
 	mesh_node.material_override = _body_material
+
+
+## Faction visual marker (F-028): a non-Dungeon faction renders as a CONE (vs the default box) + a
+## violet tint, so a Third-faction pack reads as visibly different from dungeon monsters at a glance.
+## Called by the spawner AFTER `faction` is set (mesh is built box-first in setup). ref: DEC-20260621-001.
+func apply_faction_shape() -> void:
+	var mesh_node := get_node_or_null("Mesh") as MeshInstance3D
+	if mesh_node == null:
+		return
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = maxf(_box_size.x, _box_size.z) * 0.62
+	cone.height = _box_size.y
+	cone.radial_segments = 14
+	mesh_node.mesh = cone
+	mesh_node.position.y = _box_size.y * 0.5
+	# Tint toward a Third-faction violet (keeps the per-unit hue but pushes the whole pack violet),
+	# update _base_albedo so the hit-flash / heal-flash tweens restore to the tinted colour.
+	_base_albedo = _base_albedo.lerp(Color(0.62, 0.22, 0.92), 0.4)
+	if _body_material:
+		_body_material.albedo_color = _base_albedo
+		_body_material.emission_enabled = true
+		_body_material.emission = Color(0.45, 0.12, 0.75)
+		_body_material.emission_energy_multiplier = 0.5
 
 
 ## Body (mesh) color — for the enemy info panel portrait (and an enemy marker for clicks).

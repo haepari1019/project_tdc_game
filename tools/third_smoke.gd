@@ -47,6 +47,17 @@ func _initialize() -> void:
 	_chk("ENC-3RD-001 faction=Third", String(enc.get("faction", "")) == "Third")
 	_chk("ENC-3RD-001 has 3 units", (enc.get("units", []) as Array).size() == 3)
 
+	# 3) Cone visual marker — spawn an EN-3RD unit, apply the faction shape, verify box→cone swap.
+	var u: CharacterBody3D = load("res://scenes/combat/enemy_unit.tscn").instantiate()
+	root.add_child(u)
+	u.setup(sd.get_enemy_row("EN-3RD-01"), Color(0.8, 0.4, 0.9), 1.0)
+	u.faction = "Third"
+	u.apply_faction_shape()
+	var mn := u.get_node_or_null("Mesh") as MeshInstance3D
+	var m: Mesh = mn.mesh if mn else null
+	_chk("EN-3RD mesh = cone (CylinderMesh top_radius 0)", m is CylinderMesh and is_equal_approx((m as CylinderMesh).top_radius, 0.0))
+	u.queue_free()
+
 	print("THIRD SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

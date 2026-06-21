@@ -59,9 +59,9 @@ const ORBIT_LOOKAHEAD_M := 3.5
 const FLANK_KEEP_M := 6.0
 const FLANK_KITE_SPEED_MULT := 1.7
 const FLANK_KITE_TRIGGER_M := 4.0  # burst away only when a party actor is THIS close (< FLANK_KEEP
-                                   # so it can settle on its standoff without self-kiting)
+								   # so it can settle on its standoff without self-kiting)
 const FLANK_STRIKE_COS := 0.6      # backstab only when within ~53° of the flank axis (perpendicular
-                                   # to the Tank→rearmost spine) — never head-on
+								   # to the Tank→rearmost spine) — never head-on
 const FLANK_PARTY_SCAN_M := 40.0   # radius to gather the party when computing the flank axis
 const FLANK_STAGGER_M := 2.0       # along-spine spread between same-side flankers
 const PROBE_BACKSTEP_S := 0.6      # probe: retreat window after each strike (EN-006 맞고 빠지기)
