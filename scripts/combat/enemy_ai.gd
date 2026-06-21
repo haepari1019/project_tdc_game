@@ -795,8 +795,8 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 	var eff: Dictionary = enemy.windup_eff
 	var chosen: Dictionary = enemy.windup_chosen
-	var target: CharacterBody3D = enemy.windup_target
-	enemy.winding = false
+	var target = enemy.windup_target  # untyped: may be a freed instance (target died mid-windup in
+	enemy.winding = false             # faction war) — a typed assign would throw; is_instance_valid below guards.
 	enemy.windup_target = null
 	# Zone/ally signatures are target-less — resolve before the party-target validation/LOS gate.
 	if String(eff.get("kind", "")) == "enemy_heal":
@@ -848,7 +848,9 @@ func _deliver_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Di
 
 
 ## Homing projectile reached its target → apply the locked hit (if both still valid + target alive).
-func _on_shot_arrived(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+func _on_shot_arrived(enemy, target, eff: Dictionary, chosen: Dictionary) -> void:
+	# enemy/target untyped — bound at shot launch; either may be a freed instance by arrival (faction
+	# war: shooter or prey died during flight). Typed params would throw on the freed bind; guard here.
 	if is_instance_valid(enemy) and is_instance_valid(target) and target.is_alive():
 		_apply_enemy_hit(enemy, target, eff, chosen)
 
@@ -1219,14 +1221,14 @@ func _begin_dash(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary, ta
 func _resolve_dash_hit(enemy: CharacterBody3D) -> void:
 	var eff: Dictionary = enemy.dash_eff
 	var chosen: Dictionary = enemy.dash_chosen
-	var target: CharacterBody3D = enemy.dash_target
+	var target = enemy.dash_target  # untyped: may be freed (target died mid-dash) — guarded below
 	enemy.dash_target = null
 	if not bool(eff.get("hit_on_arrival", false)):
 		SkillVfx.dash_land(self, enemy.global_position, _dash_color(eff))  # teal "repositioned" ring
 		return  # AB-006 gap-close — no damage; normal flurry/orbit resumes
 	if not is_instance_valid(target) or not target.is_alive():
 		return
-	var to := target.global_position - enemy.global_position
+	var to: Vector3 = target.global_position - enemy.global_position  # target now untyped → infer fails; type it
 	to.y = 0.0
 	if to.length() <= enemy.attack_range_m + 1.5:
 		_apply_enemy_hit(enemy, target, eff, chosen)
