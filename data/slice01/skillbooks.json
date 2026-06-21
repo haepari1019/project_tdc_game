@@ -68,6 +68,37 @@
       "base_ability_id": "AB-041", "display_name": "Glacial Bolt", "equip_classes": ["DPS", "Nuker"],
       "range_band": "Long", "charges_max": 8,
       "cast": { "kind": "skillbook_cold", "cooldown_s": 5.5, "targeted": true, "range_m": 12, "radius_m": 2.0, "damage_mult": 1.2, "chill_dur_s": 3.0 }
+    },
+
+    {
+      "base_ability_id": "AB-100", "display_name": "Pounce", "equip_classes": ["Nuker"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_pin", "cooldown_s": 6, "targeted": true, "range_m": 12, "radius_m": 1.8, "damage_mult": 1.2, "pin_s": 0.6 }
+    },
+    {
+      "base_ability_id": "AB-101", "display_name": "Scent of Blood", "equip_classes": ["Healer"],
+      "range_band": "Long", "charges_max": 5,
+      "cast": { "kind": "skillbook_scent", "cooldown_s": 10, "targeted": true, "range_m": 14, "radius_m": 3.0, "scent_s": 6.0 }
+    },
+    {
+      "base_ability_id": "AB-102", "display_name": "Snare Net", "equip_classes": ["Tank"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_root", "cooldown_s": 9, "targeted": true, "range_m": 11, "radius_m": 2.5, "root_s": 2.0, "damage_mult": 0.2 }
+    },
+    {
+      "base_ability_id": "AB-103", "display_name": "Tether", "equip_classes": ["Nuker"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_tether", "cooldown_s": 8, "targeted": true, "range_m": 12, "radius_m": 2.0, "tether_s": 4.0, "damage_mult": 0.4 }
+    },
+    {
+      "base_ability_id": "AB-104", "display_name": "Rampage", "equip_classes": ["Tank"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_charge", "cooldown_s": 7, "targeted": true, "range_m": 8, "cone_deg": 40, "damage_mult": 1.1, "knockback_m": 0.9 }
+    },
+    {
+      "base_ability_id": "AB-106", "display_name": "Devour", "equip_classes": ["Nuker"],
+      "range_band": "Melee", "charges_max": 6,
+      "cast": { "kind": "skillbook_execute", "cooldown_s": 8, "targeted": true, "range_m": 10, "radius_m": 2.0, "damage_mult": 1.0, "execute_under": 0.3, "execute_mult": 2.0, "on_kill_heal_pct": 0.2 }
     }
   ]
 }

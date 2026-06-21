@@ -58,6 +58,16 @@ func _initialize() -> void:
 	_chk("EN-3RD mesh = cone (CylinderMesh top_radius 0)", m is CylinderMesh and is_equal_approx((m as CylinderMesh).top_radius, 0.0))
 	u.queue_free()
 
+	# 4) P2-S6a party lootables — the 6 Third-faction skillbook masters resolve with the right kind.
+	var sb_kind := {
+		"AB-100": "skillbook_pin", "AB-101": "skillbook_scent", "AB-102": "skillbook_root",
+		"AB-103": "skillbook_tether", "AB-104": "skillbook_charge", "AB-106": "skillbook_execute",
+	}
+	for ab in sb_kind:
+		var sbm: Dictionary = sd.get_skillbook_master(ab)
+		var k := String(sbm.get("cast", {}).get("kind", "")) if not sbm.is_empty() else ""
+		_chk("%s skillbook kind=%s" % [ab, sb_kind[ab]], k == sb_kind[ab])
+
 	print("THIRD SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

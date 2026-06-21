@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260622-011 — P2-S6a Phase 1: 제3세력 lootable 아군 효과 6종 (loot 루프 완성)
+- **결정:** S6a(파티 능력 풀, L)를 가치 순 단계화 — **Phase 1 = 3세력 lootable의 아군 sb_* 효과**부터(루팅 루프 완성 + B1 effect kind 다수 납품). Phase 2=B1 잔여(heal/shield/HoT/silence/cleanse/relocate/pull/beam), Phase 3=B2 데미지 sub ~24.
+- **구현(6종 drop-in effect):** `sb_root`(AB-102 Snare→Rooted)·`sb_pin`(AB-100 Pounce→타격+Pinned)·`sb_tether`(AB-103→Tethered)·`sb_charge`(AB-104 Rampage→cone 라인+KB)·`sb_execute`(AB-106 Devour→저HP×2+처치 시 시전자 회복)·`sb_scent`(AB-101→Scented). `ability_dispatch._SKILL_SCRIPTS`에 6 preload + `skillbooks.json` 6 마스터(equip_classes=스펙 mainClasses). 적용은 `enemy.apply_outcome` + 기존 ctx(deal_damage/cone/sub_shake) 재사용 — 신규 시스템 0.
+- **의도적 근사/결정:** ① 파티 Pounce/Rampage는 *플레이어 대시 없이* 조준 타격(파티 이동은 컨트롤러 소관) — 핵심(Pin·라인뎀+KB)만. ② `sb_scent`는 Scented 마크만(리빌/추적) — 솔로 파티 효용 modest, "파티 포커스" 풀 페이오프는 튜닝 이연. ③ `sb_execute` 자가회복은 `m.has_method("heal")` 가드(파티 heal 경로 미확인 시 데미지만).
+- **이연:** `sb_bloodlust`(AB-105 Tank 자가 rage) — 파티 평타 공속/뎀 훅(combat_controller `_tick_party_attacks` + party_member 상태)이 필요해 별도. + B1 잔여·B2.
+- **검증:** ci_smoke(부팅·dispatch kind 등록·Slice01Data 마스터 검증) + third_smoke(6 마스터 kind 정합) PASS. 동작 체감은 플레이테스트.
+- **영향:** `scripts/combat/abilities/effects/sb_{root,pin,tether,charge,execute,scent}.gd`(신규) · `ability_dispatch.gd` · `data/slice01/skillbooks.json` · `tools/third_smoke.gd`.
+
 ### IMPL-DEC-20260622-010 — P2-S5a-3: 제3세력 전용 적 3종(Stalker Pack) + 전용 능력 7종 구현
 - **결정(사용자):** ENC-3RD-001 placeholder(EN-001/EN-010) → **전용 무리**로 교체. 핵심: 기존 파티 풀(AB-020~099)과 **메커니즘 중복 회피** — execute/vulnerable/cone/slow/blink/haste는 이미 존재하므로 단순 복제 대신 **distinct 변주**로 재설계.
 - **스펙 선행(전파됨, `bc22c38` 재핀):** EN-3RD-01 추적자/02 포획꾼/03 학살자 + AB-100 Pounce·101 Scent·102 Snare Net·103 Tether·104 Rampage·105 Bloodlust·106 Devour + PT-023/024/025 + 신규 status(Rooted·Pinned·Scented·Tethered·Bloodlust) + effect 7토큰. DEC-20260621-001.

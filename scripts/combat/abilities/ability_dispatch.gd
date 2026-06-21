@@ -23,6 +23,13 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_fire.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_zone.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_cold.gd"),
+	# P2-S6a — Third-faction lootables (AB-100~106 party side; DEC-20260621-001).
+	preload("res://scripts/combat/abilities/effects/sb_root.gd"),    # AB-102 Snare Net (Tank)
+	preload("res://scripts/combat/abilities/effects/sb_pin.gd"),     # AB-100 Pounce (Nuker)
+	preload("res://scripts/combat/abilities/effects/sb_tether.gd"),  # AB-103 Tether (Nuker)
+	preload("res://scripts/combat/abilities/effects/sb_charge.gd"),  # AB-104 Rampage (Tank)
+	preload("res://scripts/combat/abilities/effects/sb_execute.gd"), # AB-106 Devour (Nuker)
+	preload("res://scripts/combat/abilities/effects/sb_scent.gd"),   # AB-101 Scent of Blood (Healer)
 ]
 
 # F-009 §3.2.1 Family Mismatch Penalty — off-main-class (sub) skillbook use. Demo heuristic:
