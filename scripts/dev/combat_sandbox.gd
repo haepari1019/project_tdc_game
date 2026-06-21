@@ -12,6 +12,8 @@ const PartySheet := preload("res://scripts/ui/party_sheet.gd")          # UI-002
 const ControlledSheet := preload("res://scripts/ui/controlled_sheet.gd")  # UI-003 Identity + Q/E/R cooldowns
 const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")  # S3b zone media (test laying)
 const Torch := preload("res://scripts/world/objects/torch.gd")  # ENT-TORCH — PAT-003 EN-010 bearer test
+const AimMarker := preload("res://scripts/ui/aim_marker.gd")              # 지면-타겟 서브 조준(던전 parity)
+const AimController := preload("res://scripts/run/controllers/aim_controller.gd")
 
 # ZONE laying (S3b test): medium → spawn defaults. Fire/ToxicGas damage; movement media outcome-only
 # (dps 0, tick via MOVEMENT_MEDIA); Smoke/Vegetation harmless; Fatal lethal+impassable.
@@ -66,6 +68,8 @@ var _map: Node3D
 var _party: Node3D
 var _combat: Node3D
 var _camera: Node3D
+var _aim: MeshInstance3D       # AimMarker (지면-타겟 서브 조준 디스크)
+var _aim_ctrl: Node            # AimController (조준 모달)
 var _enc_dropdown: OptionButton
 var _unit_dropdown: OptionButton
 var _zone_dropdown: OptionButton
@@ -118,6 +122,12 @@ func _ready() -> void:
 	if _combat.has_signal("camera_shake"):
 		_combat.camera_shake.connect(_camera.add_shake)
 	_party.spawn_at(_map.get_spawn_position("SANDBOX"))
+	# Skillbook ground-target aim (dungeon_run parity) — targeted 서브는 발밑이 아니라 조준 지점에 시전.
+	_aim = AimMarker.new()
+	add_child(_aim)
+	_aim_ctrl = AimController.new()
+	add_child(_aim_ctrl)
+	_aim_ctrl.setup(_aim, _combat)
 	_equip_sandbox_subs()
 	_camera.set_follow_target(_party.get_controlled())
 	_party.controlled_changed.connect(func(_m: Node) -> void: _camera.set_follow_target(_party.get_controlled()))
@@ -515,6 +525,14 @@ func _enc_info_text() -> String:
 
 # --- minimal input (swap + camera) — mirrors dungeon_run's forwarding ---
 func _unhandled_input(event: InputEvent) -> void:
+	# 조준 모달이 켜져 있으면 좌클릭=지면 시전, Esc=취소 (RMB는 카메라 orbit 유지).
+	if _aim_ctrl != null and _aim_ctrl.is_active():
+		if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (event as InputEventMouseButton).pressed:
+			_aim_ctrl.handle_click(event)
+			return
+		if event.is_action_pressed("ui_cancel"):
+			_aim_ctrl.cancel()
+			return
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
 			MOUSE_BUTTON_WHEEL_UP:
@@ -547,4 +565,13 @@ func _cast_sub(slot: int) -> void:
 		return
 	if ctrl.has_method("is_provoked") and ctrl.is_provoked():
 		return
-	_combat.cast_skillbook(ctrl, slot, ctrl.global_position)
+	var inst = ctrl.get_skillbook(slot)
+	if inst == null:
+		return
+	if int(inst.charges) <= 0 or float(inst.cooldown_s) > 0.0:
+		return
+	# Targeted 서브(DPS lunge / Nuker nova 등) → 조준 모달(좌클릭=지면 시전, Esc=취소). 그 외 = 발밑 즉발.
+	if bool(inst.params.get("targeted", false)):
+		_aim_ctrl.start_aim(ctrl, slot, inst)
+	else:
+		_combat.cast_skillbook(ctrl, slot, ctrl.global_position)
