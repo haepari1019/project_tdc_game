@@ -50,6 +50,7 @@
     { "pool_slot": "P-DEEP-01",      "run_phase": "AdvanceExtraction", "world_layer": "Deep",  "difficulty": "Normal", "encounter_ref": "ENC-DEEP-001", "placement": "Fixed",      "weight": 1 },
     { "pool_slot": "P-BOSS-01",      "run_phase": "Objective",         "world_layer": "Mid",   "difficulty": "Hard",   "encounter_ref": "ENC-BOSS-001", "placement": "Fixed",      "weight": 1 },
     { "pool_slot": "P-EXT-ROUTE-01", "run_phase": "AdvanceExtraction", "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-001",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-EXT-ROUTE-01", "run_phase": "AdvanceExtraction", "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-009", "placement": "Fixed",      "weight": 1 }
+    { "pool_slot": "P-EXT-ROUTE-01", "run_phase": "AdvanceExtraction", "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-009", "placement": "Fixed",      "weight": 1 },
+    { "pool_slot": "P-3RD-01",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-3RD-001",  "placement": "Fixed",      "weight": 1 }
   ]
 }

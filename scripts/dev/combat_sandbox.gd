@@ -214,8 +214,12 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	box.add_child(_enc_dropdown)
 	var spawn_enc := Button.new()
 	spawn_enc.text = "Spawn ENC (clears first)"
-	spawn_enc.pressed.connect(_on_spawn_enc)
+	spawn_enc.pressed.connect(_on_spawn_enc.bind(false))
 	box.add_child(spawn_enc)
+	var add_enc := Button.new()
+	add_enc.text = "ENC 추가 (+, 진영전 테스트)"   # clear 없이 추가 — 일반 ENC + ENC-3RD 둘 다 스폰
+	add_enc.pressed.connect(_on_spawn_enc.bind(true))
+	box.add_child(add_enc)
 
 	# --- Single unit (additive) ---
 	box.add_child(_section("SINGLE UNIT (add)"))
@@ -352,7 +356,7 @@ func _section(text: String) -> Label:
 	return l
 
 
-func _on_spawn_enc() -> void:
+func _on_spawn_enc(additive: bool = false) -> void:
 	if _enc_dropdown.selected < 0:
 		return
 	var eid := _enc_dropdown.get_item_text(_enc_dropdown.selected)
@@ -361,11 +365,12 @@ func _on_spawn_enc() -> void:
 	var placement := String(Slice01Data.get_encounter(eid).get("placement_behavior", "Fixed"))
 	var is_placement := placement == "Patrol" or placement == "AmbushHold"
 	var engaged: bool = _engaged_chk.button_pressed and not is_placement
-	_combat.debug_spawn_only(eid, "SANDBOX", engaged)
+	# additive=true → clear 안 함 (일반 ENC + ENC-3RD 둘 다 스폰해 진영전 관찰, F-028).
+	_combat.debug_spawn_only(eid, "SANDBOX", engaged, additive)
 	var hint := "  (engaged)" if engaged else "  (dormant — 북쪽으로 걸어가 트리거)"
 	if is_placement:
 		hint = "  [%s] dormant — 북쪽으로 접근" % placement
-	_status.text = "ENC: %s%s" % [eid, hint]
+	_status.text = "%s%s%s" % ["+ENC: " if additive else "ENC: ", eid, hint]
 
 
 func _on_spawn_unit() -> void:

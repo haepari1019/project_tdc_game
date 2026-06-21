@@ -428,16 +428,18 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 		_spawn_squad(enc_id, target_room)
 
 
-## DEBUG (dev combat sandbox): wipe every squad/enemy, then spawn ONE encounter. engaged=true
-## skips the perception dance (units start in combat). encounter_id "" clears only. dev-only.
-func debug_spawn_only(encounter_id: String, room_ref: String, engaged: bool = false) -> void:
-	for e in _enemies:
-		if is_instance_valid(e):
-			e.queue_free()
-	_enemies.clear()
-	_squads.clear()
-	_room_squad_count.clear()
-	_next_squad_id = 0
+## DEBUG (dev combat sandbox): spawn ONE encounter. engaged=true skips the perception dance.
+## encounter_id "" clears only. `additive`=true keeps existing squads (예: 일반 ENC + ENC-3RD를
+## 같이 스폰해 진영전 테스트 — F-028). dev-only.
+func debug_spawn_only(encounter_id: String, room_ref: String, engaged: bool = false, additive: bool = false) -> void:
+	if not additive:
+		for e in _enemies:
+			if is_instance_valid(e):
+				e.queue_free()
+		_enemies.clear()
+		_squads.clear()
+		_room_squad_count.clear()
+		_next_squad_id = 0
 	if _map and _map.has_method("get_spawn_position"):
 		_spawn_origin = _map.get_spawn_position(room_ref)
 	if encounter_id.is_empty():

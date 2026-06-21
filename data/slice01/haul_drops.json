@@ -22,6 +22,7 @@
     "ENC-HARD-012": [{"haul": "haul_ruin_glass", "qty": 1, "chance": 0.25}],
     "ENC-MID-001": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.35}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.25}],
     "ENC-DEEP-001": [{"haul": "haul_forge_coal", "qty": 1, "chance": 0.4}, {"haul": "haul_deep_core", "qty": 1, "chance": 0.15}, {"haul": "haul_pack_frame", "qty": 1, "chance": 0.2}],
-    "ENC-BOSS-001": [{"haul": "haul_boss_relay", "qty": 1, "chance": 0.6}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.3}]
+    "ENC-BOSS-001": [{"haul": "haul_boss_relay", "qty": 1, "chance": 0.6}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.3}],
+    "ENC-3RD-001": [{"haul": "haul_ward_plate", "qty": 1, "chance": 0.35}, {"haul": "haul_boss_relay", "qty": 1, "chance": 0.15}]
   }
 }

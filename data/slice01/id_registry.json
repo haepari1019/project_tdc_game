@@ -5,7 +5,8 @@
     "ENC-NORM-001", "ENC-NORM-002", "ENC-NORM-003", "ENC-HARD-001", "ENC-HARD-002", "ENC-HARD-003", "ENC-HARD-004", "ENC-HARD-005",
     "ENC-HARD-006", "ENC-HARD-008", "ENC-HARD-009", "ENC-HARD-010", "ENC-HARD-011", "ENC-HARD-012",
     "ENC-MID-001", "ENC-DEEP-001", "ENC-BOSS-001",
-    "ENC-PAT-001", "ENC-PAT-002", "ENC-PAT-003", "ENC-AMB-001", "ENC-AMB-002"
+    "ENC-PAT-001", "ENC-PAT-002", "ENC-PAT-003", "ENC-AMB-001", "ENC-AMB-002",
+    "ENC-3RD-001"
   ],
   "_note_encounter_ids": "ENC-HARD-007 = Extreme 프로필 → deferred(ENC Extreme=Expansion, FullSpecCoverage §7). HARD-005/010 = phase 증원(rear/flank). PAT/AMB/3RD=placement/faction 레인(후속).",
   "enemy_ids": [
@@ -56,7 +57,7 @@
   "pool_slots": [
     "P-ENTRY-01", "P-ADV-01", "P-ADV-02", "P-OBJ-01", "P-EXT-ROUTE-01",
     "P-ADV-03", "P-ADV-04", "P-ADV-05", "P-MID-01", "P-BOSS-01", "P-DEEP-01",
-    "P-ADV-06", "P-ADV-07", "P-ADV-08", "P-ADV-09"
+    "P-ADV-06", "P-ADV-07", "P-ADV-08", "P-ADV-09", "P-3RD-01"
   ],
   "room_refs": [
     "RM-ENTRY-01",
