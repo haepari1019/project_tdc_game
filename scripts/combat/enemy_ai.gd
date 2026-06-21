@@ -635,7 +635,7 @@ func _party_flank_axis(enemy: CharacterBody3D) -> Vector3:
 	var party: Array = _combat._allies_in_radius(enemy.global_position, FLANK_PARTY_SCAN_M)
 	var tank: CharacterBody3D = null
 	for a in party:
-		if is_instance_valid(a) and a.is_alive() and String(a.get("class_id")) == "Tank":
+		if is_instance_valid(a) and a.is_alive() and a.is_in_group("party_member") and String(a.get("class_id")) == "Tank":
 			tank = a
 			break
 	if tank == null:
@@ -1271,7 +1271,9 @@ func _pick_backline_target(nodes: Array) -> CharacterBody3D:
 	for n in _alive_members(nodes):
 		if not is_instance_valid(n):
 			continue
-		var is_tank := String(n.get("class_id")) == "Tank"
+		# class_id only exists on party members; an enemy hostile (faction war) → get() is null and
+		# String(null) THROWS. Short-circuit to party so enemies are just scored by HP. ref: 사용자 버그.
+		var is_tank: bool = n.is_in_group("party_member") and String(n.get("class_id")) == "Tank"
 		var score: float = float(n.hp) + (100000.0 if is_tank else 0.0)  # prefer non-Tank, then low HP
 		if score < best_score:
 			best_score = score
