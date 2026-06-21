@@ -18,10 +18,8 @@ const LOOT_TABLE: Array = [
 const GEAR_LOOT: Array = ["gear_ward_tank_anchor_set", "gear_ward_healer_mend_set"]
 const GEAR_DROP_CHANCE := 0.08          # gear is RARE (per-kill, after the skillbook roll). (tuning)
 const SKILLBOOK_DROP_CHANCE := 0.85     # high so lootable-AB enemies almost always drop. (tuning)
-## haulMaterial (F-029/D-029) — 시설 승급 재화, 던전 At-Risk 드롭. PH 풀·확률 — 정식 ENC 드롭표 =
-## HUB-COR-000 (P2-S4 B7). 흔한 Upper 재료 위주로 둬 vault 파이프가 체감되게 함.
-const HAUL_LOOT: Array = ["haul_ward_splinter", "haul_script_fragment", "haul_arc_ink", "haul_ward_plate", "haul_ruin_glass"]
-const HAUL_DROP_CHANCE := 0.30
+# haulMaterial(F-029/D-029)은 per-kill가 아니라 ENC(분대) 클리어 시 HUB-COR-000 §3 표로 드롭
+# (on_squad_cleared). combat.squad_cleared → 여기 연결.
 
 var _inv: Node
 
@@ -63,9 +61,23 @@ func _roll_loot_def(ability_refs: Array) -> Dictionary:
 		return _make_skillbook_drop_def(String(lootable[randi() % lootable.size()]))
 	if randf() < GEAR_DROP_CHANCE and not GEAR_LOOT.is_empty():
 		return _make_gear_drop_def(String(GEAR_LOOT[randi() % GEAR_LOOT.size()]))
-	if randf() < HAUL_DROP_CHANCE and not HAUL_LOOT.is_empty():
-		return _make_haul_drop_def(String(HAUL_LOOT[randi() % HAUL_LOOT.size()]))
 	return (LOOT_TABLE[randi() % LOOT_TABLE.size()] as Dictionary).duplicate()
+
+
+## ENC(분대) 클리어 → HUB-COR-000 §3 ENC별 haul 드롭표를 각 행 1회 롤 → 클리어 지점에 재획득
+## 가능한 At-Risk ItemDrop 생성. CombatController.squad_cleared 연결.
+func on_squad_cleared(encounter_id: String, world_pos: Vector3) -> void:
+	var i := 0
+	for row in Slice01Data.get_haul_drops(encounter_id):
+		var r: Dictionary = row
+		if randf() >= float(r.get("chance", 0.0)):
+			continue
+		for _q in int(r.get("qty", 1)):
+			var drop := ItemDrop.new()
+			drop.setup(_inv, _make_haul_drop_def(String(r.get("haul", ""))))
+			drop.position = world_pos + Vector3(0.8 * float(i % 3) - 0.8, 0.0, 0.8 * float(i / 3))
+			add_child(drop)
+			i += 1
 
 
 ## Haul drop def (F-029/D-029) — kind "haul" + haul_material_id; picked up → run inventory At-Risk.

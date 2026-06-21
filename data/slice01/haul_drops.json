@@ -1,0 +1,27 @@
+{
+  "_ref": "spec HUB-COR-000 §3 — ENC별 haulMaterial 드롭(draft). ENC-NORM-001/002·HARD-001 = 스펙 정확값. 그 외 = 데모 haul 커버리지용 게임 확장(레이어 적정; HUB-COR-000 draft + Phase 1b 범위, P2-S4 B7). 규칙: ENC(분대) 클리어 시 각 행 1회 독립 롤(F-029 §3.2 At-Risk).",
+  "drops": {
+    "ENC-NORM-001": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.35}, {"haul": "haul_script_fragment", "qty": 1, "chance": 0.15}],
+    "ENC-NORM-002": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.25}],
+    "ENC-NORM-003": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}, {"haul": "haul_script_fragment", "qty": 1, "chance": 0.15}],
+    "ENC-PAT-001": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}],
+    "ENC-PAT-002": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}, {"haul": "haul_script_fragment", "qty": 1, "chance": 0.15}],
+    "ENC-PAT-003": [{"haul": "haul_script_fragment", "qty": 1, "chance": 0.3}],
+    "ENC-AMB-001": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}],
+    "ENC-AMB-002": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}, {"haul": "haul_ruin_glass", "qty": 1, "chance": 0.1}],
+    "ENC-HARD-001": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.4}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.2}],
+    "ENC-HARD-002": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.35}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.2}],
+    "ENC-HARD-003": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.35}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.2}],
+    "ENC-HARD-004": [{"haul": "haul_ward_plate", "qty": 1, "chance": 0.3}, {"haul": "haul_ruin_glass", "qty": 1, "chance": 0.15}],
+    "ENC-HARD-005": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.35}, {"haul": "haul_forge_coal", "qty": 1, "chance": 0.15}],
+    "ENC-HARD-006": [{"haul": "haul_ward_plate", "qty": 1, "chance": 0.3}],
+    "ENC-HARD-008": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.35}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.25}],
+    "ENC-HARD-009": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.35}, {"haul": "haul_pack_frame", "qty": 1, "chance": 0.2}],
+    "ENC-HARD-010": [{"haul": "haul_ward_plate", "qty": 1, "chance": 0.3}],
+    "ENC-HARD-011": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.35}],
+    "ENC-HARD-012": [{"haul": "haul_ruin_glass", "qty": 1, "chance": 0.25}],
+    "ENC-MID-001": [{"haul": "haul_arc_ink", "qty": 1, "chance": 0.35}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.25}],
+    "ENC-DEEP-001": [{"haul": "haul_forge_coal", "qty": 1, "chance": 0.4}, {"haul": "haul_deep_core", "qty": 1, "chance": 0.15}, {"haul": "haul_pack_frame", "qty": 1, "chance": 0.2}],
+    "ENC-BOSS-001": [{"haul": "haul_boss_relay", "qty": 1, "chance": 0.6}, {"haul": "haul_ward_plate", "qty": 1, "chance": 0.3}]
+  }
+}

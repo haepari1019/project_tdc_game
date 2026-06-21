@@ -170,6 +170,7 @@ func _ready() -> void:
 	add_child(_loot)
 	_loot.setup(_inventory_ui)
 	_combat.enemy_defeated.connect(_loot.on_enemy_defeated)
+	_combat.squad_cleared.connect(_loot.on_squad_cleared)  # ENC 클리어 → haul 드롭 (HUB-COR-000)
 	_inventory_ui.item_dropped.connect(_on_item_dropped)  # Shift+우클릭 버리기 → 바닥에 드롭
 	_run_end = RunEndController.new()  # extraction channel + settlement + party-wipe (F-007)
 	add_child(_run_end)

@@ -17,6 +17,8 @@ signal camera_shake(trauma: float, kick_world: Vector3)
 signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool)
 ## An enemy was defeated at world_pos — drives world item drops (loot). ref: F-010 loot.
 signal enemy_defeated(world_pos: Vector3, ability_refs: Array)
+## A squad's last enemy fell — drives ENC-bound haul drops (HUB-COR-000 §3). Fires once per squad.
+signal squad_cleared(encounter_id: String, world_pos: Vector3)
 
 const EnemyScene := preload("res://scenes/combat/enemy_unit.tscn")
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
@@ -446,7 +448,7 @@ func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: b
 	_room_squad_count[room_ref] = lane + 1
 	var center := _squad_spawn_center(room_ref, lane)
 	_spawn_at(units, center, squad_id, engaged)
-	_squads.append({"id": squad_id, "room_ref": room_ref, "reinforce": {}, "pending": false, "activated": false, "timer": 0.0, "warned": false})
+	_squads.append({"id": squad_id, "room_ref": room_ref, "encounter_id": "", "cleared": false, "reinforce": {}, "pending": false, "activated": false, "timer": 0.0, "warned": false})
 
 
 ## Spawn one encounter as a dormant squad, pushed toward the room's FAR side (away
@@ -469,6 +471,8 @@ func _spawn_squad(encounter_id: String, room_ref: String) -> void:
 	_squads.append({
 		"id": squad_id,
 		"room_ref": room_ref,
+		"encounter_id": encounter_id,   # HUB-COR-000: ENC-bound haul on clear
+		"cleared": false,
 		"reinforce": reinf,
 		"pending": not reinf.is_empty(),
 		"activated": false,
@@ -640,3 +644,13 @@ func _on_enemy_died(unit: CharacterBody3D) -> void:
 			if typeof(a) == TYPE_DICTIONARY:
 				refs.append(String(a.get("ref", "")))
 		enemy_defeated.emit(unit.global_position, refs)  # → dungeon_run rolls per-kill loot
+		# Squad fully cleared → ENC-bound haul drop, once (HUB-COR-000 §3).
+		var sq_id := int(unit.squad_id)
+		if _squad_alive_count(sq_id) == 0:
+			for sq in _squads:
+				if int(sq.get("id", -1)) == sq_id and not bool(sq.get("cleared", false)):
+					sq["cleared"] = true
+					var eid := String(sq.get("encounter_id", ""))
+					if not eid.is_empty():
+						squad_cleared.emit(eid, unit.global_position)
+					break

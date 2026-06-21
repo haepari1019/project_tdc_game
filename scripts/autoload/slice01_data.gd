@@ -20,6 +20,7 @@ const PATTERNS_PATH := SLICE01_DIR + "patterns.json"
 const FACILITIES_PATH := SLICE01_DIR + "facilities_tiers.json"   # F-029 hub 시설 Tier 표
 const QUESTS_PATH := SLICE01_DIR + "quests.json"                 # F-029 §3.3 hub 승급 퀘스트
 const HAUL_MATERIALS_PATH := SLICE01_DIR + "haul_materials.json" # D-029 §3 haul 카탈로그
+const HAUL_DROPS_PATH := SLICE01_DIR + "haul_drops.json"        # HUB-COR-000 §3 ENC별 haul 드롭
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -47,6 +48,7 @@ var _patterns: Dictionary = {}
 var _facilities: Dictionary = {}      # facilityId -> {display, function, tiers:[{tier, effect, value?, quest?, haul{}, prereq{}, catalog{}}]}
 var _quests: Dictionary = {}          # questId -> {facility, tier, one_liner, completion}
 var _haul_materials: Dictionary = {}  # haulMaterialId -> {display, source}
+var _haul_drops: Dictionary = {}      # encounterId -> [{haul, qty, chance}] (HUB-COR-000 §3)
 
 
 func _ready() -> void:
@@ -343,6 +345,7 @@ func _load_and_validate() -> bool:
 	var facilities_doc := _read_json_dict(FACILITIES_PATH, "facilities_tiers", errors)
 	var quests_doc := _read_json_dict(QUESTS_PATH, "quests", errors)
 	var haul_doc := _read_json_dict(HAUL_MATERIALS_PATH, "haul_materials", errors)
+	var haul_drops_doc := _read_json_dict(HAUL_DROPS_PATH, "haul_drops", errors)
 
 	if errors.is_empty():
 		_validate_blueprint(errors)
@@ -359,6 +362,7 @@ func _load_and_validate() -> bool:
 		_load_encounters(errors)
 		_validate_rooms(errors)
 		_parse_hub(facilities_doc, quests_doc, haul_doc, errors)
+		_parse_haul_drops(haul_drops_doc, errors)
 
 	if not errors.is_empty():
 		for err in errors:
@@ -581,6 +585,28 @@ func _parse_hub(facilities_doc: Dictionary, quests_doc: Dictionary, haul_doc: Di
 				var h: String = hid_key
 				IdValidate.require_id(h, allowed_haul, "haul_material_id", errors)
 		_facilities[fid] = def
+
+
+## ENC별 haul 드롭표 (HUB-COR-000 §3). ENC id + haul id를 id_registry로 검증.
+func _parse_haul_drops(doc: Dictionary, errors: Array[String]) -> void:
+	_haul_drops.clear()
+	var allowed_enc: Array = _registry_list("encounter_ids")
+	var allowed_haul: Array = _registry_list("haul_material_ids")
+	var drops: Dictionary = doc.get("drops", {})
+	if typeof(drops) != TYPE_DICTIONARY:
+		errors.append("haul_drops.json: 'drops' must be an object")
+		return
+	for eid_key in drops.keys():
+		var eid: String = eid_key
+		IdValidate.require_id(eid, allowed_enc, "encounter_id", errors)
+		for row in drops[eid]:
+			IdValidate.require_id(String((row as Dictionary).get("haul", "")), allowed_haul, "haul_material_id", errors)
+		_haul_drops[eid] = drops[eid]
+
+
+## haul drops for an encounter → [{haul, qty, chance}] (empty if none). Rolled on ENC clear.
+func get_haul_drops(encounter_id: String) -> Array:
+	return _haul_drops.get(encounter_id, [])
 
 
 ## Enemy basic-attack archetypes (rom_*). Keyed by rom id, validated against id_registry.

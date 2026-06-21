@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260621-006 — P2-S4 Hub B7: ENC별 haul 드롭표 (HUB-COR-000) + 분대 클리어 롤
+- **무엇:** haulMaterial 드롭을 per-kill 임시 → **ENC(분대) 클리어 시 HUB-COR-000 §3 표로 롤**(스펙 정합). 클리어 지점에 재획득 가능 At-Risk ItemDrop.
+- **데이터(`haul_drops.json`):** ENC별 [{haul,qty,chance}]. **ENC-NORM-001/002·HARD-001 = 스펙 정확값.** 그 외(NORM-003·PAT/AMB·HARD-00x·MID·DEEP·BOSS) = 데모 haul 커버리지용 **게임 확장**(레이어 적정 — HUB-COR-000 draft+Phase1b, spawn_table 확장과 동일 관례). 9 재료 모두 소스 보유. Slice01Data 로드+검증(ENC·haul id)+`get_haul_drops`.
+- **분대 클리어 감지:** `_spawn_squad` squad dict에 `encounter_id`·`cleared` 추가, `_on_enemy_died`에서 `_squad_alive_count==0`이면 1회 `squad_cleared(enc, pos)` emit. `loot_service.on_squad_cleared`가 표 롤 → 드롭(격자 오프셋). per-kill haul 제거(per-kill loot=skillbook/gear/generic 유지).
+- **결정:** per-kill가 아닌 per-ENC-clear(스펙 "동일 ENC 클리어 시 1회"). 정식 수치는 playtest 후(HUB-COR-000 Fixed 전 draft). §4 static haul node(상자)는 Phase1b/미구현(스텁).
+- **검증:** get_haul_drops·던전 부팅(로드+검증)·ci_smoke PASS.
+- **영향:** `data/slice01/haul_drops.json`(신)·`slice01_data.gd`·`combat_controller.gd`(squad_cleared)·`loot_service.gd`·`dungeon_run.gd`. P2-S4 핵심 루프(런 ENC클리어→haul→탈출→vault→승급→영속) 데이터 구동 완성.
+
 ### IMPL-DEC-20260621-005 — P2-S4 Hub B6: 메타 진행 디스크 영속 (HubProfile·Stash)
 - **무엇:** 허브 메타(시설 Tier·vault·퀘스트)와 소유 아이템(Stash)이 세션 간 유지되도록 user:// JSON 저장/로드. 그전엔 autoload 메모리뿐이라 게임 재시작 시 전부 초기화 — 메타 진행의 핵심 갭.
 - **HubProfile:** `save_profile`/`load_profile`(user://hub_profile.json) — `_ready`에서 로드(없으면 기본 Tier). 변경마다 저장: `add_haul`·`remove_haul`·`attempt_upgrade`·`evaluate_quests`(신규 완료 시 _q_dirty).
