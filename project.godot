@@ -22,6 +22,7 @@ config/icon="res://icon.svg"
 GameBootstrap="*res://scripts/autoload/game_bootstrap.gd"
 Slice01Data="*res://scripts/autoload/slice01_data.gd"
 RunLoadout="*res://scripts/autoload/run_loadout.gd"
+SaveProfile="*res://scripts/autoload/save_profile.gd"
 Stash="*res://scripts/autoload/stash.gd"
 HubProfile="*res://scripts/autoload/hub_profile.gd"
 

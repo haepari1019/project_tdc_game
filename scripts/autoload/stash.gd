@@ -8,35 +8,32 @@ var gear: Array = []               # owned base_gear_id strings (Identity Gear)
 var skillbooks: Array = []         # owned base_ability_id strings (skillbooks)
 var consumables: Dictionary = {}   # consumable_id -> count owned
 
-const SAVE_PATH := "user://stash.json"   # 소유 아이템 영속 (B6)
+# 영속 = SaveProfile 단일 파일(user://save.json)의 "stash" 섹션 (구 user://stash.json은 1회 마이그레이션).
 var _seeded: bool = false
 
 
 func _ready() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		load_stash()
-	else:
+	var sp := get_node_or_null("/root/SaveProfile")
+	var s: Dictionary = sp.section("stash") if sp != null else {}
+	if s.is_empty():     # 섹션 없음(최초) → 시드 + 저장. 빈 배열로 저장된 상태는 키가 있어 apply.
 		_seed()
 		save_stash()
+	else:
+		apply_dict(s)
 
 
-## Persist owned items (B6) — 변경마다 호출. user:// JSON.
+## Persist owned items — 변경마다 호출. SaveProfile "stash" 섹션(단일 파일).
 func save_stash() -> void:
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f == null:
-		return
-	f.store_string(JSON.stringify({"gear": gear, "skillbooks": skillbooks, "consumables": consumables}))
-	f.close()
+	var sp := get_node_or_null("/root/SaveProfile")
+	if sp != null:
+		sp.put("stash", to_dict())
 
 
-func load_stash() -> void:
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return
-	var d = JSON.parse_string(f.get_as_text())
-	f.close()
-	if typeof(d) != TYPE_DICTIONARY:
-		return
+func to_dict() -> Dictionary:
+	return {"gear": gear, "skillbooks": skillbooks, "consumables": consumables}
+
+
+func apply_dict(d: Dictionary) -> void:
 	gear = d.get("gear", [])
 	skillbooks = d.get("skillbooks", [])
 	consumables = d.get("consumables", {})

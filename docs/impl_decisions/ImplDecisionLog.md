@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260622-012 — 메타 세이브 단일 파일 통합 (SaveProfile) [Increment 1/4]
+- **결정(사용자):** 진행상황 저장이 도메인별 파일(hub_profile.json·stash.json·신규 backpack)로 분산 → **단일 래핑 파일이 낫다**. `SaveProfile` 오토로드가 `user://save.json`(버전드) 1개를 소유, 도메인은 인메모리 + `to_dict()/apply_dict()`만. 이점: 원자적 저장·단일 리셋/백업 지점·버전 일원화·부분저장 불일치 제거.
+- **구조:** `{version, hub:{}, stash:{}, backpack:{}}`. 도메인이 `SaveProfile.put(section, dict)`로 푸시(전체 1회 기록), `SaveProfile.section(key)`로 로드. autoload 순서: SaveProfile를 Stash/HubProfile **앞**에(먼저 로드). HubProfile `persist=false`(테스트)는 SaveProfile 미사용 → 인메모리 격리 유지.
+- **마이그레이션:** save.json 부재 시 레거시 hub_profile.json/stash.json 1회 import(섹션 형태 동일 → 직접 fold) → 진행상황 보존. 검증: 부팅 후 save.json=keys[hub,stash,version] + 구 hub 진행(stash T1·enc_cleared·vault) 보존 확인.
+- **이연:** Increment 2(Backpack 오토로드)·3(런 배선)·4(허브 편집) = Tarkov식 영속 백팩(추출=유지/사망=비우기). 별도 커밋.
+- **검증:** ci_smoke + hub_smoke(persist=false 격리) PASS + save.json 라운드트립.
+- **영향:** `save_profile.gd`(신규) · `hub_profile.gd`·`stash.gd`(파일I/O→SaveProfile) · `project.godot`(autoload).
+
 ### IMPL-DEC-20260622-011 — P2-S6a Phase 1: 제3세력 lootable 아군 효과 6종 (loot 루프 완성)
 - **결정:** S6a(파티 능력 풀, L)를 가치 순 단계화 — **Phase 1 = 3세력 lootable의 아군 sb_* 효과**부터(루팅 루프 완성 + B1 effect kind 다수 납품). Phase 2=B1 잔여(heal/shield/HoT/silence/cleanse/relocate/pull/beam), Phase 3=B2 데미지 sub ~24.
 - **구현(6종 drop-in effect):** `sb_root`(AB-102 Snare→Rooted)·`sb_pin`(AB-100 Pounce→타격+Pinned)·`sb_tether`(AB-103→Tethered)·`sb_charge`(AB-104 Rampage→cone 라인+KB)·`sb_execute`(AB-106 Devour→저HP×2+처치 시 시전자 회복)·`sb_scent`(AB-101→Scented). `ability_dispatch._SKILL_SCRIPTS`에 6 preload + `skillbooks.json` 6 마스터(equip_classes=스펙 mainClasses). 적용은 `enemy.apply_outcome` + 기존 ctx(deal_damage/cone/sub_shake) 재사용 — 신규 시스템 0.

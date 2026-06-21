@@ -5,7 +5,7 @@ extends Node
 ## ref: F-029, D-029.
 
 const FACILITY_IDS := ["barracks", "stash", "scriptorium", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"]
-const SAVE_PATH := "user://hub_profile.json"   # 메타 진행 영속 (B6)
+# 영속 = SaveProfile 단일 파일(user://save.json)의 "hub" 섹션 (구 user://hub_profile.json은 1회 마이그레이션).
 
 signal facilities_changed()
 signal vault_changed()
@@ -29,27 +29,30 @@ func _ready() -> void:
 func save_profile() -> void:
 	if not persist:
 		return
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f == null:
-		return
-	f.store_string(JSON.stringify({
+	var sp := get_node_or_null("/root/SaveProfile")
+	if sp != null:
+		sp.put("hub", to_dict())
+
+
+func to_dict() -> Dictionary:
+	return {
 		"facilities": facilities,
 		"hub_haul_vault": hub_haul_vault,
 		"quest_completed": quest_completed,
 		"enc_cleared": enc_cleared,
-	}))
-	f.close()
+	}
 
 
 func load_profile() -> void:
-	if not persist or not FileAccess.file_exists(SAVE_PATH):
+	if not persist:
 		return
-	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if f == null:
-		return
-	var d = JSON.parse_string(f.get_as_text())
-	f.close()
-	if typeof(d) != TYPE_DICTIONARY:
+	var sp := get_node_or_null("/root/SaveProfile")
+	if sp != null:
+		apply_dict(sp.section("hub"))
+
+
+func apply_dict(d: Dictionary) -> void:
+	if d.is_empty():
 		return
 	facilities = d.get("facilities", {})
 	hub_haul_vault = d.get("hub_haul_vault", {})
