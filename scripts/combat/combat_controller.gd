@@ -7,13 +7,16 @@ extends Node3D
 signal engagement_changed(engaged: bool)
 ## A party member just took damage. Drives the follower formation-break trigger
 ## (slot-break on being hit), separate from engagement/perception.
+@warning_ignore("unused_signal")  # emitted cross-class (enemy_ai) → connected in party_controller
 signal party_damaged()
 ## Camera feedback (dungeon_run): trauma 0..1 to add (trauma² shake), kick_world =
 ## directional push in world XZ (ZERO for hit-feel). Controlled events full, others muted.
+@warning_ignore("unused_signal")  # emitted cross-class (ability_dispatch/enemy_ai) → connected in dungeon_run
 signal camera_shake(trauma: float, kick_world: Vector3)
 ## A party member took a directional hit — drives the screen-edge damage indicator.
 ## from_dir_world = world XZ toward the attacker; severity 0..1; is_controlled gates the
 ## (controlled-only) edge UI. Emitted for ALL hits above a chip threshold (incl. basic).
+@warning_ignore("unused_signal")  # emitted cross-class (enemy_ai) → connected in dungeon_run
 signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool)
 ## An enemy was defeated at world_pos — drives world item drops (loot). ref: F-010 loot.
 signal enemy_defeated(world_pos: Vector3, ability_refs: Array)
@@ -525,9 +528,9 @@ func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
 	# map_get_closest_point() returns origin (0,0,0) and would collapse EVERY squad onto the party
 	# start. The deep point is interior and the scatter (±SPAWN_SCATTER_M) is within the same range
 	# the fixed _spawn_offset ring already uses safely, so a snap isn't needed.
-	var seed := int(RunLoadout.get_run_seed())
-	if seed != 0:
-		var h: int = abs(hash("%d|%s|%d" % [seed, room_ref, lane]))
+	var rng_seed := int(RunLoadout.get_run_seed())
+	if rng_seed != 0:
+		var h: int = abs(hash("%d|%s|%d" % [rng_seed, room_ref, lane]))
 		var ang := float(h % 360) * (PI / 180.0)
 		var rad := SPAWN_SCATTER_M * (0.35 + 0.65 * float((h / 360) % 100) / 100.0)
 		center += Vector3(cos(ang), 0.0, sin(ang)) * rad

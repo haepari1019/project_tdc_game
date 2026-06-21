@@ -162,7 +162,7 @@ func _rx_fire_vegetation(zones: Array, source: Node) -> void:
 
 
 ## RX-TOXICGAS-FIRE-001 — toxic flash: burst damage + Poisoned to units in the gas, consume it.
-func _rx_toxicgas_fire(zones: Array, source: Node) -> void:
+func _rx_toxicgas_fire(zones: Array, _source: Node) -> void:
 	for z in zones:
 		if String(z.status) != "ToxicGas":
 			continue

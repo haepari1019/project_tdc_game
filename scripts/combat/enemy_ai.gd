@@ -252,7 +252,7 @@ func _tick_roam(enemy: CharacterBody3D, delta: float) -> void:
 
 ## Patrol (placement Patrol): walk a continuous loop of waypoints around the spawn home (auto-
 ## generated circle — map-agnostic). Perception still runs in _tick_dormant, so it engages on sight.
-func _tick_patrol(enemy: CharacterBody3D, delta: float) -> void:
+func _tick_patrol(enemy: CharacterBody3D, _delta: float) -> void:
 	if enemy.home_pos == Vector3.INF:
 		return
 	var wp := _patrol_point(enemy, enemy.patrol_idx)

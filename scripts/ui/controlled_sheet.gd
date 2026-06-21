@@ -151,8 +151,8 @@ func _skill_tip(skill_id: String, params: Dictionary, header: String) -> String:
 		return "%s\n(미장착)" % header
 	var kind := String(params.get("kind", ""))
 	var info: Dictionary = SKILL_INFO.get(kind, {})
-	var name := String(info.get("name", kind))
-	var lines: Array = [header, "%s  ·  %s" % [name, skill_id] if not skill_id.is_empty() else name]
+	var nm := String(info.get("name", kind))
+	var lines: Array = [header, "%s  ·  %s" % [nm, skill_id] if not skill_id.is_empty() else nm]
 	if info.has("desc"):
 		lines.append(String(info["desc"]))
 	var cd := float(params.get("cooldown_s", 0.0))

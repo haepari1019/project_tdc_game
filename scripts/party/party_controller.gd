@@ -12,6 +12,7 @@ signal controlled_changed(member: CharacterBody3D)
 signal cohesion_changed(mode: int)
 signal formation_priority_changed(on: bool)
 signal party_alert(text: String, level: int)  # UI-006 separation/MIA warning (0=warn, 1=MIA)
+@warning_ignore("unused_signal")  # emitted cross-class (mia_controller) → connected in dungeon_run
 signal pip_targets(members: Array)             # UI-006 §7 PIP camera targets (empty = close)
 
 @export var move_speed: float = 9.0
@@ -718,7 +719,7 @@ func is_formation_priority() -> bool:
 func _sv1_update_follow(
 	anchor: CharacterBody3D,
 	anchor_pos: Vector3,
-	layout_axes: Dictionary,
+	_layout_axes: Dictionary,
 	peer_slot_targets: Dictionary,
 	delta: float
 ) -> void:
@@ -878,7 +879,7 @@ func _sv1_compute_sep_and_bypass(
 	slot_target: Vector3,
 	anchor: CharacterBody3D,
 	anchor_pos: Vector3,
-	peer_slot_targets: Dictionary
+	_peer_slot_targets: Dictionary
 ) -> Dictionary:
 	var F_sep := Vector3.ZERO
 	var F_bypass := Vector3.ZERO
