@@ -386,7 +386,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# Disguised assassin (AssassinTransform): ignore threat, stalk a BACKLINE target (squishiest
 	# non-Tank) to execute. Reverts to normal targeting once revealed.
 	if enemy.assassin and not enemy.assassin_revealed:
-		var ex := _pick_backline_target(hostiles)
+		var ex := _pick_backline_target(_huntable(enemy, hostiles))  # near+LOS only (faction-war safe)
 		if ex != null:
 			target = ex
 	enemy.set_target_marker(target)
@@ -1262,7 +1262,7 @@ func _begin_assassin_execute(enemy: CharacterBody3D, target: CharacterBody3D) ->
 	enemy.windup_chosen = {"ref": "", "trigger": "assassin"}
 	enemy.windup_target = target
 	SkillVfx.telegraph(self, target.global_position, _telegraph_color("enemy_execute"))
-	print("[EN] %s ASSASSIN reveal (%.2fs) -> %s" % [enemy.enemy_id, float(enemy.assassin_telegraph_s), target.identity_skill_id])
+	print("[EN] %s ASSASSIN reveal (%.2fs) -> %s" % [enemy.enemy_id, float(enemy.assassin_telegraph_s), _tname(target)])
 
 
 ## Backline execute target for the disguised assassin: the squishiest NON-Tank living member
