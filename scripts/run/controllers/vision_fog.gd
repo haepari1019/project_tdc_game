@@ -22,7 +22,7 @@ const PADDING_M := 8.0         # border around the level bounds
 const MAX_LIGHTS := 4          # party-size cap (one vision light each — full union LOS)
 const LIGHT_TEX_PX := 256      # generated radial light-texture size
 const OCCLUDER_INSET_M := 0.15 # shrink occluder footprints so a wall's own faces sample as LIT
-                               # (the party-facing side stays bright; only the back goes dark)
+							   # (the party-facing side stays bright; only the back goes dark)
 
 var _party: Node = null
 var _map: Node = null
@@ -169,7 +169,7 @@ func _build_occluders() -> void:
 
 func _build_lights() -> void:
 	var tex := _make_light_texture()
-	var tex_scale: float = SIGHT_RADIUS_M * PX_PER_M / float(LIGHT_TEX_PX / 2)
+	var tex_scale: float = SIGHT_RADIUS_M * PX_PER_M / (float(LIGHT_TEX_PX) / 2.0)
 	for _i in MAX_LIGHTS:
 		var pl := PointLight2D.new()
 		pl.texture = tex

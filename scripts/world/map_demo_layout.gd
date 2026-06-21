@@ -640,11 +640,11 @@ func _bake_navigation() -> void:
 		_nav_region.name = "NavRegion"
 		add_child(_nav_region)
 	var navmesh := NavigationMesh.new()
-	navmesh.agent_radius = 0.4
-	navmesh.agent_height = 1.2
+	navmesh.agent_radius = 0.5      # 2× cell_size — matches the baker's ceil (no precision warning)
+	navmesh.agent_height = 1.25     # 5× cell_height — matches the baker's ceil
 	navmesh.cell_size = 0.25
-	navmesh.cell_height = 0.2
-	navmesh.agent_max_climb = 0.3
+	navmesh.cell_height = 0.25      # match the navigation map cell_height (no rasterization mismatch)
+	navmesh.agent_max_climb = 0.25  # 1× cell_height — matches the baker's floor
 	navmesh.agent_max_slope = 45.0
 	navmesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	navmesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN

@@ -75,6 +75,7 @@ func on_squad_cleared(encounter_id: String, world_pos: Vector3) -> void:
 		for _q in int(r.get("qty", 1)):
 			var drop := ItemDrop.new()
 			drop.setup(_inv, _make_haul_drop_def(String(r.get("haul", ""))))
+			@warning_ignore("integer_division")  # i/3 = 그리드 행 인덱스 — 정수 의도
 			drop.position = world_pos + Vector3(0.8 * float(i % 3) - 0.8, 0.0, 0.8 * float(i / 3))
 			add_child(drop)
 			i += 1

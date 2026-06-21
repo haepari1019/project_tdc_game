@@ -225,11 +225,11 @@ func _haul_fill_selected() -> void:
 			_hub.add_haul(id, deficit)
 
 
-func _lbl(text: String, col: Color, size: int = 0) -> void:
+func _lbl(text: String, col: Color, font_sz: int = 0) -> void:
 	var l := Label.new()
 	l.text = text
 	l.modulate = col
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	if size > 0:
-		l.add_theme_font_size_override("font_size", size)
+	if font_sz > 0:
+		l.add_theme_font_size_override("font_size", font_sz)
 	_detail.add_child(l)

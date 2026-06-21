@@ -535,6 +535,7 @@ func _open_split_popup(grid: InventoryGrid, item: Dictionary) -> void:
 	var spin := SpinBox.new()
 	spin.min_value = 1
 	spin.max_value = total - 1
+	@warning_ignore("integer_division")  # 절반 분할 기본값 — 아이템 개수라 정수 의도
 	spin.value = total / 2
 	vb.add_child(spin)
 	var hb := HBoxContainer.new()

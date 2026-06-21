@@ -83,10 +83,10 @@ func _build() -> void:
 	hint.text = "(Esc → menu)"
 
 
-func _label(parent: Node, size: int, align: int, col: Color) -> Label:
+func _label(parent: Node, font_sz: int, align: int, col: Color) -> Label:
 	var l := Label.new()
-	l.add_theme_font_size_override("font_size", size)
-	l.horizontal_alignment = align
+	l.add_theme_font_size_override("font_size", font_sz)
+	l.horizontal_alignment = align as HorizontalAlignment
 	l.modulate = col
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE

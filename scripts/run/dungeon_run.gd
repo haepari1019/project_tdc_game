@@ -46,7 +46,6 @@ const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 @onready var _hud_state: Label = $HUD/Panel/Margin/VBox/StateValue
 @onready var _hud_sub: Label = $HUD/Panel/Margin/VBox/SubValue
 @onready var _hud_hint: Label = $HUD/Panel/Margin/VBox/Hint
-@onready var _banner: Label = $HUD/ResultBanner
 @onready var _extract_count: Label = $HUD/ExtractCount
 @onready var _camera_rig: Node3D = $CameraPivot  # camera_rig.gd: follow/glide/orbit/shake
 @onready var _party_sheet: Control = $HUD/PartySheet
