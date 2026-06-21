@@ -368,7 +368,9 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# non-Tank), ignoring the frontal tank's threat — so basics/orbit/dash all dive the DPS/Healer
 	# before the tank pulls aggro (EN-AI-000 §1 "정면 Tank 무시 시도"). Falls back to threat target.
 	if String(enemy.engage_profile.get("target_pref", "")) == "backline":
-		var bl := _pick_backline_target(hostiles)
+		# Only dive a NEAR + visible backline (or one already engaged) — _huntable prevents a flanker
+		# cross-mapping onto a distant DPS the party never committed (faction-war/observer). ref: 사용자 버그.
+		var bl := _pick_backline_target(_huntable(enemy, hostiles))
 		if bl != null:
 			target = bl
 	# Third-faction predatory targeting (DEC-20260621-001): Stalker hunts the WEAKEST hostile
