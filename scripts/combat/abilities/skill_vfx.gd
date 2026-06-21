@@ -196,10 +196,14 @@ static func _enemy_shot(parent: Node3D, from: Vector3, to: Vector3, color: Color
 	var tw := mi.create_tween()
 	# Flight: if a `target` node is given, HOME to its LIVE position (locked hits can't be outrun);
 	# otherwise fly straight to the fixed `to` (positional uses like sub_lunge). At t=1 → on target.
+	# Capture a WEAKREF, not the node: a direct capture throws "Lambda capture freed" when the target
+	# dies mid-flight (faction war — the prey enemy is queue_free'd). weakref().get_ref() → null safely.
+	var twref: WeakRef = weakref(target) if (target != null and is_instance_valid(target)) else null
 	tw.tween_method(func(t: float) -> void:
 		var dst := to
-		if is_instance_valid(target):
-			dst = target.global_position + Vector3(0, 0.8, 0)
+		var tnode = twref.get_ref() if twref != null else null
+		if tnode != null:
+			dst = tnode.global_position + Vector3(0, 0.8, 0)
 		var prev := mi.global_position
 		var pos := from.lerp(dst, t)
 		if aim:
