@@ -36,6 +36,18 @@ func vault_count(id: String) -> int:
 	return int(hub_haul_vault.get(id, 0))
 
 
+## Remove haul from the Safe vault (테스트 편집 / 향후 분해 등). 0 이하면 제거.
+func remove_haul(id: String, qty: int = 1) -> void:
+	if id.is_empty() or qty <= 0:
+		return
+	var left := vault_count(id) - qty
+	if left > 0:
+		hub_haul_vault[id] = left
+	else:
+		hub_haul_vault.erase(id)
+	vault_changed.emit()
+
+
 func set_quest_completed(quest_id: String, done: bool = true) -> void:
 	quest_completed[quest_id] = done
 

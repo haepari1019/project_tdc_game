@@ -12,6 +12,8 @@ var _list: VBoxContainer
 var _detail: VBoxContainer
 var _vault: Label
 var _sel: String = "stash"
+var _haul_editor: Control = null   # 재료 편집(테스트) 오버레이 (lazy)
+var _haul_rows: VBoxContainer = null
 # Runtime path (not the parse-time global) so a stale editor that hasn't re-registered the
 # newly-added HubProfile autoload still compiles + runs. (Same pattern as main.gd Stash/RunLoadout.)
 @onready var _hub: Node = get_node_or_null("/root/HubProfile")
@@ -70,10 +72,10 @@ func _ready() -> void:
 
 	var devrow := HBoxContainer.new()
 	root.add_child(devrow)
-	var grant := Button.new()
-	grant.text = "재료 지급 (테스트)"
-	grant.pressed.connect(_dev_grant_haul)
-	devrow.add_child(grant)
+	var edit_haul := Button.new()
+	edit_haul.text = "재료 편집 (테스트)"
+	edit_haul.pressed.connect(_open_haul_editor)
+	devrow.add_child(edit_haul)
 	var hint := Label.new()
 	hint.text = "  (실전: 던전 haul 회수 → 탈출 시 vault 적재)"
 	hint.modulate = DIM
@@ -129,6 +131,8 @@ func _refresh() -> void:
 		_list.add_child(btn)
 	_refresh_detail()
 	_refresh_vault()
+	if _haul_editor != null and _haul_editor.visible:
+		_refresh_haul_editor()
 
 
 func _refresh_detail() -> void:
@@ -185,9 +189,122 @@ func _refresh_vault() -> void:
 	_vault.text = "Vault (Safe): " + "   ".join(parts)
 
 
-func _dev_grant_haul() -> void:
+## 재료 편집(테스트) 오버레이 — 각 재료를 넣다/빼기. 스태시 편집처럼 별도 창으로 열린다.
+func _open_haul_editor() -> void:
+	if _haul_editor == null:
+		_build_haul_editor()
+	_haul_editor.visible = true
+	_refresh_haul_editor()
+
+
+func _build_haul_editor() -> void:
+	_haul_editor = Control.new()
+	_haul_editor.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_haul_editor)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_haul_editor.add_child(dim)
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_haul_editor.add_child(cc)
+	var win := PanelContainer.new()
+	win.custom_minimum_size = Vector2(560, 500)
+	cc.add_child(win)
+	var mg := MarginContainer.new()
+	for s in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		mg.add_theme_constant_override(s, 16)
+	win.add_child(mg)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	mg.add_child(v)
+	var tb := HBoxContainer.new()
+	v.add_child(tb)
+	var t := Label.new()
+	t.text = "재료 편집 (테스트)"
+	t.add_theme_font_size_override("font_size", 18)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tb.add_child(t)
+	var fill := Button.new()
+	fill.text = "필요량까지 채움"
+	fill.pressed.connect(_haul_fill_all)
+	tb.add_child(fill)
+	var cl := Button.new()
+	cl.text = "닫기"
+	cl.pressed.connect(func() -> void: _haul_editor.visible = false)
+	tb.add_child(cl)
+	var note := Label.new()
+	note.text = "넣다/빼기 — 각 재료는 '필요량'(최대 단일 요구)까지만 채워집니다. 실전 vault는 던전 회수로 채움."
+	note.modulate = DIM
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(note)
+	_haul_rows = VBoxContainer.new()
+	_haul_rows.add_theme_constant_override("separation", 4)
+	v.add_child(_haul_rows)
+
+
+func _refresh_haul_editor() -> void:
+	if _haul_rows == null:
+		return
+	for c in _haul_rows.get_children():
+		c.queue_free()
 	for hid in Slice01Data.get_haul_material_ids():
-		_hub.add_haul(String(hid), 5)   # +5 each (test) → vault_changed → _refresh
+		var id: String = hid
+		var cap: int = _max_needed(id)
+		var have: int = _hub.vault_count(id)
+		var row := HBoxContainer.new()
+		var nm := Label.new()
+		nm.text = String(Slice01Data.get_haul_material(id).get("display", id))
+		nm.custom_minimum_size = Vector2(130, 0)
+		row.add_child(nm)
+		var minus := Button.new()
+		minus.text = "−"
+		minus.custom_minimum_size = Vector2(36, 0)
+		minus.disabled = have <= 0
+		minus.pressed.connect(_hub.remove_haul.bind(id, 1))
+		row.add_child(minus)
+		var cnt := Label.new()
+		cnt.text = "%d / %d" % [have, cap]
+		cnt.custom_minimum_size = Vector2(80, 0)
+		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cnt.modulate = OK if have >= cap else DIM
+		row.add_child(cnt)
+		var plus := Button.new()
+		plus.text = "+"
+		plus.custom_minimum_size = Vector2(36, 0)
+		plus.disabled = have >= cap   # 필요량 이상으로는 안 들어감
+		plus.pressed.connect(_haul_inc.bind(id, cap))
+		row.add_child(plus)
+		_haul_rows.add_child(row)
+
+
+## +1, but never above the material's max single requirement (cap).
+func _haul_inc(id: String, cap: int) -> void:
+	if _hub.vault_count(id) < cap:
+		_hub.add_haul(id, 1)
+
+
+## Top every material up to its cap (idempotent — repeated presses don't overfill).
+func _haul_fill_all() -> void:
+	for hid in Slice01Data.get_haul_material_ids():
+		var id: String = hid
+		var deficit: int = _max_needed(id) - _hub.vault_count(id)
+		if deficit > 0:
+			_hub.add_haul(id, deficit)
+
+
+## A material's '필요량' = the largest single haul requirement across all facility tiers (so you can
+## afford the most demanding single upgrade, but the test grant never piles past it).
+func _max_needed(id: String) -> int:
+	var m := 0
+	for fid in FACILITY_ORDER:
+		for t in Slice01Data.get_facility_def(fid).get("tiers", []):
+			var need: int = int((t as Dictionary).get("haul", {}).get(id, 0))
+			if need > m:
+				m = need
+	return maxi(m, 1)
 
 
 func _lbl(text: String, col: Color, size: int = 0) -> void:
