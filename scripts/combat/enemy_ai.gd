@@ -270,14 +270,38 @@ func _patrol_point(enemy: CharacterBody3D, idx: int) -> Vector3:
 
 ## Per-enemy tick entry. Dormant (휴식중) enemies perceive (see _tick_dormant);
 ## engaged ones chase the highest-threat party member and attack at range (with LOS).
+## F-028 — units THIS enemy is hostile to, from the combined combatant list (party + all enemies).
+## Party = always hostile to enemies; enemies hostile only across factions (same faction/self skip).
+func _hostiles(enemy: CharacterBody3D, combatants: Array) -> Array:
+	var out: Array = []
+	for c in combatants:
+		if _is_hostile(enemy, c):
+			out.append(c)
+	return out
+
+
+func _is_hostile(enemy: CharacterBody3D, cand) -> bool:
+	if cand == enemy or not is_instance_valid(cand):
+		return false
+	if cand.is_in_group("party_member"):
+		return true
+	if cand.is_in_group("enemy"):
+		return String(cand.faction) != String(enemy.faction)
+	return false
+
+
 func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# Anchor home on the FIRST tick in ANY state — an enemy spawned directly into combat (sandbox,
 	# or aggro'd before ever roaming) must still capture its spawn point, or zone (PT-004) has no
 	# anchor and follows the enemy → infinite chase, never returns.
 	if enemy.home_pos == Vector3.INF:
 		enemy.home_pos = enemy.global_position
+	# F-028 faction warfare: `targets` is now ALL combatants (party + every enemy). Filter to the
+	# ones THIS enemy is hostile to (party always; enemies of a different faction). Single-faction
+	# squads mean same-squad never appears here.
+	var hostiles := _hostiles(enemy, targets)
 	if not enemy.engaged:
-		_tick_dormant(enemy, targets, delta)
+		_tick_dormant(enemy, hostiles, delta)
 		return
 	enemy.attack_cooldown_s = maxf(0.0, enemy.attack_cooldown_s - delta)
 	enemy.tick_slow(delta)
@@ -328,9 +352,9 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# far, never-perceived group (e.g. the hidden 본대) is never chased. No threat and
 	# nobody visible → hold; grace will disengage it back to dormant.
 	enemy.decay_threat(delta)
-	var target: CharacterBody3D = enemy.pick_target(_alive_members(targets), SWITCH_RATIO)
+	var target: CharacterBody3D = enemy.pick_target(_alive_members(hostiles), SWITCH_RATIO)
 	if target == null or float(enemy.threat.get(target, 0.0)) <= 0.0:
-		target = _nearest_visible(enemy, targets)
+		target = _nearest_visible(enemy, hostiles)
 	if target == null:
 		enemy.velocity = Vector3.ZERO
 		enemy.move_and_slide()
@@ -339,13 +363,13 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# non-Tank), ignoring the frontal tank's threat — so basics/orbit/dash all dive the DPS/Healer
 	# before the tank pulls aggro (EN-AI-000 §1 "정면 Tank 무시 시도"). Falls back to threat target.
 	if String(enemy.engage_profile.get("target_pref", "")) == "backline":
-		var bl := _pick_backline_target(targets)
+		var bl := _pick_backline_target(hostiles)
 		if bl != null:
 			target = bl
 	# Disguised assassin (AssassinTransform): ignore threat, stalk a BACKLINE target (squishiest
 	# non-Tank) to execute. Reverts to normal targeting once revealed.
 	if enemy.assassin and not enemy.assassin_revealed:
-		var ex := _pick_backline_target(targets)
+		var ex := _pick_backline_target(hostiles)
 		if ex != null:
 			target = ex
 	enemy.set_target_marker(target)
@@ -819,11 +843,15 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	var dmg: float = enemy.contact_damage * float(eff.get("damage_mult", 1.0)) * float(hits)
 	target.take_damage(dmg)
 	_combat._engage_enemy(enemy)  # D-010 §4.1: keep engaged (target already has threat/LOS)
-	_combat.party_damaged.emit()  # follower formation-break trigger
+	# F-028: 파티 전용 피드백(formation-break·hit indicator·camera shake)은 표적이 파티원일 때만.
+	# 적-vs-적(진영전) 타격엔 데미지·상태만 적용(아래), 화면 피드백 없음.
+	var to_party: bool = target.is_in_group("party_member")
+	if to_party:
+		_combat.party_damaged.emit()  # follower formation-break trigger
 	# Directional hit indicator (screen-edge): ALL hits above a chip threshold (평타 포함).
 	# dir = toward the attacker; dungeon_run filters to controlled + converts to screen space.
 	var hit_frac: float = dmg / maxf(float(target.max_hp), 1.0)
-	if hit_frac >= HIT_INDICATOR_MIN_FRAC:
+	if to_party and hit_frac >= HIT_INDICATOR_MIN_FRAC:
 		var src: Vector3 = from - target.global_position  # toward the attacker
 		src.y = 0.0
 		_combat.party_hit.emit(src, clampf(hit_frac * HIT_INDICATOR_GAIN, 0.2, 1.0), target.is_controlled())
@@ -832,7 +860,7 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	# (평타 ability·무-ability 접촉뎀 제외). 방향 킥 = 맞은 방향(위협 정보) + trauma.
 	var atk_ref: String = String(chosen.get("ref", ""))
 	var is_ab_skill: bool = not atk_ref.is_empty() and String(chosen.get("trigger", "basic")) != "basic"
-	if is_ab_skill:
+	if to_party and is_ab_skill:
 		var frac: float = dmg / maxf(float(target.max_hp), 1.0)
 		if frac >= DMG_SHAKE_MIN_FRAC:
 			var dt: float = clampf(frac * DMG_SHAKE_GAIN, 0.0, DMG_SHAKE_CAP)
@@ -844,7 +872,8 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			_combat.camera_shake.emit(dt, kdir * (DMG_KICK_M * dt))
 	match kind:
 		"enemy_poison":
-			target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 5.0)))
+			if target.has_method("apply_poison"):   # enemy_unit엔 없음(진영전 표적이면 skip)
+				target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 5.0)))
 		"enemy_stun":
 			target.apply_stun(float(eff.get("stun_s", 1.0)))
 		"enemy_charge":  # AB-004 Charged Voltaic — Shock + LightningHit (Water/Steam → Shock RX)

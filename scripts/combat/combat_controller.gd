@@ -101,8 +101,15 @@ func is_engaged() -> bool:
 func _refresh_party_in_combat() -> void:
 	var any := false
 	for e in _enemies:
-		if is_instance_valid(e) and e.engaged:
-			any = true
+		if not (is_instance_valid(e) and e.engaged):
+			continue
+		# F-028: '교전중'이라도 대상이 다른 진영뿐이면 partyInCombat 아님 — 파티원에 대한 threat가
+		# 있어야 진짜 파티 교전(HUD·follower 재정렬은 파티 전투에만 반응).
+		for t in e.threat.keys():
+			if is_instance_valid(t) and t.is_in_group("party_member") and float(e.threat[t]) > 0.0:
+				any = true
+				break
+		if any:
 			break
 	if any != _party_in_combat:
 		_party_in_combat = any
@@ -156,8 +163,12 @@ func _physics_process(delta: float) -> void:
 	if _enemies.is_empty():
 		_refresh_party_in_combat()  # last enemy died → clear partyInCombat (휴식중)
 		return
-	# DEBT-EFF-GRP: fetch the party-member list once per tick, thread it through.
-	var targets := get_tree().get_nodes_in_group("party_member")
+	# F-028: 적 AI엔 전 전투원(파티 + 모든 적)을 넘겨 각자 적대(다른 진영+파티)만 필터(_hostiles).
+	# 파티 오토어택 루프는 파티원만(아래 _tick_party_attacks). 단일 진영 분대 = 같은 분대 제외.
+	var party := get_tree().get_nodes_in_group("party_member")
+	var targets: Array = []
+	targets.append_array(party)
+	targets.append_array(_enemies)
 	# Per-enemy disengage grace (D-010 §4.2): an engaged enemy reverts to dormant
 	# after the grace lapses (grace is refreshed by combat events + active LOS).
 	for enemy in _enemies:
@@ -169,8 +180,8 @@ func _physics_process(delta: float) -> void:
 	for enemy in _enemies:
 		if is_instance_valid(enemy):
 			_enemy_ai.tick(enemy, targets, delta)
-	# Party auto-attack runs always — attacking a foe is what commits the party.
-	_tick_party_attacks(targets, delta)
+	# Party auto-attack runs always — attacking a foe is what commits the party. (party원만 actor)
+	_tick_party_attacks(party, delta)
 	# Per-squad reinforcement ticks while that squad has any engaged member.
 	for squad in _squads:
 		_tick_reinforcement(squad, delta)
@@ -436,7 +447,7 @@ func debug_spawn_only(encounter_id: String, room_ref: String, engaged: bool = fa
 
 ## DEBUG (sandbox): ADD `count` of ONE enemy as its own squad (additive — does NOT clear, so
 ## you can build up a group, e.g. several EN-009 for surround). Clear via debug_spawn_only("").
-func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: bool = false) -> void:
+func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: bool = false, faction: String = "Dungeon") -> void:
 	if enemy_id.is_empty() or count <= 0:
 		return
 	if _map and _map.has_method("get_spawn_position"):
@@ -447,7 +458,7 @@ func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: b
 	var lane := int(_room_squad_count.get(room_ref, 0))
 	_room_squad_count[room_ref] = lane + 1
 	var center := _squad_spawn_center(room_ref, lane)
-	_spawn_at(units, center, squad_id, engaged)
+	_spawn_at(units, center, squad_id, engaged, "Fixed", 1, "all", faction)
 	_squads.append({"id": squad_id, "room_ref": room_ref, "encounter_id": "", "cleared": false, "reinforce": {}, "pending": false, "activated": false, "timer": 0.0, "warned": false})
 
 
@@ -466,7 +477,8 @@ func _spawn_squad(encounter_id: String, room_ref: String) -> void:
 	_room_squad_count[room_ref] = lane + 1
 	var center: Vector3 = _squad_spawn_center(room_ref, lane)
 	_spawn_at(units, center, squad_id, false, String(enc.get("placement_behavior", "Fixed")),
-		int(enc.get("ambush_anchor_count", 1)), String(enc.get("wake_policy", "all")))
+		int(enc.get("ambush_anchor_count", 1)), String(enc.get("wake_policy", "all")),
+		String(enc.get("faction", "Dungeon")))
 	var reinf: Dictionary = enc.get("reinforcement", {})
 	_squads.append({
 		"id": squad_id,
@@ -534,7 +546,7 @@ func _first_connected(room_ref: String) -> String:
 	return String(conns[0]) if not conns.is_empty() else ""
 
 
-func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, placement: String = "Fixed", anchor_count: int = 1, wake_policy: String = "all") -> void:
+func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, placement: String = "Fixed", anchor_count: int = 1, wake_policy: String = "all", faction: String = "Dungeon") -> void:
 	var index := 0
 	for u in units:
 		if typeof(u) != TYPE_DICTIONARY:
@@ -555,6 +567,7 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, plac
 			var aid := index % maxi(anchor_count, 1)
 			unit.global_position = _anchor_center(center, aid, anchor_count) + _spawn_offset(index)
 			unit.squad_id = squad_id
+			unit.faction = faction   # F-028 교전 진영 (ENC faction / 샌드박스 override)
 			# AssassinTransform: per-ENCOUNTER tag (not a unit-catalog property) — one fodder
 			# row flagged disguised; same enemy_id rows without the flag stay normal.
 			if bool(u.get("assassin", false)):

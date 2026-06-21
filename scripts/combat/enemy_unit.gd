@@ -74,6 +74,9 @@ var wake_policy: String = "all"           # "all" = squad wakes together; "seque
 # object runs its OWN combat behavior (e.g. torch → throw); held_object is set by the object.
 var interacts_with_objects: bool = false
 var held_object: Node = null
+# F-028 교전 진영 — 다른 진영끼리 적대(3세력 ↔ 일반 몬스터 ↔ 파티 실시간 교전). 기본 Dungeon.
+# loot는 누가 죽이든 드롭(F-028 clearsRoomLoot:false — 3세력이 정리해도 플레이어 파밍 비차단).
+var faction: String = "Dungeon"
 
 ## Squad (분대) = encounter group. Engagement is per-enemy but propagates only to
 ## squad-mates within cohesion range, so a strayed member fighting alone doesn't

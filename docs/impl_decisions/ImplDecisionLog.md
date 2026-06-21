@@ -6,6 +6,17 @@
 
 ---
 
+### IMPL-DEC-20260621-008 — P2-S5a-1: 실시간 진영전 코어 (F-028 faction warfare)
+- **결정(사용자):** 3세력도 ENC로 배정 + **3세력 분대 ↔ 일반 적 분대가 실시간 교전**(+ 양쪽 파티 적대). 풀 온스크린 진영전 — 파티-중심 전투 코어를 교차진영으로 확장. (저위험 오프스크린안 대신 사용자가 명시 선택.)
+- **faction 필드:** `enemy_unit.faction`(기본 Dungeon). ENC `faction`(예: ENC-3RD-001=Third) → `_spawn_at`/`_spawn_squad`/`debug_spawn_unit`로 유닛에 설정. **각 ENC=단일 진영** → 혼합 분대 wake/heal 위험(에이전트 HIGH) 자동 회피.
+- **교차진영 타겟팅:** combat_controller가 적 AI에 **전 전투원(파티+모든 적)** 전달; `enemy_ai._hostiles`/`_is_hostile`가 각 적의 적대 대상만 필터(파티 항상 + 다른 진영 적; 자기/같은진영 제외). tick의 perceive/pick_target/_nearest_visible/backline 모두 hostiles 사용. 파티 오토어택 루프는 **파티원만**(_tick_party_attacks 분리 — targets 오염 버그 픽스).
+- **적-vs-적 데미지:** `_apply_enemy_hit`이 target.take_damage(양쪽 동일). **파티 전용 피드백**(party_damaged·party_hit·camera_shake)은 표적 파티원일 때만. enemy_poison은 has_method 가드(enemy_unit엔 없음).
+- **partyInCombat 게이트:** '교전중'이라도 파티원에 대한 threat가 있어야 partyInCombat=true → 진영끼리만 싸우면 HUD/follower 미반응.
+- **loot:** F-028 clearsRoomLoot:false → 누가 죽이든 드롭(플레이어 파밍 비차단) — 크레딧 게이트 없음.
+- **테스트:** 샌드박스 "Third 진영" 체크박스(debug_spawn_unit faction) → Dungeon+Third 스폰해 진영전 관찰.
+- **검증:** 던전 부팅(단일진영 무회귀)·샌드박스·ci_smoke PASS. **잔여(S5a-2):** ENC-3RD-001 + 3세력 EN(placeholder) + 런 배치 + 단서(소리/흔적) + cross-faction splash.
+- **영향:** `enemy_unit.gd`·`enemy_ai.gd`·`combat_controller.gd`·`combat_sandbox.gd`.
+
 ### IMPL-DEC-20260621-007 — P2-S4 Hub 마무리: B4 ENC-clear 퀘스트 + B8 QA-029 스모크 + 문서
 - **B4(런 이벤트 퀘스트, tractable 부분):** `HubProfile.enc_cleared`{} + `record_enc_cleared` — `combat.squad_cleared`(B7 신호)를 dungeon_run이 받아 기록. `evaluate_quests`에 `Q-HUB-020`(armory T1 = ENC-HARD-001 클리어) 추가 → 실제 플레이로 무기고 퀘스트 충족. enc_cleared도 영속(save/load).
 - **B8(QA-029 스모크):** `tools/hub_smoke.gd` — T-HUB-003(부족 거부)·T-HUB-004(퀘+재료→승급·차감·Tier·capacity)·prereq·B4 Q-HUB-020·haul 드롭표 assert. **`HubProfile.persist` 플래그**로 fresh 인스턴스(persist=false)에서 검증 → user:// 실 save 미오염. `ci_smoke.sh`에 편입(`--script` exit + "HUB SMOKE PASSED").

@@ -75,6 +75,7 @@ var _unit_dropdown: OptionButton
 var _zone_dropdown: OptionButton
 var _count_spin: SpinBox
 var _engaged_chk: CheckBox
+var _third_chk: CheckBox   # 스폰 유닛을 Third 진영으로 (진영전 테스트)
 var _status: Label
 var _formation_lbl: Label
 var _info_label: RichTextLabel
@@ -237,6 +238,9 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	_count_spin.max_value = 8
 	_count_spin.value = 1
 	row_h.add_child(_count_spin)
+	_third_chk = CheckBox.new()
+	_third_chk.text = "Third 진영"   # 체크 시 이 유닛을 3세력으로 — 일반 적과 실시간 교전(F-028)
+	row_h.add_child(_third_chk)
 	box.add_child(row_h)
 	var spawn_unit := Button.new()
 	spawn_unit.text = "Spawn Unit (+add)"
@@ -368,8 +372,9 @@ func _on_spawn_unit() -> void:
 	var eid := _selected_unit_id()
 	if eid == "":
 		return
-	_combat.debug_spawn_unit(eid, int(_count_spin.value), "SANDBOX", _engaged_chk.button_pressed)
-	_status.text = "+%d × %s" % [int(_count_spin.value), eid]
+	var fac := "Third" if _third_chk.button_pressed else "Dungeon"
+	_combat.debug_spawn_unit(eid, int(_count_spin.value), "SANDBOX", _engaged_chk.button_pressed, fac)
+	_status.text = "+%d × %s [%s]" % [int(_count_spin.value), eid, fac]
 
 
 func _on_clear() -> void:
