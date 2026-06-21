@@ -10,7 +10,7 @@
 - **무엇:** 허브에서 시설을 클릭해 다음 Tier 요구(Quest+Haul)를 보고 승급하는 UI. 승급 로직은 B0(HubProfile).
 - **패널(`hub_facilities_panel.gd`, UI-029):** 풀스크린 오버레이. 8시설 리스트(이름·Tier·상태색 MAX/승급가능/잠김) → 선택 시 상세(현재/다음 effect·prereq·퀘스트 ✓✗·재료 have/need 색상) + [승급] 버튼(`attempt_upgrade`, 게이트 미충족 시 disabled). Vault 표시. HubProfile.facilities_changed/vault_changed 구독 자동 갱신. 허브 `main.gd`에 "허브 시설(승급)" 버튼.
 - **B4-lite 퀘스트(`HubProfile.evaluate_quests`):** 충족 가능 stub(vault 수량·시설 Tier 기반) 자동완료 — Q-HUB-002/011/012/013/021/030/031/051. **런 이벤트형(010 GIMMICK·020 ENC clear·040 wipe·050 NPC·003 map success)은 B4 full**(런 훅)에서. 그 시설은 "quest"로 잠김 표시.
-- **데모 편의(dev):** "재료 편집(테스트)" — 스태시 편집처럼 **별도 창**으로 열려 각 재료 **넣다/빼기**(−/+)·"필요량까지 채움". + 버튼은 **필요량(최대 단일 요구) 캡**에서 비활성 → 반복 눌러도 초과 안 됨(`HubProfile.remove_haul` 신설). 실전 경로(던전 회수→vault)는 그대로.
+- **데모 편의(dev):** 재료 편집을 **선택 시설 상세 패널에 인라인**(별도 창 제거 — 창 겹침 해소). 선택 시설의 필요 재료마다 ±(`HubProfile.remove_haul` 신설)·"이 시설 재료 채우기"(그 시설 요구분만, 다른 재료 안 건드림). + 는 **이 시설 요구량 캡**에서 비활성(초과 방지). dim 0.85로 뒤 허브 UI 가림.
 - **검증:** 부팅·ci_smoke PASS + 흐름(재료→Q-002 자동완료→stash T1 cap28 / scribe_shop prereq 차단 / smithy ok).
 - **영향:** `scripts/ui/hub_facilities_panel.gd`(신)·`hub_profile.gd`(evaluate_quests)·`main.gd`(패널·버튼). 다음 B4 full(런 이벤트 퀘스트)·B5(시설 효과 게이트 — armory/quartermaster 실연동)·B7(haul ENC 드롭표).
 

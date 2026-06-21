@@ -1,7 +1,7 @@
 extends Control
 ## UI-029 Hub Map (시설 progression) — 시설을 골라 다음 Tier 요구(QuestGate + HaulGate)를 보고,
 ## 충족 시 승급한다. 승급 규칙·소모는 HubProfile(D-029 §5). 데이터는 Slice01Data. ref: F-029.
-## 데모 편의: vault 재료 지급 버튼(dev) + 충족 가능 퀘스트 자동완료(_hub.evaluate_quests, B4-lite).
+## 데모 편의: 상세 패널에서 선택 시설의 재료를 직접 ±/채움(테스트). 충족 가능 퀘스트는 자동완료(B4-lite).
 
 const FACILITY_ORDER := ["barracks", "stash", "scriptorium", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"]
 const OK := Color(0.62, 1.0, 0.62)
@@ -12,8 +12,6 @@ var _list: VBoxContainer
 var _detail: VBoxContainer
 var _vault: Label
 var _sel: String = "stash"
-var _haul_editor: Control = null   # 재료 편집(테스트) 오버레이 (lazy)
-var _haul_rows: VBoxContainer = null
 # Runtime path (not the parse-time global) so a stale editor that hasn't re-registered the
 # newly-added HubProfile autoload still compiles + runs. (Same pattern as main.gd Stash/RunLoadout.)
 @onready var _hub: Node = get_node_or_null("/root/HubProfile")
@@ -23,9 +21,9 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	visible = false
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.6)
+	dim.color = Color(0, 0, 0, 0.85)   # 진하게 — 뒤 허브 UI가 비쳐 겹쳐 보이지 않도록
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP   # block clicks to the hub behind
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(dim)
 
 	var center := CenterContainer.new()
@@ -33,7 +31,7 @@ func _ready() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 	var win := PanelContainer.new()
-	win.custom_minimum_size = Vector2(780, 540)
+	win.custom_minimum_size = Vector2(820, 560)
 	center.add_child(win)
 	var margin := MarginContainer.new()
 	for s in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -62,26 +60,19 @@ func _ready() -> void:
 	_list = VBoxContainer.new()
 	_list.custom_minimum_size = Vector2(240, 0)
 	body.add_child(_list)
+	var sep := VSeparator.new()
+	body.add_child(sep)
 	_detail = VBoxContainer.new()
+	_detail.add_theme_constant_override("separation", 4)
 	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(_detail)
 
 	_vault = Label.new()
 	_vault.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_vault.modulate = DIM
 	root.add_child(_vault)
 
-	var devrow := HBoxContainer.new()
-	root.add_child(devrow)
-	var edit_haul := Button.new()
-	edit_haul.text = "재료 편집 (테스트)"
-	edit_haul.pressed.connect(_open_haul_editor)
-	devrow.add_child(edit_haul)
-	var hint := Label.new()
-	hint.text = "  (실전: 던전 haul 회수 → 탈출 시 vault 적재)"
-	hint.modulate = DIM
-	devrow.add_child(hint)
-
-	if _hub.has_signal("facilities_changed"):
+	if _hub != null and _hub.has_signal("facilities_changed"):
 		_hub.facilities_changed.connect(_refresh)
 		_hub.vault_changed.connect(_refresh)
 
@@ -103,7 +94,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Rebuild the facility list + detail + vault. Evaluates tractable quests first (B4-lite).
 func _refresh() -> void:
-	if not visible:
+	if not visible or _hub == null:
 		return
 	if _hub.has_method("evaluate_quests"):
 		_hub.evaluate_quests()
@@ -131,8 +122,6 @@ func _refresh() -> void:
 		_list.add_child(btn)
 	_refresh_detail()
 	_refresh_vault()
-	if _haul_editor != null and _haul_editor.visible:
-		_refresh_haul_editor()
 
 
 func _refresh_detail() -> void:
@@ -164,13 +153,41 @@ func _refresh_detail() -> void:
 		var done: bool = _hub.is_quest_done(q)
 		var qr: Dictionary = Slice01Data.get_quest(q)
 		_lbl("  퀘스트 %s %s — %s" % [q, ("✓" if done else "✗"), String(qr.get("one_liner", ""))], OK if done else BAD)
-	# haul gate
-	for hid in nxt.get("haul", {}):
-		var need: int = int(nxt["haul"][hid])
-		var have: int = _hub.vault_count(String(hid))
-		var hm: Dictionary = Slice01Data.get_haul_material(String(hid))
-		_lbl("  재료 %s  %d / %d" % [String(hm.get("display", hid)), have, need], OK if have >= need else BAD)
-	# upgrade button
+	# haul gate — 선택 시설 요구 재료만, 행마다 ± (테스트). + 는 이 시설 요구량에서 멈춤.
+	var haul: Dictionary = nxt.get("haul", {})
+	if not haul.is_empty():
+		_lbl("  필요 재료:", DIM)
+	for hid in haul:
+		var id: String = hid
+		var need: int = int(haul[id])
+		var have: int = _hub.vault_count(id)
+		var hm: Dictionary = Slice01Data.get_haul_material(id)
+		var row := HBoxContainer.new()
+		var l := Label.new()
+		l.text = "    %s  %d / %d" % [String(hm.get("display", id)), have, need]
+		l.custom_minimum_size = Vector2(230, 0)
+		l.modulate = OK if have >= need else BAD
+		row.add_child(l)
+		var minus := Button.new()
+		minus.text = "−"
+		minus.custom_minimum_size = Vector2(34, 0)
+		minus.disabled = have <= 0
+		minus.pressed.connect(_hub.remove_haul.bind(id, 1))
+		row.add_child(minus)
+		var plus := Button.new()
+		plus.text = "+"
+		plus.custom_minimum_size = Vector2(34, 0)
+		plus.disabled = have >= need   # 이 시설 요구량 이상으로는 안 들어감
+		plus.pressed.connect(_haul_inc.bind(id, need))
+		row.add_child(plus)
+		_detail.add_child(row)
+	# 테스트: 이 시설 요구분만 한 번에 채움 (다른 시설 재료는 안 건드림)
+	if not haul.is_empty():
+		var fill := Button.new()
+		fill.text = "이 시설 재료 채우기 (테스트)"
+		fill.pressed.connect(_haul_fill_selected)
+		_detail.add_child(fill)
+	# upgrade
 	var up := Button.new()
 	up.text = "승급" if bool(chk.get("ok", false)) else "승급 불가"
 	up.disabled = not bool(chk.get("ok", false))
@@ -181,7 +198,7 @@ func _refresh_detail() -> void:
 func _refresh_vault() -> void:
 	var v: Dictionary = _hub.hub_haul_vault
 	if v.is_empty():
-		_vault.text = "Vault (Safe): (비어있음)"
+		_vault.text = "Vault (Safe): (비어있음)   ·   실전은 던전 haul 회수 → 탈출 시 적재"
 		return
 	var parts: Array = []
 	for hid in v:
@@ -189,122 +206,23 @@ func _refresh_vault() -> void:
 	_vault.text = "Vault (Safe): " + "   ".join(parts)
 
 
-## 재료 편집(테스트) 오버레이 — 각 재료를 넣다/빼기. 스태시 편집처럼 별도 창으로 열린다.
-func _open_haul_editor() -> void:
-	if _haul_editor == null:
-		_build_haul_editor()
-	_haul_editor.visible = true
-	_refresh_haul_editor()
-
-
-func _build_haul_editor() -> void:
-	_haul_editor = Control.new()
-	_haul_editor.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_haul_editor)
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	_haul_editor.add_child(dim)
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_haul_editor.add_child(cc)
-	var win := PanelContainer.new()
-	win.custom_minimum_size = Vector2(560, 500)
-	cc.add_child(win)
-	var mg := MarginContainer.new()
-	for s in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		mg.add_theme_constant_override(s, 16)
-	win.add_child(mg)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
-	mg.add_child(v)
-	var tb := HBoxContainer.new()
-	v.add_child(tb)
-	var t := Label.new()
-	t.text = "재료 편집 (테스트)"
-	t.add_theme_font_size_override("font_size", 18)
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tb.add_child(t)
-	var fill := Button.new()
-	fill.text = "필요량까지 채움"
-	fill.pressed.connect(_haul_fill_all)
-	tb.add_child(fill)
-	var cl := Button.new()
-	cl.text = "닫기"
-	cl.pressed.connect(func() -> void: _haul_editor.visible = false)
-	tb.add_child(cl)
-	var note := Label.new()
-	note.text = "넣다/빼기 — 각 재료는 '필요량'(최대 단일 요구)까지만 채워집니다. 실전 vault는 던전 회수로 채움."
-	note.modulate = DIM
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(note)
-	_haul_rows = VBoxContainer.new()
-	_haul_rows.add_theme_constant_override("separation", 4)
-	v.add_child(_haul_rows)
-
-
-func _refresh_haul_editor() -> void:
-	if _haul_rows == null:
-		return
-	for c in _haul_rows.get_children():
-		c.queue_free()
-	for hid in Slice01Data.get_haul_material_ids():
-		var id: String = hid
-		var cap: int = _max_needed(id)
-		var have: int = _hub.vault_count(id)
-		var row := HBoxContainer.new()
-		var nm := Label.new()
-		nm.text = String(Slice01Data.get_haul_material(id).get("display", id))
-		nm.custom_minimum_size = Vector2(130, 0)
-		row.add_child(nm)
-		var minus := Button.new()
-		minus.text = "−"
-		minus.custom_minimum_size = Vector2(36, 0)
-		minus.disabled = have <= 0
-		minus.pressed.connect(_hub.remove_haul.bind(id, 1))
-		row.add_child(minus)
-		var cnt := Label.new()
-		cnt.text = "%d / %d" % [have, cap]
-		cnt.custom_minimum_size = Vector2(80, 0)
-		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		cnt.modulate = OK if have >= cap else DIM
-		row.add_child(cnt)
-		var plus := Button.new()
-		plus.text = "+"
-		plus.custom_minimum_size = Vector2(36, 0)
-		plus.disabled = have >= cap   # 필요량 이상으로는 안 들어감
-		plus.pressed.connect(_haul_inc.bind(id, cap))
-		row.add_child(plus)
-		_haul_rows.add_child(row)
-
-
-## +1, but never above the material's max single requirement (cap).
+## +1, but never above this facility's requirement (cap).
 func _haul_inc(id: String, cap: int) -> void:
 	if _hub.vault_count(id) < cap:
 		_hub.add_haul(id, 1)
 
 
-## Top every material up to its cap (idempotent — repeated presses don't overfill).
-func _haul_fill_all() -> void:
-	for hid in Slice01Data.get_haul_material_ids():
+## Grant exactly the SELECTED facility's next-tier haul requirement (테스트) — 다른 시설 재료는 그대로.
+func _haul_fill_selected() -> void:
+	var chk: Dictionary = _hub.upgrade_check(_sel)
+	if String(chk.get("reason", "")) == "max":
+		return
+	var nxt: Dictionary = Slice01Data.get_facility_tier(_sel, int(chk.get("next_tier", 0)))
+	for hid in nxt.get("haul", {}):
 		var id: String = hid
-		var deficit: int = _max_needed(id) - _hub.vault_count(id)
+		var deficit: int = int(nxt["haul"][id]) - _hub.vault_count(id)
 		if deficit > 0:
 			_hub.add_haul(id, deficit)
-
-
-## A material's '필요량' = the largest single haul requirement across all facility tiers (so you can
-## afford the most demanding single upgrade, but the test grant never piles past it).
-func _max_needed(id: String) -> int:
-	var m := 0
-	for fid in FACILITY_ORDER:
-		for t in Slice01Data.get_facility_def(fid).get("tiers", []):
-			var need: int = int((t as Dictionary).get("haul", {}).get(id, 0))
-			if need > m:
-				m = need
-	return maxi(m, 1)
 
 
 func _lbl(text: String, col: Color, size: int = 0) -> void:
