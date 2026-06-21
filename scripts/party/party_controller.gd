@@ -719,7 +719,7 @@ func is_formation_priority() -> bool:
 func _sv1_update_follow(
 	anchor: CharacterBody3D,
 	anchor_pos: Vector3,
-	_layout_axes: Dictionary,
+	_axes: Dictionary,
 	peer_slot_targets: Dictionary,
 	delta: float
 ) -> void:

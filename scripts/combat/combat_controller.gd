@@ -532,6 +532,7 @@ func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
 	if rng_seed != 0:
 		var h: int = abs(hash("%d|%s|%d" % [rng_seed, room_ref, lane]))
 		var ang := float(h % 360) * (PI / 180.0)
+		@warning_ignore("integer_division")  # intentional — hash bit extraction for the seeded scatter
 		var rad := SPAWN_SCATTER_M * (0.35 + 0.65 * float((h / 360) % 100) / 100.0)
 		center += Vector3(cos(ang), 0.0, sin(ang)) * rad
 	return center
