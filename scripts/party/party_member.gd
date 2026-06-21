@@ -177,30 +177,30 @@ func can_equip_skillbook(master: Dictionary) -> bool:
 	return typeof(classes) == TYPE_ARRAY and classes.has(class_id)
 
 
-func get_skillbook(slot_index: int):
-	if slot_index < 0 or slot_index >= skillbook_slots.size():
+func get_skillbook(sb_slot: int):
+	if sb_slot < 0 or sb_slot >= skillbook_slots.size():
 		return null
-	return skillbook_slots[slot_index]
+	return skillbook_slots[sb_slot]
 
 
 ## Put `inst` (or null) in slot; returns whatever it displaced (null if empty).
-func set_skillbook(slot_index: int, inst):
-	if slot_index < 0 or slot_index >= skillbook_slots.size():
+func set_skillbook(sb_slot: int, inst):
+	if sb_slot < 0 or sb_slot >= skillbook_slots.size():
 		return null
-	var prev = skillbook_slots[slot_index]
-	skillbook_slots[slot_index] = inst
+	var prev = skillbook_slots[sb_slot]
+	skillbook_slots[sb_slot] = inst
 	return prev
 
 
 ## Equip a skillbook into a Q/E/R slot by base_ability_id (deployment loadout apply, F-010).
-func equip_skillbook_by_id(slot_index: int, base_ability_id: String) -> void:
-	if slot_index < 0 or slot_index >= skillbook_slots.size() or base_ability_id == "":
+func equip_skillbook_by_id(sb_slot: int, base_ability_id: String) -> void:
+	if sb_slot < 0 or sb_slot >= skillbook_slots.size() or base_ability_id == "":
 		return
 	var master: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
 	if master.is_empty():
 		return
 	var cmax := int(master.get("charges_max", 30))
-	set_skillbook(slot_index, {
+	set_skillbook(sb_slot, {
 		"base_ability_id": base_ability_id,
 		"display_name": String(master.get("display_name", base_ability_id)),
 		"params": master.get("cast", {}),
