@@ -89,6 +89,10 @@ const ROAM_MAX_WALK_S := 8.0   # safety: abandon a roam leg that can't arrive
 
 ## F-022 §3.6 target-switch hysteresis. Lower = aggro bounces more readily (harder).
 const SWITCH_RATIO := 1.02
+# Predatory targeting (weakest/scented, EN-3RD) only considers hostiles within this radius + LOS of
+# the hunter (or already holding threat) — prevents cross-map aggro onto a distant observer; the pack
+# hunts NEARBY prey (the dungeon squad it's fighting), not a far player. ref: DEC-20260621-001.
+const HUNT_RADIUS_M := 16.0
 
 # F-021 §3.1.2 object-priority: a flagged enemy seeks the nearest enemy-usable interactable
 # (objects opt in via enemy_usable(); chest/door/etc. don't → auto-excluded) and uses it. What
@@ -370,11 +374,11 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# Third-faction predatory targeting (DEC-20260621-001): Stalker hunts the WEAKEST hostile
 	# (threat-blind); Snarer/Reaver focus the pack's SCENTED prey. Falls back to threat.
 	elif String(enemy.engage_profile.get("target_pref", "")) == "weakest":
-		var wk := _pick_weakest_target(hostiles)
+		var wk := _pick_weakest_target(_huntable(enemy, hostiles))
 		if wk != null:
 			target = wk
 	elif String(enemy.engage_profile.get("target_pref", "")) == "scented":
-		var sc := _pick_scented_target(hostiles)
+		var sc := _pick_scented_target(_huntable(enemy, hostiles))
 		if sc != null:
 			target = sc
 	# Disguised assassin (AssassinTransform): ignore threat, stalk a BACKLINE target (squishiest
@@ -1432,6 +1436,25 @@ func _rampage_splash(enemy: CharacterBody3D, primary: CharacterBody3D, eff: Dict
 		h.take_damage(base * sfrac)
 		if kb > 0.0 and h.has_method("apply_knockback"):
 			h.apply_knockback(h.global_position - ep, kb)
+
+
+## Hostiles within HUNT_RADIUS + LOS of the hunter (or already holding threat against it) — the
+## candidate set for predatory targeting, so weakest/scented never reaches across the map to a distant
+## observer. A far player who never engaged the pack is excluded → the pack fights what's near it.
+func _huntable(enemy: CharacterBody3D, hostiles: Array) -> Array:
+	var out: Array = []
+	var ep: Vector3 = enemy.global_position
+	for h in hostiles:
+		if not is_instance_valid(h):
+			continue
+		if h.has_method("is_alive") and not h.is_alive():
+			continue
+		# Keep an already-engaged target (has threat); else require near + line of sight.
+		if float(enemy.threat.get(h, 0.0)) <= 0.0:
+			if ep.distance_to(h.global_position) > HUNT_RADIUS_M or not _has_los(enemy, h):
+				continue
+		out.append(h)
+	return out
 
 
 ## Weakest living hostile (lowest current HP) — the Stalker's predatory prey (threat-blind). ref: PT-023.
