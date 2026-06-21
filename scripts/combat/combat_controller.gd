@@ -206,7 +206,7 @@ func _tick_reinforcement(squad: Dictionary, delta: float) -> void:
 	if not squad.get("warned", false) and (float(squad["timer"]) <= 2.0 or cleared):
 		squad["warned"] = true
 		print("[TDC] Reinforcements incoming! (%s)" % _reinforce_direction(squad))
-		SkillVfx.telegraph(self, _reinforce_point(String(squad["room_ref"]), _reinforce_direction(squad)), Color(0.95, 0.3, 0.2, 0.55))
+		SkillVfx.telegraph(self, _reinforce_point(squad), Color(0.95, 0.3, 0.2, 0.55))
 	if float(squad["timer"]) <= 0.0 or cleared:
 		squad["pending"] = false
 		_spawn_reinforcement(squad)
@@ -622,13 +622,64 @@ func _init_enemy_perception(unit: CharacterBody3D) -> void:
 ## Entry point for a squad's reinforcement wave by direction (ENC reinforcement.direction):
 ## "rear" (default, ENC-HARD-005 — behind the spawn toward the entrance) or "flank"
 ## (ENC-HARD-010 — lateral arc, a new side threat rather than the front).
-func _reinforce_point(room_ref: String, direction: String) -> Vector3:
-	var c := Vector3.ZERO
-	if _map and _map.has_method("get_spawn_position"):
-		c = _map.get_spawn_position(room_ref)
+## Reinforcement arrival point — relative to WHOEVER THE SQUAD IS CURRENTLY FIGHTING (its nearest
+## hostile), not a fixed room point. "rear" = behind that hostile (a pincer on the squad's enemy);
+## "flank" = to its side. So in faction warfare a boss's adds join the boss-vs-3rd fight (behind the
+## 3rd), NOT at the stale entrance behind a distant observer. Falls back to the room point only when
+## the squad has no living members (reinforce-on-clear). ref: 사용자 — "증원이 내 뒤에 생김(진영전)".
+func _reinforce_point(squad: Dictionary) -> Vector3:
+	var direction := _reinforce_direction(squad)
+	var sid := int(squad["id"])
+	var centroid := _squad_centroid(sid)
+	if centroid == Vector3.INF:
+		# whole squad dead (on-clear reinforce) → no anchor; use the room spawn + entrance offset.
+		var rc := _squad_spawn_center(String(squad["room_ref"]))
+		return rc + (Vector3(9.0, 0, 2.0) if direction == "flank" else Vector3(0, 0, -8))
+	var off := 6.0
+	var hostile := _squad_primary_hostile(sid, centroid)
+	var anchor: Vector3 = hostile.global_position if hostile != null else centroid
+	var dir := anchor - centroid
+	dir.y = 0.0
+	dir = dir.normalized() if dir.length() > 0.5 else Vector3(0, 0, 1)
 	if direction == "flank":
-		return c + Vector3(9.0, 0, 2.0)   # 측면 — side arc, not the front entrance
-	return c + Vector3(0, 0, -8)          # rear — toward the entrance (default)
+		return anchor + Vector3(dir.z, 0.0, -dir.x) * off   # to the side of the squad's current fight
+	return anchor + dir * off                               # behind the squad's current enemy (pincer)
+
+
+## Centroid of a squad's LIVING members (Vector3.INF if none alive).
+func _squad_centroid(squad_id: int) -> Vector3:
+	var sum := Vector3.ZERO
+	var n := 0
+	for e in _enemies:
+		if is_instance_valid(e) and e.squad_id == squad_id and e.is_alive():
+			sum += e.global_position
+			n += 1
+	return (sum / float(n)) if n > 0 else Vector3.INF
+
+
+## The unit a squad is currently fighting = nearest LIVING hostile to the squad's faction (party
+## always hostile; cross-faction enemies). null if none. Aims reinforcement arrival at the real fight.
+func _squad_primary_hostile(squad_id: int, centroid: Vector3) -> Node3D:
+	var fac := ""
+	for e in _enemies:
+		if is_instance_valid(e) and e.squad_id == squad_id and e.is_alive():
+			fac = String(e.faction)
+			break
+	var best: Node3D = null
+	var best_d := INF
+	for p in get_tree().get_nodes_in_group("party_member"):
+		if is_instance_valid(p) and (not p.has_method("is_alive") or p.is_alive()):
+			var d: float = centroid.distance_to(p.global_position)
+			if d < best_d:
+				best_d = d
+				best = p
+	for e in _enemies:
+		if is_instance_valid(e) and e.is_alive() and e.squad_id != squad_id and String(e.faction) != fac:
+			var d: float = centroid.distance_to(e.global_position)
+			if d < best_d:
+				best_d = d
+				best = e
+	return best
 
 
 func _reinforce_direction(squad: Dictionary) -> String:
@@ -642,7 +693,7 @@ func _spawn_reinforcement(squad: Dictionary) -> void:
 	var units: Array = reinf.get("units", [])
 	if units.is_empty():
 		return
-	_spawn_at(units, _reinforce_point(String(squad["room_ref"]), _reinforce_direction(squad)), int(squad["id"]), true)
+	_spawn_at(units, _reinforce_point(squad), int(squad["id"]), true)
 	print("[TDC] Squad %d reinforcement wave spawned (%s)" % [int(squad["id"]), _reinforce_direction(squad)])
 
 
