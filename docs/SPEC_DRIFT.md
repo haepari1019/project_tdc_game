@@ -2,7 +2,7 @@
 
 > **무엇:** 구현이 spec(SSOT)과 달라진 지점의 **단일 추적 대장**. 발견 즉시 `DRIFT-###`로 기록하고, 분류·결정·상태를 유지한다.
 > **규칙:** [AGENTS.md](../AGENTS.md) §Spec drift & propagation. 튜닝수치=로깅만 / 아이디어=`OPS_08·I-002` / 규칙변경=spec repo `OPS_30` 전파 후 `spec_ref.json` 재핀.
-> **최종 갱신:** 2026-06-20 · **스펙 핀:** `spec_ref.json` @ `main` `d62df49` (DRIFT-050 AB-011 channel 전파·DEC-20260620-001 재핀). 이전: (**Phase 2 Full Spec Coverage 채택** — 데모 스코프 상한 해제, `ImplementationPhase_FullSpecCoverage.md` · DRIFT-037 F-011 fog·DRIFT-038 F-012 see-through 전파 `daa1114`/DEC-20260618-001 머지+재핀). **PENDING-PROP 없음.** 이전 핀: 4422e50=Phase2 채택·DRIFT-037/038, 0edf55c=DRIFT-035/036(F-004 §3.5·F-012 §3.1.2), b84e975=DEC-20260611-003~006, c795fee=DEC-001/002, f7739a1=DRIFT-021.
+> **최종 갱신:** 2026-06-22 · **스펙 핀:** `spec_ref.json` @ `main` `bc22c38` (DEC-20260621-001 제3세력 Stalker Pack 전파+재핀 · DRIFT-055; 직전 `ef9c0c7`=DEC-20260620-002·DRIFT-054, `d62df49`=DRIFT-050 AB-011 channel·DEC-20260620-001). 이전: (**Phase 2 Full Spec Coverage 채택** — 데모 스코프 상한 해제, `ImplementationPhase_FullSpecCoverage.md` · DRIFT-037 F-011 fog·DRIFT-038 F-012 see-through 전파 `daa1114`/DEC-20260618-001 머지+재핀). **PENDING-PROP 없음.** 이전 핀: 4422e50=Phase2 채택·DRIFT-037/038, 0edf55c=DRIFT-035/036(F-004 §3.5·F-012 §3.1.2), b84e975=DEC-20260611-003~006, c795fee=DEC-001/002, f7739a1=DRIFT-021.
 > **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조 검증).
 
 ## 범례
@@ -407,3 +407,10 @@
 - **스폰 위치 시드 산포 🔶 impl(게임측):** `_squad_spawn_center`가 룸당 고정 deep point였음 → 위치도 예측 가능. run_seed로 ±SPAWN_SCATTER_M(4.5m) 산포. 스펙은 authored `ambushAnchorRefs[]`/`holdAnchor`(LDG-001) **복수 앵커**를 이미 허용 → 별도 규칙 전파 불필요, 데모는 절차적 시드 산포로 단순화(정식 authored 앵커/patrol graph는 후속 레벨디자인). **(2026-06-21 픽스)** 초기 navmesh 스냅 제거 — prespawn 시점 NavigationServer 맵 미sync → `map_get_closest_point`가 origin(0,0,0) 반환 → **전 분대 시작점 붕괴** 회귀. deep point는 interior라 스냅 없이 안전(기존 `_spawn_offset` ring과 동일 범위).
 - **P-ADV-06~09 확장 풀 🔶 impl:** 게임 DungeonScale(P2-S1) 룸/풀로 스펙 데모 본편(6 Room) 밖 — 동일 resolve 규칙 적용, 스펙 §3 note에 명시. 가중치·조합 = DEMO PH(밸런스 튜닝 여지). 임시 P-PAT/AMB pool_slot 제거(후보가 ADV/ENTRY/ROUTE 행에 편입돼 ENC 로드 유지).
 - **잔여:** 시드 picker = hash 기반 placeholder(가중 순서는 맞으나 균등성은 근사) — 필요 시 정식 RNG. Hard PAT/AMB 변주(Normal 전용 현행). 체감 F6(런 반복 → ENC·위치·거동 변주).
+
+### DRIFT-055 — P2-S5a-3 제3세력 Stalker Pack: 능력 수치 PH + 일부 effect 근사 🔶 tuning/impl
+- **현실(2026-06-22, DEC-20260621-001 / spec `bc22c38` 재핀):** EN-3RD-01/02/03 + AB-100~106 + PT-023/024/025 + status/effect 전파·구현. stat(hp/speed/dmg/range/interval)·AB 수치(cooldown/telegraph/dash_range/scent_s/root_s/execute_under/atk_speed_mult 등) = **DEMO PH**(F-025 §11 design examples).
+- **의도적 근사(impl):** ① **Tether(AB-103)** = `Tethered` 상태만 적용 — 스펙 effect `APPLY-TETHER-4S`의 `leash_distance_m`/`dot_on_break_dps`(거리 이탈 DoT)는 미구현(상태 태그만; 거리 추적 DoT 후속). ② **Bloodlust(AB-105)** = 활성 시 flat 공속×1.5·뎀×1.3 — 스펙 `scaleByMissingHp`(잃은 HP 비례)는 flat 근사. ③ Rooted/Pinned = `MOVE_MULT 0.0` 이동봉쇄(행동가능) — `ccTenacity` 스케일 미적용(spec base만).
+- **분류\전파:** **tuning(로깅만) + impl(근사).** 상태 ID·effect 토큰·AB kind·equipClasses는 spec(bc22c38) 그대로 — 규칙 드리프트 없음. 수치/근사는 design example PH, 밸런스 패스에서 조정.
+- **이연(S6a):** lootable 6종의 **아군 skillbook 효과(sb_mark/root/tether/execute/bloodlust/lunge 신규)** 미구현 — 스펙에 lootable/equipClasses만 정의(IMPL-DEC-20260622-010). 적 측만 S5.
+- **잔여:** Tether leash-DoT·Bloodlust HP-스케일·ccTenacity 적용 = 밸런스/후속. 체감 F6(샌드박스 "ENC 추가"로 Third vs Dungeon 진영전 — Scent→Snare(Root)→Devour 킬체인 관찰).

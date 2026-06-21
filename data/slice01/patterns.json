@@ -15,6 +15,9 @@
     "PT-013": { "formation_role": "Backline",   "band": "Long",  "anchor": "Hold",     "spacing": "Loose",  "retreat": "none",              "engage": "standoff" },
     "PT-014": { "formation_role": "Frontline",  "band": "Melee", "anchor": "Hold",     "spacing": "Tight",  "retreat": "none",              "engage": "advance" },
     "PT-015": { "formation_role": "Skirmisher", "band": "Melee", "anchor": "Advance",  "spacing": "Loose",  "retreat": "none",              "engage": "advance",  "chase_speed_mult": 1.1 },
-    "PT-016": { "formation_role": "Support",    "band": "Mid",   "anchor": "Hold",     "spacing": "Loose",  "retreat": "flee_if_melee",     "engage": "healer" }
+    "PT-016": { "formation_role": "Support",    "band": "Mid",   "anchor": "Hold",     "spacing": "Loose",  "retreat": "flee_if_melee",     "engage": "healer" },
+    "PT-023": { "formation_role": "Flanker",    "band": "Melee", "anchor": "Orbit",    "spacing": "Loose",  "retreat": "hit_run",           "engage": "orbit",    "leash_m": 24, "target_pref": "weakest" },
+    "PT-024": { "formation_role": "Backline",   "band": "Long",  "anchor": "Skirt",    "spacing": "Loose",  "retreat": "flee_if_melee",     "engage": "kite",     "target_pref": "scented" },
+    "PT-025": { "formation_role": "Frontline",  "band": "Melee", "anchor": "Hold",     "spacing": "Tight",  "retreat": "none",              "engage": "advance" }
   }
 }

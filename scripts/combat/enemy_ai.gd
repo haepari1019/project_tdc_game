@@ -345,6 +345,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# gate. Every cast pass checks its own ability_cd[ref] internally.
 	for r in enemy.ability_cd.keys():
 		enemy.ability_cd[r] = maxf(0.0, float(enemy.ability_cd[r]) - delta)
+	_try_cast_frenzy(enemy)  # AB-105 Bloodlust — self-rage at low HP (instant, no wind-up)
 	if not enemy.winding:
 		_try_cast_signature(enemy)
 	# F-022: target highest-threat party member. With no threat, fall back to the
@@ -366,6 +367,16 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		var bl := _pick_backline_target(hostiles)
 		if bl != null:
 			target = bl
+	# Third-faction predatory targeting (DEC-20260621-001): Stalker hunts the WEAKEST hostile
+	# (threat-blind); Snarer/Reaver focus the pack's SCENTED prey. Falls back to threat.
+	elif String(enemy.engage_profile.get("target_pref", "")) == "weakest":
+		var wk := _pick_weakest_target(hostiles)
+		if wk != null:
+			target = wk
+	elif String(enemy.engage_profile.get("target_pref", "")) == "scented":
+		var sc := _pick_scented_target(hostiles)
+		if sc != null:
+			target = sc
 	# Disguised assassin (AssassinTransform): ignore threat, stalk a BACKLINE target (squishiest
 	# non-Tank) to execute. Reverts to normal targeting once revealed.
 	if enemy.assassin and not enemy.assassin_revealed:
@@ -403,6 +414,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# medium zone at the target's spot (EN-004 Oil/Wind · EN-005 ToxicGas · EN-007 Water/Ice/Veg).
 	if not enemy.winding and not enemy.dashing and has_los:
 		_try_cast_zone(enemy, target)
+	# Third-faction control casts (AB-101 Scent / AB-102 Snare-Root / AB-103 Tether) — ranged,
+	# telegraphed, applied on resolve. ref: DEC-20260621-001.
+	if not enemy.winding and not enemy.dashing and has_los:
+		_try_cast_third(enemy, target, dist, has_los)
 	# Per-enemy engaged behavior (EN-AI-000 / PT-###): MOVEMENT is profile-specific
 	# (_engage_move owns velocity incl. ZERO = plant); the ATTACK gate below is shared —
 	# in range + LOS + off cooldown → strike, even while a kiter keeps backpedalling.
@@ -414,7 +429,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 				_begin_assassin_execute(enemy, target)  # disguised → reveal telegraph → execute
 			else:
 				_begin_enemy_attack(enemy, target)
-			enemy.attack_cooldown_s = enemy.attack_interval_s
+			enemy.attack_cooldown_s = enemy.attack_interval_now()  # Bloodlust haste folds in
 			if String(enemy.engage_profile.get("engage", "")) == "probe":
 				enemy.probe_backstep_s = PROBE_BACKSTEP_S  # hit landed → back off (EN-006)
 	if enemy.is_slippery():  # Slippery (oil): inertial — can't change/stop velocity instantly
@@ -586,7 +601,7 @@ func _is_hit_run_flanker(enemy: CharacterBody3D) -> bool:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue
 		var eff: Dictionary = Slice01Data.get_ability(String(ab.get("ref", "")))
-		if String(eff.get("kind", "")) == "enemy_dash" and bool(eff.get("hit_on_arrival", false)):
+		if String(eff.get("kind", "")) == "enemy_dash" and bool(eff.get("hit_on_arrival", false)) and bool(eff.get("flank", false)):
 			return true
 	return false
 
@@ -796,6 +811,9 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 		return
 	if not _has_los(enemy, target):
 		return  # target broke line of sight during the wind-up — strike fizzles
+	if String(eff.get("kind", "")) in ["enemy_mark", "enemy_root", "enemy_tether"]:
+		_apply_third_status(enemy, eff, chosen, target)  # Scent / Snare(Root) / Tether on resolve
+		return
 	if String(eff.get("kind", "")) == "enemy_dash":
 		_begin_dash(enemy, eff, chosen, target)  # telegraph done → start the lunge (hit on arrival)
 		return
@@ -840,8 +858,15 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	# Multi-hit rom_* (voltaic double / melee flurry / flank stab) fold into one resolved total
 	# for now (true sequential hits = S2b polish). hits defaults 1.
 	var hits: int = maxi(1, int(eff.get("hits", 1)))
-	var dmg: float = enemy.contact_damage * float(eff.get("damage_mult", 1.0)) * float(hits)
+	var dmg: float = enemy.contact_damage * float(eff.get("damage_mult", 1.0)) * float(hits) * enemy.contact_damage_mult()
+	# Devour (AB-106 enemy_execute): bonus damage vs low-HP prey. ref: DEC-20260621-001.
+	if kind == "enemy_execute" and float(eff.get("execute_under", 0.0)) > 0.0 and is_instance_valid(target) and target.hp <= target.max_hp * float(eff.get("execute_under", 0.0)):
+		dmg *= float(eff.get("execute_mult", 1.0))
 	target.take_damage(dmg)
+	# Devour kill-feed: a kill restores HP + refunds the cooldown (chain into the next prey).
+	if float(eff.get("on_kill_heal_pct", 0.0)) > 0.0 and (not target.has_method("is_alive") or not target.is_alive()):
+		enemy.heal(enemy.max_hp * float(eff.get("on_kill_heal_pct", 0.0)))
+		enemy.ability_cd[String(chosen.get("ref", ""))] = 0.0
 	_combat._engage_enemy(enemy)  # D-010 §4.1: keep engaged (target already has threat/LOS)
 	# F-028: 파티 전용 피드백(formation-break·hit indicator·camera shake)은 표적이 파티원일 때만.
 	# 적-vs-적(진영전) 타격엔 데미지·상태만 적용(아래), 화면 피드백 없음.
@@ -899,10 +924,10 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 				get_tree().call_group("event_bus", "emit_event", "PhysicalImpact",
 					{"position": target.global_position, "radius": 1.5, "source": enemy})
 	if String(chosen.get("trigger", "")) == "signature" or kind in ["enemy_stun", "enemy_poison"]:
-		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), target.identity_skill_id])
-	if kind == "enemy_execute":
+		print("[EN] %s %s -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), _tname(target)])
+	if kind == "enemy_execute" and enemy.assassin:
 		enemy.assassin_revealed = true  # disguise dropped after the execute lands
-		print("[EN] %s ASSASSIN execute (x%.1f) -> %s" % [enemy.enemy_id, float(eff.get("damage_mult", 1.0)), target.identity_skill_id])
+		print("[EN] %s ASSASSIN execute (x%.1f) -> %s" % [enemy.enemy_id, float(eff.get("damage_mult", 1.0)), _tname(target)])
 
 
 func _telegraph_color(kind: String) -> Color:
@@ -931,6 +956,14 @@ func _telegraph_color(kind: String) -> Color:
 			return Color(0.9, 0.8, 0.4, 0.55)
 		"enemy_execute":  # AssassinTransform reveal — crimson aim line (조준선)
 			return Color(0.85, 0.05, 0.15, 0.6)
+		"enemy_mark":  # AB-101 Scent of Blood — blood-scent howl
+			return Color(0.92, 0.20, 0.22, 0.55)
+		"enemy_root":  # AB-102 Snare Net — net brown
+			return Color(0.60, 0.50, 0.30, 0.55)
+		"enemy_tether":  # AB-103 Tether — chain amber
+			return Color(0.72, 0.62, 0.25, 0.50)
+		"enemy_frenzy":  # AB-105 Bloodlust — rage red
+			return Color(1.0, 0.12, 0.12, 0.6)
 	return Color(0.9, 0.3, 0.2, 0.5)
 
 
@@ -1118,8 +1151,8 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 			continue  # AB still on cooldown
 		# Backstab (hit_on_arrival): STRIKE only from the FLANK — perpendicular to the party spine.
 		# If not on the flank arc yet, hold and let REPOSITION circle there first (no head-on dash).
-		if bool(eff.get("hit_on_arrival", false)):
-			var axis := _party_flank_axis(enemy)
+		if bool(eff.get("flank", false)):  # only flank dashes (AB-013) gate on the party flank axis;
+			var axis := _party_flank_axis(enemy)  # Pounce/Rampage (no flank) dash head-on freely
 			if axis != Vector3.ZERO:
 				var toe := enemy.global_position - target.global_position
 				toe.y = 0.0
@@ -1151,7 +1184,10 @@ func _begin_dash(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary, ta
 		return
 	var dir := to / d
 	var dest: Vector3
-	if bool(eff.get("flank", false)):
+	if bool(eff.get("line", false)):
+		# AB-104 Rampage: charge THROUGH the target (overshoot) — a line-cleave, not stop-at-target.
+		dest = target.global_position + dir * maxf(1.5, enemy.attack_range_m)
+	elif bool(eff.get("flank", false)):
 		# AB-013: end at the target's flank (side fixed per-enemy), level with it.
 		var perp := Vector3(-dir.z, 0.0, dir.x) * (1.0 if (enemy.get_instance_id() % 2 == 0) else -1.0)
 		dest = target.global_position + perp * DASH_FLANK_OFFSET_M
@@ -1188,8 +1224,14 @@ func _resolve_dash_hit(enemy: CharacterBody3D) -> void:
 		return
 	var to := target.global_position - enemy.global_position
 	to.y = 0.0
-	if to.length() <= enemy.attack_range_m + 1.0:
+	if to.length() <= enemy.attack_range_m + 1.5:
 		_apply_enemy_hit(enemy, target, eff, chosen)
+		# Pounce (AB-100): a short Pin on the struck prey — Root-setup. ref: DEC-20260621-001.
+		if float(eff.get("pin_s", 0.0)) > 0.0 and target.has_method("apply_outcome"):
+			target.apply_outcome("Pinned", float(eff.get("pin_s", 0.0)))
+	# Rampage (AB-104 line): cleave hostiles near the charge's end + knock them back.
+	if bool(eff.get("line", false)):
+		_rampage_splash(enemy, target, eff)
 	# Re-flank: the orbit profile's hit-and-run keep-distance (FLANK_KEEP) peels EN-008 back out and
 	# holds the gap until AB-013 is off cooldown — no fixed backstep needed here.
 
@@ -1236,7 +1278,7 @@ func _pick_backline_target(nodes: Array) -> CharacterBody3D:
 ## passes. The chosen signature's cooldown is reset in _begin_enemy_attack when it's committed.
 func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
 	# Signature kinds that fire as a "special attack" through the attack gate (need in-range + LOS).
-	var gate_kinds := ["enemy_charge", "enemy_splash", "enemy_hex", "enemy_melee", "enemy_stun", "enemy_poison", "enemy_cold"]
+	var gate_kinds := ["enemy_charge", "enemy_splash", "enemy_hex", "enemy_melee", "enemy_stun", "enemy_poison", "enemy_cold", "enemy_execute"]
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue
@@ -1281,3 +1323,140 @@ func _nearest_visible(enemy: CharacterBody3D, nodes: Array) -> CharacterBody3D:
 		best_d = d
 		best = n
 	return best
+
+
+# ── Third faction — Stalker Pack (DEC-20260621-001 / spec bc22c38) ─────────────────────────────
+# Distinct from the dungeon roster: predatory targeting (weakest/scented) + new control casts
+# (Scent/Root/Tether), HP-scaling self-rage (Bloodlust), and a kill-feed execute (Devour). The
+# movement reuses orbit/kite/advance; the identity lives in targeting + abilities.
+
+## Self-rage (AB-105 Bloodlust, EN-3RD-03 Reaver): once HP < hp_threshold, apply the Bloodlust
+## outcome (attack faster + hit harder via enemy_unit mults). Instant, no wind-up; long cooldown.
+func _try_cast_frenzy(enemy: CharacterBody3D) -> bool:
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		var ref := String(ab.get("ref", ""))
+		var eff: Dictionary = Slice01Data.get_ability(ref)
+		if String(eff.get("kind", "")) != "enemy_frenzy":
+			continue
+		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0 or enemy.is_bloodlust():
+			continue
+		if enemy.hp > enemy.max_hp * float(eff.get("hp_threshold", 0.5)):
+			continue  # only rages once wounded — never flees (PT-025)
+		enemy.bloodlust_spd_mult = float(eff.get("atk_speed_mult", 1.5))
+		enemy.bloodlust_dmg_mult = float(eff.get("damage_mult", 1.3))
+		enemy.apply_outcome("Bloodlust", float(eff.get("bloodlust_dur_s", 999.0)))
+		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 20.0))
+		SkillVfx.windup_cue(self, enemy.global_position, 0.3, _telegraph_color("enemy_frenzy"))
+		print("[EN] %s BLOODLUST (HP<%d%%)" % [enemy.enemy_id, int(float(eff.get("hp_threshold", 0.5)) * 100.0)])
+		return true
+	return false
+
+
+## Ranged control casts (AB-101 Scent / AB-102 Snare-Root / AB-103 Tether): off cooldown + target
+## within range_m + LOS → telegraphed cast, applied on resolve (_apply_third_status). One per frame.
+func _try_cast_third(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool) -> bool:
+	if not has_los or target == null:
+		return false
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		var ref := String(ab.get("ref", ""))
+		var eff: Dictionary = Slice01Data.get_ability(ref)
+		var kind := String(eff.get("kind", ""))
+		if not (kind == "enemy_mark" or kind == "enemy_root" or kind == "enemy_tether"):
+			continue
+		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
+			continue
+		if dist > float(eff.get("range_m", 10.0)):
+			continue
+		# Don't re-apply a status the target already carries (save the cast for fresh prey).
+		var carried := ""
+		match kind:
+			"enemy_mark": carried = "Scented"
+			"enemy_root": carried = "Rooted"
+			"enemy_tether": carried = "Tethered"
+		if carried != "" and target.has_method("has_outcome") and target.has_outcome(carried):
+			continue
+		enemy.winding = true
+		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.4))
+		enemy.windup_eff = eff
+		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
+		enemy.windup_target = target
+		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 9.0))
+		enemy.face_toward(target.global_position)
+		SkillVfx.windup_cue(self, enemy.global_position, float(eff.get("telegraph_s", 0.4)), _telegraph_color(kind))
+		return true
+	return false
+
+
+## Resolve a Third-faction control cast: apply the status (+ launch its shot vfx). Scent shares the
+## prey with the pack (Snarer/Reaver target_pref 'scented' converge); Root/Pin lock movement.
+func _apply_third_status(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary, target: CharacterBody3D) -> void:
+	if not is_instance_valid(target) or not target.has_method("apply_outcome"):
+		return
+	var kind := String(eff.get("kind", ""))
+	var vfx := String(eff.get("vfx", ""))
+	if vfx != "":
+		SkillVfx.enemy_vfx(vfx, self, enemy.global_position, target)
+	match kind:
+		"enemy_mark":
+			target.apply_outcome("Scented", float(eff.get("scent_s", 6.0)))
+		"enemy_root":
+			target.apply_outcome("Rooted", float(eff.get("root_s", 2.0)))
+			var dm := float(eff.get("damage_mult", 0.0))
+			if dm > 0.0 and target.has_method("take_damage"):
+				target.take_damage(enemy.contact_damage * dm)
+		"enemy_tether":
+			target.apply_outcome("Tethered", float(eff.get("tether_s", 4.0)))
+	print("[EN] %s %s (%s) -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), kind, _tname(target)])
+
+
+## Rampage (AB-104) line-cleave: damage + knock back every hostile near the charge's end point.
+## Group-gathered + _is_hostile filtered (party always hostile; enemies cross-faction). ref: DEC-20260621-001.
+func _rampage_splash(enemy: CharacterBody3D, primary: CharacterBody3D, eff: Dictionary) -> void:
+	var sr := float(eff.get("splash_radius_m", 2.0))
+	var sfrac := float(eff.get("splash_frac", 0.6))
+	var kb := float(eff.get("knockback_m", 0.0))
+	var base: float = enemy.contact_damage * float(eff.get("damage_mult", 1.0)) * enemy.contact_damage_mult()
+	var ep: Vector3 = enemy.global_position
+	var cands: Array = []
+	cands.append_array(get_tree().get_nodes_in_group("party_member"))
+	cands.append_array(get_tree().get_nodes_in_group("enemy"))
+	for h in cands:
+		if h == primary or h == enemy or not is_instance_valid(h) or not _is_hostile(enemy, h):
+			continue
+		if ep.distance_to(h.global_position) > sr or not h.has_method("take_damage"):
+			continue
+		h.take_damage(base * sfrac)
+		if kb > 0.0 and h.has_method("apply_knockback"):
+			h.apply_knockback(h.global_position - ep, kb)
+
+
+## Weakest living hostile (lowest current HP) — the Stalker's predatory prey (threat-blind). ref: PT-023.
+func _pick_weakest_target(nodes: Array) -> CharacterBody3D:
+	var best: CharacterBody3D = null
+	var best_hp := INF
+	for n in _alive_members(nodes):
+		if is_instance_valid(n) and float(n.hp) < best_hp:
+			best_hp = float(n.hp)
+			best = n
+	return best
+
+
+## First living hostile carrying the Scented mark — the pack's shared prey. ref: PT-024/025.
+func _pick_scented_target(nodes: Array) -> CharacterBody3D:
+	for n in _alive_members(nodes):
+		if is_instance_valid(n) and n.has_method("has_outcome") and n.has_outcome("Scented"):
+			return n
+	return null
+
+
+## Log-friendly name for a hostile (party identity vs enemy id) — enemy_unit has no identity_skill_id.
+func _tname(t) -> String:
+	if t == null or not is_instance_valid(t):
+		return "?"
+	if t.is_in_group("party_member"):
+		return String(t.get("identity_skill_id"))
+	return String(t.get("enemy_id"))

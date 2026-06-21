@@ -2,12 +2,13 @@
   "encounter_id": "ENC-3RD-001",
   "difficulty_profile": "Normal",
   "risk_pattern_ref": null,
-  "group_size": 2,
+  "group_size": 3,
   "faction": "Third",
   "placement_behavior": "Fixed",
-  "_note": "Third Faction Stalker Pack (ENC-3RD-001, F-028) — 플레이어 + 일반 몬스터 양쪽에 적대. 강한 소수: elite 1 + escort 1. EN-*은 EN-COR-000 후속이라 데모 placeholder(EN-001 elite + EN-010). faction=Third가 분대 전체에 적용. 단서(소리/흔적)·런 배치(thirdFactionSlots)=S5a-3.",
+  "_note": "Third Faction Stalker Pack (ENC-3RD-001, F-028, DEC-20260621-001 / spec bc22c38) — 플레이어 + 일반 몬스터 양쪽에 적대. 전용 무리: 추적자(EN-3RD-01) + 포획꾼(EN-3RD-02) + 학살자(EN-3RD-03). 킬체인 Scent→Snare(Root)→Devour. faction=Third가 분대 전체 적용. 단서(소리/흔적)·런 배치(thirdFactionSlots)=S5a-3.",
   "units": [
-    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
-    { "enemy_id": "EN-010", "count": 1, "slot": "escort" }
+    { "enemy_id": "EN-3RD-01", "count": 1, "slot": "stalker" },
+    { "enemy_id": "EN-3RD-02", "count": 1, "slot": "snarer" },
+    { "enemy_id": "EN-3RD-03", "count": 1, "slot": "reaver" }
   ]
 }

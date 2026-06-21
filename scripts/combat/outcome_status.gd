@@ -9,15 +9,25 @@ extends RefCounted
 ## DEMO PH magnitudes (SPEC_DRIFT) — real RX→status mapping/numbers land in P2-S3d.
 
 # Movement-outcome → speed multiplier (strongest slow taken when several stack).
+# Rooted/Pinned (STATUS-ACTOR-CORE CC, AB-102/AB-100) = full move LOCK (0.0) but the unit can still
+# act — they only zero movement, unlike Stunned which freezes the whole AI. ref: DEC-20260621-001.
 const MOVE_MULT := {
 	"Sodden": 0.7, "Chilled": 0.6, "SteamHaze": 0.85, "Shock": 0.55, "Slippery": 0.85,
+	"Rooted": 0.0, "Pinned": 0.0,
 }
+# Buff outcomes (drawn green-ish / flagged buff in the overlay). Bloodlust = AB-105 self-rage.
+const BUFF := { "Bloodlust": true }
 # Status orb / overlay colour per outcome.
 const COLOR := {
 	"Sodden": Color(0.40, 0.62, 0.95), "Chilled": Color(0.62, 0.86, 1.0),
 	"SteamHaze": Color(0.80, 0.85, 0.90), "Shock": Color(0.60, 0.80, 1.0),
 	"Slippery": Color(0.72, 0.60, 0.32), "Ignited": Color(1.0, 0.50, 0.20),
 	"WindBuffeted": Color(0.70, 1.0, 0.86),
+	# Third faction (DEC-20260621-001): Scented(추적 마크)·Rooted(이동봉쇄)·Pinned(짧은 고정)·
+	# Tethered(거리 끈)·Bloodlust(저HP 자가 rage).
+	"Scented": Color(0.92, 0.18, 0.20), "Rooted": Color(0.55, 0.45, 0.28),
+	"Pinned": Color(0.80, 0.70, 0.30), "Tethered": Color(0.70, 0.62, 0.22),
+	"Bloodlust": Color(1.0, 0.20, 0.15),
 }
 const DEFAULT_IGNITE_DPS := 8.0
 
@@ -80,7 +90,7 @@ func status_list() -> Array:
 		out.append({
 			"color": COLOR.get(id, Color(0.8, 0.8, 0.8)),
 			"ratio": 1.0 - clampf(float(_t[id]) / maxf(float(_dur.get(id, 0.01)), 0.01), 0.0, 1.0),
-			"buff": false,
+			"buff": BUFF.has(id),
 		})
 	return out
 
@@ -88,7 +98,8 @@ func status_list() -> Array:
 ## The highest-priority active outcome colour (for the single overhead orb), or null if none.
 func orb_color():
 	# fire > shock > the rest, roughly by threat readability.
-	for id in ["Ignited", "Shock", "Chilled", "Sodden", "Slippery", "SteamHaze", "WindBuffeted"]:
+	for id in ["Ignited", "Shock", "Chilled", "Sodden", "Slippery", "SteamHaze", "WindBuffeted",
+			"Rooted", "Pinned", "Scented", "Tethered", "Bloodlust"]:
 		if _t.has(id):
 			return COLOR[id]
 	return null

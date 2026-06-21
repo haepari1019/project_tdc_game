@@ -24,6 +24,14 @@
     "AB-020": { "kind": "shield_pulse", "cooldown_s": 8, "radius_m": 5, "shield_base": 120, "shield_per_enemy": 30, "shield_cap": 280, "shield_duration_s": 5, "threat_pulse": 60 },
     "AB-024": { "kind": "cone_sweep",   "cooldown_s": 7, "range_m": 5, "cone_deg": 60, "hits": 3, "hit_interval_s": 0.25, "hit_damage_mult": 1.0 },
     "AB-025": { "kind": "mark_burst",   "cooldown_s": 9, "range_m": 8, "mark_time_s": 0.5, "ruin_damage_mult": 12.0 },
-    "AB-026": { "kind": "radius_heal",  "cooldown_s": 6, "radius_m": 5, "heal_pct": 0.10, "ally_threshold_pct": 0.90, "tank_threshold_pct": 0.95 }
+    "AB-026": { "kind": "radius_heal",  "cooldown_s": 6, "radius_m": 5, "heal_pct": 0.10, "ally_threshold_pct": 0.90, "tank_threshold_pct": 0.95 },
+
+    "AB-100": { "kind": "enemy_dash",    "telegraph_s": 0.25, "channel": true, "cooldown_s": 6.0,  "dash_range_m": 9.0, "hit_on_arrival": true, "damage_mult": 1.2, "pin_s": 0.6, "vfx": "strike" },
+    "AB-101": { "kind": "enemy_mark",    "telegraph_s": 0.4,  "channel": true, "cooldown_s": 10.0, "range_m": 14.0, "scent_s": 6.0, "vfx": "shot_hex" },
+    "AB-102": { "kind": "enemy_root",    "telegraph_s": 0.5,                   "cooldown_s": 9.0,  "range_m": 11.0, "root_s": 2.0, "damage_mult": 0.2, "vfx": "shot_hex" },
+    "AB-103": { "kind": "enemy_tether",  "telegraph_s": 0.35,                  "cooldown_s": 8.0,  "range_m": 12.0, "tether_s": 4.0, "vfx": "shot_hex" },
+    "AB-104": { "kind": "enemy_dash",    "telegraph_s": 0.45, "channel": true, "cooldown_s": 7.0,  "dash_range_m": 9.0, "hit_on_arrival": true, "line": true, "damage_mult": 1.1, "knockback_m": 0.9, "splash_radius_m": 2.0, "splash_frac": 0.6, "vfx": "strike" },
+    "AB-105": { "kind": "enemy_frenzy",                                        "cooldown_s": 20.0, "hp_threshold": 0.5, "atk_speed_mult": 1.5, "damage_mult": 1.3, "bloodlust_dur_s": 999.0, "vfx": "shield_bash" },
+    "AB-106": { "kind": "enemy_execute", "telegraph_s": 0.5,  "channel": true, "cooldown_s": 8.0,  "damage_mult": 1.0, "execute_under": 0.3, "execute_mult": 2.0, "on_kill_heal_pct": 0.2, "vfx": "strike" }
   }
 }

@@ -296,6 +296,28 @@ func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	_outcome.apply(id, dur, mag)
 
 
+## Public outcome query (Third-faction targeting reads Scented/Rooted/etc.). ref: DEC-20260621-001.
+func has_outcome(id: String) -> bool:
+	return _outcome.has(id)
+
+
+# --- Bloodlust (AB-105 enemy_frenzy, EN-3RD-03 Reaver): self-rage at low HP — while the Bloodlust
+# outcome is active, attack faster + hit harder (mults set when the frenzy cast resolves). ---
+var bloodlust_spd_mult: float = 1.0
+var bloodlust_dmg_mult: float = 1.0
+
+func is_bloodlust() -> bool:
+	return _outcome.has("Bloodlust")
+
+## Attack interval folding Bloodlust haste (faster while raging). Used by EnemyAI's attack gate.
+func attack_interval_now() -> float:
+	return attack_interval_s / bloodlust_spd_mult if is_bloodlust() else attack_interval_s
+
+## Damage multiplier from Bloodlust (1.0 when not raging). Folded into EnemyAI hit damage.
+func contact_damage_mult() -> float:
+	return bloodlust_dmg_mult if is_bloodlust() else 1.0
+
+
 func is_slippery() -> bool:
 	return hp > 0.0 and _outcome.is_slippery()
 

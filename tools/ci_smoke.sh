@@ -42,5 +42,15 @@ if [ "$hcode" -ne 0 ] || ! grep -qF "HUB SMOKE PASSED" "$hublog"; then
   echo "  FAIL: hub smoke (exit=$hcode) —"; grep -nE "FAIL|$ERRPAT" "$hublog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# Third-faction (Stalker Pack, DEC-20260621-001): outcome logic (Root/Pin lock, Bloodlust buff) +
+# data wiring (AB-100~106 kinds, rom_* basics, PT-023/024/025, ENC-3RD-001 units).
+echo "== third-faction smoke (DEC-20260621-001) =="
+thirdlog="/tmp/ci_third_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/third_smoke.gd >"$thirdlog" 2>&1
+tcode=$?
+if [ "$tcode" -ne 0 ] || ! grep -qF "THIRD SMOKE PASSED" "$thirdlog"; then
+  echo "  FAIL: third smoke (exit=$tcode) —"; grep -nE "FAIL|$ERRPAT" "$thirdlog" | head -8; fail=1
+else echo "  PASS"; fi
+
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi

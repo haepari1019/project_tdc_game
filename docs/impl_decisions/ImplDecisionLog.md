@@ -6,6 +6,17 @@
 
 ---
 
+### IMPL-DEC-20260622-010 — P2-S5a-3: 제3세력 전용 적 3종(Stalker Pack) + 전용 능력 7종 구현
+- **결정(사용자):** ENC-3RD-001 placeholder(EN-001/EN-010) → **전용 무리**로 교체. 핵심: 기존 파티 풀(AB-020~099)과 **메커니즘 중복 회피** — execute/vulnerable/cone/slow/blink/haste는 이미 존재하므로 단순 복제 대신 **distinct 변주**로 재설계.
+- **스펙 선행(전파됨, `bc22c38` 재핀):** EN-3RD-01 추적자/02 포획꾼/03 학살자 + AB-100 Pounce·101 Scent·102 Snare Net·103 Tether·104 Rampage·105 Bloodlust·106 Devour + PT-023/024/025 + 신규 status(Rooted·Pinned·Scented·Tethered·Bloodlust) + effect 7토큰. DEC-20260621-001.
+- **차별화 = 거동 + 신규 메커니즘**(능력 팔레트가 아니라): movement은 기존 orbit/kite/advance 재사용. 신규는 **predatory targeting**(`target_pref` weakest=Stalker·scented=Snarer/Reaver, threat-blind) + 6 effect kind.
+- **effect kind 6종(enemy_ai):** `enemy_mark`(Scent→Scented+팩 공유)·`enemy_root`(Snare→Rooted 이동봉쇄)·`enemy_tether`(Tethered)·`enemy_frenzy`(Bloodlust 자가 rage, HP<50% 자동, 공속·뎀↑)·`enemy_execute`(Devour 저HP 처형+**처치 시 회복·쿨 환급** 연쇄). Pounce/Rampage는 `enemy_dash` 확장(`pin_s`→Pinned·`line`→관통 overshoot+splash). 캐스트 패스 `_try_cast_frenzy`/`_try_cast_third` 추가.
+- **outcome(outcome_status):** Rooted·Pinned = `MOVE_MULT 0.0`(이동봉쇄·행동가능, `is_stunned`과 구별). Bloodlust = `BUFF`. enemy_unit `attack_interval_now()`/`contact_damage_mult()` + party_member/enemy_unit `has_outcome()`.
+- **코드-버그 픽스(진영전 노출):** `_apply_enemy_hit`이 `target.identity_skill_id` 직접 참조 → 적-vs-적 시전 시 enemy_unit엔 없어 **크래시 위험** → `_tname(target)`(파티=identity / 적=enemy_id)로 교체. `enemy_execute` assassin-reveal 블록도 `and enemy.assassin` 가드(Reaver Devour 오발동 방지). hit-run-flank/flank-게이트는 `flank:true`로 한정(Pounce/Rampage가 EN-008 flank 로직 안 탐).
+- **이연(S6a 파티 풀):** lootable 6종의 **아군 skillbook 효과(sb_mark/root/tether/execute/bloodlust/lunge 신규)**는 미구현 — 스펙에 lootable/equipClasses만 정의(Pounce/Tether/Devour=Nuker·Snare/Rampage/Bloodlust=Tank·Scent=Healer; DPS=원거리광역이라 0). 적 측만 S5.
+- **검증:** `ci_smoke.sh`(부팅·hub·**third_smoke 신설**) PASS — Root/Pin move-lock·Bloodlust buff·AB kind·rom·패턴 target_pref·ENC 3유닛·faction 정합.
+- **영향:** `enemy_ai.gd`·`enemy_unit.gd`·`outcome_status.gd`·`party_member.gd` · data(abilities/enemy_basics/enemies/patterns/ENC-3RD-001/id_registry) · `tools/third_smoke.gd`·`ci_smoke.sh`.
+
 ### IMPL-DEC-20260621-009 — 진영 견고화: N개 진영 + 혼합-진영 분대 (단일 진영 가정 제거)
 - **결정(사용자):** 3세력이 "무조건 단일 진영은 아닐 수 있음" → IMPL-DEC-008의 "각 ENC=단일 진영 → 위험 자동 회피" 가정 폐기. faction(String)은 이미 N개 지원; 분대-결합 동작을 진영-aware로 만들어 견고화.
 - **힐/지원 = 같은 진영만:** `_enemies_in_radius(pos, r, faction:="")` 진영 필터 추가. enemy_ai 힐 3곳(`_heal_follow_target`·`_try_cast_signature` heal 조건·`_apply_enemy_heal`)이 `enemy.faction` 전달 → 라이벌 진영 힐 안 함.

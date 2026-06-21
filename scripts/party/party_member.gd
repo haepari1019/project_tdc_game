@@ -547,6 +547,11 @@ func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	_update_status_orb()
 
 
+## Public outcome query (Third-faction Scent/Root targeting reads this). ref: DEC-20260621-001.
+func has_outcome(id: String) -> bool:
+	return _outcome.has(id)
+
+
 func is_slippery() -> bool:
 	return _alive and _outcome.is_slippery()
 

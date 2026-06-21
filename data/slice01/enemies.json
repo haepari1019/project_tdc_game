@@ -61,6 +61,22 @@
       "stats": { "hp": 280, "move_speed": 5.2, "contact_damage": 7, "attack_range_m": 1.7, "attack_interval_s": 1.5 },
       "basic_attack": "rom_trash_sustain_tap",
       "_role_note": "SustainTrash (EN-AI-000 PT-016). worldInteractProfile: none (torch carry is ENC-bound, demo home ENC-PAT-003=P2-S3 — NOT a unit property).",
-      "abilities": [ { "ref": "AB-098" } ] }
+      "abilities": [ { "ref": "AB-098" } ] },
+
+    { "enemy_id": "EN-3RD-01", "role": "elite", "display_name": "Stalker", "pattern_ref": "PT-023",
+      "stats": { "hp": 230, "move_speed": 6.5, "contact_damage": 16, "attack_range_m": 1.8, "attack_interval_s": 0.9 },
+      "basic_attack": "rom_stalker_rip",
+      "_role_note": "제3세력 추적자 — 포식 타겟팅(weakest)·Scent 마크·Pounce 도약+Pin. faction=Third(ENC).",
+      "abilities": [ { "ref": "AB-100" }, { "ref": "AB-101" } ] },
+    { "enemy_id": "EN-3RD-02", "role": "nuker", "display_name": "Snarer", "pattern_ref": "PT-024",
+      "stats": { "hp": 240, "move_speed": 5.2, "contact_damage": 12, "attack_range_m": 9.0, "attack_interval_s": 1.6 },
+      "basic_attack": "rom_snarer_dart",
+      "_role_note": "제3세력 포획꾼 — 원거리 kite, Scented 먹이에 Snare(Root)/Tether 셋업.",
+      "abilities": [ { "ref": "AB-102" }, { "ref": "AB-103" } ] },
+    { "enemy_id": "EN-3RD-03", "role": "elite", "display_name": "Reaver", "pattern_ref": "PT-025",
+      "stats": { "hp": 640, "move_speed": 4.8, "contact_damage": 22, "attack_range_m": 2.0, "attack_interval_s": 1.8 },
+      "basic_attack": "rom_reaver_cleave",
+      "_role_note": "제3세력 학살자 — 돌진(Rampage)·HP<50% Bloodlust 격화·저HP Devour 처형(처치 시 회복).",
+      "abilities": [ { "ref": "AB-104" }, { "ref": "AB-105" }, { "ref": "AB-106" } ] }
   ]
 }
