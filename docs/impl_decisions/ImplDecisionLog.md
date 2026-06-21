@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260621-009 — 진영 견고화: N개 진영 + 혼합-진영 분대 (단일 진영 가정 제거)
+- **결정(사용자):** 3세력이 "무조건 단일 진영은 아닐 수 있음" → IMPL-DEC-008의 "각 ENC=단일 진영 → 위험 자동 회피" 가정 폐기. faction(String)은 이미 N개 지원; 분대-결합 동작을 진영-aware로 만들어 견고화.
+- **힐/지원 = 같은 진영만:** `_enemies_in_radius(pos, r, faction:="")` 진영 필터 추가. enemy_ai 힐 3곳(`_heal_follow_target`·`_try_cast_signature` heal 조건·`_apply_enemy_heal`)이 `enemy.faction` 전달 → 라이벌 진영 힐 안 함.
+- **경보 전파 = 같은 진영만:** `_engage_enemy` 분대 wake에 `o.faction == e.faction` 가드 → 혼합-진영 분대여도 적끼리 안 깨움.
+- **유닛별 faction override:** `_spawn_at`이 `u.get("faction", enc_faction)` → 한 ENC에 혼합 진영 가능(단일 진영 강제 해제).
+- **이미 일반적이던 것:** `_is_hostile`(다른 진영=적대)은 N개 진영·상호 적대 그대로 지원(여러 라이벌 정예 무리 OK).
+- **검증:** 던전 부팅·ci_smoke PASS.
+- **영향:** `combat_controller.gd`(_enemies_in_radius 필터·wake 가드·per-unit faction)·`enemy_ai.gd`(힐 3곳).
+
 ### IMPL-DEC-20260621-008 — P2-S5a-1: 실시간 진영전 코어 (F-028 faction warfare)
 - **결정(사용자):** 3세력도 ENC로 배정 + **3세력 분대 ↔ 일반 적 분대가 실시간 교전**(+ 양쪽 파티 적대). 풀 온스크린 진영전 — 파티-중심 전투 코어를 교차진영으로 확장. (저위험 오프스크린안 대신 사용자가 명시 선택.)
 - **faction 필드:** `enemy_unit.faction`(기본 Dungeon). ENC `faction`(예: ENC-3RD-001=Third) → `_spawn_at`/`_spawn_squad`/`debug_spawn_unit`로 유닛에 설정. **각 ENC=단일 진영** → 혼합 분대 wake/heal 위험(에이전트 HIGH) 자동 회피.

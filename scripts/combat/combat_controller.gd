@@ -140,6 +140,8 @@ func _engage_enemy(e: CharacterBody3D, target_member: CharacterBody3D = null) ->
 			continue
 		if o.squad_id != e.squad_id:
 			continue
+		if String(o.faction) != String(e.faction):
+			continue  # F-028: 경보 전파는 같은 진영만 (혼합-진영 분대여도 적끼리는 안 깨움)
 		# Sequential wake (ENC-AMB-002): a sprung anchor does NOT wake the OTHER anchor — it waits
 		# for the party to reach its own reveal radius. Same-anchor squadmates still wake together.
 		if String(e.wake_policy) == "sequential" and int(o.anchor_id) != int(e.anchor_id):
@@ -283,11 +285,14 @@ func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: fl
 	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source)
 
 
-func _enemies_in_radius(pos: Vector3, r: float) -> Array:
+## Enemies within radius. `faction` != "" → only that faction (F-028: 힐/지원은 같은 진영만).
+func _enemies_in_radius(pos: Vector3, r: float, faction: String = "") -> Array:
 	var out: Array = []
 	var r2 := r * r
 	for e in _enemies:
 		if not is_instance_valid(e):
+			continue
+		if faction != "" and String(e.faction) != faction:
 			continue
 		if Spatial.h_dist2(pos, e.global_position) <= r2:
 			out.append(e)
@@ -567,7 +572,7 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, plac
 			var aid := index % maxi(anchor_count, 1)
 			unit.global_position = _anchor_center(center, aid, anchor_count) + _spawn_offset(index)
 			unit.squad_id = squad_id
-			unit.faction = faction   # F-028 교전 진영 (ENC faction / 샌드박스 override)
+			unit.faction = String(u.get("faction", faction))   # F-028 — ENC faction; 유닛별 override 가능(혼합 진영)
 			# AssassinTransform: per-ENCOUNTER tag (not a unit-catalog property) — one fodder
 			# row flagged disguised; same enemy_id rows without the flag stay normal.
 			if bool(u.get("assassin", false)):

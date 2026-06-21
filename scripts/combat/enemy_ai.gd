@@ -521,7 +521,7 @@ func _heal_follow_target(enemy: CharacterBody3D) -> CharacterBody3D:
 	var wounded_frac := HEAL_HUG_THRESHOLD
 	var nearest: CharacterBody3D = null
 	var nearest_d := INF
-	for a in _combat._enemies_in_radius(enemy.global_position, HEAL_SEEK_M):
+	for a in _combat._enemies_in_radius(enemy.global_position, HEAL_SEEK_M, enemy.faction):
 		if a == enemy or not is_instance_valid(a) or (a.has_method("is_alive") and not a.is_alive()):
 			continue
 		var frac: float = a.hp / maxf(float(a.max_hp), 1.0)
@@ -952,7 +952,7 @@ func _try_cast_signature(enemy: CharacterBody3D) -> bool:
 		var r := float(eff.get("radius_m", 3.0))
 		var thr := float(eff.get("ally_threshold_pct", 0.9))
 		var wounded := false
-		for a in _combat._enemies_in_radius(enemy.global_position, r):
+		for a in _combat._enemies_in_radius(enemy.global_position, r, enemy.faction):
 			if is_instance_valid(a) and a.is_alive() and a.hp < a.max_hp * thr:
 				wounded = true
 				break
@@ -977,7 +977,7 @@ func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictiona
 	var r := float(eff.get("radius_m", 3.0))
 	var pct := float(eff.get("heal_pct", 0.08))
 	var healed := 0
-	for a in _combat._enemies_in_radius(enemy.global_position, r):
+	for a in _combat._enemies_in_radius(enemy.global_position, r, enemy.faction):
 		if is_instance_valid(a) and a.has_method("heal") and a.is_alive() and a.hp < a.max_hp:
 			a.heal(a.max_hp * pct)
 			healed += 1
