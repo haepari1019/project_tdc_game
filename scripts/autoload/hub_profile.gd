@@ -5,6 +5,7 @@ extends Node
 ## ref: F-029, D-029.
 
 const FACILITY_IDS := ["barracks", "stash", "scriptorium", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"]
+const SAVE_PATH := "user://hub_profile.json"   # 메타 진행 영속 (B6)
 
 signal facilities_changed()
 signal vault_changed()
@@ -12,12 +13,42 @@ signal vault_changed()
 var facilities: Dictionary = {}        # facilityId -> facilityTier (int, ≥0)
 var hub_haul_vault: Dictionary = {}    # haulMaterialId -> qty (Safe only)
 var quest_completed: Dictionary = {}   # questId -> bool
+var _q_dirty: bool = false
 
 
 func _ready() -> void:
+	load_profile()
 	for f in FACILITY_IDS:
 		if not facilities.has(f):
 			facilities[f] = 0
+
+
+## Persist meta progress (B6) — 변경마다 호출(승급·vault·퀘스트 완료). user:// JSON.
+func save_profile() -> void:
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(JSON.stringify({
+		"facilities": facilities,
+		"hub_haul_vault": hub_haul_vault,
+		"quest_completed": quest_completed,
+	}))
+	f.close()
+
+
+func load_profile() -> void:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var d = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(d) != TYPE_DICTIONARY:
+		return
+	facilities = d.get("facilities", {})
+	hub_haul_vault = d.get("hub_haul_vault", {})
+	quest_completed = d.get("quest_completed", {})
 
 
 func facility_tier(id: String) -> int:
@@ -30,6 +61,7 @@ func add_haul(id: String, qty: int) -> void:
 		return
 	hub_haul_vault[id] = int(hub_haul_vault.get(id, 0)) + qty
 	vault_changed.emit()
+	save_profile()
 
 
 func vault_count(id: String) -> int:
@@ -46,6 +78,7 @@ func remove_haul(id: String, qty: int = 1) -> void:
 	else:
 		hub_haul_vault.erase(id)
 	vault_changed.emit()
+	save_profile()
 
 
 func set_quest_completed(quest_id: String, done: bool = true) -> void:
@@ -60,6 +93,7 @@ func is_quest_done(quest_id: String) -> bool:
 ## (F-029 §3.3.1). 런 이벤트형(ENC clear·map success·GIMMICK·party wipe·NPC)은 B4 full에서
 ## 런 훅으로 완료. 비가역(완료는 유지) — 허브 진입/vault·시설 변동 시 호출.
 func evaluate_quests() -> void:
+	_q_dirty = false
 	_q_if("Q-HUB-002", vault_count("haul_ward_splinter") >= 2)   # 창고 T1 — 파편 반입
 	_q_if("Q-HUB-011", vault_count("haul_arc_ink") >= 2)         # 필기소 T2 — 아크 잉크
 	_q_if("Q-HUB-012", facility_tier("scriptorium") >= 1)        # 상점 개장 — 필기소 선행
@@ -68,11 +102,14 @@ func evaluate_quests() -> void:
 	_q_if("Q-HUB-030", vault_count("haul_forge_coal") >= 3)      # 대장간 건립 — 연료
 	_q_if("Q-HUB-031", facility_tier("smithy") >= 1)             # 대장간 T2
 	_q_if("Q-HUB-051", vault_count("haul_pack_frame") >= 2)      # 군수 T2
+	if _q_dirty:
+		save_profile()
 
 
 func _q_if(quest_id: String, cond: bool) -> void:
 	if cond and not is_quest_done(quest_id):
 		quest_completed[quest_id] = true
+		_q_dirty = true
 
 
 ## D-029 §5 — 시설 `id`를 다음 Tier로 승급 가능한지. 반환:
@@ -121,6 +158,7 @@ func attempt_upgrade(id: String) -> bool:
 	facilities[id] = next_tier
 	facilities_changed.emit()
 	vault_changed.emit()
+	save_profile()
 	return true
 
 

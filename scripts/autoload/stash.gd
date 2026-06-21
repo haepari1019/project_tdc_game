@@ -8,11 +8,39 @@ var gear: Array = []               # owned base_gear_id strings (Identity Gear)
 var skillbooks: Array = []         # owned base_ability_id strings (skillbooks)
 var consumables: Dictionary = {}   # consumable_id -> count owned
 
+const SAVE_PATH := "user://stash.json"   # 소유 아이템 영속 (B6)
 var _seeded: bool = false
 
 
 func _ready() -> void:
-	_seed()
+	if FileAccess.file_exists(SAVE_PATH):
+		load_stash()
+	else:
+		_seed()
+		save_stash()
+
+
+## Persist owned items (B6) — 변경마다 호출. user:// JSON.
+func save_stash() -> void:
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(JSON.stringify({"gear": gear, "skillbooks": skillbooks, "consumables": consumables}))
+	f.close()
+
+
+func load_stash() -> void:
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return
+	var d = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(d) != TYPE_DICTIONARY:
+		return
+	gear = d.get("gear", [])
+	skillbooks = d.get("skillbooks", [])
+	consumables = d.get("consumables", {})
+	_seeded = true
 
 
 func _seed() -> void:
@@ -36,12 +64,14 @@ func take_consumable(cid: String, amount: int = 1) -> bool:
 	consumables[cid] = have - amount
 	if int(consumables[cid]) <= 0:
 		consumables.erase(cid)
+	save_stash()
 	return true
 
 
 ## Return a consumable to the stash (un-brought).
 func return_consumable(cid: String, amount: int = 1) -> void:
 	consumables[cid] = int(consumables.get(cid, 0)) + amount
+	save_stash()
 
 
 ## Permanently remove one owned gear from the stash (hub 버리기). True if it was present.
@@ -50,6 +80,7 @@ func remove_gear(base_gear_id: String) -> bool:
 	if i < 0:
 		return false
 	gear.remove_at(i)
+	save_stash()
 	return true
 
 
@@ -59,4 +90,5 @@ func remove_skillbook(base_ability_id: String) -> bool:
 	if i < 0:
 		return false
 	skillbooks.remove_at(i)
+	save_stash()
 	return true

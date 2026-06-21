@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260621-005 — P2-S4 Hub B6: 메타 진행 디스크 영속 (HubProfile·Stash)
+- **무엇:** 허브 메타(시설 Tier·vault·퀘스트)와 소유 아이템(Stash)이 세션 간 유지되도록 user:// JSON 저장/로드. 그전엔 autoload 메모리뿐이라 게임 재시작 시 전부 초기화 — 메타 진행의 핵심 갭.
+- **HubProfile:** `save_profile`/`load_profile`(user://hub_profile.json) — `_ready`에서 로드(없으면 기본 Tier). 변경마다 저장: `add_haul`·`remove_haul`·`attempt_upgrade`·`evaluate_quests`(신규 완료 시 _q_dirty).
+- **Stash:** `save_stash`/`load_stash`(user://stash.json) — `_ready` 파일 있으면 로드, 없으면 `_seed`+저장. 변경마다 저장: take/return_consumable·remove_gear·remove_skillbook.
+- **선택:** B5(시설 효과 실연동)보다 B6 우선 — B5는 capacity 강제(friction)·armory gear(GEAR-COR-000 미존재)·F-009/F-020 미구현 의존이라 stub/대형. B6는 무friction·무의존·메타 완성. JSON 숫자=float이나 모든 read가 int() 캐스트라 무해.
+- **검증:** 2-프로세스 라운드트립(run1 stash 승급 T1 저장 → run2 로드 T1)·테스트 save 정리·ci_smoke PASS.
+- **영향:** `scripts/autoload/hub_profile.gd`·`stash.gd`. 다음 B7(haul ENC 드롭표)·B4 full(런 이벤트 퀘스트)·B5(효과, 의존 충족 후).
+
 ### IMPL-DEC-20260621-004 — P2-S4 Hub B2/B3: UI-029 시설 패널 + 승급 + B4-lite 퀘스트
 - **무엇:** 허브에서 시설을 클릭해 다음 Tier 요구(Quest+Haul)를 보고 승급하는 UI. 승급 로직은 B0(HubProfile).
 - **패널(`hub_facilities_panel.gd`, UI-029):** 풀스크린 오버레이. 8시설 리스트(이름·Tier·상태색 MAX/승급가능/잠김) → 선택 시 상세(현재/다음 effect·prereq·퀘스트 ✓✗·재료 have/need 색상) + [승급] 버튼(`attempt_upgrade`, 게이트 미충족 시 disabled). Vault 표시. HubProfile.facilities_changed/vault_changed 구독 자동 갱신. 허브 `main.gd`에 "허브 시설(승급)" 버튼.
