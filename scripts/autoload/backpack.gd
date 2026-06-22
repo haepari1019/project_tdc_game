@@ -37,12 +37,13 @@ func _seed() -> void:
 	if _seeded:
 		return
 	_seeded = true
-	# loose carry seed = gear/skillbook/generic only (consumables stay on the seed/RunLoadout path
-	# in I2b — they're not yet unified into the Backpack).
+	# loose carry seed = the demo starting kit: gear + skillbook + consumables, all unified into
+	# the Backpack (I3 — consumables persist as loose, no separate seed/RunLoadout path).
 	loose = [
 		{"id": "Pistol", "kind": "generic", "w": 2, "h": 1, "at_risk": true},
 		{"id": "Armor", "kind": "generic", "w": 2, "h": 2, "at_risk": true},
 		{"id": "Ember Lance", "kind": "skillbook", "base_ability_id": "AB-037", "charges": 8, "charges_max": 8, "w": 1, "h": 1, "at_risk": true},
+		{"id": "con_revive_scroll", "kind": "consumable", "consumable_id": "con_revive_scroll", "count": 3, "w": 1, "h": 1},
 	]
 	equipped = {}
 
@@ -95,6 +96,41 @@ func clear_at_risk_equipped() -> void:
 		var e: Dictionary = equipped[k]
 		e["subs"] = [null, null, null]
 		equipped[k] = e
+	save()
+
+
+## Apply persisted equipped subs to a LIVE party (run start / hub load). Keyed by class_id
+## (4 distinct roles). Charges reset to max on equip (live-charge persistence = later increment).
+func apply_subs_to_party(party) -> void:
+	if party == null or not party.has_method("get_members"):
+		return
+	for m in party.get_members():
+		if m == null or not is_instance_valid(m) or not m.has_method("equip_skillbook_by_id"):
+			continue
+		var subs: Array = member_entry(String(m.get("class_id"))).get("subs", [])
+		for j in mini(3, subs.size()):
+			var s = subs[j]
+			if typeof(s) == TYPE_DICTIONARY and String(s.get("base_ability_id", "")) != "":
+				m.equip_skillbook_by_id(j, String(s["base_ability_id"]))
+
+
+## Capture a live party's equipped subs into the persistent store (extract / hub deploy). One save.
+func capture_subs_from_party(party) -> void:
+	if party == null or not party.has_method("get_members"):
+		return
+	for m in party.get_members():
+		if m == null or not is_instance_valid(m) or not m.has_method("get_skillbook"):
+			continue
+		var subs: Array = []
+		for j in 3:
+			var sb = m.get_skillbook(j)
+			if sb != null:
+				subs.append({"base_ability_id": String(sb.get("base_ability_id", "")), "charges": int(sb.get("charges", 0))})
+			else:
+				subs.append(null)
+		var e: Dictionary = equipped.get(String(m.get("class_id")), {})
+		e["subs"] = subs
+		equipped[String(m.get("class_id"))] = e
 	save()
 
 

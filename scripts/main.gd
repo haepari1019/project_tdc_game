@@ -57,6 +57,9 @@ func _setup_hub() -> void:
 	_inv = InventoryUI.new()
 	add_child(_inv)
 	_inv.setup_party(_party, null)      # combat=null → equip allowed (F-008 §4.2 in-combat gate off)
+	var bp_hub := get_node_or_null("/root/Backpack")
+	if bp_hub != null:
+		bp_hub.apply_subs_to_party(_party)   # 영속 장착 서브 복원 → 허브 멤버 (재진입 시 마지막 장착 유지, B I3)
 	_inv.stash_item_discarded.connect(_on_stash_item_discarded)  # Shift+우클릭 스태시 버리기 → 영구 제거
 	_stash_src = StashSource.new()
 	_stash_src.items = _build_stash_items()
@@ -183,17 +186,13 @@ func _on_start_pressed() -> void:
 ## Persist the edited loadout (hub backpack + each member's equipped subs) into RunLoadout so
 ## the dungeon scene can re-apply it after it spawns its own party. ref: F-010.
 func _serialize_loadout() -> void:
-	_inv.commit_loose_to_backpack()   # 허브 백팩 편집 → 영속 Backpack(loose). RunLoadout는 인벤 운반 안 함(B).
-	var subs: Array = []
-	for m in _party.get_members():
-		var row := ["", "", ""]
-		if m != null and is_instance_valid(m):
-			for j in 3:
-				var sb = m.get_skillbook(j)
-				if sb != null:
-					row[j] = String(sb.get("base_ability_id", ""))
-		subs.append(row)
-	_run_loadout.member_subs = subs
+	if _inv.is_open():
+		_inv.toggle()                 # 닫기 → 남은 스태시 아이템을 _stash_src로 export (open_loot §persist)
+	_sync_stash_from_source()         # 에디터에서 캐릭터/백팩으로 옮긴 스킬북·소비 = 스태시에서 제거 (중복 방지)
+	_inv.commit_loose_to_backpack()   # 허브 백팩 편집 → 영속 Backpack(loose, 소비 포함). RunLoadout는 인벤 운반 안 함(B).
+	var bp := get_node_or_null("/root/Backpack")
+	if bp != null:
+		bp.capture_subs_from_party(_party)   # 허브 장착 서브 → Backpack.equipped (member_subs 브리지 폐기)
 	var form: Array = []
 	if _formation != null:
 		var offsets: Dictionary = _formation.get_offsets()
@@ -203,3 +202,21 @@ func _serialize_loadout() -> void:
 	_run_loadout.formation = form
 	if _difficulty_opt != null:
 		_run_loadout.difficulty = _difficulty_opt.get_item_text(_difficulty_opt.selected)
+
+
+## Deploy 시 스태시 오토로드를 에디터의 최종 상태(_stash_src, 닫을 때 export됨)로 맞춘다. 에디터에서
+## 캐릭터(장착)나 백팩(인출)으로 옮긴 스킬북·소비는 스태시에서 빠진다 — 장착=Backpack.equipped,
+## 인출=Backpack.loose로 영속되므로 스태시에 남기면 중복(라이브러리 복제)이 된다. 기어는 장착 영속
+## (I4) 전까지 라이브러리 모델 유지 → _stash.gear는 그대로 보존(동기화 시 손실 방지).
+func _sync_stash_from_source() -> void:
+	var skillbooks: Array = []
+	var consumables: Dictionary = {}
+	for it in _stash_src.items:
+		match String(it.get("kind", "")):
+			"skillbook":
+				skillbooks.append(String(it.get("base_ability_id", "")))
+			"consumable":
+				var cid := String(it.get("consumable_id", ""))
+				consumables[cid] = int(consumables.get(cid, 0)) + int(it.get("count", 1))
+	_stash.apply_dict({"gear": _stash.gear, "skillbooks": skillbooks, "consumables": consumables})
+	_stash.save_stash()

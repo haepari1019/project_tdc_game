@@ -129,22 +129,14 @@ func _ready() -> void:
 	$HUD.add_child(consumable_bar)
 	_inventory_ui.setup_consumable_bar(consumable_bar)
 	_inventory_ui.consumable_use_requested.connect(_on_consumable_use_requested)
-	# F-010 deployment loadout → apply the brought run inventory (At-Risk) + equipped subs.
-	# Autoload via runtime path (stale-editor-safe; loaded fresh each run).
+	# B-model: 낱개 인벤(기어/스킬북/소비)은 inventory_ui._ready가 Backpack.loose에서 로드, 장착 서브는
+	# Backpack.equipped에서 적용(영속 캐리). RunLoadout는 formation/difficulty만. (member_subs/backpack/
+	# consumables 브리지 폐기.)
+	var bp_node: Node = get_node_or_null("/root/Backpack")
+	if bp_node != null:
+		bp_node.apply_subs_to_party(_party)          # 장착 서브 영속 적용 (추출 시 커밋된 상태)
 	var rl: Node = get_node_or_null("/root/RunLoadout")
 	if rl != null:
-		for cid in rl.consumables:
-			_inventory_ui.add_consumable_to_backpack(String(cid), int(rl.consumables[cid]))
-		# 낱개 인벤(기어/스킬북)은 Backpack 오토로드에서 로드됨(inventory_ui._ready). RunLoadout.backpack 브리지 폐기(B).
-		var dep_members: Array = _party.get_members()
-		for i in mini(dep_members.size(), rl.member_subs.size()):
-			var subrow: Array = rl.member_subs[i]
-			var dm = dep_members[i]
-			if dm == null or not is_instance_valid(dm) or not dm.has_method("equip_skillbook_by_id"):
-				continue
-			for j in mini(3, subrow.size()):
-				if String(subrow[j]) != "":
-					dm.equip_skillbook_by_id(j, String(subrow[j]))
 		for f in rl.formation:                       # hub formation editor → slot offsets (F-003)
 			var foff: Array = f.get("offset", [0, 0])
 			if foff.size() >= 2:

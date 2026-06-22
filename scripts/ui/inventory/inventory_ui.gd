@@ -286,6 +286,8 @@ func _load_backpack_from_autoload() -> void:
 				add_skillbook_to_backpack(String(d.get("base_ability_id", "")), bool(d.get("at_risk", true)))
 			"haul":
 				add_haul_to_backpack(String(d.get("haul_material_id", "")), bool(d.get("at_risk", true)))
+			"consumable":
+				add_consumable_to_backpack(String(d.get("consumable_id", "")), int(d.get("count", 1)))
 			_:
 				add_to_backpack(String(d.get("id", "?")), int(d.get("w", 1)), int(d.get("h", 1)), Color(0.5, 0.5, 0.55))
 
@@ -296,12 +298,7 @@ func commit_loose_to_backpack() -> void:
 	var bp := get_node_or_null("/root/Backpack")
 	if bp == null:
 		return
-	var items: Array = []
-	for it in _backpack.items:
-		if String(it.get("kind", "")) == "consumable":
-			continue
-		items.append(it)
-	bp.set_loose(items)
+	bp.set_loose(_backpack.items)   # 소비 포함 — 전체 낱개 캐리가 영속(B I3)
 
 
 # --- stash item builders (deployment hub) — public wrappers so the hub can fill a stash grid
@@ -422,8 +419,7 @@ func _build() -> void:
 	# seed/RunLoadout path for I2b. ref: meta-save B refactor.
 	var bp_box := _make_container(row, "BACKPACK", 5, 8)
 	_backpack = bp_box[1]
-	_load_backpack_from_autoload()
-	add_consumable_to_backpack("con_revive_scroll", 3)  # seed: 3 revive scrolls (consumables not yet in Backpack — I2b)
+	_load_backpack_from_autoload()   # 기어/스킬북/소비/generic 전부 Backpack.loose에서 (시드 포함)
 
 	# Loot container (shown only while looting a chest).
 	var lt_box := _make_container(row, "CONTAINER", 5, 5)
