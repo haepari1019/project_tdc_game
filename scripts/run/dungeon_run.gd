@@ -135,14 +135,7 @@ func _ready() -> void:
 	if rl != null:
 		for cid in rl.consumables:
 			_inventory_ui.add_consumable_to_backpack(String(cid), int(rl.consumables[cid]))
-		for it in rl.backpack:
-			match String(it.get("kind", "")):
-				"gear":
-					_inventory_ui.add_gear_to_backpack(String(it.get("base_gear_id", "")), true)
-				"skillbook":
-					_inventory_ui.add_skillbook_to_backpack(String(it.get("base_ability_id", "")), true)
-				"consumable":
-					_inventory_ui.add_consumable_to_backpack(String(it.get("consumable_id", "")), int(it.get("count", 1)))
+		# 낱개 인벤(기어/스킬북)은 Backpack 오토로드에서 로드됨(inventory_ui._ready). RunLoadout.backpack 브리지 폐기(B).
 		var dep_members: Array = _party.get_members()
 		for i in mini(dep_members.size(), rl.member_subs.size()):
 			var subrow: Array = rl.member_subs[i]

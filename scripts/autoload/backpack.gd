@@ -37,10 +37,11 @@ func _seed() -> void:
 	if _seeded:
 		return
 	_seeded = true
+	# loose carry seed = gear/skillbook/generic only (consumables stay on the seed/RunLoadout path
+	# in I2b — they're not yet unified into the Backpack).
 	loose = [
 		{"id": "Pistol", "kind": "generic", "w": 2, "h": 1, "at_risk": true},
 		{"id": "Armor", "kind": "generic", "w": 2, "h": 2, "at_risk": true},
-		{"id": "con_revive_scroll", "kind": "consumable", "consumable_id": "con_revive_scroll", "count": 3, "w": 1, "h": 1},
 		{"id": "Ember Lance", "kind": "skillbook", "base_ability_id": "AB-037", "charges": 8, "charges_max": 8, "w": 1, "h": 1, "at_risk": true},
 	]
 	equipped = {}

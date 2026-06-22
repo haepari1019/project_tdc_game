@@ -272,6 +272,38 @@ func mark_run_inventory_safe() -> void:
 			it["at_risk"] = false
 
 
+## B-model — rebuild the loose backpack grid from the persistent Backpack autoload (gear/skillbook/
+## generic; consumables excluded in I2b). Called at grid build (hub + run share this path).
+func _load_backpack_from_autoload() -> void:
+	var bp := get_node_or_null("/root/Backpack")
+	if bp == null:
+		return
+	for d in bp.get_loose():
+		match String(d.get("kind", "generic")):
+			"gear":
+				add_gear_to_backpack(String(d.get("base_gear_id", "")), bool(d.get("at_risk", true)))
+			"skillbook":
+				add_skillbook_to_backpack(String(d.get("base_ability_id", "")), bool(d.get("at_risk", true)))
+			"haul":
+				add_haul_to_backpack(String(d.get("haul_material_id", "")), bool(d.get("at_risk", true)))
+			_:
+				add_to_backpack(String(d.get("id", "?")), int(d.get("w", 1)), int(d.get("h", 1)), Color(0.5, 0.5, 0.55))
+
+
+## B-model — commit the loose backpack grid back to the persistent Backpack autoload (extract = keep,
+## hub deploy = persist edits). Consumables excluded (I2b — they stay on the seed/RunLoadout path).
+func commit_loose_to_backpack() -> void:
+	var bp := get_node_or_null("/root/Backpack")
+	if bp == null:
+		return
+	var items: Array = []
+	for it in _backpack.items:
+		if String(it.get("kind", "")) == "consumable":
+			continue
+		items.append(it)
+	bp.set_loose(items)
+
+
 # --- stash item builders (deployment hub) — public wrappers so the hub can fill a stash grid
 # with the exact item dicts the equip/sub/backpack drag system expects (F-010). ---
 func make_gear_stash_item(base_gear_id: String) -> Dictionary:
@@ -385,13 +417,13 @@ func _build() -> void:
 	pad.add_child(row)
 	_content_row = row
 
-	# Player backpack (persistent) + a couple seed items (room left for a looted key).
+	# Player backpack — the persistent carried inventory (Backpack autoload). Loose gear/skillbook/
+	# generic items load from there (persist run→run, the B-model SoT). Consumables stay on the
+	# seed/RunLoadout path for I2b. ref: meta-save B refactor.
 	var bp_box := _make_container(row, "BACKPACK", 5, 8)
 	_backpack = bp_box[1]
-	_backpack.add_item("Pistol", 2, 1, Color(0.45, 0.55, 0.85))
-	_backpack.add_item("Armor", 2, 2, Color(0.82, 0.70, 0.35))
-	add_consumable_to_backpack("con_revive_scroll", 3)  # seed: 3 revive scrolls (1 stack)
-	add_skillbook_to_backpack("AB-037", false)          # seed: Ember Lance (fire — ignites oil)
+	_load_backpack_from_autoload()
+	add_consumable_to_backpack("con_revive_scroll", 3)  # seed: 3 revive scrolls (consumables not yet in Backpack — I2b)
 
 	# Loot container (shown only while looting a chest).
 	var lt_box := _make_container(row, "CONTAINER", 5, 5)

@@ -103,6 +103,8 @@ func _settle_extraction() -> void:
 			survivors.append(String(m.class_id))
 	var safe_items := _collect_at_risk()             # At-Risk → Safe (전량, §3.6.1)
 	_inv.mark_run_inventory_safe()
+	if _inv.has_method("commit_loose_to_backpack"):
+		_inv.commit_loose_to_backpack()              # 추출 = 백팩(낱개) 유지 → 영속 Backpack 커밋 (B)
 	# haulMaterial: 런 인벤(At-Risk) → hubHaulVault(Safe), 런에서 제거 (F-029 §3.2 / D-029 §4).
 	# HubProfile은 런타임 경로로 — 스테일 에디터(신규 autoload 미등록)에서도 컴파일/실행되게.
 	var haul: Dictionary = _inv.collect_haul() if _inv.has_method("collect_haul") else {}
@@ -128,6 +130,9 @@ func _settle_failure(cause: String) -> void:
 	for m in _party.get_members():
 		if is_instance_valid(m):
 			casualties.append(String(m.class_id))
+	var bp := get_node_or_null("/root/Backpack")
+	if bp != null:
+		bp.clear_loose()                             # 사망/실패 = At-Risk 낱개 캐리 손실 (B / F-007 §3.7)
 	_run.settle_failure(cause, {
 		"result": "Run Failure",
 		"cause": cause,

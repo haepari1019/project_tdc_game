@@ -183,7 +183,7 @@ func _on_start_pressed() -> void:
 ## Persist the edited loadout (hub backpack + each member's equipped subs) into RunLoadout so
 ## the dungeon scene can re-apply it after it spawns its own party. ref: F-010.
 func _serialize_loadout() -> void:
-	_run_loadout.backpack = _inv.get_backpack_items()
+	_inv.commit_loose_to_backpack()   # 허브 백팩 편집 → 영속 Backpack(loose). RunLoadout는 인벤 운반 안 함(B).
 	var subs: Array = []
 	for m in _party.get_members():
 		var row := ["", "", ""]
