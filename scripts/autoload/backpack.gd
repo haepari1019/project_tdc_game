@@ -45,7 +45,14 @@ func _seed() -> void:
 		{"id": "Ember Lance", "kind": "skillbook", "base_ability_id": "AB-037", "charges": 8, "charges_max": 8, "w": 1, "h": 1, "at_risk": true},
 		{"id": "con_revive_scroll", "kind": "consumable", "consumable_id": "con_revive_scroll", "count": 3, "w": 1, "h": 1},
 	]
-	equipped = {}
+	# Worn starter Identity Gear per role (F-008 §3.7). Gear lives in equipped (Safe on death),
+	# NOT in the Stash library — equipping a spare from the stash consumes it; the worn gear here.
+	equipped = {
+		"Tank": {"gear": "gear_ward_tank_anchor_set", "subs": [null, null, null]},
+		"DPS": {"gear": "gear_ward_dps_press_set", "subs": [null, null, null]},
+		"Nuker": {"gear": "gear_ward_nuker_ruin_set", "subs": [null, null, null]},
+		"Healer": {"gear": "gear_ward_healer_mend_set", "subs": [null, null, null]},
+	}
 
 
 ## 테스트/디버그 — 캐리(낱개 + 장착)를 데모 시드로 초기화.
@@ -108,37 +115,49 @@ func clear_at_risk_equipped() -> void:
 	save()
 
 
-## Apply persisted equipped subs to a LIVE party (run start / hub load). Keyed by class_id
-## (4 distinct roles). Charges reset to max on equip (live-charge persistence = later increment).
-func apply_subs_to_party(party) -> void:
+## Apply persisted equipped GEAR + SUBS to a LIVE party (run start / hub load). Keyed by class_id
+## (4 distinct roles). Gear overrides the starter spawn (F-008); subs charges reset to max on equip
+## (live-charge persistence = later increment).
+func apply_to_party(party) -> void:
 	if party == null or not party.has_method("get_members"):
 		return
 	for m in party.get_members():
-		if m == null or not is_instance_valid(m) or not m.has_method("equip_skillbook_by_id"):
+		if m == null or not is_instance_valid(m):
 			continue
-		var subs: Array = member_entry(String(m.get("class_id"))).get("subs", [])
-		for j in mini(3, subs.size()):
-			var s = subs[j]
-			if typeof(s) == TYPE_DICTIONARY and String(s.get("base_ability_id", "")) != "":
-				m.equip_skillbook_by_id(j, String(s["base_ability_id"]))
+		var e: Dictionary = member_entry(String(m.get("class_id")))
+		# Equipped Identity Gear — restore the persisted worn gear (overrides party_controller starter).
+		var gid: String = String(e.get("gear", ""))
+		if gid != "" and m.has_method("equip_gear"):
+			var gm: Dictionary = Slice01Data.get_gear_master(gid)
+			if not gm.is_empty():
+				m.equip_gear(gm)
+		# Equipped subs (Q/E/R)
+		if m.has_method("equip_skillbook_by_id"):
+			var subs: Array = e.get("subs", [])
+			for j in mini(3, subs.size()):
+				var s = subs[j]
+				if typeof(s) == TYPE_DICTIONARY and String(s.get("base_ability_id", "")) != "":
+					m.equip_skillbook_by_id(j, String(s["base_ability_id"]))
 
 
-## Capture a live party's equipped subs into the persistent store (extract / hub deploy). One save.
-func capture_subs_from_party(party) -> void:
+## Capture a live party's equipped GEAR + SUBS into the persistent store (extract / hub deploy). One save.
+func capture_from_party(party) -> void:
 	if party == null or not party.has_method("get_members"):
 		return
 	for m in party.get_members():
-		if m == null or not is_instance_valid(m) or not m.has_method("get_skillbook"):
+		if m == null or not is_instance_valid(m):
 			continue
-		var subs: Array = []
-		for j in 3:
-			var sb = m.get_skillbook(j)
-			if sb != null:
-				subs.append({"base_ability_id": String(sb.get("base_ability_id", "")), "charges": int(sb.get("charges", 0))})
-			else:
-				subs.append(null)
 		var e: Dictionary = equipped.get(String(m.get("class_id")), {})
-		e["subs"] = subs
+		e["gear"] = String(m.get("base_gear_id"))   # worn Identity Gear (Safe on death — F-009 §3.7)
+		if m.has_method("get_skillbook"):
+			var subs: Array = []
+			for j in 3:
+				var sb = m.get_skillbook(j)
+				if sb != null:
+					subs.append({"base_ability_id": String(sb.get("base_ability_id", "")), "charges": int(sb.get("charges", 0))})
+				else:
+					subs.append(null)
+			e["subs"] = subs
 		equipped[String(m.get("class_id"))] = e
 	save()
 

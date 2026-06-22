@@ -698,13 +698,12 @@ func _drop() -> void:
 		var target := _grid_under(mouse)
 		if target != null:
 			var c := target.cell_from_global_topleft(topleft)
-			# 스태시 입금 가드 — 스태시에는 스킬북·소비만 보관. 기어/잡템(generic·haul)은 deploy 동기화가
-			# 아직(기어=멤버 영속 I4 필요, generic=스태시 카테고리 없음)이라 넣으면 손실 → 반환.
-			# 출처 무관(백팩·장착슬롯 모두); 스태시 내부 재배치(grid 드래그)만 예외.
+			# 스태시 입금 가드 — 기어·스킬북·소비만 보관(deploy 동기화가 이 3종을 Stash에 반영, I4부터 기어 포함).
+			# generic/haul은 스태시 카테고리가 없어 넣으면 손실 → 반환. 스태시 내부 재배치(grid)만 예외.
 			var rearrange_in_stash: bool = _from == _loot and String(_drag_src.get("kind", "grid")) == "grid"
 			if target == _loot and _loot_is_stash and not rearrange_in_stash \
-					and not (String(_drag.get("kind", "")) in ["skillbook", "consumable"]):
-				_msg("스킬북·소비만 스태시에 보관할 수 있습니다 (기어 보관은 추후)")
+					and not (String(_drag.get("kind", "")) in ["gear", "skillbook", "consumable"]):
+				_msg("기어·스킬북·소비만 스태시에 보관할 수 있습니다")
 				_revert_drag()
 				for g: InventoryGrid in _grids:
 					g.clear_preview()

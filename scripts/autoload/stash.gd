@@ -44,11 +44,9 @@ func _seed() -> void:
 	if _seeded:
 		return
 	_seeded = true
-	# Demo stash — the 4 role Identity Gears + a spare set, looted-AB skillbooks, revive scrolls.
-	gear = [
-		"gear_ward_tank_anchor_set", "gear_ward_dps_press_set",
-		"gear_ward_nuker_ruin_set", "gear_ward_healer_mend_set",
-	]
+	# Demo stash — SPARE Identity Gear (alternatives to swap to; worn starters live in Backpack.equipped,
+	# not here — F-008 ownership). Looted-AB skillbooks, revive scrolls. (gear filled by 기어 카탈로그 단계.)
+	gear = []
 	skillbooks = ["AB-002", "AB-010", "AB-011", "AB-037"]
 	consumables = {"con_revive_scroll": 8}
 

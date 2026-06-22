@@ -129,12 +129,11 @@ func _ready() -> void:
 	$HUD.add_child(consumable_bar)
 	_inventory_ui.setup_consumable_bar(consumable_bar)
 	_inventory_ui.consumable_use_requested.connect(_on_consumable_use_requested)
-	# B-model: 낱개 인벤(기어/스킬북/소비)은 inventory_ui._ready가 Backpack.loose에서 로드, 장착 서브는
-	# Backpack.equipped에서 적용(영속 캐리). RunLoadout는 formation/difficulty만. (member_subs/backpack/
-	# consumables 브리지 폐기.)
+	# B-model: 낱개 인벤(기어/스킬북/소비)은 inventory_ui._ready가 Backpack.loose에서 로드, 장착 기어+서브는
+	# Backpack.equipped에서 적용(영속 캐리, 스타터 스폰 위에 덮어씀). RunLoadout는 formation/difficulty만.
 	var bp_node: Node = get_node_or_null("/root/Backpack")
 	if bp_node != null:
-		bp_node.apply_subs_to_party(_party)          # 장착 서브 영속 적용 (추출 시 커밋된 상태)
+		bp_node.apply_to_party(_party)               # 장착 기어+서브 영속 적용 (런이 실제로 장착 기어 사용)
 	var rl: Node = get_node_or_null("/root/RunLoadout")
 	if rl != null:
 		for f in rl.formation:                       # hub formation editor → slot offsets (F-003)
