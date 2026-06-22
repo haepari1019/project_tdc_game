@@ -73,6 +73,9 @@ var _poison_accum: float = 0.0
 var _stun_dur: float = 1.0
 var _poison_dur: float = 1.0
 var _shield_dur: float = 1.0
+# F-008 Sentinel Form (AB-052) — temporary turtle-stance damage reduction (1.0 = none) + timer.
+var damage_taken_mult: float = 1.0
+var _sentinel_timer_s: float = 0.0
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/
 ## WindBuffeted — shared container with enemy_unit. Movement folds into move_speed_mult; Slippery
 ## adds inertia (player_controller); Ignited DoT applied in _physics_process.
@@ -132,9 +135,13 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	var combat: Dictionary = row.get("combat", {})
 	max_hp = float(combat.get("hp", 100.0))
 	hp = max_hp if reset_hp else minf(hp, max_hp)
-	basic_damage = float(combat.get("basic_damage", 8.0))
-	basic_range_m = float(combat.get("basic_range_m", 2.0))
-	basic_interval_s = float(combat.get("basic_interval_s", 1.0))
+	# F-008 / D-019 §4.4: the basic attack is GEAR-bound (the gear's ba_* archetype owns
+	# damage/CD/range), NOT the identity. Read from the gear; fall back to the identity's combat
+	# block when the gear doesn't specify it (starter gears = identity default). Special behaviors
+	# (pierce/cone/knockback/threat) = follow-up (basic attack is single-target for now).
+	basic_damage = float(gear.get("basic_damage", combat.get("basic_damage", 8.0)))
+	basic_range_m = float(gear.get("basic_range_m", combat.get("basic_range_m", 2.0)))
+	basic_interval_s = float(gear.get("basic_interval_s", combat.get("basic_interval_s", 1.0)))
 	threat_mult = float(combat.get("threat_mult", 1.0))  # F-022 damageThreatMultiplier
 	# Identity + sub skill params are LINKED by id (abilities.json catalog).
 	identity_params = Slice01Data.get_ability(ability_id)
@@ -352,6 +359,7 @@ func _apply_controlled_visual(active: bool) -> void:
 func take_damage(amount: float) -> void:
 	if not _alive:
 		return
+	amount *= damage_taken_mult   # F-008 Sentinel Form stance DR (AB-052; 1.0 = none)
 	# Shield absorbs first (AB-020).
 	if shield > 0.0:
 		var absorbed: float = minf(shield, amount)
@@ -387,6 +395,19 @@ func add_shield(value: float, duration: float) -> void:
 		shield = value
 		shield_timer_s = duration
 		_shield_dur = duration
+
+
+## F-008 Sentinel Form (AB-052) — enter the turtle stance: reduce incoming damage by `dr` (0..1)
+## and move-lock for `dur` seconds. (Reflect deferred — take_damage has no attacker source.)
+func enter_sentinel(dr: float, dur: float) -> void:
+	damage_taken_mult = clampf(1.0 - dr, 0.0, 1.0)
+	_sentinel_timer_s = dur
+	apply_outcome("Rooted", dur)   # move-lock (MOVE_MULT 0.0), can still act
+
+
+## F-009/F-008 Ward Pulse (AB-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
+func cleanse_one() -> String:
+	return _outcome.cleanse_one() if _outcome != null else ""
 
 
 func is_alive() -> bool:
@@ -469,6 +490,10 @@ func _physics_process(delta: float) -> void:
 		shield_timer_s -= delta
 		if shield_timer_s <= 0.0:
 			shield = 0.0
+	if _sentinel_timer_s > 0.0:
+		_sentinel_timer_s -= delta
+		if _sentinel_timer_s <= 0.0:
+			damage_taken_mult = 1.0   # Sentinel Form expired → normal damage
 	if _slow_timer > 0.0:
 		_slow_timer -= delta
 		if _slow_timer <= 0.0:

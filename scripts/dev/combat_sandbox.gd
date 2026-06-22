@@ -81,6 +81,7 @@ var _formation_lbl: Label
 var _info_label: RichTextLabel
 var _identity_dd: OptionButton
 var _sub_dd: Array = []   # [OptionButton ×3] — Q/E/R sub loadout for the controlled member
+var _gear_dd: OptionButton   # Identity Gear swap (equips onto the matching-role member — F-008)
 var _cam_dragging := false
 
 
@@ -287,6 +288,19 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	torch_btn.pressed.connect(_on_lay_torch)
 	box.add_child(torch_btn)
 
+	# --- GEAR SWAP (F-008) — equip an Identity Gear onto its matching-role member via the REAL
+	# equip_gear path (gear → bundled identity → stats/skill). Pick one, then swap (1-4) to that
+	# role to see the change + test its Identity skill. Auto-fills from gear.json (new gears appear).
+	box.add_child(_section("GEAR SWAP (역할 자동장착)"))
+	_gear_dd = OptionButton.new()
+	_gear_dd.custom_minimum_size = Vector2(240, 0)
+	for row in Slice01Data.get_gear_rows():
+		var cls := String((row.get("equip_classes", ["?"]) as Array)[0])
+		_gear_dd.add_item("%s [%s] → %s" % [row.get("display_name", "?"), cls, row.get("bundled_identity_skill_id", "?")])
+		_gear_dd.set_item_metadata(_gear_dd.item_count - 1, String(row.get("base_gear_id", "")))
+	_gear_dd.item_selected.connect(_on_gear_changed)
+	box.add_child(_gear_dd)
+
 	# --- Loadout (controlled member) — swap Identity skill + Q/E/R subs for ability testing.
 	# Data-driven: auto-fills from identities.json / skillbooks.json (future ABs appear here).
 	box.add_child(_section("LOADOUT (controlled — 1-4)"))
@@ -439,6 +453,26 @@ func _on_identity_changed(index: int) -> void:
 	var iid := String(_identity_dd.get_item_metadata(index))
 	ctrl.debug_set_identity(iid)
 	_status.text = "%s identity → %s" % [ctrl.get("class_id"), iid]
+
+
+## GEAR SWAP — equip the selected Identity Gear onto the member whose class matches (real
+## equip_gear path: gear → bundled identity → stats/skill). Swap (1-4) to that role to verify.
+func _on_gear_changed(index: int) -> void:
+	var gid := String(_gear_dd.get_item_metadata(index))
+	if gid == "":
+		return
+	var master: Dictionary = Slice01Data.get_gear_master(gid)
+	if master.is_empty():
+		return
+	for m in _party.get_members():
+		if m != null and is_instance_valid(m) and m.has_method("can_equip_gear") and m.can_equip_gear(master):
+			m.equip_gear(master)
+			_status.text = "%s gear → %s | id %s hp%d/dmg%d/r%.1f" % [
+				m.get("class_id"), master.get("display_name", gid), m.get("identity_skill_id"),
+				int(m.get("max_hp")), int(m.get("basic_damage")), float(m.get("basic_range_m"))]
+			_refresh_loadout_ui()
+			return
+	_status.text = "장착 가능한 멤버 없음: %s" % gid
 
 
 func _on_sub_changed(index: int, slot: int) -> void:

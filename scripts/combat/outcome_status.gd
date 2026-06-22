@@ -110,3 +110,19 @@ func clear() -> void:
 	_mag.clear()
 	_dur.clear()
 	_ignite_accum = 0.0
+
+
+## Remove one specific outcome (cleanse). No-op if absent.
+func remove(id: String) -> void:
+	_t.erase(id)
+	_mag.erase(id)
+	_dur.erase(id)
+
+
+## Cleanse one debuff — the first active non-buff outcome. Returns the removed id ("" if none).
+func cleanse_one() -> String:
+	for id in _t.keys():
+		if not BUFF.has(id):
+			remove(id)
+			return id
+	return ""

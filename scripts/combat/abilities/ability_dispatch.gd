@@ -30,6 +30,13 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_charge.gd"),  # AB-104 Rampage (Tank)
 	preload("res://scripts/combat/abilities/effects/sb_execute.gd"), # AB-106 Devour (Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_scent.gd"),   # AB-101 Scent of Blood (Healer)
+	# Gear-catalog Identity skills (non-starter identities; spec PT-pending → intent impl, params drift).
+	preload("res://scripts/combat/abilities/effects/beacon_threat.gd"),  # AB-021 Iron Beacon (Tank)
+	preload("res://scripts/combat/abilities/effects/march_advance.gd"),  # AB-022 Bulwark March (Tank)
+	preload("res://scripts/combat/abilities/effects/sentinel_form.gd"),  # AB-052 Sentinel Form (Tank)
+	preload("res://scripts/combat/abilities/effects/arc_line.gd"),       # AB-027 Arc Weave (DPS)
+	preload("res://scripts/combat/abilities/effects/flank_dash.gd"),     # AB-029 Flank Collapse (Nuker)
+	preload("res://scripts/combat/abilities/effects/ward_shield.gd"),    # AB-031 Ward Pulse (Healer)
 ]
 
 # F-009 §3.2.1 Family Mismatch Penalty — off-main-class (sub) skillbook use. Demo heuristic:

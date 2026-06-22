@@ -64,7 +64,10 @@
       "range_band": "Melee",
       "display_name": "Ward Kite Shield",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 6,
+      "basic_interval_s": 0.8,
+      "basic_range_m": 2.2
     },
     {
       "base_gear_id": "gear_ward_tank_beacon_hook",
@@ -77,7 +80,10 @@
       "range_band": "Melee",
       "display_name": "Ward Beacon Hook",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 7,
+      "basic_interval_s": 1.0,
+      "basic_range_m": 3.5
     },
     {
       "base_gear_id": "gear_ward_tank_march_plate",
@@ -90,7 +96,10 @@
       "range_band": "Melee",
       "display_name": "Ward March Plate",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 6,
+      "basic_interval_s": 1.1,
+      "basic_range_m": 2.6
     },
     {
       "base_gear_id": "gear_ward_tank_rampart_wall",
@@ -103,7 +112,10 @@
       "range_band": "Melee",
       "display_name": "Ward Rampart Wall",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 8,
+      "basic_interval_s": 0.9,
+      "basic_range_m": 2.6
     },
     {
       "base_gear_id": "gear_ward_tank_sentinel_aegis",
@@ -116,7 +128,10 @@
       "range_band": "Melee",
       "display_name": "Ward Sentinel Aegis",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 6,
+      "basic_interval_s": 1.2,
+      "basic_range_m": 2.0
     },
     {
       "base_gear_id": "gear_ward_dps_weave_staff",
@@ -129,7 +144,10 @@
       "range_band": "Long",
       "display_name": "Ward Weave Staff",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 12,
+      "basic_interval_s": 0.9,
+      "basic_range_m": 14.0
     },
     {
       "base_gear_id": "gear_ward_dps_rift_needle",
@@ -142,7 +160,10 @@
       "range_band": "Long",
       "display_name": "Ward Rift Needle",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 9,
+      "basic_interval_s": 0.5,
+      "basic_range_m": 14.0
     },
     {
       "base_gear_id": "gear_ward_dps_ember_wand",
@@ -155,7 +176,10 @@
       "range_band": "Mid",
       "display_name": "Ward Ember Wand",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 14,
+      "basic_interval_s": 0.8,
+      "basic_range_m": 8.0
     },
     {
       "base_gear_id": "gear_ward_dps_brand_foci",
@@ -168,7 +192,10 @@
       "range_band": "Mid",
       "display_name": "Ward Brand Foci",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 13,
+      "basic_interval_s": 0.75,
+      "basic_range_m": 8.0
     },
     {
       "base_gear_id": "gear_ward_dps_tide_censer",
@@ -181,7 +208,10 @@
       "range_band": "Mid",
       "display_name": "Ward Tide Censer",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 10,
+      "basic_interval_s": 0.85,
+      "basic_range_m": 8.0
     },
     {
       "base_gear_id": "gear_ward_nuker_scout_frame",
@@ -194,7 +224,10 @@
       "range_band": "Long",
       "display_name": "Ward Scout Frame",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 7,
+      "basic_interval_s": 0.7,
+      "basic_range_m": 16.0
     },
     {
       "base_gear_id": "gear_ward_nuker_flank_knife",
@@ -207,7 +240,10 @@
       "range_band": "Melee",
       "display_name": "Ward Flank Knife",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 16,
+      "basic_interval_s": 0.9,
+      "basic_range_m": 2.0
     },
     {
       "base_gear_id": "gear_ward_nuker_hex_scope",
@@ -220,7 +256,10 @@
       "range_band": "Mid",
       "display_name": "Ward Hex Scope",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 11,
+      "basic_interval_s": 1.0,
+      "basic_range_m": 8.0
     },
     {
       "base_gear_id": "gear_mag_nuker_coil_rifle",
@@ -233,7 +272,10 @@
       "range_band": "Long",
       "display_name": "Magitech Coil Rifle",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 13,
+      "basic_interval_s": 0.95,
+      "basic_range_m": 14.0
     },
     {
       "base_gear_id": "gear_mag_nuker_volt_lance",
@@ -246,7 +288,10 @@
       "range_band": "Mid",
       "display_name": "Magitech Volt Lance",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 12,
+      "basic_interval_s": 0.9,
+      "basic_range_m": 10.0
     },
     {
       "base_gear_id": "gear_ward_healer_ward_sigil",
@@ -259,7 +304,10 @@
       "range_band": "Mid",
       "display_name": "Ward Sigil",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 5,
+      "basic_interval_s": 1.1,
+      "basic_range_m": 2.0
     },
     {
       "base_gear_id": "gear_ward_healer_beacon_lantern",
@@ -272,7 +320,10 @@
       "range_band": "Long",
       "display_name": "Ward Beacon Lantern",
       "unlock_state": "Owned",
-      "starter": false
+      "starter": false,
+      "basic_damage": 5,
+      "basic_interval_s": 1.1,
+      "basic_range_m": 2.0
     }
   ]
 }
