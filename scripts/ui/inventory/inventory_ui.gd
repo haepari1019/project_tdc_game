@@ -54,10 +54,12 @@ func _ready() -> void:
 	visible = false
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_build()
+	# 소비 컨트롤러를 _build() 전에 — _build의 _load_backpack_from_autoload가 소비를
+	# add_consumable_to_backpack(→ _consumables)로 채운다. null이면 소비만 증발(키 OK).
 	_consumables = ConsumableController.new()
 	add_child(_consumables)
 	_consumables.setup(self)
+	_build()
 	get_viewport().size_changed.connect(_relayout)
 	_window.resized.connect(_center_window)
 	_relayout()
@@ -415,8 +417,7 @@ func _build() -> void:
 	_content_row = row
 
 	# Player backpack — the persistent carried inventory (Backpack autoload). Loose gear/skillbook/
-	# generic items load from there (persist run→run, the B-model SoT). Consumables stay on the
-	# seed/RunLoadout path for I2b. ref: meta-save B refactor.
+	# consumable/generic items all load from there (persist run→run, the B-model SoT — I3). ref: meta-save B refactor.
 	var bp_box := _make_container(row, "BACKPACK", 5, 8)
 	_backpack = bp_box[1]
 	_load_backpack_from_autoload()   # 기어/스킬북/소비/generic 전부 Backpack.loose에서 (시드 포함)
