@@ -582,7 +582,13 @@ func _load_formation_config() -> void:
 
 
 func _spawn_party_from_data() -> void:
-	var rows: Array = Slice01Data.get_identity_rows()
+	# Only STARTER identities (one per class) become party members. The other identities are
+	# gear-selectable alternatives — Backpack.equipped overrides each member's worn gear via
+	# apply_to_party after spawn (F-008 §3.7). So the party is always the 4 starter classes.
+	var rows: Array = []
+	for row in Slice01Data.get_identity_rows():
+		if not Slice01Data.get_starter_gear_for_identity(String(row.get("identity_skill_id", ""))).is_empty():
+			rows.append(row)
 	_leader_index = 0
 	for i in rows.size():
 		var row: Dictionary = rows[i]

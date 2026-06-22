@@ -4,7 +4,9 @@
     {
       "base_gear_id": "gear_ward_tank_anchor_set",
       "gear_kind": "WardGear",
-      "equip_classes": ["Tank"],
+      "equip_classes": [
+        "Tank"
+      ],
       "bundled_identity_skill_id": "tank_anchor_guard",
       "basic_attack_profile_id": "ba_tank_shield_tap",
       "range_band": "Melee",
@@ -15,7 +17,9 @@
     {
       "base_gear_id": "gear_ward_dps_press_set",
       "gear_kind": "WardGear",
-      "equip_classes": ["DPS"],
+      "equip_classes": [
+        "DPS"
+      ],
       "bundled_identity_skill_id": "dps_press_line",
       "basic_attack_profile_id": "ba_dps_arc_bolt",
       "range_band": "Mid",
@@ -26,7 +30,9 @@
     {
       "base_gear_id": "gear_ward_nuker_ruin_set",
       "gear_kind": "WardGear",
-      "equip_classes": ["Nuker"],
+      "equip_classes": [
+        "Nuker"
+      ],
       "bundled_identity_skill_id": "nuker_mark_ruin",
       "basic_attack_profile_id": "ba_nuker_shard_shot",
       "range_band": "Mid",
@@ -37,13 +43,236 @@
     {
       "base_gear_id": "gear_ward_healer_mend_set",
       "gear_kind": "WardGear",
-      "equip_classes": ["Healer"],
+      "equip_classes": [
+        "Healer"
+      ],
       "bundled_identity_skill_id": "healer_mend_circle",
       "basic_attack_profile_id": "ba_healer_pulse_bolt",
       "range_band": "Long",
       "display_name": "Ward Mend Lantern",
       "unlock_state": "Owned",
       "starter": true
+    },
+    {
+      "base_gear_id": "gear_ward_tank_kite_shield",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Tank"
+      ],
+      "bundled_identity_skill_id": "tank_iron_beacon",
+      "basic_attack_profile_id": "ba_tank_kite_bash",
+      "range_band": "Melee",
+      "display_name": "Ward Kite Shield",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_tank_beacon_hook",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Tank"
+      ],
+      "bundled_identity_skill_id": "tank_iron_beacon",
+      "basic_attack_profile_id": "ba_tank_hook_tug",
+      "range_band": "Melee",
+      "display_name": "Ward Beacon Hook",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_tank_march_plate",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Tank"
+      ],
+      "bundled_identity_skill_id": "tank_bulwark_march",
+      "basic_attack_profile_id": "ba_tank_march_stomp",
+      "range_band": "Melee",
+      "display_name": "Ward March Plate",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_tank_rampart_wall",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Tank"
+      ],
+      "bundled_identity_skill_id": "tank_anchor_guard",
+      "basic_attack_profile_id": "ba_tank_line_jab",
+      "range_band": "Melee",
+      "display_name": "Ward Rampart Wall",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_tank_sentinel_aegis",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Tank"
+      ],
+      "bundled_identity_skill_id": "tank_sentinel_form",
+      "basic_attack_profile_id": "ba_tank_aegis_ram",
+      "range_band": "Melee",
+      "display_name": "Ward Sentinel Aegis",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_dps_weave_staff",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "DPS"
+      ],
+      "bundled_identity_skill_id": "dps_arc_weave",
+      "basic_attack_profile_id": "ba_dps_weave_lance",
+      "range_band": "Long",
+      "display_name": "Ward Weave Staff",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_dps_rift_needle",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "DPS"
+      ],
+      "bundled_identity_skill_id": "dps_arc_weave",
+      "basic_attack_profile_id": "ba_dps_needle_prick",
+      "range_band": "Long",
+      "display_name": "Ward Rift Needle",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_dps_ember_wand",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "DPS"
+      ],
+      "bundled_identity_skill_id": "dps_press_line",
+      "basic_attack_profile_id": "ba_dps_ember_snap",
+      "range_band": "Mid",
+      "display_name": "Ward Ember Wand",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_dps_brand_foci",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "DPS"
+      ],
+      "bundled_identity_skill_id": "dps_press_line",
+      "basic_attack_profile_id": "ba_dps_brand_sweep",
+      "range_band": "Mid",
+      "display_name": "Ward Brand Foci",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_dps_tide_censer",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "DPS"
+      ],
+      "bundled_identity_skill_id": "dps_arc_weave",
+      "basic_attack_profile_id": "ba_dps_ripple_pulse",
+      "range_band": "Mid",
+      "display_name": "Ward Tide Censer",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_nuker_scout_frame",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Nuker"
+      ],
+      "bundled_identity_skill_id": "nuker_mark_ruin",
+      "basic_attack_profile_id": "ba_nuker_scout_pop",
+      "range_band": "Long",
+      "display_name": "Ward Scout Frame",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_nuker_flank_knife",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Nuker"
+      ],
+      "bundled_identity_skill_id": "nuker_flank_collapse",
+      "basic_attack_profile_id": "ba_nuker_bayonet_jab",
+      "range_band": "Melee",
+      "display_name": "Ward Flank Knife",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_nuker_hex_scope",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Nuker"
+      ],
+      "bundled_identity_skill_id": "nuker_mark_ruin",
+      "basic_attack_profile_id": "ba_nuker_hex_chip",
+      "range_band": "Mid",
+      "display_name": "Ward Hex Scope",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_mag_nuker_coil_rifle",
+      "gear_kind": "Magitech",
+      "equip_classes": [
+        "Nuker"
+      ],
+      "bundled_identity_skill_id": "nuker_mark_ruin",
+      "basic_attack_profile_id": "ba_mag_coil_snap",
+      "range_band": "Long",
+      "display_name": "Magitech Coil Rifle",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_mag_nuker_volt_lance",
+      "gear_kind": "Magitech",
+      "equip_classes": [
+        "Nuker"
+      ],
+      "bundled_identity_skill_id": "nuker_mark_ruin",
+      "basic_attack_profile_id": "ba_mag_volt_needle",
+      "range_band": "Mid",
+      "display_name": "Magitech Volt Lance",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_healer_ward_sigil",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Healer"
+      ],
+      "bundled_identity_skill_id": "healer_ward_pulse",
+      "basic_attack_profile_id": "gaux_healer_ward_echo",
+      "range_band": "Mid",
+      "display_name": "Ward Sigil",
+      "unlock_state": "Owned",
+      "starter": false
+    },
+    {
+      "base_gear_id": "gear_ward_healer_beacon_lantern",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Healer"
+      ],
+      "bundled_identity_skill_id": "healer_mend_circle",
+      "basic_attack_profile_id": "gaux_healer_beacon_glimmer",
+      "range_band": "Long",
+      "display_name": "Ward Beacon Lantern",
+      "unlock_state": "Owned",
+      "starter": false
     }
   ]
 }

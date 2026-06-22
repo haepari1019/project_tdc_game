@@ -44,9 +44,14 @@ func _seed() -> void:
 	if _seeded:
 		return
 	_seeded = true
-	# Demo stash — SPARE Identity Gear (alternatives to swap to; worn starters live in Backpack.equipped,
-	# not here — F-008 ownership). Looted-AB skillbooks, revive scrolls. (gear filled by 기어 카탈로그 단계.)
-	gear = []
+	# Demo stash — SPARE Identity Gear: the full GEAR catalog (17 alternatives to swap to; worn
+	# starters live in Backpack.equipped, not here — F-008 ownership). Looted-AB skillbooks, revives.
+	gear = [
+		"gear_ward_tank_kite_shield", "gear_ward_tank_beacon_hook", "gear_ward_tank_march_plate", "gear_ward_tank_rampart_wall", "gear_ward_tank_sentinel_aegis",
+		"gear_ward_dps_weave_staff", "gear_ward_dps_rift_needle", "gear_ward_dps_ember_wand", "gear_ward_dps_brand_foci", "gear_ward_dps_tide_censer",
+		"gear_ward_nuker_scout_frame", "gear_ward_nuker_flank_knife", "gear_ward_nuker_hex_scope", "gear_mag_nuker_coil_rifle", "gear_mag_nuker_volt_lance",
+		"gear_ward_healer_ward_sigil", "gear_ward_healer_beacon_lantern",
+	]
 	skillbooks = ["AB-002", "AB-010", "AB-011", "AB-037"]
 	consumables = {"con_revive_scroll": 8}
 

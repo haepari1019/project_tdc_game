@@ -20,13 +20,17 @@
     "tank_anchor_guard",
     "dps_press_line",
     "nuker_mark_ruin",
-    "healer_mend_circle"
+    "healer_mend_circle",
+    "tank_iron_beacon", "tank_bulwark_march", "tank_sentinel_form",
+    "dps_arc_weave", "nuker_flank_collapse", "healer_ward_pulse"
   ],
+  "_note_identity_alts": "tank_iron_beacon/bulwark_march/sentinel_form·dps_arc_weave·nuker_flank_collapse·healer_ward_pulse = 비스타터 정체성(기어 선택형 대안, GEAR 카탈로그). 스탯=데모 튜닝(SPEC_DRIFT), ability=PT-pending 스펙 stub의 의도 구현.",
   "ability_ids": [
     "AB-002", "AB-004", "AB-006", "AB-008", "AB-010", "AB-011", "AB-012", "AB-013", "AB-098", "AB-099",
     "AB-020", "AB-024", "AB-025", "AB-026", "AB-037",
     "AB-009", "AB-036", "AB-039", "AB-040", "AB-042", "AB-043", "AB-041",
-    "AB-100", "AB-101", "AB-102", "AB-103", "AB-104", "AB-105", "AB-106"
+    "AB-100", "AB-101", "AB-102", "AB-103", "AB-104", "AB-105", "AB-106",
+    "AB-021", "AB-022", "AB-052", "AB-027", "AB-029", "AB-031"
   ],
   "_note_ability_3rd": "AB-100 Pounce·101 Scent of Blood·102 Snare Net·103 Tether·104 Rampage·105 Bloodlust·106 Devour = 제3세력 전용(DEC-20260621-001). 적 측 enemy_* kind = S5 구현. lootable(usable_by_ally+enemy); 아군 skillbook_* 효과(신규 sb_*) = S6a 파티 풀 이연. equipClasses: Pounce/Tether/Devour=Nuker·Snare/Rampage/Bloodlust=Tank·Scent=Healer; AB-105=castCondition HP<50%.",
   "_note_ability_ids": "AB-002/010/011 = enemy lootable-shared (S2a). AB-004/008/012/098 = enemy SIGNATURE casts (S2c-1, EN-002/004/007/014). AB-006/013 = enemy mobility dashes (S2c-2, EN-003/008). AB-099 = EN-001 Iron Mockery / Provoked zone control (S2c-3, enemyOnly). AB-020/024/025/026 = party identity. AB-037 = lootable skillbook.",
@@ -47,13 +51,22 @@
     "gear_ward_tank_anchor_set",
     "gear_ward_dps_press_set",
     "gear_ward_nuker_ruin_set",
-    "gear_ward_healer_mend_set"
+    "gear_ward_healer_mend_set",
+    "gear_ward_tank_kite_shield", "gear_ward_tank_beacon_hook", "gear_ward_tank_march_plate", "gear_ward_tank_rampart_wall", "gear_ward_tank_sentinel_aegis",
+    "gear_ward_dps_weave_staff", "gear_ward_dps_rift_needle", "gear_ward_dps_ember_wand", "gear_ward_dps_brand_foci", "gear_ward_dps_tide_censer",
+    "gear_ward_nuker_scout_frame", "gear_ward_nuker_flank_knife", "gear_ward_nuker_hex_scope", "gear_mag_nuker_coil_rifle", "gear_mag_nuker_volt_lance",
+    "gear_ward_healer_ward_sigil", "gear_ward_healer_beacon_lantern"
   ],
+  "_note_base_gear_ids": "스타터 4 = _set 별칭(GEAR-011/021/031/041, Backpack.equipped 착용). 이하 17 = GEAR-012~016/022~026/032~036/042~043 카탈로그(스태시 스페어, 스왑용). gear_mag_* = Magitech.",
   "basic_attack_profile_ids": [
     "ba_tank_shield_tap",
     "ba_dps_arc_bolt",
     "ba_nuker_shard_shot",
-    "ba_healer_pulse_bolt"
+    "ba_healer_pulse_bolt",
+    "ba_tank_kite_bash", "ba_tank_hook_tug", "ba_tank_march_stomp", "ba_tank_line_jab", "ba_tank_aegis_ram",
+    "ba_dps_weave_lance", "ba_dps_needle_prick", "ba_dps_ember_snap", "ba_dps_brand_sweep", "ba_dps_ripple_pulse",
+    "ba_nuker_scout_pop", "ba_nuker_bayonet_jab", "ba_nuker_hex_chip", "ba_mag_coil_snap", "ba_mag_volt_needle",
+    "gaux_healer_ward_echo", "gaux_healer_beacon_glimmer"
   ],
   "consumable_ids": ["con_revive_scroll"],
   "blueprint_ids": ["DBP-DEMO-001"],
