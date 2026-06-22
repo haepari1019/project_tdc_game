@@ -1486,6 +1486,7 @@ func _pick_scented_target(nodes: Array) -> CharacterBody3D:
 func _tname(t) -> String:
 	if t == null or not is_instance_valid(t):
 		return "?"
-	if t.is_in_group("party_member"):
-		return String(t.get("identity_skill_id"))
-	return String(t.get("enemy_id"))
+	var n = t.get("identity_skill_id")   # party member
+	if n == null:
+		n = t.get("enemy_id")            # enemy (faction war); null if the node has neither
+	return String(n) if n != null else "?"
