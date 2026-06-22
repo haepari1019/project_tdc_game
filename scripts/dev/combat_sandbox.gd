@@ -14,6 +14,7 @@ const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")  # S3b
 const Torch := preload("res://scripts/world/objects/torch.gd")  # ENT-TORCH — PAT-003 EN-010 bearer test
 const AimMarker := preload("res://scripts/ui/aim_marker.gd")              # 지면-타겟 서브 조준(던전 parity)
 const AimController := preload("res://scripts/run/controllers/aim_controller.gd")
+const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")  # 평타 archetype 조회(검증 패널)
 
 # ZONE laying (S3b test): medium → spawn defaults. Fire/ToxicGas damage; movement media outcome-only
 # (dps 0, tick via MOVEMENT_MEDIA); Smoke/Vegetation harmless; Fatal lethal+impassable.
@@ -64,6 +65,36 @@ const UNIT_VERIFY := {
 	"EN-014": "• 적 근접 시 후퇴 + 무리를 따라 이동(체력 낮은 아군 우선, 없으면 최근접 아군) — 낙오 X\n• 혼자일 때만 hold(부들부들 X)\n• 아군 <90% HP면 AB-098 녹색 힐펄스(쿨 8s)\n• 힐 채널을 Toll Stun으로 끊기",
 }
 
+# Identity 검증 — 의도된 효과 + 눈으로 확인할 포인트 (effect kind 기준; identity_params.kind로 조회).
+# 의도대로 구현됐는지 우측 패널에서 보고 → 실제 거동과 대조. ref: 각 effects/*.gd · DRIFT-056.
+const IDENTITY_VERIFY := {
+	"anchor_guard": "주변 잡몹에 위협 펄스 + 자신에 보호막 돔.\n• [파랑] 지면 펄스 + 보호막 돔이 뜸\n• 주변 적 어그로가 이 탱커로 쏠림",
+	"beacon_threat": "근접 적에 강한 위협 고정(threat floor) + 보호막(적 수만큼↑).\n• 적이 이 탱커에 붙어 안 떨어짐(엘리트 홀드)\n• 보호막 게이지 + [파랑] 펄스",
+	"march_advance": "최근접 적 향해 짧게 전진 + 전방 콘 넉백 + 경뎀.\n• 탱커가 앞으로 훅 이동\n• 정면 부채꼴 적 밀쳐냄(knockback) + [청회색] 텔레그래프",
+	"sentinel_form": "거북이 태세 — 받는 피해 감소(DR) + 이동 잠김(Rooted). 6m 내 적 있을 때만 발동.\n• HP가 평소보다 훨씬 천천히 깎임\n• 제자리 고정(이동 X) + [파랑] 펄스\n• (스펙 40% 반사는 미구현 — DRIFT-056)",
+	"press_line": "전방 [청록] 콘 플래시 — 직선 범위 딜.\n• 전방 부채꼴로 여러 적 동시 타격",
+	"mark_ruin": "타겟에 [보라] 수직 빔 + 임팩트 버스트 — 단일 마킹 누킹.\n• 단일 타겟에 보라 빔/버스트",
+	"arc_line": "최근접 적 향해 좁은 관통선 다단히트.\n• [하늘색] 직선이 여러 적 관통(최대 max_hits만큼)",
+	"flank_dash": "최근접 적으로 대시 후 다단 버스트.\n• [크림슨] 적에게 순간 접근(대시)\n• hits회 연타 + 카메라 셰이크",
+	"mend_circle": "[녹색] 지면 펄스 — 범위 힐(체력 낮은 아군 우선).\n• 녹색 펄스 후 주변 아군 HP 회복",
+	"ward_shield": "가장 다친 아군에 보호막 + 디버프 1개 클렌즈. 전투 중(10m 내 적)만.\n• 다친 아군에 보호막 게이지\n• 상태이상 1개 제거(클렌즈)",
+}
+# 평타 검증 — ba 아키타입 shape별 기대 VFX (skill_vfx _BA_VFX와 1:1).
+const BASIC_SHAPE_DESC := {
+	"bolt": "둥근 투사체가 타겟으로 날아가 작게 임팩트",
+	"lance": "얇은 직선 섬광이 즉시 관통",
+	"sweep": "전방에 납작한 부채 스와이프",
+	"pulse": "타겟에 작은 지면 링 확산",
+	"thrust": "타겟에 짧은 쐐기 찌르기",
+	"bash": "타겟에 둔탁한 납작 팝(지면 링 없음)",
+	"hook": "타겟→자신으로 수축하는 선(끌어당김)",
+	"stomp": "지면 링 + 먼지 튐",
+}
+const BASIC_TINT_DESC := {
+	"physical": "강철/흰", "fire": "주황", "electric": "청색",
+	"arcane": "보라", "frost": "하늘", "holy": "녹/금",
+}
+
 var _map: Node3D
 var _party: Node3D
 var _combat: Node3D
@@ -78,8 +109,10 @@ var _engaged_chk: CheckBox
 var _third_chk: CheckBox   # 스폰 유닛을 Third 진영으로 (진영전 테스트)
 var _status: Label
 var _formation_lbl: Label
+var _cohesion_lbl: Label
 var _info_label: RichTextLabel
 var _identity_dd: OptionButton
+var _basic_dd: OptionButton   # 평타(basic) archetype — gear's basic half only (OFF = 평타 끔)
 var _sub_dd: Array = []   # [OptionButton ×3] — Q/E/R sub loadout for the controlled member
 var _gear_dd: OptionButton   # Identity Gear swap (equips onto the matching-role member — F-008)
 var _cam_dragging := false
@@ -288,12 +321,14 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	torch_btn.pressed.connect(_on_lay_torch)
 	box.add_child(torch_btn)
 
-	# --- GEAR SWAP (F-008) — equip an Identity Gear onto its matching-role member via the REAL
-	# equip_gear path (gear → bundled identity → stats/skill). Pick one, then swap (1-4) to that
-	# role to see the change + test its Identity skill. Auto-fills from gear.json (new gears appear).
-	box.add_child(_section("GEAR SWAP (역할 자동장착)"))
+	# --- GEAR SWAP (F-008) — pick a gear → equips onto its matching-role member (REAL equip_gear:
+	# gear → bundled identity → stats/skill), setting BOTH 평타+identity to the gear defaults. Pick
+	# (none) to UNEQUIP the controlled member so 평타/Identity below can be chosen independently.
+	box.add_child(_section("GEAR (평타+ID 묶음 / none=분리)"))
 	_gear_dd = OptionButton.new()
 	_gear_dd.custom_minimum_size = Vector2(240, 0)
+	_gear_dd.add_item("(none) — 장착 해제 (평타/ID 따로)")
+	_gear_dd.set_item_metadata(0, "")
 	for row in Slice01Data.get_gear_rows():
 		var cls := String((row.get("equip_classes", ["?"]) as Array)[0])
 		_gear_dd.add_item("%s [%s] → %s" % [row.get("display_name", "?"), cls, row.get("bundled_identity_skill_id", "?")])
@@ -301,11 +336,28 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	_gear_dd.item_selected.connect(_on_gear_changed)
 	box.add_child(_gear_dd)
 
-	# --- Loadout (controlled member) — swap Identity skill + Q/E/R subs for ability testing.
-	# Data-driven: auto-fills from identities.json / skillbooks.json (future ABs appear here).
+	# --- Loadout (controlled member · 1-4) — 평타 / Identity each independently selectable (or OFF),
+	# so either channel can be verified alone. Picking a GEAR above sets both; here you split them.
+	# (OFF = that channel disabled for THIS member; 전체 buttons below do all members at once.)
 	box.add_child(_section("LOADOUT (controlled — 1-4)"))
+	# 평타 — pick a gear's basic archetype (damage/CD/range + VFX), or OFF. Basic-only (no identity).
+	_basic_dd = OptionButton.new()
+	_basic_dd.custom_minimum_size = Vector2(240, 0)
+	_basic_dd.add_item("평타: (OFF)")
+	_basic_dd.set_item_metadata(0, "")
+	for row in Slice01Data.get_gear_rows():
+		var lbl := "평타: %s" % row.get("display_name", "?")
+		if row.has("basic_damage"):
+			lbl += " (%d/%.1fs/%.1fm)" % [int(row.get("basic_damage", 0)), float(row.get("basic_interval_s", 1.0)), float(row.get("basic_range_m", 2.0))]
+		_basic_dd.add_item(lbl)
+		_basic_dd.set_item_metadata(_basic_dd.item_count - 1, String(row.get("base_gear_id", "")))
+	_basic_dd.item_selected.connect(_on_basic_changed)
+	box.add_child(_basic_dd)
+	# Identity — pick an identity skill, or OFF (basic-only). No role gate (debug).
 	_identity_dd = OptionButton.new()
 	_identity_dd.custom_minimum_size = Vector2(240, 0)
+	_identity_dd.add_item("ID: (OFF)")
+	_identity_dd.set_item_metadata(0, "")
 	for row in Slice01Data.get_identity_rows():
 		_identity_dd.add_item("ID: %s (%s)" % [row.get("identity_skill_id", "?"), row.get("ability_id", "?")])
 		_identity_dd.set_item_metadata(_identity_dd.item_count - 1, String(row.get("identity_skill_id", "")))
@@ -323,14 +375,30 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 		box.add_child(dd)
 		_sub_dd.append(dd)
 
+	# --- 전체 적용 (all members at once) — turn a channel ON/OFF for the WHOLE party in one click.
+	# Verify-one workflow: 전체 OFF, swap to the member, turn its channel back ON via the dropdown.
+	box.add_child(_section("전체 적용 (검증)"))
+	var basic_row := HBoxContainer.new()
+	basic_row.add_child(_btn("평타 전체 ON", _set_all_basic.bind(true)))
+	basic_row.add_child(_btn("평타 전체 OFF", _set_all_basic.bind(false)))
+	box.add_child(basic_row)
+	var id_row := HBoxContainer.new()
+	id_row.add_child(_btn("ID 전체 ON", _set_all_identity.bind(true)))
+	id_row.add_child(_btn("ID 전체 OFF", _set_all_identity.bind(false)))
+	box.add_child(id_row)
+
 	var hint := Label.new()
-	hint.text = "1-4 swap · WASD · Q/E/R sub · G 진형/전투우선 · Z zone깔기 · wheel zoom · RMB-drag orbit · [ ] pitch"
+	hint.text = "1-4 swap · WASD · Q/E/R sub · G 진형/전투우선 · U 결속/비결속 · Z zone깔기 · wheel zoom · RMB-drag orbit · [ ] pitch"
 	hint.add_theme_font_size_override("font_size", 11)
 	box.add_child(hint)
 	_formation_lbl = Label.new()
 	box.add_child(_formation_lbl)
 	_party.formation_priority_changed.connect(_on_formation_priority_changed)
 	_on_formation_priority_changed(_party.is_formation_priority())  # initial state
+	_cohesion_lbl = Label.new()
+	box.add_child(_cohesion_lbl)
+	_party.cohesion_changed.connect(_on_cohesion_changed)
+	_on_cohesion_changed(0)  # initial state (reads _party.is_unbound(), arg ignored)
 	_status = Label.new()
 	box.add_child(_status)
 
@@ -414,6 +482,12 @@ func _on_formation_priority_changed(on: bool) -> void:
 		_formation_lbl.text = "[G] %s" % ("진형우선" if on else "전투우선")
 
 
+## F-003 §3.4 cohesion (U) — 파티결속(BOUND, 슬롯 추종) ↔ 파티비결속(UNBOUND, 자유 산개). game parity.
+func _on_cohesion_changed(_mode: int) -> void:
+	if _cohesion_lbl != null:
+		_cohesion_lbl.text = "[U] %s" % ("파티비결속" if _party.is_unbound() else "파티결속")
+
+
 ## Lay the selected medium zone at the controlled member (S3b test). Outcome applies on contact.
 func _on_lay_zone() -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
@@ -446,20 +520,55 @@ func _on_lay_torch() -> void:
 	_status.text = "Torch laid @ north — spawn ENC-PAT-003 (dormant) + 접근 → EN-010 픽업/투척"
 
 
+## Identity channel for the controlled member: pick an identity (on) or OFF (identity_enabled=false,
+## value kept). Independent of 평타 — lets you watch the Identity skill with basic attacks off.
 func _on_identity_changed(index: int) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
-	if ctrl == null or not ctrl.has_method("debug_set_identity"):
+	if ctrl == null:
 		return
 	var iid := String(_identity_dd.get_item_metadata(index))
-	ctrl.debug_set_identity(iid)
-	_status.text = "%s identity → %s" % [ctrl.get("class_id"), iid]
+	if iid == "":
+		ctrl.identity_enabled = false
+	else:
+		if ctrl.has_method("debug_set_identity"):
+			ctrl.debug_set_identity(iid)
+		ctrl.identity_enabled = true
+	_status.text = "%s Identity → %s" % [ctrl.get("class_id"), iid if iid != "" else "OFF"]
+	_show_loadout_verify(ctrl)
 
 
-## GEAR SWAP — equip the selected Identity Gear onto the member whose class matches (real
-## equip_gear path: gear → bundled identity → stats/skill). Swap (1-4) to that role to verify.
+## 평타 channel for the controlled member: apply a gear's basic half (on) or OFF (basic_enabled=false).
+## Basic-only — does NOT touch the Identity skill, so 평타 can be verified alone.
+func _on_basic_changed(index: int) -> void:
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if ctrl == null:
+		return
+	var gid := String(_basic_dd.get_item_metadata(index))
+	if gid == "":
+		ctrl.basic_enabled = false
+		_status.text = "%s 평타 → OFF" % ctrl.get("class_id")
+		_show_loadout_verify(ctrl)
+		return
+	var master: Dictionary = Slice01Data.get_gear_master(gid)
+	if not master.is_empty() and ctrl.has_method("debug_set_basic_from_gear"):
+		ctrl.debug_set_basic_from_gear(master)
+	_status.text = "%s 평타 → %s (dmg%d/int%.1f/r%.1f)" % [
+		ctrl.get("class_id"), master.get("display_name", gid),
+		int(ctrl.get("basic_damage")), float(ctrl.get("basic_interval_s")), float(ctrl.get("basic_range_m"))]
+	_show_loadout_verify(ctrl)
+
+
+## GEAR — pick a gear → equip onto its matching-role member (binds 평타+identity to gear defaults,
+## both channels re-enabled). (none) → unequip the CONTROLLED member so the two can be split below.
 func _on_gear_changed(index: int) -> void:
 	var gid := String(_gear_dd.get_item_metadata(index))
 	if gid == "":
+		var ctrl: CharacterBody3D = _party.get_controlled()
+		if ctrl != null and ctrl.has_method("unequip_gear"):
+			ctrl.unequip_gear()
+			_status.text = "%s gear 해제 — 평타/Identity 따로 선택 가능" % ctrl.get("class_id")
+			_refresh_loadout_ui()
+			_show_loadout_verify(ctrl)
 		return
 	var master: Dictionary = Slice01Data.get_gear_master(gid)
 	if master.is_empty():
@@ -471,8 +580,80 @@ func _on_gear_changed(index: int) -> void:
 				m.get("class_id"), master.get("display_name", gid), m.get("identity_skill_id"),
 				int(m.get("max_hp")), int(m.get("basic_damage")), float(m.get("basic_range_m"))]
 			_refresh_loadout_ui()
+			_show_loadout_verify(m)   # 방금 장착된 멤버의 평타+Identity 검증 표시
 			return
 	_status.text = "장착 가능한 멤버 없음: %s" % gid
+
+
+## Small button factory (전체 적용 row).
+func _btn(text: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.pressed.connect(cb)
+	return b
+
+
+## Show a member's loadout-verification text in the RIGHT info panel (loadout 선택 시 호출).
+func _show_loadout_verify(m: CharacterBody3D) -> void:
+	if _info_label != null:
+		_info_label.text = _loadout_verify_text(m)
+
+
+## Right-panel verification text — 평타(VFX shape/tint/수치) + Identity(의도 효과·검증 포인트·라이브
+## params). "의도대로 구현됐나"를 우측에서 보고 실제 거동과 대조하기 위함. ref: effects/*.gd · DRIFT-056.
+func _loadout_verify_text(m: CharacterBody3D) -> String:
+	if m == null or not is_instance_valid(m):
+		return "[i]조작 멤버 없음[/i]"
+	var t := "[b]LOADOUT 검증 — %s (%s)[/b]\n" % [m.get("identity_skill_id"), m.get("class_id")]
+	# 평타
+	t += "\n[color=#9fd][b]평타[/b][/color]  "
+	if not bool(m.get("basic_enabled")):
+		t += "[color=#f99]OFF[/color] (identity 검증용)\n"
+	else:
+		var prof := String(m.get("basic_attack_profile_id"))
+		t += "%s\n  dmg %d · 간격 %.2fs · 사거리 %.1fm\n" % [
+			prof, int(m.get("basic_damage")), float(m.get("basic_interval_s")), float(m.get("basic_range_m"))]
+		var arc: Array = SkillVfx.basic_archetype(prof)
+		if arc.is_empty():
+			t += "  [color=#aaa]VFX 미매핑(폴백)[/color]\n"
+		else:
+			t += "  VFX: [b]%s[/b](%s색) — %s\n" % [
+				arc[0], BASIC_TINT_DESC.get(String(arc[1]), "?"), BASIC_SHAPE_DESC.get(String(arc[0]), "?")]
+	# Identity
+	t += "\n[color=#fd9][b]Identity[/b][/color]  "
+	if not bool(m.get("identity_enabled")):
+		t += "[color=#f99]OFF[/color] (평타 검증용)\n"
+	else:
+		var p: Dictionary = m.get("identity_params")
+		var kind := String(p.get("kind", ""))
+		if kind == "":
+			t += "(없음)\n"
+		else:
+			t += "%s · kind %s\n%s\n" % [m.get("ability_id"), kind, IDENTITY_VERIFY.get(kind, "(설명 없음)")]
+			var parts: Array = []
+			for k in p.keys():
+				if String(k) != "kind":
+					parts.append("%s=%s" % [k, p[k]])
+			t += "[color=#888]params: %s[/color]" % (", ".join(parts) if not parts.is_empty() else "(없음)")
+	return t
+
+
+## 전체 — set basic_enabled for ALL members (verify-one: OFF all, then re-enable one via the dropdown).
+func _set_all_basic(on: bool) -> void:
+	for m in _party.get_members():
+		if m != null and is_instance_valid(m):
+			m.basic_enabled = on
+	_refresh_loadout_ui()
+	_status.text = "전체 평타 %s" % ("ON" if on else "OFF")
+
+
+## 전체 — set identity_enabled for ALL members.
+func _set_all_identity(on: bool) -> void:
+	for m in _party.get_members():
+		if m != null and is_instance_valid(m):
+			m.identity_enabled = on
+	_refresh_loadout_ui()
+	_status.text = "전체 Identity %s" % ("ON" if on else "OFF")
 
 
 func _on_sub_changed(index: int, slot: int) -> void:
@@ -493,11 +674,26 @@ func _refresh_loadout_ui() -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl == null or _identity_dd == null:
 		return
-	var cur_id := String(ctrl.get("identity_skill_id"))
-	for i in _identity_dd.item_count:
-		if String(_identity_dd.get_item_metadata(i)) == cur_id:
-			_identity_dd.select(i)
-			break
+	# Identity dd: OFF (index 0) when disabled, else the item matching the member's identity.
+	var id_sel := 0
+	if bool(ctrl.get("identity_enabled")):
+		var cur_id := String(ctrl.get("identity_skill_id"))
+		for i in range(1, _identity_dd.item_count):
+			if String(_identity_dd.get_item_metadata(i)) == cur_id:
+				id_sel = i
+				break
+	_identity_dd.select(id_sel)
+	# 평타 dd: OFF when disabled, else the gear whose basic profile matches the member's.
+	if _basic_dd != null:
+		var b_sel := 0
+		if bool(ctrl.get("basic_enabled")):
+			var prof := String(ctrl.get("basic_attack_profile_id"))
+			for i in range(1, _basic_dd.item_count):
+				var gid := String(_basic_dd.get_item_metadata(i))
+				if String(Slice01Data.get_gear_master(gid).get("basic_attack_profile_id", "")) == prof:
+					b_sel = i
+					break
+		_basic_dd.select(b_sel)
 	for slot in 3:
 		var inst = ctrl.get_skillbook(slot)
 		var cur_sub := String(inst.get("base_ability_id", "")) if inst != null else ""
@@ -600,6 +796,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_E: _cast_sub(1)
 			KEY_R: _cast_sub(2)
 			KEY_G: _party.toggle_formation_priority()  # 전투우선 ↔ 진형우선 (game parity)
+			KEY_U: _party.toggle_cohesion_mode()       # 파티결속 ↔ 비결속 (F-003 §3.4, game parity)
 			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
 
 

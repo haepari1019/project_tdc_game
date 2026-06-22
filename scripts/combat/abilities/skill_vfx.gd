@@ -149,6 +149,223 @@ static func enemy_vfx(key: String, parent: Node3D, from: Vector3, target: Node3D
 			_knockback_blast(parent, to, to - from, Color(0.40, 0.62, 1.0))
 
 
+# --- party basic-attack cues (F-008 / D-019 §4.4) — WEAK per-ba-archetype flicks, NOT skill-tier ──
+# 8 motion shapes × element TINT, mapped from `basic_attack_profile_id`. The ba ids are bare (spec
+# id_registry) — the LOOK is a game impl choice (no spec edit). Deliberately pale / short (~0.15s) /
+# non-emissive (`_mat`) and NO camera shake (basics are high-frequency; skills stay the loud tier).
+# element tint is COSMETIC ONLY — basics deal single-target damage, no fire/RX (DRIFT-056). Grouped
+# per TYPE not per gear: many gears share a shape (e.g. all bolts). ref: DRIFT-056.
+
+const _BA_TINT := {
+	"physical": Color(0.85, 0.88, 0.96),
+	"fire": Color(1.00, 0.55, 0.22),
+	"electric": Color(0.55, 0.82, 1.00),
+	"arcane": Color(0.72, 0.42, 0.96),
+	"frost": Color(0.62, 0.90, 1.00),
+	"holy": Color(0.55, 0.95, 0.60),
+}
+## basic_attack_profile_id -> [shape, tint]. 8 shapes: bolt·lance·sweep·pulse·thrust·bash·hook·stomp.
+const _BA_VFX := {
+	"ba_tank_shield_tap":         ["bash", "physical"],
+	"ba_tank_kite_bash":          ["bash", "physical"],
+	"ba_tank_hook_tug":           ["hook", "physical"],
+	"ba_tank_march_stomp":        ["stomp", "physical"],
+	"ba_tank_line_jab":           ["thrust", "physical"],
+	"ba_tank_aegis_ram":          ["thrust", "physical"],
+	"ba_dps_arc_bolt":            ["bolt", "electric"],
+	"ba_dps_weave_lance":         ["lance", "arcane"],
+	"ba_dps_needle_prick":        ["lance", "physical"],
+	"ba_dps_ember_snap":          ["bolt", "fire"],
+	"ba_dps_brand_sweep":         ["sweep", "fire"],
+	"ba_dps_ripple_pulse":        ["pulse", "frost"],
+	"ba_nuker_shard_shot":        ["bolt", "frost"],
+	"ba_nuker_scout_pop":         ["bolt", "physical"],
+	"ba_nuker_bayonet_jab":       ["thrust", "physical"],
+	"ba_nuker_hex_chip":          ["bolt", "arcane"],
+	"ba_mag_coil_snap":           ["bolt", "electric"],
+	"ba_mag_volt_needle":         ["lance", "electric"],
+	"ba_healer_pulse_bolt":       ["pulse", "holy"],
+	"gaux_healer_ward_echo":      ["pulse", "holy"],
+	"gaux_healer_beacon_glimmer": ["pulse", "holy"],
+}
+
+
+## Dispatch a WEAK basic-attack cue by the gear's ba profile id (per-archetype, not per-gear).
+## from = attacker pos, to = target pos, target = struck node (ranged shapes home to its live pos).
+## No-op if the id isn't mapped (starter fallbacks / future ba). ref: D-019 §4.4 · DRIFT-056.
+static func party_basic(profile_id: String, parent: Node3D, from: Vector3, to: Vector3, target: Node3D = null) -> void:
+	var entry = _BA_VFX.get(profile_id, null)
+	if entry == null:
+		return
+	var c: Color = _BA_TINT.get(String(entry[1]), _BA_TINT["physical"])
+	match String(entry[0]):
+		"bolt":   _basic_tracer(parent, from, to, c, target)
+		"lance":  _basic_lance(parent, from, to, c)
+		"sweep":  _basic_sweep(parent, from, to, c)
+		"pulse":  _basic_pulse(parent, to, c)
+		"thrust": _basic_thrust(parent, from, to, c)
+		"bash":   _basic_bash(parent, to, c)
+		"hook":   _basic_hook(parent, from, to, c)
+		"stomp":  _basic_stomp(parent, to, c)
+
+
+## Look up a basic-attack profile's [shape, tint] archetype — for the sandbox 평타 verify panel.
+## Returns [] if the profile isn't mapped (no VFX). ref: DRIFT-056.
+static func basic_archetype(profile_id: String) -> Array:
+	return _BA_VFX.get(profile_id, [])
+
+
+## bolt — small dim sphere flying attacker→target (homes to live pos), tiny impact tap.
+static func _basic_tracer(parent: Node3D, from: Vector3, to: Vector3, color: Color, target: Node3D) -> void:
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.13
+	s.height = 0.26
+	mi.mesh = s
+	var mat := _mat(Color(color.r, color.g, color.b, 0.85))
+	mi.material_override = mat
+	parent.add_child(mi)
+	var a := from + Vector3(0, 0.8, 0)
+	var b := to + Vector3(0, 0.8, 0)
+	mi.global_position = a
+	var twref: WeakRef = weakref(target) if (target != null and is_instance_valid(target)) else null
+	var tw := mi.create_tween()
+	tw.tween_method(func(t: float) -> void:
+		var dst := b
+		var tnode = twref.get_ref() if twref != null else null
+		if tnode != null:
+			dst = tnode.global_position + Vector3(0, 0.8, 0)
+		mi.global_position = a.lerp(dst, t)
+	, 0.0, 1.0, 0.16)
+	tw.tween_property(mi, "scale", Vector3(1.8, 1.8, 1.8), 0.10)   # small impact tap (not a skill pop)
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.10)
+	tw.tween_callback(mi.queue_free)
+
+
+## lance — a thin line flashing attacker→target (instant pierce), quick fade.
+static func _basic_lance(parent: Node3D, from: Vector3, to: Vector3, color: Color) -> void:
+	var a := from + Vector3(0, 0.8, 0)
+	var b := to + Vector3(0, 0.8, 0)
+	var seg := a.distance_to(b)
+	if seg < 0.2:
+		return
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.07, 0.07, seg)
+	mi.mesh = box
+	var mat := _mat(Color(color.r, color.g, color.b, 0.8))
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = (a + b) * 0.5
+	mi.look_at(b, Vector3.UP)
+	var tw := mi.create_tween()
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.14)
+	tw.tween_callback(mi.queue_free)
+
+
+## sweep — a short flat fan swipe in front of the attacker toward the target. Brief.
+static func _basic_sweep(parent: Node3D, from: Vector3, to: Vector3, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var c := CylinderMesh.new()
+	c.top_radius = 0.0
+	c.bottom_radius = 1.0
+	c.height = 1.6
+	mi.mesh = c
+	var mat := _mat(Color(color.r, color.g, color.b, 0.5))
+	mi.material_override = mat
+	parent.add_child(mi)
+	_orient_cone(mi, from + Vector3(0, 0.7, 0), to - from, 0.9)
+	mi.scale = Vector3(0.9, 1.0, 0.22)   # flatten into a wide thin fan
+	var tw := mi.create_tween()
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.18)
+	tw.tween_callback(mi.queue_free)
+
+
+## pulse — a small soft ground ring at the target (ranged pulse / heal echo / glimmer).
+static func _basic_pulse(parent: Node3D, to: Vector3, color: Color) -> void:
+	_ground_pulse(parent, to, 1.0, Color(color.r, color.g, color.b, 0.40), 0.32)
+
+
+## thrust — a short narrow wedge stab at the target along the attack dir (quick jab).
+static func _basic_thrust(parent: Node3D, from: Vector3, to: Vector3, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var c := CylinderMesh.new()
+	c.top_radius = 0.0
+	c.bottom_radius = 0.22
+	c.height = 1.1
+	mi.mesh = c
+	var mat := _mat(Color(color.r, color.g, color.b, 0.7))
+	mi.material_override = mat
+	parent.add_child(mi)
+	_orient_cone(mi, to + Vector3(0, 0.8, 0), to - from, -0.4)   # apex at the target, points along dir
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3(1.0, 1.3, 1.0), 0.12).from(Vector3(0.6, 0.6, 0.6))
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.16)
+	tw.tween_callback(mi.queue_free)
+
+
+## bash — a quick squashed blunt pop at the target (no ground ring; club / shield).
+static func _basic_bash(parent: Node3D, to: Vector3, color: Color) -> void:
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.5
+	s.height = 1.0
+	mi.mesh = s
+	var mat := _mat(Color(color.r, color.g, color.b, 0.6))
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = to + Vector3(0, 0.8, 0)
+	mi.scale = Vector3(0.3, 0.3, 0.3)
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3(1.0, 0.6, 1.0), 0.13)   # squashed pop = blunt
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.16)
+	tw.tween_callback(mi.queue_free)
+
+
+## hook — a thin line spanning target→attacker that retracts (a yank / pull read; beacon hook).
+static func _basic_hook(parent: Node3D, from: Vector3, to: Vector3, color: Color) -> void:
+	var a := to + Vector3(0, 0.7, 0)     # the hooked target
+	var b := from + Vector3(0, 0.7, 0)   # toward the attacker
+	var seg := a.distance_to(b)
+	if seg < 0.2:
+		return
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.08, 0.08, seg)
+	mi.mesh = box
+	var mat := _mat(Color(color.r, color.g, color.b, 0.75))
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = (a + b) * 0.5
+	mi.look_at(b, Vector3.UP)
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3(1.0, 1.0, 0.2), 0.20)   # snap shorter = pull
+	tw.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.22)
+	tw.tween_callback(mi.queue_free)
+
+
+## stomp — a quick ground ring + a little kicked dust at the target's feet (ground slam; march).
+static func _basic_stomp(parent: Node3D, to: Vector3, color: Color) -> void:
+	_ground_pulse(parent, to, 1.4, Color(color.r, color.g, color.b, 0.50), 0.28)
+	for _i in 3:
+		_rising_wisp(parent, to + _disc_off(0.7), Color(color.r, color.g, color.b, 0.40), 0.6)
+
+
+## Orient a CylinderMesh cone (apex = local +Y, top_radius 0) so its apex sits at `apex` pointing
+## along `dir` (flattened), with the body offset `push` metres along dir. Shared by sweep/thrust.
+static func _orient_cone(mi: MeshInstance3D, apex: Vector3, dir: Vector3, push: float) -> void:
+	var d := dir
+	d.y = 0.0
+	d = d.normalized() if d.length() > 0.05 else Vector3(0, 0, 1)
+	var y_axis := -d
+	var x_axis := Vector3.UP.cross(y_axis)
+	if x_axis.length() < 0.01:
+		x_axis = Vector3.RIGHT
+	x_axis = x_axis.normalized()
+	var z_axis := x_axis.cross(y_axis).normalized()
+	mi.global_transform = Transform3D(Basis(x_axis, y_axis, z_axis), apex + d * push)
+
+
 ## Orthonormal basis with local +Y aligned to `dir` (used to point cone tips / ellipsoid long-axes
 ## along the travel direction). `dir` is assumed non-vertical (callers flatten the Y component).
 static func _aim_basis(dir: Vector3) -> Basis:

@@ -54,6 +54,11 @@ var _slow_dur: float = 0.0
 # --- Identity skill (from `identity` block) + shield (AB-020) ---
 var identity_params: Dictionary = {}
 var identity_cooldown_s: float = 0.0
+## DEBUG (combat sandbox): independent on/off for this member's basic attack + Identity skill, so
+## 평타 검증 / identity 검증 can be isolated per-member. Both default true; a gear equip resets both
+## on (gear binds 평타+identity together — these let the sandbox split them). ref: DRIFT-056.
+var basic_enabled: bool = true
+var identity_enabled: bool = true
 ## Player-activated sub skill (key 1 on the controlled member). NC never auto-uses.
 ## (legacy single-sub fields — kept empty; subs now come from skillbook_slots below.)
 var sub_ability_id: String = ""
@@ -150,6 +155,9 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	sub_ability_id = ""
 	sub_params = {}
 	identity_cooldown_s = 0.0
+	# Gear binds BOTH channels → equipping resets both on (sandbox may split them again after).
+	basic_enabled = true
+	identity_enabled = true
 
 
 ## Role gate (F-008 §3.4, strict): a member may only equip gear for its own class.
@@ -223,6 +231,8 @@ func equip_skillbook_by_id(sb_slot: int, base_ability_id: String) -> void:
 ## cooldowns cleared, sub charges refilled, downed members revived.
 func debug_reset() -> void:
 	_alive = true
+	basic_enabled = true
+	identity_enabled = true
 	if not is_in_group("party_member"):
 		add_to_group("party_member")
 	hp = max_hp
@@ -256,6 +266,15 @@ func debug_reset() -> void:
 ## DEBUG (combat sandbox): re-point the Identity skill to another identity's ability WITHOUT
 ## changing class/stats/gear, so formation/slots stay stable — ability-behavior testing only.
 func debug_set_identity(identity_skill_id_new: String) -> void:
+	if identity_skill_id_new == "":
+		# Sandbox "(none)" — strip the Identity skill so this member basic-attacks only
+		# (try_identity finds no kind → false → basic fallback). Per-member; re-equip a gear
+		# or pick an identity to restore. (HUD shows the slot as 미장착.)
+		identity_skill_id = ""
+		ability_id = ""
+		identity_params = {}
+		identity_cooldown_s = 0.0
+		return
 	var row: Dictionary = Slice01Data.get_identity_row(identity_skill_id_new)
 	if row.is_empty():
 		return
@@ -263,6 +282,18 @@ func debug_set_identity(identity_skill_id_new: String) -> void:
 	ability_id = String(row.get("ability_id", ""))
 	identity_params = Slice01Data.get_ability(ability_id)
 	identity_cooldown_s = 0.0
+
+
+## DEBUG (combat sandbox): set ONLY the basic-attack half from a gear (damage/CD/range + ba profile
+## for the VFX archetype), leaving the Identity skill untouched — verify 평타 independent of identity.
+## Mirrors _bind_gear's basic resolution (gear-first, identity combat fallback). Enables basic.
+func debug_set_basic_from_gear(gear: Dictionary) -> void:
+	var combat: Dictionary = Slice01Data.get_identity_row(String(gear.get("bundled_identity_skill_id", ""))).get("combat", {})
+	basic_damage = float(gear.get("basic_damage", combat.get("basic_damage", 8.0)))
+	basic_range_m = float(gear.get("basic_range_m", combat.get("basic_range_m", 2.0)))
+	basic_interval_s = float(gear.get("basic_interval_s", combat.get("basic_interval_s", 1.0)))
+	basic_attack_profile_id = String(gear.get("basic_attack_profile_id", ""))
+	basic_enabled = true
 
 
 func set_controlled(active: bool) -> void:

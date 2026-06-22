@@ -14,6 +14,7 @@ func cast(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3, ctx) -> bool:
 	var tgt = ctx.nearest_enemy_in_range(m.global_position, float(p.get("dash_m", 6.0)))
 	if tgt == null:
 		return false
+	var start: Vector3 = m.global_position   # for the dash trail VFX (movement is applied below)
 	var to: Vector3 = tgt.global_position - m.global_position
 	to.y = 0.0
 	var dist: float = to.length()
@@ -23,6 +24,7 @@ func cast(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3, ctx) -> bool:
 	for _i in int(p.get("hits", 2)):
 		ctx.deal_damage(tgt, m, dmg)
 	ctx.sub_shake(p)
-	SkillVfx.telegraph(ctx, tgt.global_position, Color(0.95, 0.4, 0.5))
+	SkillVfx.dash_streak(ctx, start, m.global_position, Color(0.95, 0.4, 0.5))   # crimson DASH trail
+	SkillVfx.telegraph(ctx, tgt.global_position, Color(0.95, 0.4, 0.5))           # impact burst on target
 	print("[ID] %s Flank Collapse — dash burst x%d" % [m.identity_skill_id, int(p.get("hits", 2))])
 	return true

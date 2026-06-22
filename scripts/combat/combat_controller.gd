@@ -254,23 +254,28 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 			if src != null and is_instance_valid(src) and m.attack_cooldown_s <= 0.0:
 				var to_src: Vector3 = src.global_position - m.global_position
 				to_src.y = 0.0
-				if to_src.length() <= m.basic_range_m:
+				if to_src.length() <= m.basic_range_m and m.basic_enabled:
 					_deal_damage(src, m, m.basic_damage)
+					SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, src.global_position, src)
 					m.attack_cooldown_s = m.basic_interval_s
 			continue
 		if tank_alive and not _tank_engaged and not m.is_controlled():
 			var gcid: String = String(m.get("class_id"))
 			if gcid == "DPS" or gcid == "Nuker":
 				continue  # 2nd-line dealer waits for the tank's first hit
-		# Identity (main) first; fall back to basic when not castable.
-		if m.identity_cooldown_s <= 0.0 and _ability_dispatch.try_identity(m):
+		# Identity (main) first; fall back to basic when not castable. Per-member identity_enabled /
+		# basic_enabled (sandbox 검증) let either channel be turned off independently of the gear.
+		if m.identity_enabled and m.identity_cooldown_s <= 0.0 and _ability_dispatch.try_identity(m):
 			continue
+		if not m.basic_enabled:
+			continue   # 평타 검증: 이 멤버 평타 OFF (identity만 / 또는 완전 정지)
 		if m.attack_cooldown_s > 0.0:
 			continue
 		var foe := _nearest_enemy_in_range(m.global_position, m.basic_range_m)
 		if foe == null:
 			continue
 		_deal_damage(foe, m, m.basic_damage)  # basic 평타 → no camera shake
+		SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, foe.global_position, foe)
 		m.attack_cooldown_s = m.basic_interval_s
 
 

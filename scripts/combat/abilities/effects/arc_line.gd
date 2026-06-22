@@ -25,6 +25,7 @@ func cast(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3, ctx) -> bool:
 	var dmg: float = float(p.get("damage_mult", 0.7)) * m.basic_damage
 	for i in n:
 		ctx.deal_damage(foes[i], m, dmg)
-	SkillVfx.telegraph(ctx, m.global_position + axis * (range_m * 0.5), Color(0.5, 0.85, 1.0))
+	# Piercing LINE along the attack axis (was a ground-pulse disc — mismatched the "직선 관통선" intent).
+	SkillVfx.dash_streak(ctx, m.global_position, m.global_position + axis * range_m, Color(0.5, 0.85, 1.0))
 	print("[ID] %s Arc Weave — line pierce %d" % [m.identity_skill_id, n])
 	return true
