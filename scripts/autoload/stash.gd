@@ -53,6 +53,16 @@ func _seed() -> void:
 	consumables = {"con_revive_scroll": 8}
 
 
+## 테스트/디버그 — 스태시를 데모 시드로 초기화.
+func reset_to_seed() -> void:
+	gear = []
+	skillbooks = []
+	consumables = {}
+	_seeded = false
+	_seed()
+	save_stash()
+
+
 ## Remove one consumable from the stash (taken into the run). Returns true if available.
 func take_consumable(cid: String, amount: int = 1) -> bool:
 	var have := int(consumables.get(cid, 0))

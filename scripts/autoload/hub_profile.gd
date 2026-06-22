@@ -60,6 +60,19 @@ func apply_dict(d: Dictionary) -> void:
 	enc_cleared = d.get("enc_cleared", {})
 
 
+## 테스트/디버그 — 허브 메타(시설 Tier/vault/퀘스트/ENC clear)를 초기 상태로 초기화.
+func reset_to_seed() -> void:
+	facilities = {}
+	hub_haul_vault = {}
+	quest_completed = {}
+	enc_cleared = {}
+	for f in FACILITY_IDS:
+		facilities[f] = 0
+	vault_changed.emit()
+	facilities_changed.emit()
+	save_profile()
+
+
 ## 런에서 ENC(분대) 클리어 기록 (B4 런 이벤트 퀘스트 판정용). squad_cleared → dungeon_run → 여기.
 func record_enc_cleared(encounter_id: String) -> void:
 	if encounter_id.is_empty() or bool(enc_cleared.get(encounter_id, false)):

@@ -76,6 +76,13 @@ func _setup_hub() -> void:
 	facilities_btn.pressed.connect(facilities_panel.open_panel)
 	$Panel/Margin/VBox.add_child(facilities_btn)
 	$Panel/Margin/VBox.move_child(facilities_btn, _loadout.get_index())
+	# 저장 초기화 (테스트/디버그) — 스태시·백팩·허브 메타를 데모 시드로. 확인 다이얼로그로 보호.
+	var reset_btn := Button.new()
+	reset_btn.text = "저장 초기화 (시드로)"
+	reset_btn.modulate = Color(1.0, 0.6, 0.6)   # 파괴적 동작 — 시각 경고
+	reset_btn.pressed.connect(_confirm_reset_save)
+	$Panel/Margin/VBox.add_child(reset_btn)
+	$Panel/Margin/VBox.move_child(reset_btn, _loadout.get_index())
 	_build_formation_editor()
 	_build_difficulty_selector()
 
@@ -220,3 +227,28 @@ func _sync_stash_from_source() -> void:
 				consumables[cid] = int(consumables.get(cid, 0)) + int(it.get("count", 1))
 	_stash.apply_dict({"gear": _stash.gear, "skillbooks": skillbooks, "consumables": consumables})
 	_stash.save_stash()
+
+
+## 저장 초기화 — 파괴적이라 확인 후 진행. (테스트/디버그)
+func _confirm_reset_save() -> void:
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "저장 초기화"
+	dlg.dialog_text = "저장 데이터를 전부 초기화합니다.\n스태시·백팩·허브 메타(시설/창고/퀘스트) → 데모 시드.\n되돌릴 수 없습니다. 진행할까요?"
+	dlg.ok_button_text = "초기화"
+	dlg.cancel_button_text = "취소"
+	add_child(dlg)
+	dlg.confirmed.connect(_reset_save)
+	dlg.canceled.connect(dlg.queue_free)
+	dlg.popup_centered()
+
+
+## SaveProfile 파일 비우기 + 각 도메인 오토로드 시드 리셋 + 허브 씬 리로드(UI 재구성).
+func _reset_save() -> void:
+	var sp := get_node_or_null("/root/SaveProfile")
+	if sp != null and sp.has_method("wipe"):
+		sp.wipe()
+	for path in ["/root/Stash", "/root/Backpack", "/root/HubProfile"]:
+		var n := get_node_or_null(path)
+		if n != null and n.has_method("reset_to_seed"):
+			n.reset_to_seed()
+	get_tree().reload_current_scene()   # 허브 재구성 — 리셋된 오토로드에서 새로 빌드

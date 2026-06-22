@@ -48,6 +48,15 @@ func _seed() -> void:
 	equipped = {}
 
 
+## 테스트/디버그 — 캐리(낱개 + 장착)를 데모 시드로 초기화.
+func reset_to_seed() -> void:
+	loose = []
+	equipped = {}
+	_seeded = false
+	_seed()
+	save()
+
+
 # --- loose carry API ---------------------------------------------------------
 
 ## Replace the loose contents (the run/hub commit their grid here). Strips runtime-only fields.

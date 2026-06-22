@@ -53,6 +53,14 @@ func save() -> void:
 	f.close()
 
 
+## 저장 전체 초기화 (테스트/디버그) — 파일 삭제 + 인메모리 클리어. 호출 직후 도메인 오토로드가
+## reset_to_seed()로 각 섹션을 시드 재저장한다(이 노드는 파일/_data만 비운다).
+func wipe() -> void:
+	_data = {}
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(SAVE_PATH)
+
+
 ## One-time import of the legacy per-domain files into the unified store (preserve existing
 ## progress on upgrade). The old files keep their exact section shape, so it's a direct fold-in.
 func _migrate_legacy() -> void:
