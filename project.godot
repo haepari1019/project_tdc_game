@@ -24,6 +24,7 @@ Slice01Data="*res://scripts/autoload/slice01_data.gd"
 RunLoadout="*res://scripts/autoload/run_loadout.gd"
 SaveProfile="*res://scripts/autoload/save_profile.gd"
 Stash="*res://scripts/autoload/stash.gd"
+Backpack="*res://scripts/autoload/backpack.gd"
 HubProfile="*res://scripts/autoload/hub_profile.gd"
 
 [display]
