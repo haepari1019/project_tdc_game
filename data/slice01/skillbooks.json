@@ -75,6 +75,26 @@
       "range_band": "Mid", "charges_max": 8,
       "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 9, "radius_m": 2.6, "damage_mult": 1.2 }
     },
+    {
+      "base_ability_id": "AB-049", "display_name": "Ground Pound", "equip_classes": ["Tank", "Nuker"],
+      "range_band": "Melee", "charges_max": 6,
+      "cast": { "kind": "skillbook_stun", "cooldown_s": 10, "radius_m": 3.0, "damage_mult": 0.3, "stun_s": 0.6 }
+    },
+    {
+      "base_ability_id": "AB-072", "display_name": "Hailstorm", "equip_classes": ["DPS", "Nuker"],
+      "range_band": "Long", "charges_max": 7,
+      "cast": { "kind": "skillbook_cold", "cooldown_s": 7, "targeted": true, "range_m": 13, "radius_m": 2.6, "damage_mult": 1.6, "chill_dur_s": 3.0 }
+    },
+    {
+      "base_ability_id": "AB-071", "display_name": "Bulwark Bash", "equip_classes": ["Tank", "Nuker"],
+      "range_band": "Melee", "charges_max": 8,
+      "cast": { "kind": "skillbook_strike", "cooldown_s": 6, "radius_m": 2.2, "damage_mult": 1.0, "knockback_m": 2.0 }
+    },
+    {
+      "base_ability_id": "AB-028", "display_name": "Guard Break Rhythm", "equip_classes": ["DPS"],
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_strike", "cooldown_s": 6, "radius_m": 3.0, "damage_mult": 1.0, "knockback_m": 0.0 }
+    },
 
     {
       "base_ability_id": "AB-100", "display_name": "Pounce", "equip_classes": ["Nuker"],

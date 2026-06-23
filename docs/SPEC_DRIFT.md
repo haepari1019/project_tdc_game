@@ -423,3 +423,11 @@
 - **분류\전파:** **tuning(로깅만) + impl.** 기어/정체성/ability/ba ID는 전부 spec(bc22c38)에 이미 존재 → **구현일 뿐, 규칙 드리프트 없음**(스펙 무편집). nuker_voltaic_interrupt/healer_beacon_sight는 "Identity 부적합"(D-012)이라 정체성 미추가(lootable 서브 전용 유지) — 해당 기어는 suitable 폴백.
 - **검증:** 부팅 id 1:1·swap chain(기어→정체성→스탯 변경: anchor hp180↔sentinel hp205, press r10↔weave r14, ruin r2.4↔flank r2.2 등)·ci_smoke. 커밋 38d7df7(I4)·357decf(데이터)·(effect).
 - **잔여:** Sentinel 반사·dash i-frame·정체성별 전용 pattern·ba 프로필 전투 반영 = 후속/밸런스. 스펙 AB stub들이 PT 확정되면 params reconcile. 체감 F6(허브에서 스페어 기어 장착 → 런에서 정체성·스킬 변화 관찰).
+
+### DRIFT-057 — P2-S6a 파티 능력 풀(D-016 lootable sub) 단계 구현 🔶 impl/tuning
+- **현실(2026-06-23):** 파티 능력 풀 AB 5/64만 구현. 스펙(`bc22c38`) D-016 §3.2 lootable sub 풀(AB-044~075 등)을 단계적으로 게임에 추가. AB-### ID는 전부 스펙 기존재 → **게임 등록·구현만**(스펙 무편집·전파 불필요).
+- **구현(B2 — 기존 effect kind 재사용, 데이터만):** AB-053 Searing Volley(Fire)→`skillbook_fire` · AB-049 Ground Pound(Control)→`skillbook_stun` · AB-072 Hailstorm(Cold)→`skillbook_cold` · AB-071 Bulwark Bash·AB-028 Guard Break Rhythm→`skillbook_strike`. id_registry + skillbooks.json만, 신규 코드 0. equip = `mainClasses ∪ subClasses`(D-016 §3.2).
+- **의도적 근사:** ① **shape 근사** — cone/zone/multi-hit/fork(DMG-CONE-4HIT·ZONE-8TICK·CONE-2HIT 등)를 기존 kind의 **단일 AoE/타겟 버스트**로 표현(effective dmg = hits×per-hit로 합산: 0.3×4≈1.2, 0.2×8≈1.6, 0.5×2≈1.0). VFX/형태는 후속 전용 kind에서. ② **조건 미모델** — AB-028 "threat 초록 한정"·comboRole(OPENER/LINKER) 등 조건/콤보는 미구현(플레이어 캐스트 시 무조건 발동). ③ **단일↔AoE** — AB-071 단일(targetType Enemy)을 소반경 strike로 근사. ④ params=draft(스펙 "design examples; runtime TBD") 데모값.
+- **밴드 패널티 미구현:** D-016 mainClasses(B0)/subClasses(밴드 B1/B2/B3) 중 게임은 `equip_classes`(합집합 게이트)만 — sub 밴드 coeff 패널티(D-012 §2.4)는 미적용(SUB_CLASS_COEFF 0.9 데모 유지). 후속.
+- **분류\전파:** **impl + tuning(로깅만).** 규칙 드리프트 없음. **이연:** B1 신규 effect kind(Guard/shield·Heal/HoT·Buff·Mobility/blink·channel-beam·vulnerable/mark·barrier-spawn AB-034) · 밴드 패널티 · **ally-only lootable 인-런 획득 경로**(적 드롭 안 됨 → shop/chest/드롭표 = S6b).
+- **검증:** JSON 유효 + ci_smoke(id 1:1·skillbook 로드). 샌드박스 LOADOUT 드롭다운 장착 검증. 커밋 f0d6c11(AB-053)·(batch).
