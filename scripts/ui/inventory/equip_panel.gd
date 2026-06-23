@@ -75,7 +75,12 @@ func _build_equip_column() -> void:
 	_equip_msg = Label.new()
 	_equip_msg.add_theme_font_size_override("font_size", 11)
 	_equip_msg.modulate = Color(1.0, 0.72, 0.42)
-	_equip_msg.custom_minimum_size = Vector2(176, 15)
+	# Fixed message area — wrap within the column width so a long message can't widen the popup
+	# (window auto-sizes to content). 고정 폭 176 · 3줄 높이 예약 · 초과는 클립. (사용자 버그 1)
+	_equip_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_equip_msg.custom_minimum_size = Vector2(176, 42)
+	_equip_msg.size_flags_horizontal = Control.SIZE_FILL
+	_equip_msg.max_lines_visible = 3
 	_equip_box.add_child(_equip_msg)
 	var members: Array = _party.get_members()
 	for i in members.size():

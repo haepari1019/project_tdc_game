@@ -38,6 +38,8 @@ func interact() -> void:
 	if _inv == null or not _inv.backpack_has_key():
 		return  # locked — prompt already says a key is needed
 	_opened = true
+	if _inv.has_method("consume_key"):
+		_inv.consume_key()                    # 키 소모 — 문 열면 사라짐 (사용자 요청)
 	remove_from_group("interactable")        # no more prompt / interaction
 	if _body:
 		_body.queue_free()                    # clear the barrier — path open

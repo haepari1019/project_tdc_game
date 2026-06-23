@@ -129,6 +129,15 @@ func backpack_has_key() -> bool:
 	return false
 
 
+## Consume ONE key from the backpack — 키는 소모품, 문 열면 사라진다 (사용자 요청). True if removed.
+func consume_key() -> bool:
+	for it in _backpack.items:
+		if String(it.get("id", "")).to_lower().contains("key"):
+			_backpack.lift(it)   # 시각/점유 제거 후 즉시 반환(변경된 배열 추가 순회 안 함)
+			return true
+	return false
+
+
 func _open() -> void:
 	visible = true
 	_win_drag = false
