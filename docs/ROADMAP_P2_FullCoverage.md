@@ -1,9 +1,9 @@
 # ROADMAP — Phase 2 Full Spec Coverage (게임 측 정본)
 
 > **무엇:** 스펙 `ImplementationPhase_FullSpecCoverage.md`(목표 = 스펙에 정의된 ID 전부 구현)의 **게임 측 실행 로드맵**. 스펙은 P2-S3~S7을 "Planned/TBD"로만 둠 → 본 문서가 게임측 작업 정본. SSOT 아님(규칙은 각 F-###/콘텐츠).
-> **핀:** spec `ef9c0c7` (main). **갱신:** 스프린트 종료마다. 상세 근거: 4-에이전트 스코핑(2026-06-19).
+> **핀:** spec `bc22c38` (main, 2026-06-22; 제3세력 Stalker Pack 전파 DEC-20260621-001). **갱신:** 스프린트 종료마다. 상세 근거: 4-에이전트 스코핑(2026-06-19).
 >
-> **진행(2026-06-21):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place(PAT/AMB)+확률 resolve ✅(DEC-20260620-002) · **P2-S4 Hub ✅** (데이터·HubProfile·vault 파이프·UI-029 승급·디스크 영속·ENC haul 드롭표·QA-029 스모크. 효과 실연동 일부 이연 — 아래). · **Encounter Variety 아키텍처 확정**(빌드 P2-S5). **현재 위치 → 다음 = P2-S6a(파티 풀) 또는 P2-S5(3세력+Variety).**
+> **진행(2026-06-23):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place ✅ · **P2-S4 Hub ✅** · **P2-S5a ✅ 진영전(F-028 core) + 제3세력 Stalker Pack**(EN-3RD-01~03·AB-100~106·ENC-3RD-001) · **P2-S6a Phase1 ✅ 제3세력 lootable 아군 효과 6종**(loot 루프). **추가(스프린트 외):** 기어 카탈로그 고도화(17기어·6정체성·6 ability effect·기어귀속 평타·평타 VFX 8종, DRIFT-056) · 메타세이브 B리팩터 I1–I4(SaveProfile·Backpack 오토로드·영속) · 인벤/금고 정리(재료 금고 일원화·스태시/금고 편집창·잡템 제거·버그 수정). **현재 위치 → 다음 = P2-S6a 잔여(파티 능력 풀 — 신규 AB-### 스펙 ID 필요) + 메타세이브 I5.**
 
 ---
 
@@ -14,11 +14,13 @@
 | **적 전투행동 (EN-001~014)** | ✅ 완료 | 기본타 rom_* 12/12 · 포지셔닝 7프로필 · 마퀴 시그니처 · Provoked · 채널 interrupt |
 | **AB-### (전체)** | **15/84** | 적 kit 10/13(비-zone) · 적 zone 0/7 · 파티 풀 5/64 |
 | **PT-### (적 패턴)** | ✅ 14/14 | 갭 없음 (PT-010/011/020~022는 플레이어/미사용) |
-| **ENC-### (인카운터)** | **22/24** | NORM 3/3 · HARD 11/12(007=Extreme deferred) · MID/DEEP 1/1 · BOSS 1/1 · **PAT 3/3 ✅ · AMB 2/2 ✅** · 3RD 0/1(S5) |
+| **ENC-### (인카운터)** | **23/24** | NORM 3/3 · HARD 11/12(007=Extreme deferred) · MID/DEEP 1/1 · BOSS 1/1 · PAT 3/3 · AMB 2/2 · **3RD 1/1 ✅(S5a)** |
 | **배치/resolve (F-006/LDG-SPAWN)** | ✅ 확률화 | placement Patrol/AmbushHold·dual-anchor 순차·torch lead · **가중 다중후보+runSeed resolve · 스폰 위치 산포**(DEC-20260620-002). 조합 제너레이터·창발 모디파이어 = S5 |
 | **ZONE/반응 (F-021/F-027)** | ✅ keystone | 9매체 zone·event bus·resolver·Hit-RX 4축(Fire/Cold/Lightning/Physical)·연쇄 per-RX VFX · zone AB 7종 enemy+lootable. S3e spread만 보류 |
 | **Hub (F-029)** | ✅ 시설 progression | 8시설 Tier·Quest/Haul 게이트·vault 파이프·UI-029 승급·디스크 영속·ENC haul 드롭표(HUB-COR-000)·QA-029 스모크. **효과 실연동 이연**: armory B/C(GEAR-COR-000)·분석/상점(F-009)·passive(F-020)·capacity 강제 — 해당 피처 구현 시 |
-| **3세력 (F-028)** | 0 | event 시스템 의존 |
+| **3세력 (F-028)** | ✅ S5a 코어 | 진영전(교차진영 타겟·N진영/혼합분대) + 제3세력 Stalker Pack(EN-3RD-01~03·AB-100~106·ENC-3RD-001·outcome Rooted/Pinned/Scented/Tethered/Bloodlust). **잔여=Encounter Variety 엔진(조합 제너레이터·창발 모디파이어)=S5b** |
+| **기어/정체성 (F-008/D-019)** | ✅ 카탈로그 | 17 신규 기어·6 정체성·6 ability effect·기어귀속 평타·평타 VFX 8종 (DRIFT-056). 잔여=gear roll-table 이행(S6b)·ba 특수거동 |
+| **메타세이브 (B리팩터)** | ◐ I1–I4 | SaveProfile 단일파일·Backpack 오토로드·낱개/장착서브/소비/장착기어 영속·재료 금고 일원화·스태시/금고 편집창. **잔여=I5(허브 완전 Backpack화·RunLoadout 잔여 제거)·충전수 영속** |
 
 ---
 
@@ -46,8 +48,10 @@
 | **P2-S3** ✅ | 원소 ZONE/반응 (keystone) | — | L | 내부 부분 |
 | **P2-S2-place** ✅ | patrol/ambush placement + 확률 resolve | placement plumbing | M | S3와 독립 병렬 |
 | **P2-S4** ✅ | Hub/Meta (F-029) — 효과 일부 이연 | — (economy 게이트) | M–L | 시설별 부분 |
-| **▶ P2-S6a** | 파티 능력 effect-kind + sub 풀 — **다음** | B1 기반 | L | effect-kind∥, 데미지 sub 대량∥ |
-| **P2-S5** | 3세력 (F-028) **+ Encounter Variety 엔진**(조합 제너레이터·창발 모디파이어) | S3 event · EN-* 태그 | M–L | 단독 |
+| **P2-S5a** ✅ | 진영전(F-028 core) + 제3세력 Stalker Pack(EN-3RD·AB-100~106·ENC-3RD-001) | S3 event | M | 완료 |
+| **P2-S6a Phase1** ✅ | 제3세력 lootable 아군 효과 6종(loot 루프) | S5a | S | 완료 |
+| **▶ P2-S6a 잔여** | 파티 능력 effect-kind ~11 + 데미지 sub ~24 — **다음(신규 AB-### 스펙 ID 필요)** | B1 기반·spec | L | effect-kind∥, sub 대량∥ |
+| **P2-S5b** | Encounter Variety 엔진(조합 제너레이터·창발 모디파이어·런 내 비복원) + EN-* 정식 태그 | S5a · EN-* 태그 | M–L | 단독 |
 | **P2-S6b** | economy/UI + gear roll-table | hub | M–L | UI∥데이터 |
 | **P2-S7** | 통합 회귀/QA | 전부 | M | 케이스별∥ |
 

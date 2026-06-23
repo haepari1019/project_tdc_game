@@ -2,21 +2,23 @@
 
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`. 실행 로드맵: [docs/ROADMAP_P2_FullCoverage.md](docs/ROADMAP_P2_FullCoverage.md).
 
-- spec_ref_pin: `ef9c0c7` (`main`, 2026-06-21; 확률 ENC resolve 전파 DEC-20260620-002)
-- last_sprint: **P2-S4 Hub (F-029) 완료** (B0 데이터·HubProfile·B1 vault 파이프·B2/B3 UI-029 승급·B6 디스크 영속·B7 ENC haul 드롭표·B8 QA-029 스모크; 효과 실연동 일부 이연=F-009/F-020/GEAR-COR-000). 이전: P2-S3 Interaction ✅ · P2-S2-place(PAT/AMB)+확률 resolve ✅. 다음: P2-S6a(파티 풀) 또는 P2-S5(3세력+Variety)
-- last_updated: 2026-06-21
+- spec_ref_pin: `bc22c38` (`main`, 2026-06-22; 제3세력 Stalker Pack 전파 DEC-20260621-001)
+- last_sprint: **P2-S5a ✅ 진영전(F-028 core)+제3세력 Stalker Pack** · **P2-S6a Phase1 ✅ 제3세력 lootable 아군 6종**. **스프린트 외(2026-06-22~23):** 기어 카탈로그 고도화(DRIFT-056) · 메타세이브 B리팩터 I1–I4 · 인벤/금고 정리(재료 금고 일원화·스태시/금고 편집창·잡템 제거). 이전: P2-S4 Hub ✅ · P2-S3 ✅ · P2-S2-place ✅. **다음: P2-S6a 잔여(파티 능력 풀 — 신규 AB-### 스펙 ID 필요) + 메타세이브 I5**
+- last_updated: 2026-06-23
 
-## Full Spec Coverage — AB-### 스냅샷 (2026-06-19)
+## Full Spec Coverage — AB-### 스냅샷 (2026-06-23 갱신)
 
-전체 스펙 어빌리티 **AB-### 15/84**. 적 전투행동(EN-001~014)은 완료지만 AB 전체·ENC·zone은 진행 중 (상세·로드맵: [ROADMAP](docs/ROADMAP_P2_FullCoverage.md)).
+전체 스펙 어빌리티 **AB-### ~33/84** (S3 zone 7·제3세력 7·정체성 effect 6 추가). 적 전투행동(EN-001~014) 완료, ENC·zone·진영전 완료. 파티 능력 풀이 최대 잔여 (상세·로드맵: [ROADMAP](docs/ROADMAP_P2_FullCoverage.md)).
 
 | 군 | 구현/전체 | 미구현 핵심 |
 |----|:---:|------|
 | 적 kit (비-zone) | 10/13 | AB-003·005·007 (대체평타·연타후속·후퇴hop) |
-| 적 zone/원소 | 0/7 | AB-009/036/039/040/041/042/043 — **F-027 ZONE 서브시스템(P2-S3)** |
-| 파티 능력 풀 | 5/64 | ~48 lootable sub(데이터행+~11 신규 effect kind) + 6 identity 후보 (P2-S6) |
-| 적 기본타 rom_* (별도) | 12/12 | — |
-| PT-### 적 패턴 (별도) | 14/14 | — |
+| 적 zone/원소 | ✅ 7/7 | AB-009/036/039/040/041/042/043 — F-027 ZONE (P2-S3) |
+| 제3세력 (AB-100~106) | ✅ 7/7 | 적측+lootable 아군 6종 (S5a·S6a Phase1) |
+| 정체성 ability effect | ✅ 6/6 | AB-021/022/052·027·029/031 (기어 카탈로그, DRIFT-056) |
+| 파티 능력 풀 (기타 lootable) | ~5/~50 | **최대 잔여** — ~24 데미지 sub + ~11 신규 effect kind (P2-S6a 잔여, 신규 AB-### 스펙 ID 필요) |
+| 적 기본타 rom_* (별도) | 15/15 | rom_stalker/snarer/reaver 포함 |
+| PT-### 적 패턴 (별도) | ✅ 17/17 | PT-023~025(제3세력) 포함 |
 
 ## Sprint log
 
@@ -25,6 +27,13 @@
 | P2-S1 | ◐ | S1a~e 완료 + 헤드리스 검증 통과. S1f 문서 완료 · **인터랙티브 Hard 플레이 스모크(§9.1)는 F5 수동** 잔여 |
 | P2-S2 | ◐ | S2a~c(1~4): 적 **전투행동 축** 완료+헤드리스 PASS (ID 1:1·포지셔닝·시그니처 캐스트·대시·Provoked·§2 interrupt). EN-001~014 행동 kit 반영. |
 | P2-S2-fin | ☑ | **Track A 완료** — A1 조합 ENC(HARD-002/003/004)+Upper 룸·A2 phase 증원 rear/flank(HARD-005·010)·A3 AssassinTransform(NORM-003·011)·A4 MiniBoss(BOSS-001 ccTenacity+50%HP 페이즈). ENC 12→17/24, navmesh 244→284, 헤드리스 PASS. **잔여(P2-S2 스펙):** PAT/AMB=placement 레인 · 3RD=faction · 적 zone AB(F-027/P2-S3) · 교전 체감 F5 |
+| P2-S2-place | ☑ | placement_behavior(Fixed/Patrol/AmbushHold)·dual-anchor 순차·PAT-003 torch · 확률 ENC resolve(가중 다중후보+runSeed)+스폰 산포 (DEC-20260620-002). ENC-PAT/AMB 5종. |
+| P2-S3 | ☑ | Interaction keystone — 9매체 zone·event bus·primaryMedium resolver·Hit-RX 4축(Fire/Cold/Lightning/Physical)·zone AB 7종 enemy+lootable. **S3e spread만 보류.** |
+| P2-S4 | ☑ | Hub(F-029) — 8시설 Tier·Quest/Haul 게이트·vault 파이프·UI-029 승급·디스크 영속·ENC haul 드롭표·QA-029 스모크. **효과 실연동 이연**: armory B/C(GEAR-COR-000)·분석/상점(F-009)·passive(F-020)·capacity 강제. |
+| P2-S5a | ☑ | 진영전(F-028 core: 교차진영 타겟·N진영/혼합분대) + **제3세력 Stalker Pack**(EN-3RD-01~03 추적/포획/학살·AB-100~106·PT-023~025·ENC-3RD-001·outcome Rooted/Pinned/Scented/Tethered/Bloodlust). 진영전 크래시 전수정리. ci_smoke+third_smoke PASS. |
+| P2-S6a Phase1 | ☑ | 제3세력 lootable 아군 효과 6종(loot 루프 완성, 2ddf580). |
+| 기어 카탈로그 | ☑ | 17 신규 기어·6 정체성·6 ability effect(beacon_threat/march_advance/sentinel_form/arc_line/flank_dash/ward_shield)·기어귀속 평타(D-019)·평타 VFX 8종·샌드박스 검증툴 (DRIFT-056). |
+| 메타세이브 B | ◐ I1–I4 | SaveProfile 단일파일·Backpack 오토로드·낱개/장착서브/소비/장착기어 영속·재료 금고 일원화·스태시/금고 편집창·잡템 제거. **잔여=I5(허브 완전 Backpack화·RunLoadout 잔여)·충전수 영속.** |
 
 ## P2-S2 checklist (combat redesign)
 
