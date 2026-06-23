@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260623-015 — P2-S6a B2 잔여 bespoke 5종 (taunt/pull/slow/relocate/reveal) — 파티 풀 완료
+- **결정:** 이연했던 bespoke 5종을 마저 구현해 파티 lootable 풀을 닫음. 신규 effect kind 5(taunt/pull/slow/relocate_ally/reveal) + ctx `reveal_enemies` 1 + EnemyVisibility reveal 훅 1.
+- **타겟팅 회피(시스템 추가 없이):** ① **AB-035 taunt**·**AB-051 pull**·**AB-050 slow**는 기존 `enemy_unit` 공개 메서드(`add_threat`/`set_threat_floor`/`apply_knockback`/`apply_slow`)로 충분 — ctx 신규 API 불요. pull = `apply_knockback(caster−enemy)`(밀치기를 당김 방향으로). ② **AB-045 Lifeline**은 스펙 targetType=Ally지만 조준 시스템에 아군 픽이 없어 → **반경 내 최저 HP 아군 자동선택**(endangered 의미 보존), 새 타겟팅 UI 안 만듦. ③ **AB-032 reveal**만 시스템 훅 필요 → `EnemyVisibility`에 `_reveal_timer` + `reveal(dur)` 추가(활성 동안 LOS 무시 `set_seen(true)`), `ability_dispatch.reveal_enemies`가 group `enemy_visibility`로 호출.
+- **근사:** taunt 'floor 50/5s'=영구 floor + 스파이크 감쇠로 시간제한 근사(threat decay); reveal '미니맵 flank 텔레그래프'=3D 포그 리빌(미니맵은 interactable만 그림); slow/pull threat=데모값.
+- **대안(기각):** taunt용 ctx threat API 신설·아군 타겟팅 모달·미니맵 적 마커 — 모두 over-engineering, 기존 메서드/자동선택으로 동등 체감 달성.
+- **검증:** party_pool_smoke(5 kind→effect 커버) + ci_smoke(EnemyVisibility 컴파일·dungeon_run 부팅) PASS.
+- **영향:** `effects/sb_{taunt,pull,slow,relocate_ally,reveal}.gd`(신규) · `enemy_visibility.gd`(reveal 훅+group) · `ability_dispatch.gd`(reveal_enemies + 5 preload) · `id_registry.json`(5 ID)·`skillbooks.json`(5 엔트리)·`dungeon_run.gd`(ALLY_CACHE_POOL).
+
 ### IMPL-DEC-20260623-014 — P2-S6a B2 데미지 sub 19종 (신규 skillbook_bolt + 재사용; 5 bespoke 이연)
 - **결정:** 남은 lootable 24종 중 **데미지/오펜스+재사용 가능한 19종**을 추가해 파티 풀 오펜스 라인을 닫음. 신규 effect kind는 **`skillbook_bolt` 1개만**(targeted 원거리 데미지, 옵션 `lightning`→LightningHit RX + Shock) — 라이트닝/원거리 너크 8종(AB-003/004/008/055/056/058/059/073)을 1 kind로 흡수. 나머지는 전부 기존 kind 재사용(strike/charge/blink/stun/vulnerable/dr/shield/execute/hot) + `skillbook_blink`에 `away` 플래그(AB-007 후퇴 hop) 추가.
 - **이유:** B2 = "기존 kind 재사용·데이터 중심"이 원칙. 라이트닝 너크는 `skillbook_fire`(FireDamageHit→oil 점화)로 매핑하면 RX가 틀려서 1개 전용 kind가 정합적. 멀티히트/포크/차지 shape는 단일 `damage_mult` 합산으로 근사(spec params=design example).

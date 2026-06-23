@@ -54,6 +54,12 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_silence.gd"),     # AB-044 Hush Ward (Healer, Silenced)
 	# P2-S6a B2 — remaining ranged/burst lootables → one targeted bolt kind (옵션 lightning→Shock).
 	preload("res://scripts/combat/abilities/effects/sb_bolt.gd"),        # AB-003/004/008/055/056/058/059/073
+	# P2-S6a B2 잔여 bespoke — Tank control + Healer utility.
+	preload("res://scripts/combat/abilities/effects/sb_taunt.gd"),       # AB-035 Challenge Mark (Tank)
+	preload("res://scripts/combat/abilities/effects/sb_pull.gd"),        # AB-051 Shield Throw (Tank)
+	preload("res://scripts/combat/abilities/effects/sb_slow.gd"),        # AB-050 Warding Shout (Tank)
+	preload("res://scripts/combat/abilities/effects/sb_relocate_ally.gd"), # AB-045 Lifeline (Healer)
+	preload("res://scripts/combat/abilities/effects/sb_reveal.gd"),      # AB-032 Beacon Sight (Healer)
 ]
 
 # F-009 §3.2.1 / D-016 §3.2 / D-012 §2.4 — cross-class (sub) skillbook penalty by IDENTITY-DISTANCE
@@ -197,3 +203,11 @@ func spawn_barrier(caster: CharacterBody3D, pos: Vector3, facing: Vector3, p: Di
 	var bar = _RampartBarrier.new()
 	add_child(bar)
 	bar.setup(caster, pos, facing, p, self)
+
+
+## Scout reveal (AB-032 Beacon Sight) — force every enemy visible through the fog for `dur`s
+## (EnemyVisibility owns set_seen; it holds the reveal for the window). ref: F-011 · AB-032.
+func reveal_enemies(dur: float) -> void:
+	for v in get_tree().get_nodes_in_group("enemy_visibility"):
+		if v.has_method("reveal"):
+			v.reveal(dur)

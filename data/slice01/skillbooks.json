@@ -297,6 +297,33 @@
     },
 
     {
+      "base_ability_id": "AB-035", "display_name": "Challenge Mark", "equip_classes": ["Tank"],
+      "range_band": "Melee", "charges_max": 6,
+      "cast": { "kind": "skillbook_taunt", "cooldown_s": 12, "targeted": true, "range_m": 10, "radius_m": 2.0, "mark_threat": 120.0, "floor": 50.0 }
+    },
+    {
+      "base_ability_id": "AB-051", "display_name": "Shield Throw", "equip_classes": ["Tank", "DPS"],
+      "sub_bands": { "DPS": "B2" },
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_pull", "cooldown_s": 11, "targeted": true, "range_m": 12, "radius_m": 1.8, "pull_m": 5.0, "threat": 60.0 }
+    },
+    {
+      "base_ability_id": "AB-050", "display_name": "Warding Shout", "equip_classes": ["Tank"],
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_slow", "cooldown_s": 7, "targeted": true, "range_m": 10, "cone_deg": 60, "slow_factor": 0.7, "slow_s": 3.0, "threat": 30.0 }
+    },
+    {
+      "base_ability_id": "AB-045", "display_name": "Lifeline", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_relocate_ally", "cooldown_s": 14, "radius_m": 10.0, "relocate_m": 5.0 }
+    },
+    {
+      "base_ability_id": "AB-032", "display_name": "Beacon Sight", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_reveal", "cooldown_s": 10, "reveal_s": 3.5 }
+    },
+
+    {
       "base_ability_id": "AB-100", "display_name": "Pounce", "equip_classes": ["Nuker"],
       "range_band": "Mid", "charges_max": 6,
       "cast": { "kind": "skillbook_pin", "cooldown_s": 6, "targeted": true, "range_m": 12, "radius_m": 1.8, "damage_mult": 1.2, "pin_s": 0.6 }
