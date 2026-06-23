@@ -3,7 +3,7 @@
 > **무엇:** 스펙 `ImplementationPhase_FullSpecCoverage.md`(목표 = 스펙에 정의된 ID 전부 구현)의 **게임 측 실행 로드맵**. 스펙은 P2-S3~S7을 "Planned/TBD"로만 둠 → 본 문서가 게임측 작업 정본. SSOT 아님(규칙은 각 F-###/콘텐츠).
 > **핀:** spec `bc22c38` (main, 2026-06-22; 제3세력 Stalker Pack 전파 DEC-20260621-001). **갱신:** 스프린트 종료마다. 상세 근거: 4-에이전트 스코핑(2026-06-19).
 >
-> **진행(2026-06-23):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place ✅ · **P2-S4 Hub ✅** · **P2-S5a ✅ 진영전(F-028 core) + 제3세력 Stalker Pack**(EN-3RD-01~03·AB-100~106·ENC-3RD-001) · **P2-S6a Phase1 ✅ 제3세력 lootable 아군 효과 6종**(loot 루프). **추가(스프린트 외):** 기어 카탈로그 고도화(17기어·6정체성·6 ability effect·기어귀속 평타·평타 VFX 8종, DRIFT-056) · 메타세이브 B리팩터 I1–I4(SaveProfile·Backpack 오토로드·영속) · 인벤/금고 정리(재료 금고 일원화·스태시/금고 편집창·잡템 제거·버그 수정). **현재 위치 → 다음 = P2-S6a 잔여(파티 능력 풀 — 신규 AB-### 스펙 ID 필요) + 메타세이브 I5.**
+> **진행(2026-06-23):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place ✅ · **P2-S4 Hub ✅** · **P2-S5a ✅ 진영전(F-028 core) + 제3세력 Stalker Pack**(EN-3RD-01~03·AB-100~106·ENC-3RD-001) · **P2-S6a Phase1 ✅ 제3세력 lootable 아군 효과 6종**(loot 루프). **추가(스프린트 외):** 기어 카탈로그 고도화(17기어·6정체성·6 ability effect·기어귀속 평타·평타 VFX 8종, DRIFT-056) · 메타세이브 B리팩터 I1–I4(SaveProfile·Backpack 오토로드·영속) · 인벤/금고 정리(재료 금고 일원화·스태시/금고 편집창·잡템 제거·버그 수정). · **P2-S6a 파티 능력 풀 ◐ 진행 중** — lootable sub 14종 + 신규 effect kind 7종(heal/dr/shield/hot/blink/vulnerable/haste), 스펙 로컬@bc22c38 읽어 구현(DRIFT-057). **현재 위치 → 다음 = P2-S6a B1 잔여(stealth/buff/channel-beam/purge/barrier·밴드 패널티) + ally 획득경로(S6b) + 메타세이브 I5.**
 
 ---
 
@@ -50,7 +50,7 @@
 | **P2-S4** ✅ | Hub/Meta (F-029) — 효과 일부 이연 | — (economy 게이트) | M–L | 시설별 부분 |
 | **P2-S5a** ✅ | 진영전(F-028 core) + 제3세력 Stalker Pack(EN-3RD·AB-100~106·ENC-3RD-001) | S3 event | M | 완료 |
 | **P2-S6a Phase1** ✅ | 제3세력 lootable 아군 효과 6종(loot 루프) | S5a | S | 완료 |
-| **▶ P2-S6a 잔여** | 파티 능력 effect-kind ~11 + 데미지 sub ~24 — **다음(신규 AB-### 스펙 ID 필요)** | B1 기반·spec | L | effect-kind∥, sub 대량∥ |
+| **▶ P2-S6a 파티풀** ◐ | lootable sub **14종**(B2 5 기존kind재사용 + B1 9) + 신규 effect kind **7종**(heal/dr/shield/hot/blink/vulnerable/haste). 스펙 로컬@bc22c38 읽어 구현. **잔여**: stealth/buff/channel-beam/purge/barrier·밴드 패널티·ally 획득경로(S6b) | spec(로컬) | L | effect-kind∥ |
 | **P2-S5b** | Encounter Variety 엔진(조합 제너레이터·창발 모디파이어·런 내 비복원) + EN-* 정식 태그 | S5a · EN-* 태그 | M–L | 단독 |
 | **P2-S6b** | economy/UI + gear roll-table | hub | M–L | UI∥데이터 |
 | **P2-S7** | 통합 회귀/QA | 전부 | M | 케이스별∥ |
@@ -85,10 +85,12 @@
 - **이연(의존성)**: B5 효과 실연동 — armory B/C(GEAR-COR-000 미존재)·분석/상점(F-009)·passive(F-020)·capacity 강제(friction+백팩40 vs 12~16 불일치). B4 잔여 — Q-HUB-003(데모 맵 1개)·010(GIMMICK)·040(recovery D6)·050(NPC) 시스템 미존재. 승급 *메커니즘*은 동작, *효과/잔여 퀘스트*는 해당 피처 스프린트 소관.
 - **스펙**: F-029/D-029/HUB-COR-000 구현 + draft 데모 데이터 확장(haul_drops). 규칙 변경 없음 → **전파 불필요**.
 
-### P2-S6a — 파티 능력 풀 (L)
-- **B1** 신규 effect kind ~11: buff/DR-aura · ally-shield · HoT · silence · vulnerable/mark-debuff · self-dash/blink · ally-relocate · enemy knockback/pull · channel-beam · cleanse/strip · **+status-read finisher 게이트**(Stunned/Asleep/Vulnerable 소비 보너스).
-- **B2** 데미지 sub ~24(기존 strike/fire/stun 재사용 = 데이터행 대량 병렬).
-- **6 Identity 후보**(AB-021/022/052·027·029·031) — gear-roll-table(S6b)와 함께.
+### P2-S6a — 파티 능력 풀 (L) — ◐ 진행 중 (2026-06-23, DRIFT-057)
+- ✅ **B2(기존 effect kind 재사용)**: AB-053→fire·AB-049→stun·AB-072→cold·AB-071/028→strike (데이터만).
+- ✅ **B1(신규 effect kind 7종 드롭인)**: `skillbook_heal`(AB-064)·`dr`(AB-046/047/068, member.apply_damage_reduction)·`shield`(AB-067, add_shield)·`hot`(AB-065, member.apply_regen)·`blink`(AB-061)·`vulnerable`(AB-057, enemy Vulnerable outcome+mag)·`haste`(AB-069, member.apply_haste+attack_interval). 누적 sub **14종**. 런타임 스모크 검증. 스펙 로컬(`/e/Game_design/project_tdc_spec`@bc22c38) 읽어 구현.
+- **B1 잔여**: stealth(AB-062)·Buff(AB-075)·channel-beam(AB-054)·silence·purge(AB-070)·barrier-spawn(AB-034)·relocate·knockback/pull·finisher 게이트. **밴드 패널티**(D-016 main/subClasses 차등 coeff) 미적용.
+- **획득 경로**: ally-only lootable은 적 드롭 안 됨 → **인-런 획득(shop/chest/드롭표)=S6b**.
+- ✅ **6 Identity 후보**(AB-021/022/052·027·029·031) — 기어 카탈로그(DRIFT-056)에서 완료.
 
 ### P2-S5 — 3세력 (F-028) + Encounter Variety 엔진 (M–L) — S3 event 후
 - **3세력:** faction-tagged 적대(player+monster 양쪽) · offscreen `active_and_adjacent` 시뮬 · ENC-3RD-001. (스펙 stub — EN/OBJ-3RD 확정 후.)
