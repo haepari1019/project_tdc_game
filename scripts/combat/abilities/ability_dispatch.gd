@@ -39,7 +39,10 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/ward_shield.gd"),    # AB-031 Ward Pulse (Healer)
 	# P2-S6a B1 — party lootable sub effect kinds (new, beyond reused strike/fire/stun/cold/zone).
 	preload("res://scripts/combat/abilities/effects/sb_heal.gd"),        # AB-064 Quick Mend (Healer)
-	preload("res://scripts/combat/abilities/effects/sb_dr.gd"),          # AB-046/047 Shield Wall·Aegis Pulse (Tank)
+	preload("res://scripts/combat/abilities/effects/sb_dr.gd"),          # AB-046/047/068 Shield Wall·Aegis·Warding (Tank/Healer)
+	preload("res://scripts/combat/abilities/effects/sb_ally_shield.gd"), # AB-067 Aegis Blessing (Healer)
+	preload("res://scripts/combat/abilities/effects/sb_hot.gd"),         # AB-065 Renewing Tide (Healer)
+	preload("res://scripts/combat/abilities/effects/sb_blink.gd"),       # AB-061 Shadowstep (Nuker)
 ]
 
 # F-009 §3.2.1 Family Mismatch Penalty — off-main-class (sub) skillbook use. Demo heuristic:

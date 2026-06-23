@@ -110,6 +110,26 @@
       "range_band": "Mid", "charges_max": 5,
       "cast": { "kind": "skillbook_dr", "cooldown_s": 12, "radius_m": 4.0, "damage_reduction": 0.2, "duration_s": 3.0 }
     },
+    {
+      "base_ability_id": "AB-067", "display_name": "Aegis Blessing", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_shield", "cooldown_s": 9, "radius_m": 0.5, "shield_pct": 0.12, "duration_s": 6.0 }
+    },
+    {
+      "base_ability_id": "AB-068", "display_name": "Warding Sigil", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_dr", "cooldown_s": 10, "radius_m": 0.5, "damage_reduction": 0.15, "duration_s": 4.0 }
+    },
+    {
+      "base_ability_id": "AB-065", "display_name": "Renewing Tide", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_hot", "cooldown_s": 8, "radius_m": 0.5, "regen_pct_s": 0.05, "duration_s": 5.0 }
+    },
+    {
+      "base_ability_id": "AB-061", "display_name": "Shadowstep", "equip_classes": ["Nuker", "DPS"],
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_blink", "cooldown_s": 6, "targeted": true, "range_m": 12, "blink_m": 6.0 }
+    },
 
     {
       "base_ability_id": "AB-100", "display_name": "Pounce", "equip_classes": ["Nuker"],

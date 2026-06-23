@@ -81,6 +81,10 @@ var _shield_dur: float = 1.0
 # F-008 Sentinel Form (AB-052) — temporary turtle-stance damage reduction (1.0 = none) + timer.
 var damage_taken_mult: float = 1.0
 var _sentinel_timer_s: float = 0.0
+# F-009 HoT (Renewing Tide AB-065) — regen % of maxHP per second over a timer.
+var _regen_pct_s: float = 0.0
+var _regen_timer_s: float = 0.0
+var _regen_accum: float = 0.0
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/
 ## WindBuffeted — shared container with enemy_unit. Movement folds into move_speed_mult; Slippery
 ## adds inertia (player_controller); Ignited DoT applied in _physics_process.
@@ -446,6 +450,14 @@ func apply_damage_reduction(dr: float, dur: float) -> void:
 	_sentinel_timer_s = maxf(_sentinel_timer_s, dur)
 
 
+## F-009 heal-over-time (Renewing Tide AB-065) — heal `pct_per_s` × maxHP each second for `dur`.
+func apply_regen(pct_per_s: float, dur: float) -> void:
+	if not _alive:
+		return
+	_regen_pct_s = maxf(_regen_pct_s, pct_per_s)
+	_regen_timer_s = maxf(_regen_timer_s, dur)
+
+
 ## F-009/F-008 Ward Pulse (AB-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
 func cleanse_one() -> String:
 	return _outcome.cleanse_one() if _outcome != null else ""
@@ -535,6 +547,16 @@ func _physics_process(delta: float) -> void:
 		_sentinel_timer_s -= delta
 		if _sentinel_timer_s <= 0.0:
 			damage_taken_mult = 1.0   # Sentinel Form expired → normal damage
+	if _regen_timer_s > 0.0:           # F-009 HoT — heal whole-HP ticks of maxHP%/s
+		_regen_timer_s -= delta
+		_regen_accum += max_hp * _regen_pct_s * delta
+		if _regen_accum >= 1.0:
+			var rh := floorf(_regen_accum)
+			_regen_accum -= rh
+			heal(rh)
+		if _regen_timer_s <= 0.0:
+			_regen_pct_s = 0.0
+			_regen_accum = 0.0
 	if _slow_timer > 0.0:
 		_slow_timer -= delta
 		if _slow_timer <= 0.0:

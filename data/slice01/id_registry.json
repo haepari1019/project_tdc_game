@@ -32,7 +32,7 @@
     "AB-100", "AB-101", "AB-102", "AB-103", "AB-104", "AB-105", "AB-106",
     "AB-021", "AB-022", "AB-052", "AB-027", "AB-029", "AB-031",
     "AB-053", "AB-049", "AB-072", "AB-071", "AB-028",
-    "AB-064", "AB-046", "AB-047"
+    "AB-064", "AB-046", "AB-047", "AB-067", "AB-068", "AB-065", "AB-061"
   ],
   "_note_party_pool": "P2-S6a 파티 능력 풀(D-016 lootable sub) 진행 중. B2(기존 kind): AB-053→skillbook_fire·AB-049→skillbook_stun·AB-072→skillbook_cold·AB-071/028→skillbook_strike. B1(신규 effect kind): AB-064 Quick Mend→skillbook_heal·AB-046 Shield Wall/AB-047 Aegis Pulse→skillbook_dr. 나머지 AB-044~075 단계 추가. shape/params=데모 근사(DRIFT-057).",
   "_note_ability_3rd": "AB-100 Pounce·101 Scent of Blood·102 Snare Net·103 Tether·104 Rampage·105 Bloodlust·106 Devour = 제3세력 전용(DEC-20260621-001). 적 측 enemy_* kind = S5 구현. lootable(usable_by_ally+enemy); 아군 skillbook_* 효과(신규 sb_*) = S6a 파티 풀 이연. equipClasses: Pounce/Tether/Devour=Nuker·Snare/Rampage/Bloodlust=Tank·Scent=Healer; AB-105=castCondition HP<50%.",
