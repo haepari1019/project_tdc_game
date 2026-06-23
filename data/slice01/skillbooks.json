@@ -130,6 +130,16 @@
       "range_band": "Mid", "charges_max": 8,
       "cast": { "kind": "skillbook_blink", "cooldown_s": 6, "targeted": true, "range_m": 12, "blink_m": 6.0 }
     },
+    {
+      "base_ability_id": "AB-057", "display_name": "Focus Fire", "equip_classes": ["Healer", "Nuker"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_vulnerable", "cooldown_s": 12, "targeted": true, "range_m": 8, "radius_m": 2.0, "vulnerable_pct": 0.15, "duration_s": 5.0 }
+    },
+    {
+      "base_ability_id": "AB-069", "display_name": "Swift Grace", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_haste", "cooldown_s": 11, "radius_m": 5.0, "haste_pct": 0.2, "duration_s": 4.0 }
+    },
 
     {
       "base_ability_id": "AB-100", "display_name": "Pounce", "equip_classes": ["Nuker"],

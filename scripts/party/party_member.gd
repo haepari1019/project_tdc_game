@@ -85,6 +85,9 @@ var _sentinel_timer_s: float = 0.0
 var _regen_pct_s: float = 0.0
 var _regen_timer_s: float = 0.0
 var _regen_accum: float = 0.0
+# F-009 Haste (Swift Grace AB-069) — move + attack speed multiplier (1.0 = none).
+var _haste_mult: float = 1.0
+var _haste_timer_s: float = 0.0
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/
 ## WindBuffeted — shared container with enemy_unit. Movement folds into move_speed_mult; Slippery
 ## adds inertia (player_controller); Ignited DoT applied in _physics_process.
@@ -458,6 +461,19 @@ func apply_regen(pct_per_s: float, dur: float) -> void:
 	_regen_timer_s = maxf(_regen_timer_s, dur)
 
 
+## F-009 Haste (Swift Grace AB-069) — move + attack speed × (1+pct) for `dur`. Strongest wins.
+func apply_haste(pct: float, dur: float) -> void:
+	if not _alive:
+		return
+	_haste_mult = maxf(_haste_mult, 1.0 + pct)
+	_haste_timer_s = maxf(_haste_timer_s, dur)
+
+
+## Effective basic-attack interval (Haste shortens it). combat_controller reads this, not basic_interval_s.
+func attack_interval() -> float:
+	return basic_interval_s / _haste_mult if _haste_mult > 0.0 else basic_interval_s
+
+
 ## F-009/F-008 Ward Pulse (AB-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
 func cleanse_one() -> String:
 	return _outcome.cleanse_one() if _outcome != null else ""
@@ -557,6 +573,10 @@ func _physics_process(delta: float) -> void:
 		if _regen_timer_s <= 0.0:
 			_regen_pct_s = 0.0
 			_regen_accum = 0.0
+	if _haste_timer_s > 0.0:           # F-009 Haste expiry → speed back to normal
+		_haste_timer_s -= delta
+		if _haste_timer_s <= 0.0:
+			_haste_mult = 1.0
 	if _slow_timer > 0.0:
 		_slow_timer -= delta
 		if _slow_timer <= 0.0:
@@ -623,7 +643,7 @@ func get_provoke_source() -> Node:
 
 func move_speed_mult() -> float:
 	var m := _slow_factor if _slow_timer > 0.0 else 1.0
-	return m * _outcome.move_mult()  # fold elemental movement outcomes (Sodden/Chilled/…)
+	return m * _outcome.move_mult() * _haste_mult  # slow × elemental outcomes × Haste (AB-069)
 
 
 ## Apply an elemental OUTCOME status (STATUS-OUTCOME-CORE). WindBuffeted's push is a separate

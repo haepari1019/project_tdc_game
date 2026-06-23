@@ -28,6 +28,8 @@ const COLOR := {
 	"Scented": Color(0.92, 0.18, 0.20), "Rooted": Color(0.55, 0.45, 0.28),
 	"Pinned": Color(0.80, 0.70, 0.30), "Tethered": Color(0.70, 0.62, 0.22),
 	"Bloodlust": Color(1.0, 0.20, 0.15),
+	# Party debuff (AB-057 Focus Fire) — Vulnerable: 받는 피해 +mag (enemy take_damage가 읽음).
+	"Vulnerable": Color(1.0, 0.45, 0.55),
 }
 const DEFAULT_IGNITE_DPS := 8.0
 
@@ -66,6 +68,11 @@ func has(id: String) -> bool:
 	return _t.has(id)
 
 
+## Magnitude stored for an active outcome (Ignited dps / Vulnerable extra-damage frac). 0 if absent.
+func mag(id: String) -> float:
+	return float(_mag.get(id, 0.0))
+
+
 func is_slippery() -> bool:
 	return _t.has("Slippery")
 
@@ -99,7 +106,7 @@ func status_list() -> Array:
 func orb_color():
 	# fire > shock > the rest, roughly by threat readability.
 	for id in ["Ignited", "Shock", "Chilled", "Sodden", "Slippery", "SteamHaze", "WindBuffeted",
-			"Rooted", "Pinned", "Scented", "Tethered", "Bloodlust"]:
+			"Rooted", "Pinned", "Scented", "Tethered", "Bloodlust", "Vulnerable"]:
 		if _t.has(id):
 			return COLOR[id]
 	return null

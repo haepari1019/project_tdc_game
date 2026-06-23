@@ -257,7 +257,7 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 				if to_src.length() <= m.basic_range_m and m.basic_enabled:
 					_deal_damage(src, m, m.basic_damage)
 					SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, src.global_position, src)
-					m.attack_cooldown_s = m.basic_interval_s
+					m.attack_cooldown_s = m.attack_interval()   # Haste(AB-069)-aware
 			continue
 		if tank_alive and not _tank_engaged and not m.is_controlled():
 			var gcid: String = String(m.get("class_id"))
@@ -276,7 +276,7 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 			continue
 		_deal_damage(foe, m, m.basic_damage)  # basic 평타 → no camera shake
 		SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, foe.global_position, foe)
-		m.attack_cooldown_s = m.basic_interval_s
+		m.attack_cooldown_s = m.attack_interval()   # Haste(AB-069)-aware
 
 
 func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:

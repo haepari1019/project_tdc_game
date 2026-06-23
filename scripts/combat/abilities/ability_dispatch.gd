@@ -43,6 +43,8 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_ally_shield.gd"), # AB-067 Aegis Blessing (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_hot.gd"),         # AB-065 Renewing Tide (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_blink.gd"),       # AB-061 Shadowstep (Nuker)
+	preload("res://scripts/combat/abilities/effects/sb_vulnerable.gd"),  # AB-057 Focus Fire (Healer)
+	preload("res://scripts/combat/abilities/effects/sb_haste.gd"),       # AB-069 Swift Grace (Healer)
 ]
 
 # F-009 §3.2.1 Family Mismatch Penalty — off-main-class (sub) skillbook use. Demo heuristic:

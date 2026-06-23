@@ -181,6 +181,7 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 func take_damage(amount: float) -> void:
 	if hp <= 0.0:
 		return
+	amount *= 1.0 + _outcome.mag("Vulnerable")   # AB-057 Focus Fire — Vulnerable: 받는 피해 증폭
 	hp = maxf(0.0, hp - amount)
 	if _hp_bar:
 		_hp_bar.set_ratio(hp / max_hp)
