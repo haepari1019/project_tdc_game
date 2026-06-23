@@ -52,5 +52,16 @@ if [ "$tcode" -ne 0 ] || ! grep -qF "THIRD SMOKE PASSED" "$thirdlog"; then
   echo "  FAIL: third smoke (exit=$tcode) —"; grep -nE "FAIL|$ERRPAT" "$thirdlog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# Party ability pool (P2-S6a, DRIFT-057): every skillbook cast.kind has a drop-in effect, band
+# penalty (D-016/D-012 §2.4) resolves, B1 ally-only ABs (034/044/054/062/070/075) + Veiled/Silenced/
+# Purge statuses behave.
+echo "== party-pool smoke (P2-S6a / DRIFT-057) =="
+pplog="/tmp/ci_party_pool_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/party_pool_smoke.gd >"$pplog" 2>&1
+pcode=$?
+if [ "$pcode" -ne 0 ] || ! grep -qF "PARTY POOL SMOKE PASSED" "$pplog"; then
+  echo "  FAIL: party-pool smoke (exit=$pcode) —"; grep -nE "FAIL|$ERRPAT" "$pplog" | head -8; fail=1
+else echo "  PASS"; fi
+
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi

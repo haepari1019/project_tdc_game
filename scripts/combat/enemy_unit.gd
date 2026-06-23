@@ -266,6 +266,9 @@ var _outcome = preload("res://scripts/combat/outcome_status.gd").new()
 # --- Status: stun / interrupt (party Toll Stun etc.) — freezes the enemy AND cancels any
 # in-progress cast/dash (EN-AI-000 §2 channel interrupt). Ticked by EnemyAI while engaged. ---
 var stun_timer_s: float = 0.0
+# --- Status: silence (AB-044 Hush Ward) — blocks ACTIVE ability casts (signature/dash/provoke/
+# frenzy). Movement + basic attacks stay allowed (AB-044 §2). ccTenacity shortens it. ---
+var silence_timer_s: float = 0.0
 
 # --- Status: knockback (smoothed push over KB_TIME, not an instant teleport) ---
 const KB_TIME := 0.18
@@ -304,6 +307,19 @@ func has_outcome(id: String) -> bool:
 	return _outcome.has(id)
 
 
+## Purgeable enemy buffs (AB-070 Purge Light removes one). Bloodlust is the live enemy self-buff;
+## the rest are forward-compat (spec AB-070 removes_status — no enemy carries them yet). ref: AB-070.
+const PURGEABLE_BUFFS := ["Bloodlust", "Fortified", "Hasted", "Shielded", "Warded", "Regenerating"]
+
+## Remove one active enemy buff (AB-070 Purge Light). Returns the removed id ("" if none).
+func purge_one_buff() -> String:
+	for id in PURGEABLE_BUFFS:
+		if _outcome.has(id):
+			_outcome.remove(id)
+			return id
+	return ""
+
+
 # --- Bloodlust (AB-105 enemy_frenzy, EN-3RD-03 Reaver): self-rage at low HP — while the Bloodlust
 # outcome is active, attack faster + hit harder (mults set when the frenzy cast resolves). ---
 var bloodlust_spd_mult: float = 1.0
@@ -340,6 +356,23 @@ func is_stunned() -> bool:
 func tick_stun(delta: float) -> void:
 	if stun_timer_s > 0.0:
 		stun_timer_s = maxf(0.0, stun_timer_s - delta)
+
+
+## Silence (AB-044 Hush Ward) — block active ability casts for `duration` (ccTenacity shortens).
+## Pre-emptive: does NOT interrupt an in-progress cast (that's AB-030). No-op on the dead.
+func apply_silence(duration: float) -> void:
+	if hp <= 0.0 or duration <= 0.0:
+		return
+	silence_timer_s = maxf(silence_timer_s, duration / maxf(cc_tenacity, 0.01))
+
+
+func is_silenced() -> bool:
+	return silence_timer_s > 0.0
+
+
+func tick_silence(delta: float) -> void:
+	if silence_timer_s > 0.0:
+		silence_timer_s = maxf(0.0, silence_timer_s - delta)
 
 
 func current_move_speed() -> float:

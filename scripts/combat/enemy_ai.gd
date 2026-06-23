@@ -288,7 +288,9 @@ func _is_hostile(enemy: CharacterBody3D, cand) -> bool:
 	if cand == enemy or not is_instance_valid(cand):
 		return false
 	if cand.is_in_group("party_member"):
-		return true
+		# Veiled (Smoke Veil AB-062): brief stealth — no enemy treats this member as a target
+		# for the window, so targeting/hunting/splash all drop it. ref: F-009 · STATUS Veiled.
+		return not (cand.has_method("is_veiled") and cand.is_veiled())
 	if cand.is_in_group("enemy"):
 		return String(cand.faction) != String(enemy.faction)
 	return false
@@ -310,6 +312,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	enemy.attack_cooldown_s = maxf(0.0, enemy.attack_cooldown_s - delta)
 	enemy.tick_slow(delta)
 	enemy.tick_stun(delta)
+	enemy.tick_silence(delta)  # AB-044 Hush Ward — active-cast block timer
 	enemy.tick_outcome(delta)  # elemental outcome timers + Ignited DoT
 	# Stunned (EN-AI-000 §2): frozen + INTERRUPT — any channel/cast or dash in progress fails
 	# (no resolve; its cooldown stays consumed). Player counterplay: stun EN-001 mid-Mockery.
@@ -979,6 +982,8 @@ func _telegraph_color(kind: String) -> Color:
 ## start the channel (telegraph) and reset ability_cd[ref]. Runs early (target-less); provoke/dash
 ## have their own passes. Returns true if a cast began.
 func _try_cast_signature(enemy: CharacterBody3D) -> bool:
+	if enemy.is_silenced():
+		return false  # Silenced (AB-044 Hush Ward) — active casts blocked; basics/movement stay
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue
@@ -1030,6 +1035,8 @@ func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictiona
 ## fire only if a party actor is in that fan. Channeled (channel-freeze holds it); a fan-shaped
 ## telegraph shows the zone. Resolved by _resolve_enemy_attack → _apply_enemy_provoke.
 func _try_cast_provoke(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
+	if enemy.is_silenced():
+		return false  # Silenced (AB-044 Hush Ward) — active casts blocked
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue
@@ -1070,6 +1077,8 @@ func _zone_telegraph_color(medium: String) -> Color:
 ## Cooldown zone-spawn signature (AB-009/036/039/040/042/043): telegraph a GROUND marker at the
 ## target's spot → spawn the medium zone there on resolve (a real leave-the-area AoE).
 func _try_cast_zone(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
+	if enemy.is_silenced():
+		return false  # Silenced (AB-044 Hush Ward) — zone-spawn cast blocked
 	var to := target.global_position - enemy.global_position
 	to.y = 0.0
 	var dist := to.length()
@@ -1146,8 +1155,8 @@ func _dash_color(eff: Dictionary) -> Color:
 ## current target (which is already the backline for flankers via target_pref). Fires when there's
 ## a real gap to the seen target within dash reach.
 func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool) -> bool:
-	if not has_los:
-		return false
+	if not has_los or enemy.is_silenced():
+		return false  # Silenced (AB-044 Hush Ward) — mobility ability cast blocked
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue
@@ -1343,6 +1352,8 @@ func _nearest_visible(enemy: CharacterBody3D, nodes: Array) -> CharacterBody3D:
 ## Self-rage (AB-105 Bloodlust, EN-3RD-03 Reaver): once HP < hp_threshold, apply the Bloodlust
 ## outcome (attack faster + hit harder via enemy_unit mults). Instant, no wind-up; long cooldown.
 func _try_cast_frenzy(enemy: CharacterBody3D) -> bool:
+	if enemy.is_silenced():
+		return false  # Silenced (AB-044 Hush Ward) — self-rage cast blocked
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue
@@ -1367,8 +1378,8 @@ func _try_cast_frenzy(enemy: CharacterBody3D) -> bool:
 ## Ranged control casts (AB-101 Scent / AB-102 Snare-Root / AB-103 Tether): off cooldown + target
 ## within range_m + LOS → telegraphed cast, applied on resolve (_apply_third_status). One per frame.
 func _try_cast_third(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool) -> bool:
-	if not has_los or target == null:
-		return false
+	if not has_los or target == null or enemy.is_silenced():
+		return false  # Silenced (AB-044 Hush Ward) — Third-faction control cast blocked
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue

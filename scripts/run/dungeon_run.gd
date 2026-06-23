@@ -6,6 +6,14 @@ const EnemyVisibility := preload("res://scripts/world/enemy_visibility.gd")
 const DamageIndicator := preload("res://scripts/ui/damage_indicator.gd")
 const InventoryUI := preload("res://scripts/ui/inventory/inventory_ui.gd")
 const Chest := preload("res://scripts/world/objects/chest.gd")
+const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
+## S6b acquisition path — ally-only / party-support skillbooks that NO dungeon enemy uses, so they
+## never drop from kills (F-009). Stocked in an in-run "ally cache" chest. The new B1 ally-only books
+## (usable_by_enemy=false) + the pure party-support subs enemies don't carry. ref: ROADMAP P2-S6b.
+const ALLY_CACHE_POOL := [
+	"AB-075", "AB-062", "AB-054", "AB-034", "AB-070", "AB-044",
+	"AB-064", "AB-065", "AB-067", "AB-068", "AB-069", "AB-057", "AB-061", "AB-046", "AB-047", "AB-028",
+]
 const InteractionController := preload("res://scripts/run/controllers/interaction_controller.gd")
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
 const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
@@ -167,6 +175,14 @@ func _ready() -> void:
 	chest.setup(_inventory_ui)
 	chest.position = _map.get_spawn_position("RM-OBJ-01") + Vector3(3.0, 0.0, 0.0)
 	add_child(chest)
+	# Ally cache (S6b acquisition) — ally-only / party-support skillbooks can't drop from enemy kills
+	# (F-009), so seed an in-run cache the player loots into the backpack (At-Risk like any loot).
+	var ally_cache := Chest.new()
+	ally_cache.title = "아군 유물함"
+	ally_cache.items = _build_ally_cache_items(2)
+	ally_cache.setup(_inventory_ui)
+	ally_cache.position = _map.get_spawn_position("RM-ADV-01") + Vector3(2.0, 0.0, 2.0)
+	add_child(ally_cache)
 	# Keyed door blocking the route→extraction opening (RM-ROUTE-01 → RM-EXT-01 @ z=77.25).
 	var door := Door.new()
 	door.setup(_inventory_ui, _run)
@@ -183,7 +199,7 @@ func _ready() -> void:
 	add_child(lever)
 	# These live under dungeon_run (not $Rooms) + spawn AFTER VisionFog.setup, so the initial
 	# fog sweep missed them → fog them explicitly (else visible at full brightness in unseen rooms).
-	for o in [chest, door, trap, lever]:
+	for o in [chest, ally_cache, door, trap, lever]:
 		_vision_fog.fog_object(o)
 	# Breakable oil barrels (ENT-BARREL) in the combat court — AoE breaks them → oil pool.
 	for bpos in [Vector3(7.0, 0.0, 28.0), Vector3(-8.0, 0.0, 34.0), Vector3(10.0, 0.0, 40.0)]:
@@ -428,6 +444,23 @@ func _on_party_alert(text: String, level: int) -> void:
 func _hide_alert(tok: int) -> void:
 	if tok == _alert_token:
 		_alert_banner.visible = false
+
+
+## Pick `count` random ally-cache skillbooks → loot-grid item dicts (At-Risk like any loot, F-009 §3.7).
+## S6b acquisition path for ally-only / party-support books that never drop from enemy kills.
+func _build_ally_cache_items(count: int) -> Array:
+	var pool: Array = ALLY_CACHE_POOL.duplicate()
+	pool.shuffle()
+	var out: Array = []
+	for i in mini(count, pool.size()):
+		var master: Dictionary = Slice01Data.get_skillbook_master(String(pool[i]))
+		if master.is_empty():
+			continue
+		var it: Dictionary = ItemFactory.skillbook_item(master, true)   # looted = At-Risk
+		it["col"] = out.size()
+		it["row"] = 0
+		out.append(it)
+	return out
 
 
 ## Left-click → ray-pick an enemy (collision layer 4) for the inspect panel; else clear.

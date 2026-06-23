@@ -122,6 +122,13 @@ static func sub_sanctuary(parent: Node3D, pos: Vector3, radius: float) -> void:
 	_dome(parent, pos + Vector3(0, 0.95, 0), 1.7, Color(1.0, 0.9, 0.42, 0.35), 2.1)
 
 
+## Smoke Veil (AB-062) — a grey smoke cloud puffing up around the caster (stealth pop).
+static func smoke_puff(parent: Node3D, pos: Vector3) -> void:
+	_ground_pulse(parent, pos, 1.8, Color(0.55, 0.58, 0.62, 0.45), 0.5)
+	for _i in 7:
+		_rising_wisp(parent, pos + _disc_off(1.0), Color(0.5, 0.53, 0.58, 0.5), randf_range(1.4, 2.2))
+
+
 # --- enemy ability cues (keyed by ability catalog `vfx`) ---
 
 ## `target` is the struck actor NODE (not a frozen point): flying shots HOME to its live position

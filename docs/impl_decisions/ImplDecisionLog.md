@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260623-013 — P2-S6a B1 잔여(stealth/buff/channel/barrier/purge/silence) + 밴드 패널티 + ally-cache
+- **밴드 패널티 = 가산 `sub_bands`(equip_classes 게이트 유지):** D-016 mainClasses/subClasses 두 필드로 `equip_classes`를 쪼개는 대신, **`equip_classes`는 Role Equip Gate(=main∪sub) 그대로 두고** skillbook 마스터에 `sub_bands {classId: band}`만 가산. `ability_dispatch`가 `Slice01Data.get_skillbook_master(base_ability_id).sub_bands`로 coeff 산출(`BAND_COEFF {B0:1.0,B1:.9,B2:.75,B3:.55}`·`_band_coeff`). **대안(기각):** equip_classes를 main/sub로 전면 분리 — item_factory·equip_panel·loot_service·controlled_sheet·slice01_data 등 ~10 reader 변경 → 고위험. 가산 방식은 reader 0 변경. coeff 수치는 spec TBD(tuning).
+- **신규 상태 = 기존 단일 chokepoint에 끼움:** ① **Veiled**(party) — `enemy_ai._is_hostile`가 veiled 멤버 false 반환 한 곳에서 타겟/헌트/스플래시 전부 드롭(중복 필터 없음). ② **Silenced**(enemy) — 6개 `_try_cast_*` 함수 top에서 `is_silenced()` 가드(평타·이동 게이트는 무손). ③ **Purge** — `outcome_status.remove(id)` 재사용 + `enemy_unit.purge_one_buff()`.
+- **채널/배리어 = 노드 스폰(effect는 RefCounted):** Beam은 `beam_channel.gd`(Node3D) 자가틱, Rampart는 `rampart_barrier.gd`(StaticBody3D, world layer 1) — 둘 다 `ctx.add_child`로 디스패치 노드 밑에 붙고 self-free. 캐스트 effect는 스폰만.
+- **의도적 근사:** Beam=cone 근사+Rooted move-lock(별도 Channeling 상태 없음); Rampart 투사체흡수·threat-on-hit 미구현(전투가 target-locked라 월드 투사체 라우팅 없음)·navmesh 미리베이크(물리차단만); Purge가 Bloodlust도 제거([[DRIFT-058]] 전파후보). AB-075=`skillbook_shield` 데이터 재사용.
+- **ally 획득(사용자 선택=ally-cache 상자만):** ally-only lootable은 적 kit 롤로 안 떨어짐 → `dungeon_run`에 RM-ADV-01 ally-cache 상자(`ALLY_CACHE_POOL` 2종 랜덤, At-Risk). shop/드롭표는 S6b 본격.
+- **검증:** `ci_smoke` + 신규 `tools/party_pool_smoke.gd`(전 skillbook kind→effect 커버·밴드 coeff·Veiled/Silenced/Purge 거동, ci_smoke 편입) PASS. 동작 체감은 플레이테스트.
+- **영향:** `ability_dispatch.gd`(BAND_COEFF·_band_coeff·lightning_hit·spawn_barrier·5 preload) · `skillbooks.json`(sub_bands+6 마스터) · `id_registry.json`(6 AB) · `party_member.gd`(veil) · `enemy_unit.gd`(silence·purge) · `enemy_ai.gd`(_is_hostile veil·6 cast 가드·tick_silence) · `effects/sb_{stealth,beam,purge,silence,barrier}.gd`·`beam_channel.gd`·`rampart_barrier.gd` · `skill_vfx.gd`(smoke_puff) · `dungeon_run.gd`(ally-cache) · `tools/party_pool_smoke.gd`·`ci_smoke.sh`.
+
 ### IMPL-DEC-20260622-012 — 메타 세이브 단일 파일 통합 (SaveProfile) [Increment 1/4]
 - **결정(사용자):** 진행상황 저장이 도메인별 파일(hub_profile.json·stash.json·신규 backpack)로 분산 → **단일 래핑 파일이 낫다**. `SaveProfile` 오토로드가 `user://save.json`(버전드) 1개를 소유, 도메인은 인메모리 + `to_dict()/apply_dict()`만. 이점: 원자적 저장·단일 리셋/백업 지점·버전 일원화·부분저장 불일치 제거.
 - **구조:** `{version, hub:{}, stash:{}, backpack:{}}`. 도메인이 `SaveProfile.put(section, dict)`로 푸시(전체 1회 기록), `SaveProfile.section(key)`로 로드. autoload 순서: SaveProfile를 Stash/HubProfile **앞**에(먼저 로드). HubProfile `persist=false`(테스트)는 SaveProfile 미사용 → 인메모리 격리 유지.

@@ -88,6 +88,9 @@ var _regen_accum: float = 0.0
 # F-009 Haste (Swift Grace AB-069) — move + attack speed multiplier (1.0 = none).
 var _haste_mult: float = 1.0
 var _haste_timer_s: float = 0.0
+# F-009 Veiled (Smoke Veil AB-062) — brief stealth: enemy targeting drops this member while active.
+var _veil_timer_s: float = 0.0
+var _veil_dur: float = 1.0
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/
 ## WindBuffeted — shared container with enemy_unit. Movement folds into move_speed_mult; Slippery
 ## adds inertia (player_controller); Ignited DoT applied in _physics_process.
@@ -474,6 +477,24 @@ func attack_interval() -> float:
 	return basic_interval_s / _haste_mult if _haste_mult > 0.0 else basic_interval_s
 
 
+## F-009 Veiled (Smoke Veil AB-062) — brief stealth escape. While veiled, enemy targeting drops
+## this member (enemy_ai._is_hostile returns false), so threat acquisition lets go for the window.
+## Movement + the member's own attacks are unaffected. Dims the body for a self-readable cue.
+func apply_veil(dur: float) -> void:
+	if not _alive:
+		return
+	_veil_timer_s = maxf(_veil_timer_s, dur)
+	_veil_dur = maxf(_veil_dur, _veil_timer_s)
+	if _body_material:
+		_body_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_body_material.albedo_color.a = 0.4
+	_update_status_orb()
+
+
+func is_veiled() -> bool:
+	return _alive and _veil_timer_s > 0.0
+
+
 ## F-009/F-008 Ward Pulse (AB-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
 func cleanse_one() -> String:
 	return _outcome.cleanse_one() if _outcome != null else ""
@@ -577,6 +598,12 @@ func _physics_process(delta: float) -> void:
 		_haste_timer_s -= delta
 		if _haste_timer_s <= 0.0:
 			_haste_mult = 1.0
+	if _veil_timer_s > 0.0:            # F-009 Veiled (stealth) expiry → un-dim + retargetable
+		_veil_timer_s -= delta
+		if _veil_timer_s <= 0.0:
+			if _body_material:
+				_body_material.albedo_color.a = 1.0
+			_update_status_orb()
 	if _slow_timer > 0.0:
 		_slow_timer -= delta
 		if _slow_timer <= 0.0:
@@ -672,6 +699,12 @@ func get_status_list() -> Array:
 		out.append({
 			"color": Color(0.36, 0.66, 1.0),
 			"ratio": 1.0 - clampf(shield_timer_s / maxf(_shield_dur, 0.01), 0.0, 1.0),
+			"buff": true,
+		})
+	if is_veiled():  # buff (Veiled — Smoke Veil AB-062 stealth)
+		out.append({
+			"color": Color(0.55, 0.62, 0.70),
+			"ratio": 1.0 - clampf(_veil_timer_s / maxf(_veil_dur, 0.01), 0.0, 1.0),
 			"buff": true,
 		})
 	if is_stunned():  # debuff

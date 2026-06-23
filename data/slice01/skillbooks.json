@@ -1,5 +1,5 @@
 {
-  "_note": "Skillbook masters. SSOT: F-009/D-018/D-016 + DEC-20260611-002 (per-kill drop). base_ability_id = the enemy's lootable Shared AB (F-009 §1.1). charges = limited (탄수). equip_classes = role gate (F-009 §3.2.1). At-Risk even equipped (F-009 §3.7). cast = player-cast effect (effects/sb_*.gd). Subs are looted (start empty, F-009) — the AB-S0x demo 'starter' skillbooks were removed (non-spec).",
+  "_note": "Skillbook masters. SSOT: F-009/D-018/D-016 + DEC-20260611-002 (per-kill drop). base_ability_id = the enemy's lootable Shared AB (F-009 §1.1). charges = limited (탄수). equip_classes = Role Equip Gate (= mainClasses ∪ subClasses, D-016 §3.2). sub_bands {classId: band} = 밴드 패널티(D-012 §2.4): 미기재 클래스 = main(B0 full), 기재 = sub(B1/B2/B3). At-Risk even equipped (F-009 §3.7). cast = player-cast effect (effects/sb_*.gd). Subs are looted (start empty, F-009). usable_by_enemy=false ally-only(034/044/054/062/070/075)는 적 드롭 안 됨 → 인-런 ally-cache 상자(S6b).",
   "skillbooks": [
     {
       "base_ability_id": "AB-002",
@@ -13,6 +13,7 @@
       "base_ability_id": "AB-010",
       "display_name": "Venom Spit",
       "equip_classes": ["Nuker", "Healer"],
+      "sub_bands": { "Nuker": "B2" },
       "range_band": "Mid",
       "charges_max": 8,
       "cast": { "kind": "skillbook_poison", "cooldown_s": 6, "radius_m": 5.0, "damage_mult": 0.5, "poison_dur_s": 4, "poison_dps": 8 }
@@ -21,6 +22,7 @@
       "base_ability_id": "AB-011",
       "display_name": "Toll Stun",
       "equip_classes": ["Tank", "DPS"],
+      "sub_bands": { "DPS": "B2" },
       "range_band": "Mid",
       "charges_max": 6,
       "cast": { "kind": "skillbook_stun", "cooldown_s": 8, "radius_m": 4.5, "damage_mult": 0.6, "stun_s": 1.4 }
@@ -29,6 +31,7 @@
       "base_ability_id": "AB-037",
       "display_name": "Ember Lance",
       "equip_classes": ["DPS", "Nuker"],
+      "sub_bands": { "Nuker": "B1" },
       "range_band": "Mid",
       "charges_max": 8,
       "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 12, "radius_m": 3.0, "damage_mult": 1.8 }
@@ -36,57 +39,68 @@
 
     {
       "base_ability_id": "AB-009", "display_name": "Spawn Oil Patch", "equip_classes": ["Nuker", "Healer"],
+      "sub_bands": { "Nuker": "B3" },
       "range_band": "Mid", "charges_max": 6,
       "cast": { "kind": "skillbook_zone", "cooldown_s": 8, "targeted": true, "range_m": 9, "medium": "Oil", "radius_m": 2.0, "ttl_s": 8.0 }
     },
     {
       "base_ability_id": "AB-036", "display_name": "Spawn Water Patch", "equip_classes": ["Nuker", "Healer"],
+      "sub_bands": { "Nuker": "B3" },
       "range_band": "Mid", "charges_max": 6,
       "cast": { "kind": "skillbook_zone", "cooldown_s": 8, "targeted": true, "range_m": 9, "medium": "Water", "radius_m": 2.0, "ttl_s": 8.0 }
     },
     {
       "base_ability_id": "AB-039", "display_name": "Vent Spore Cloud", "equip_classes": ["Nuker", "Healer"],
+      "sub_bands": { "Nuker": "B3" },
       "range_band": "Mid", "charges_max": 5,
       "cast": { "kind": "skillbook_zone", "cooldown_s": 9, "targeted": true, "range_m": 9, "medium": "ToxicGas", "radius_m": 2.0, "ttl_s": 9.0, "dps": 8.0 }
     },
     {
       "base_ability_id": "AB-040", "display_name": "Spawn Frost Patch", "equip_classes": ["Nuker", "Healer"],
+      "sub_bands": { "Nuker": "B3" },
       "range_band": "Mid", "charges_max": 5,
       "cast": { "kind": "skillbook_zone", "cooldown_s": 9, "targeted": true, "range_m": 9, "medium": "Ice", "radius_m": 2.0, "ttl_s": 9.0 }
     },
     {
       "base_ability_id": "AB-042", "display_name": "Spawn Gust Patch", "equip_classes": ["Nuker", "Healer"],
+      "sub_bands": { "Nuker": "B3" },
       "range_band": "Mid", "charges_max": 5,
       "cast": { "kind": "skillbook_zone", "cooldown_s": 10, "targeted": true, "range_m": 9, "medium": "Wind", "radius_m": 2.0, "ttl_s": 8.0 }
     },
     {
       "base_ability_id": "AB-043", "display_name": "Spawn Briar Patch", "equip_classes": ["Nuker", "Healer"],
+      "sub_bands": { "Nuker": "B3" },
       "range_band": "Mid", "charges_max": 5,
       "cast": { "kind": "skillbook_zone", "cooldown_s": 9, "targeted": true, "range_m": 9, "medium": "Vegetation", "radius_m": 2.0, "ttl_s": 9.0 }
     },
     {
       "base_ability_id": "AB-041", "display_name": "Glacial Bolt", "equip_classes": ["DPS", "Nuker"],
+      "sub_bands": { "DPS": "B2" },
       "range_band": "Long", "charges_max": 8,
       "cast": { "kind": "skillbook_cold", "cooldown_s": 5.5, "targeted": true, "range_m": 12, "radius_m": 2.0, "damage_mult": 1.2, "chill_dur_s": 3.0 }
     },
 
     {
       "base_ability_id": "AB-053", "display_name": "Searing Volley", "equip_classes": ["DPS", "Nuker"],
+      "sub_bands": { "Nuker": "B2" },
       "range_band": "Mid", "charges_max": 8,
       "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 9, "radius_m": 2.6, "damage_mult": 1.2 }
     },
     {
       "base_ability_id": "AB-049", "display_name": "Ground Pound", "equip_classes": ["Tank", "Nuker"],
+      "sub_bands": { "Nuker": "B2" },
       "range_band": "Melee", "charges_max": 6,
       "cast": { "kind": "skillbook_stun", "cooldown_s": 10, "radius_m": 3.0, "damage_mult": 0.3, "stun_s": 0.6 }
     },
     {
       "base_ability_id": "AB-072", "display_name": "Hailstorm", "equip_classes": ["DPS", "Nuker"],
+      "sub_bands": { "Nuker": "B2" },
       "range_band": "Long", "charges_max": 7,
       "cast": { "kind": "skillbook_cold", "cooldown_s": 7, "targeted": true, "range_m": 13, "radius_m": 2.6, "damage_mult": 1.6, "chill_dur_s": 3.0 }
     },
     {
       "base_ability_id": "AB-071", "display_name": "Bulwark Bash", "equip_classes": ["Tank", "Nuker"],
+      "sub_bands": { "Nuker": "B2" },
       "range_band": "Melee", "charges_max": 8,
       "cast": { "kind": "skillbook_strike", "cooldown_s": 6, "radius_m": 2.2, "damage_mult": 1.0, "knockback_m": 2.0 }
     },
@@ -107,6 +121,7 @@
     },
     {
       "base_ability_id": "AB-047", "display_name": "Aegis Pulse", "equip_classes": ["Tank", "Healer"],
+      "sub_bands": { "Healer": "B3" },
       "range_band": "Mid", "charges_max": 5,
       "cast": { "kind": "skillbook_dr", "cooldown_s": 12, "radius_m": 4.0, "damage_reduction": 0.2, "duration_s": 3.0 }
     },
@@ -127,11 +142,13 @@
     },
     {
       "base_ability_id": "AB-061", "display_name": "Shadowstep", "equip_classes": ["Nuker", "DPS"],
+      "sub_bands": { "DPS": "B2" },
       "range_band": "Mid", "charges_max": 8,
       "cast": { "kind": "skillbook_blink", "cooldown_s": 6, "targeted": true, "range_m": 12, "blink_m": 6.0 }
     },
     {
       "base_ability_id": "AB-057", "display_name": "Focus Fire", "equip_classes": ["Healer", "Nuker"],
+      "sub_bands": { "Nuker": "B2" },
       "range_band": "Mid", "charges_max": 6,
       "cast": { "kind": "skillbook_vulnerable", "cooldown_s": 12, "targeted": true, "range_m": 8, "radius_m": 2.0, "vulnerable_pct": 0.15, "duration_s": 5.0 }
     },
@@ -139,6 +156,37 @@
       "base_ability_id": "AB-069", "display_name": "Swift Grace", "equip_classes": ["Healer"],
       "range_band": "Mid", "charges_max": 6,
       "cast": { "kind": "skillbook_haste", "cooldown_s": 11, "radius_m": 5.0, "haste_pct": 0.2, "duration_s": 4.0 }
+    },
+
+    {
+      "base_ability_id": "AB-075", "display_name": "Blessed Barrier", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_shield", "cooldown_s": 14, "radius_m": 4.0, "shield_pct": 0.08, "duration_s": 5.0 }
+    },
+    {
+      "base_ability_id": "AB-062", "display_name": "Smoke Veil", "equip_classes": ["Nuker"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_stealth", "cooldown_s": 14, "veil_s": 1.5 }
+    },
+    {
+      "base_ability_id": "AB-054", "display_name": "Rending Beam", "equip_classes": ["DPS"],
+      "range_band": "Long", "charges_max": 6,
+      "cast": { "kind": "skillbook_beam", "cooldown_s": 6, "targeted": true, "range_m": 14, "radius_m": 1.6, "ticks": 6, "tick_interval_s": 0.18, "half_deg": 7.0, "tick_mult": 0.25 }
+    },
+    {
+      "base_ability_id": "AB-034", "display_name": "Rampart Slam", "equip_classes": ["Tank"],
+      "range_band": "Melee", "charges_max": 6,
+      "cast": { "kind": "skillbook_barrier", "cooldown_s": 10, "offset_m": 2.0, "width_m": 3.5, "height_m": 2.0, "barrier_hp": 300.0, "duration_s": 4.0, "stagger_s": 0.5 }
+    },
+    {
+      "base_ability_id": "AB-070", "display_name": "Purge Light", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_purge", "cooldown_s": 13, "targeted": true, "range_m": 9, "radius_m": 2.0 }
+    },
+    {
+      "base_ability_id": "AB-044", "display_name": "Hush Ward", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_silence", "cooldown_s": 12, "targeted": true, "range_m": 8, "radius_m": 2.0, "silence_s": 3.0 }
     },
 
     {

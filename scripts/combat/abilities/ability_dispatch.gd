@@ -9,6 +9,7 @@ extends Node3D
 ## string lives in the file — no other central edit). ref: F-005 · F-009 · QA-005 §2.6.
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
+const _RampartBarrier := preload("res://scripts/world/objects/rampart_barrier.gd")  # AB-034 spawn
 
 ## Drop-in skill effects. Each is loaded + instantiated once at setup() and registered by its
 ## kind(). Horizontal expansion: new skill = new effects/<name>.gd + one preload line here.
@@ -45,11 +46,21 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_blink.gd"),       # AB-061 Shadowstep (Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_vulnerable.gd"),  # AB-057 Focus Fire (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_haste.gd"),       # AB-069 Swift Grace (Healer)
+	# P2-S6a B1 잔여 — stealth/buff/channel/barrier/purge/silence (AB-075 reuses skillbook_shield).
+	preload("res://scripts/combat/abilities/effects/sb_stealth.gd"),     # AB-062 Smoke Veil (Nuker, Veiled)
+	preload("res://scripts/combat/abilities/effects/sb_beam.gd"),        # AB-054 Rending Beam (DPS, channel)
+	preload("res://scripts/combat/abilities/effects/sb_barrier.gd"),     # AB-034 Rampart Slam (Tank, ENT-RAMPART-001)
+	preload("res://scripts/combat/abilities/effects/sb_purge.gd"),       # AB-070 Purge Light (Healer)
+	preload("res://scripts/combat/abilities/effects/sb_silence.gd"),     # AB-044 Hush Ward (Healer, Silenced)
 ]
 
-# F-009 §3.2.1 Family Mismatch Penalty — off-main-class (sub) skillbook use. Demo heuristic:
-# main class = first equip class; others equip+use but at this coeff. Spec −10%.
-const SUB_CLASS_COEFF := 0.9
+# F-009 §3.2.1 / D-016 §3.2 / D-012 §2.4 — cross-class (sub) skillbook penalty by IDENTITY-DISTANCE
+# BAND, not a flat −10% (that policy was retired, DEC-20260617-002). mainClasses (B0) = full coeff;
+# subClasses carry a band (B1 인접 / B2 중간 / B3 이탈) read from the skillbook master's `sub_bands`
+# {classId: band}. A class NOT listed in sub_bands = main (B0 = ×1.0). The Role Equip Gate stays
+# `equip_classes` (= mainClasses ∪ subClasses). coeff numbers are TUNING (spec: 수치 TBD, band 라벨만
+# SSOT — SPEC_DRIFT log only, DRIFT-057).
+const BAND_COEFF := {"B0": 1.0, "B1": 0.9, "B2": 0.75, "B3": 0.55}
 # Camera hit-feel for player SUB skills — ONE shake per cast (not per AOE target).
 const SUB_SHAKE_MULT_REF := 8.0   # 타격감: trauma = sub damage_mult/ref
 const HIT_SHAKE_CAP := 0.6
@@ -82,6 +93,12 @@ func try_identity(m: CharacterBody3D) -> bool:
 
 
 
+## Cross-class coeff for `cid` using a skillbook whose master carries `sub_bands` {classId: band}.
+## main class (not listed) → ×1.0 (B0); sub class → its band's coeff. ref: D-016 §3.2 · D-012 §2.4.
+func _band_coeff(cid: String, sub_bands: Dictionary) -> float:
+	return float(BAND_COEFF.get(String(sub_bands.get(cid, "B0")), 1.0))
+
+
 ## Player-cast a sub skillbook from slot Q/E/R. Charges + cooldown gated; on success
 ## -1 charge + set the slot's cooldown. Effect = the Shared AB applied to enemies.
 func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
@@ -96,9 +113,10 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	if float(inst.cooldown_s) > 0.0:
 		return
 	var p: Dictionary = inst.params
-	# F-009 §3.2.1 — off-main-class (sub) use is penalized; main = first equip class.
-	var classes: Array = inst.get("equip_classes", [])
-	p["_coeff"] = SUB_CLASS_COEFF if not classes.is_empty() and String(member.class_id) != String(classes[0]) else 1.0
+	# D-016 §3.2 / D-012 §2.4 — sub-class use is penalised by identity-distance band (the master's
+	# `sub_bands`); main class = full coeff. (was: flat −10% off the first equip class.)
+	var bands: Dictionary = Slice01Data.get_skillbook_master(String(inst.get("base_ability_id", ""))).get("sub_bands", {})
+	p["_coeff"] = _band_coeff(String(member.class_id), bands)
 	# target_pos = aimed ground point (targeted subs) or caster position (self-centered).
 	var skill = _skills.get(String(p.get("kind", "")))
 	if skill != null and skill.cast(member, p, target_pos, self):
@@ -164,3 +182,16 @@ func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: fl
 ## Emit a ColdDamageHit at a point (party Glacial Bolt, AB-041) → Cold RX (Water→Ice, Veg→Slowed).
 func cold_hit(center: Vector3, radius: float, source: Node = null) -> void:
 	_reactions.emit_event("ColdDamageHit", {"position": center, "radius": radius, "source": source})
+
+
+## Emit a LightningHit at a point (party Rending Beam, AB-054) → Shock RX (Water/Steam conduct).
+func lightning_hit(center: Vector3, radius: float, source: Node = null) -> void:
+	_reactions.emit_event("LightningHit", {"position": center, "radius": radius, "source": source})
+
+
+## Spawn a Rampart Barrier (AB-034) — a destructible forward wall. Parented under the dispatch node
+## (a world child), so it persists through the cast and self-frees on Break. ref: ENT-RAMPART-001.
+func spawn_barrier(caster: CharacterBody3D, pos: Vector3, facing: Vector3, p: Dictionary) -> void:
+	var bar = _RampartBarrier.new()
+	add_child(bar)
+	bar.setup(caster, pos, facing, p, self)
