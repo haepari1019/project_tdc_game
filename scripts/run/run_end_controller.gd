@@ -108,13 +108,9 @@ func _settle_extraction() -> void:
 	var bp_eq := get_node_or_null("/root/Backpack")
 	if bp_eq != null:
 		bp_eq.capture_from_party(_party)             # 추출 = 장착 기어+서브 유지 → Backpack.equipped
-	# haulMaterial: 런 인벤(At-Risk) → hubHaulVault(Safe), 런에서 제거 (F-029 §3.2 / D-029 §4).
-	# HubProfile은 런타임 경로로 — 스테일 에디터(신규 autoload 미등록)에서도 컴파일/실행되게.
+	# 재료(haul): 자동 금고행 제거 — 추출 시 백팩에 Safe로 남고, 허브에서 '재료 모두 금고로' 버튼으로
+	# 일괄 입금(사용자 요청: 런 끝난 후 한 번에 금고로). collect_haul은 읽기 전용 → 정산 요약 표시용.
 	var haul: Dictionary = _inv.collect_haul() if _inv.has_method("collect_haul") else {}
-	var hub: Node = get_node_or_null("/root/HubProfile")
-	if hub != null:
-		for hid in haul:
-			hub.add_haul(String(hid), int(haul[hid]))
 	var partial := not casualties.is_empty()
 	_run.settle_extraction({
 		"result": "Partial Extraction Success" if partial else "Extraction Success",

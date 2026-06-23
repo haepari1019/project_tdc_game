@@ -11,16 +11,10 @@ const C_LINE := Color(0.28, 0.30, 0.36)
 const C_OK := Color(0.30, 0.85, 0.40, 0.40)
 const C_BAD := Color(0.95, 0.25, 0.20, 0.45)
 
-## Optional flavor blurb per item id, for the hover tooltip (PH).
+## Optional flavor blurb per item id, for the hover tooltip (PH). Generic-loot entries removed —
+## only real items remain (Key = sealed-door key). Functional items show their own id/name.
 const ITEM_DESC := {
 	"Key": "봉인문을 여는 열쇠",
-	"Medkit": "치료 키트",
-	"Ammo": "탄약",
-	"Cell": "에너지 셀 — 보조 임무 수집품",
-	"Scrap": "잡동사니 부품",
-	"Pistol": "권총",
-	"Armor": "방어구",
-	"Rifle": "소총",
 }
 
 var cols := 5
@@ -189,9 +183,10 @@ func _make_node(item: Dictionary) -> Panel:
 	return p
 
 
-## Item tile caption: consumables show the stack count; others show their footprint.
+## Item tile caption: stacked kinds (consumable·haul) show the count; others show their footprint.
 func _node_label(item: Dictionary) -> String:
-	if String(item.get("kind", "")) == "consumable":
+	var kind := String(item.get("kind", ""))
+	if kind == "consumable" or kind == "haul":
 		return "%s\nx%d" % [String(item.id), int(item.get("count", 1))]
 	return "%s\n%d×%d" % [String(item.id), int(item.w), int(item.h)]
 

@@ -64,7 +64,7 @@ func _setup_hub() -> void:
 	_stash_src = StashSource.new()
 	_stash_src.items = _build_stash_items()
 	var edit := Button.new()
-	edit.text = "장비·스킬 편집 (스태시 → 캐릭터/백팩)"
+	edit.text = "스태시 / 금고"   # 스태시(창고)+금고(재료)를 위아래로 함께 편집 — '재료 모두 금고로' 버튼 내장
 	edit.pressed.connect(_open_loadout_editor)
 	$Panel/Margin/VBox.add_child(edit)
 	$Panel/Margin/VBox.move_child(edit, _loadout.get_index())  # stash editor ABOVE the confirm

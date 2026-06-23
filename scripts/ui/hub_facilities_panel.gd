@@ -1,7 +1,8 @@
 extends Control
 ## UI-029 Hub Map (시설 progression) — 시설을 골라 다음 Tier 요구(QuestGate + HaulGate)를 보고,
 ## 충족 시 승급한다. 승급 규칙·소모는 HubProfile(D-029 §5). 데이터는 Slice01Data. ref: F-029.
-## 데모 편의: 상세 패널에서 선택 시설의 재료를 직접 ±/채움(테스트). 충족 가능 퀘스트는 자동완료(B4-lite).
+## 재료는 읽기 전용 표시(보유/필요) — 무료 ±/채우기 제거(런 회수 → '재료 모두 금고로'로만 적재).
+## 충족 가능 퀘스트는 자동완료(B4-lite).
 
 const FACILITY_ORDER := ["barracks", "stash", "scriptorium", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"]
 const OK := Color(0.62, 1.0, 0.62)
@@ -153,40 +154,17 @@ func _refresh_detail() -> void:
 		var done: bool = _hub.is_quest_done(q)
 		var qr: Dictionary = Slice01Data.get_quest(q)
 		_lbl("  퀘스트 %s %s — %s" % [q, ("✓" if done else "✗"), String(qr.get("one_liner", ""))], OK if done else BAD)
-	# haul gate — 선택 시설 요구 재료만, 행마다 ± (테스트). + 는 이 시설 요구량에서 멈춤.
+	# haul gate — 선택 시설 요구 재료 vs 보유(금고). 읽기 전용: 재료는 런에서 회수 → '재료 모두 금고로'로
+	# 적재해야 채워진다(여기서 무료로 +/채우기 금지 — 사용자 지적). have/need만 표시.
 	var haul: Dictionary = nxt.get("haul", {})
 	if not haul.is_empty():
-		_lbl("  필요 재료:", DIM)
+		_lbl("  필요 재료 (금고 보유 / 필요):", DIM)
 	for hid in haul:
 		var id: String = hid
 		var need: int = int(haul[id])
 		var have: int = _hub.vault_count(id)
 		var hm: Dictionary = Slice01Data.get_haul_material(id)
-		var row := HBoxContainer.new()
-		var l := Label.new()
-		l.text = "    %s  %d / %d" % [String(hm.get("display", id)), have, need]
-		l.custom_minimum_size = Vector2(230, 0)
-		l.modulate = OK if have >= need else BAD
-		row.add_child(l)
-		var minus := Button.new()
-		minus.text = "−"
-		minus.custom_minimum_size = Vector2(34, 0)
-		minus.disabled = have <= 0
-		minus.pressed.connect(_hub.remove_haul.bind(id, 1))
-		row.add_child(minus)
-		var plus := Button.new()
-		plus.text = "+"
-		plus.custom_minimum_size = Vector2(34, 0)
-		plus.disabled = have >= need   # 이 시설 요구량 이상으로는 안 들어감
-		plus.pressed.connect(_haul_inc.bind(id, need))
-		row.add_child(plus)
-		_detail.add_child(row)
-	# 테스트: 이 시설 요구분만 한 번에 채움 (다른 시설 재료는 안 건드림)
-	if not haul.is_empty():
-		var fill := Button.new()
-		fill.text = "이 시설 재료 채우기 (테스트)"
-		fill.pressed.connect(_haul_fill_selected)
-		_detail.add_child(fill)
+		_lbl("    %s  %d / %d" % [String(hm.get("display", id)), have, need], OK if have >= need else BAD)
 	# upgrade
 	var up := Button.new()
 	up.text = "승급" if bool(chk.get("ok", false)) else "승급 불가"
@@ -204,25 +182,6 @@ func _refresh_vault() -> void:
 	for hid in v:
 		parts.append("%s×%d" % [String(Slice01Data.get_haul_material(String(hid)).get("display", hid)), int(v[hid])])
 	_vault.text = "Vault (Safe): " + "   ".join(parts)
-
-
-## +1, but never above this facility's requirement (cap).
-func _haul_inc(id: String, cap: int) -> void:
-	if _hub.vault_count(id) < cap:
-		_hub.add_haul(id, 1)
-
-
-## Grant exactly the SELECTED facility's next-tier haul requirement (테스트) — 다른 시설 재료는 그대로.
-func _haul_fill_selected() -> void:
-	var chk: Dictionary = _hub.upgrade_check(_sel)
-	if String(chk.get("reason", "")) == "max":
-		return
-	var nxt: Dictionary = Slice01Data.get_facility_tier(_sel, int(chk.get("next_tier", 0)))
-	for hid in nxt.get("haul", {}):
-		var id: String = hid
-		var deficit: int = int(nxt["haul"][id]) - _hub.vault_count(id)
-		if deficit > 0:
-			_hub.add_haul(id, deficit)
 
 
 func _lbl(text: String, col: Color, font_sz: int = 0) -> void:

@@ -37,11 +37,9 @@ func _seed() -> void:
 	if _seeded:
 		return
 	_seeded = true
-	# loose carry seed = the demo starting kit: gear + skillbook + consumables, all unified into
-	# the Backpack (I3 — consumables persist as loose, no separate seed/RunLoadout path).
+	# loose carry seed = the demo starting kit. ONLY functional items now (no generic filler):
+	# lootable skillbook + revive consumable. Gear lives in equipped; haul drops in-run. (사용자 요청)
 	loose = [
-		{"id": "Pistol", "kind": "generic", "w": 2, "h": 1, "at_risk": true},
-		{"id": "Armor", "kind": "generic", "w": 2, "h": 2, "at_risk": true},
 		{"id": "Ember Lance", "kind": "skillbook", "base_ability_id": "AB-037", "charges": 8, "charges_max": 8, "w": 1, "h": 1, "at_risk": true},
 		{"id": "con_revive_scroll", "kind": "consumable", "consumable_id": "con_revive_scroll", "count": 3, "w": 1, "h": 1},
 	]

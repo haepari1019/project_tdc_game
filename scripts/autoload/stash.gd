@@ -7,6 +7,7 @@ extends Node
 var gear: Array = []               # owned base_gear_id strings (Identity Gear)
 var skillbooks: Array = []         # owned base_ability_id strings (skillbooks)
 var consumables: Dictionary = {}   # consumable_id -> count owned
+# 재료(haul)는 일반 스태시가 아니라 HubProfile 금고(vault)에 일원화 — 별도 store 두지 않음(혼란 방지).
 
 # 영속 = SaveProfile 단일 파일(user://save.json)의 "stash" 섹션 (구 user://stash.json은 1회 마이그레이션).
 var _seeded: bool = false

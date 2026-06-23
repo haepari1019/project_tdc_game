@@ -28,6 +28,11 @@ var _loot_box: VBoxContainer     # loot column wrapper (shown only while looting
 var _loot_label: Label
 var _chest: Node = null          # currently looted chest (null = none)
 var _loot_is_stash: bool = false # the loot grid currently shows the persistent Stash (hub), not a chest
+# 금고(재료) — 스태시 편집 시 stash 그리드 '아래'에 함께 표시(탭 대신). 읽기 전용 표시(_grids 미등록 →
+# 드롭 대상 아님, _on_item_pressed에서 드래그 차단) + '재료 모두 금고로' 버튼이 유일 입금 경로.
+var _vault: InventoryGrid = null
+var _vault_label: Label = null
+var _haul_deposit_btn: Button = null
 
 # Active item drag (across containers).
 var _drag: Dictionary = {}
@@ -87,6 +92,14 @@ func open_loot(chest: Node) -> void:
 	for it in chest.items:
 		_loot.place((it as Dictionary).duplicate(), int(it.col), int(it.row))
 	_loot_box.visible = true
+	# 금고(재료) 섹션 — 스태시 편집일 때만 stash 아래에 함께 표시. 월드 상자엔 숨김.
+	_vault_label.visible = _loot_is_stash
+	_vault.visible = _loot_is_stash
+	_haul_deposit_btn.visible = _loot_is_stash
+	if _loot_is_stash:
+		_populate_vault()
+	else:
+		_vault.clear()
 	_open()
 
 
@@ -320,6 +333,55 @@ func make_consumable_stash_item(consumable_id: String, count: int) -> Dictionary
 	return ItemFactory.consumable_item(m, count) if not m.is_empty() else {}
 
 
+func make_haul_stash_item(haul_material_id: String, count: int) -> Dictionary:
+	var m := Slice01Data.get_haul_material(haul_material_id)
+	if m.is_empty():
+		return {}
+	var it := ItemFactory.haul_item(haul_material_id, String(m.get("display", haul_material_id)), false)
+	it["count"] = count       # stash haul stacks (count badge like consumables)
+	it["max_stack"] = 99
+	return it
+
+
+## 금고(재료) 표시 갱신 — HubProfile.hub_haul_vault → _vault 그리드(읽기 전용).
+func _populate_vault() -> void:
+	if _vault == null:
+		return
+	_vault.clear()
+	var hub := get_node_or_null("/root/HubProfile")
+	if hub == null:
+		return
+	var vault: Dictionary = hub.hub_haul_vault if "hub_haul_vault" in hub else {}
+	var i := 0
+	for hid in vault:
+		var it := make_haul_stash_item(String(hid), int(vault[hid]))
+		if it.is_empty():
+			continue
+		@warning_ignore("integer_division")
+		_vault.place(it, i % int(_vault.cols), i / int(_vault.cols))
+		i += 1
+
+
+## '재료 모두 금고로' — 백팩의 모든 haul → HubProfile 금고로 일괄 입금. 백팩 그리드에서 제거 + 금고 표시
+## 갱신 + 퀘스트 재평가 + 백팩 영속. 런 끝난 뒤 한 번 누르면 재료가 전부 금고로 (사용자 요청).
+func _deposit_all_haul() -> void:
+	var hub := get_node_or_null("/root/HubProfile")
+	if hub == null or _backpack == null:
+		return
+	var moved := 0
+	for it in _backpack.items.duplicate():
+		if String(it.get("kind", "")) == "haul" and String(it.get("haul_material_id", "")) != "":
+			hub.add_haul(String(it.get("haul_material_id", "")), int(it.get("count", 1)))
+			moved += int(it.get("count", 1))
+			_backpack.lift(it)
+	if moved > 0:
+		if hub.has_method("evaluate_quests"):
+			hub.evaluate_quests()
+		_populate_vault()
+		commit_loose_to_backpack()   # 백팩에서 haul 제거 → 즉시 영속(Backpack.loose)
+	_msg("재료 %d개 금고로 옮김" % moved if moved > 0 else "백팩에 옮길 재료 없음")
+
+
 
 
 
@@ -429,6 +491,20 @@ func _build() -> void:
 	_loot = lt_box[1]
 	_loot_box.visible = false
 
+	# 금고(재료) — stash 그리드 '아래'에 위아래로 함께(탭 X). 읽기 전용 표시 + 일괄 입금 버튼.
+	# (스태시 편집(is_stash_source)일 때만 보임. 월드 상자 looting 시엔 숨김.)
+	_vault_label = Label.new()
+	_vault_label.text = "금고 (재료 — 시설 승급용)"
+	_vault_label.add_theme_font_size_override("font_size", 14)
+	_loot_box.add_child(_vault_label)
+	_vault = InventoryGrid.new()
+	_vault.setup(self, 8, 3, CELL, GAP)   # 8×3 표시용 — _grids에 넣지 않음(드롭 대상/드래그 비활성)
+	_loot_box.add_child(_vault)
+	_haul_deposit_btn = Button.new()
+	_haul_deposit_btn.text = "재료 모두 금고로 옮기기"
+	_haul_deposit_btn.pressed.connect(_deposit_all_haul)
+	_loot_box.add_child(_haul_deposit_btn)
+
 
 ## Returns [VBox wrapper, InventoryGrid, Label].
 func _make_container(parent: Node, title_text: String, cols: int, rows: int) -> Array:
@@ -451,6 +527,8 @@ func _make_container(parent: Node, title_text: String, cols: int, rows: int) -> 
 func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) -> void:
 	if not (event is InputEventMouseButton):
 		return
+	if grid == _vault:
+		return  # 금고(재료)는 읽기 전용 표시 — 드래그/우클릭 비활성(입금은 '재료 모두 금고로' 버튼)
 	var mb := event as InputEventMouseButton
 	if not mb.pressed or not _drag.is_empty():
 		return
@@ -698,16 +776,15 @@ func _drop() -> void:
 		var target := _grid_under(mouse)
 		if target != null:
 			var c := target.cell_from_global_topleft(topleft)
-			# 스태시 입금 가드 — 기어·스킬북·소비만 보관(deploy 동기화가 이 3종을 Stash에 반영, I4부터 기어 포함).
-			# generic/haul은 스태시 카테고리가 없어 넣으면 손실 → 반환. 스태시 내부 재배치(grid)만 예외.
+			# 스태시(창고) 입금 가드 — 기어·스킬북·소비만(deploy 동기화 3종). 재료(haul)는 일반 스태시가
+			# 아니라 HubProfile 금고로 일원화 → '재료 모두 금고로' 버튼/금고 탭 사용. 스태시 내부 재배치는 예외.
 			var rearrange_in_stash: bool = _from == _loot and String(_drag_src.get("kind", "grid")) == "grid"
 			if target == _loot and _loot_is_stash and not rearrange_in_stash \
 					and not (String(_drag.get("kind", "")) in ["gear", "skillbook", "consumable"]):
-				_msg("기어·스킬북·소비만 스태시에 보관할 수 있습니다")
+				_msg("창고엔 기어·스킬북·소비만 — 재료(haul)는 금고/버튼으로")
 				_revert_drag()
-				for g: InventoryGrid in _grids:
-					g.clear_preview()
-				return
+				placed = true   # 원위치 복귀 후 아래 공통 정리로 폴백 — 조기 return을 하면 드래그 상태/비주얼이
+				# 남아 다음 클릭에 한 번 더 놓여 '복제'되던 버그. placed=true는 재배치만 건너뜀.
 			# consumable merge: dropping onto a same-id stack combines (≤ max_stack).
 			if String(_drag.get("kind", "")) == "consumable":
 				var dest: Dictionary = target.item_at(int(c.x), int(c.y))
