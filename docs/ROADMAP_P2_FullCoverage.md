@@ -3,7 +3,7 @@
 > **무엇:** 스펙 `ImplementationPhase_FullSpecCoverage.md`(목표 = 스펙에 정의된 ID 전부 구현)의 **게임 측 실행 로드맵**. 스펙은 P2-S3~S7을 "Planned/TBD"로만 둠 → 본 문서가 게임측 작업 정본. SSOT 아님(규칙은 각 F-###/콘텐츠).
 > **핀:** spec `bc22c38` (main, 2026-06-22; 제3세력 Stalker Pack 전파 DEC-20260621-001). **갱신:** 스프린트 종료마다. 상세 근거: 4-에이전트 스코핑(2026-06-19).
 >
-> **진행(2026-06-23):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place ✅ · **P2-S4 Hub ✅** · **P2-S5a ✅ 진영전(F-028 core) + 제3세력 Stalker Pack**(EN-3RD-01~03·AB-100~106·ENC-3RD-001) · **P2-S6a Phase1 ✅ 제3세력 lootable 아군 효과 6종**(loot 루프). **추가(스프린트 외):** 기어 카탈로그 고도화(17기어·6정체성·6 ability effect·기어귀속 평타·평타 VFX 8종, DRIFT-056) · 메타세이브 B리팩터 I1–I4(SaveProfile·Backpack 오토로드·영속) · 인벤/금고 정리(재료 금고 일원화·스태시/금고 편집창·잡템 제거·버그 수정). · **P2-S6a 파티 능력 풀 ◐ 진행 중** — lootable sub 20종 + 신규 effect kind 12종, 스펙 로컬@bc22c38 읽어 구현(DRIFT-057). **B1 잔여 완료**(stealth AB-062 Veiled·channel-beam AB-054·barrier AB-034 ENT-RAMPART-001·purge AB-070·silence AB-044·buff AB-075) + **밴드 패널티**(D-016/D-012 §2.4 `sub_bands`+BAND_COEFF) + **ally-cache 상자**(S6b-lite 획득경로). **현재 위치 → 다음 = 파티 풀 B2 데미지 sub ~24 + S6b 본격(shop/드롭표·gear roll-table) + 메타세이브 I5.**
+> **진행(2026-06-23):** P2-S2-fin ✅ · P2-S3 Interaction ✅ · P2-S2-place ✅ · **P2-S4 Hub ✅** · **P2-S5a ✅ 진영전(F-028 core) + 제3세력 Stalker Pack**(EN-3RD-01~03·AB-100~106·ENC-3RD-001) · **P2-S6a Phase1 ✅ 제3세력 lootable 아군 효과 6종**(loot 루프). **추가(스프린트 외):** 기어 카탈로그 고도화(17기어·6정체성·6 ability effect·기어귀속 평타·평타 VFX 8종, DRIFT-056) · 메타세이브 B리팩터 I1–I4(SaveProfile·Backpack 오토로드·영속) · 인벤/금고 정리(재료 금고 일원화·스태시/금고 편집창·잡템 제거·버그 수정). · **P2-S6a 파티 능력 풀 ◐ 거의 완료** — lootable sub 39종 + 신규 effect kind 13종, 스펙 로컬@bc22c38 읽어 구현(DRIFT-057). B1 잔여(stealth/beam/barrier/purge/silence/AB-075) + 밴드 패널티(`sub_bands`+BAND_COEFF) + ally-cache + **B2 데미지 sub 19종**(신규 `skillbook_bolt` 8종 옵션 lightning→Shock + 재사용 11종) 완료. **현재 위치 → 다음 = B2 잔여 bespoke 5종(taunt/pull/slow-cone/reveal/ally-relocate) + S6b 본격(shop/드롭표·gear roll-table) + 메타세이브 I5.**
 
 ---
 
@@ -12,7 +12,7 @@
 | 축 | 현재 | 비고 |
 |----|------|------|
 | **적 전투행동 (EN-001~014)** | ✅ 완료 | 기본타 rom_* 12/12 · 포지셔닝 7프로필 · 마퀴 시그니처 · Provoked · 채널 interrupt |
-| **AB-### (전체)** | **~53/84** | 적 kit 10/13(비-zone) · 적 zone 7/7 · 제3세력 7 · 정체성 6 · 파티 풀 lootable sub ~20(밴드 패널티·ally-cache 적용) |
+| **AB-### (전체)** | **~67/84** | 적 kit 10/13(비-zone) · 적 zone 7/7 · 제3세력 7 · 정체성 6 · 파티 풀 lootable sub ~39(밴드 패널티·ally-cache·B2 bolt 적용). 잔여=bespoke 5 + 적 kit 3 |
 | **PT-### (적 패턴)** | ✅ 14/14 | 갭 없음 (PT-010/011/020~022는 플레이어/미사용) |
 | **ENC-### (인카운터)** | **23/24** | NORM 3/3 · HARD 11/12(007=Extreme deferred) · MID/DEEP 1/1 · BOSS 1/1 · PAT 3/3 · AMB 2/2 · **3RD 1/1 ✅(S5a)** |
 | **배치/resolve (F-006/LDG-SPAWN)** | ✅ 확률화 | placement Patrol/AmbushHold·dual-anchor 순차·torch lead · **가중 다중후보+runSeed resolve · 스폰 위치 산포**(DEC-20260620-002). 조합 제너레이터·창발 모디파이어 = S5 |
@@ -50,7 +50,7 @@
 | **P2-S4** ✅ | Hub/Meta (F-029) — 효과 일부 이연 | — (economy 게이트) | M–L | 시설별 부분 |
 | **P2-S5a** ✅ | 진영전(F-028 core) + 제3세력 Stalker Pack(EN-3RD·AB-100~106·ENC-3RD-001) | S3 event | M | 완료 |
 | **P2-S6a Phase1** ✅ | 제3세력 lootable 아군 효과 6종(loot 루프) | S5a | S | 완료 |
-| **▶ P2-S6a 파티풀** ◐ | lootable sub **20종**(B2 5 + B1 14) + 신규 effect kind **12종**(heal/dr/shield/hot/blink/vulnerable/haste + stealth/beam/barrier/purge/silence). 밴드 패널티(sub_bands)·ally-cache 적용. 스펙 로컬@bc22c38 읽어 구현. **잔여**: B2 데미지 sub ~24·shop/드롭표(S6b 본격)·Shadowstep+20%·Rampart 투사체흡수 | spec(로컬) | L | effect-kind∥ |
+| **▶ P2-S6a 파티풀** ◐ 거의완료 | lootable sub **39종** + 신규 effect kind **13종**(heal/dr/shield/hot/blink/vulnerable/haste + stealth/beam/barrier/purge/silence + **bolt**). 밴드 패널티(sub_bands)·ally-cache·B2 데미지 sub 19 적용. 스펙 로컬@bc22c38 읽어 구현. **잔여**: bespoke 5(taunt/pull/slow/reveal/relocate)·shop/드롭표(S6b)·Shadowstep+20%·Rampart 투사체흡수 | spec(로컬) | L | effect-kind∥ |
 | **P2-S5b** | Encounter Variety 엔진(조합 제너레이터·창발 모디파이어·런 내 비복원) + EN-* 정식 태그 | S5a · EN-* 태그 | M–L | 단독 |
 | **P2-S6b** | economy/UI + gear roll-table | hub | M–L | UI∥데이터 |
 | **P2-S7** | 통합 회귀/QA | 전부 | M | 케이스별∥ |
@@ -85,12 +85,13 @@
 - **이연(의존성)**: B5 효과 실연동 — armory B/C(GEAR-COR-000 미존재)·분석/상점(F-009)·passive(F-020)·capacity 강제(friction+백팩40 vs 12~16 불일치). B4 잔여 — Q-HUB-003(데모 맵 1개)·010(GIMMICK)·040(recovery D6)·050(NPC) 시스템 미존재. 승급 *메커니즘*은 동작, *효과/잔여 퀘스트*는 해당 피처 스프린트 소관.
 - **스펙**: F-029/D-029/HUB-COR-000 구현 + draft 데모 데이터 확장(haul_drops). 규칙 변경 없음 → **전파 불필요**.
 
-### P2-S6a — 파티 능력 풀 (L) — ◐ 진행 중 (2026-06-23, DRIFT-057)
+### P2-S6a — 파티 능력 풀 (L) — ◐ 거의 완료 (2026-06-23, DRIFT-057; 잔여=bespoke 5)
 - ✅ **B2(기존 effect kind 재사용)**: AB-053→fire·AB-049→stun·AB-072→cold·AB-071/028→strike (데이터만).
 - ✅ **B1(신규 effect kind 7종 드롭인)**: `skillbook_heal`(AB-064)·`dr`(AB-046/047/068, member.apply_damage_reduction)·`shield`(AB-067, add_shield)·`hot`(AB-065, member.apply_regen)·`blink`(AB-061)·`vulnerable`(AB-057, enemy Vulnerable outcome+mag)·`haste`(AB-069, member.apply_haste+attack_interval). 누적 sub **14종**. 런타임 스모크 검증. 스펙 로컬(`/e/Game_design/project_tdc_spec`@bc22c38) 읽어 구현.
 - ✅ **B1 잔여(2026-06-23 패스)**: `skillbook_stealth`(AB-062 Smoke Veil→Veiled, `enemy_ai._is_hostile` 한 곳에서 적 타겟 드롭)·`skillbook_beam`(AB-054 Rending Beam→`beam_channel.gd` 라인 채널+LightningHit, Rooted move-lock, downed/stun 중단)·`skillbook_barrier`(AB-034 Rampart Slam→`rampart_barrier.gd` ENT-RAMPART-001 world-layer 벽·spawn stagger·캐스터당 1)·`skillbook_purge`(AB-070 Purge Light→`enemy_unit.purge_one_buff`)·`skillbook_silence`(AB-044 Hush Ward→Silenced, 6개 `_try_cast_*` 가드·평타/이동 유지)·AB-075 Blessed Barrier(=skillbook_shield 데이터). 근사: Rampart 투사체흡수/threat·Beam cone·Shadowstep+20% 이연.
 - ✅ **밴드 패널티(D-016 §3.2/D-012 §2.4)**: skillbook `sub_bands {classId: band}` + `ability_dispatch.BAND_COEFF {B0:1.0,B1:.9,B2:.75,B3:.55}`·`_band_coeff`. equip_classes는 Role Equip Gate(=main∪sub) 유지 → reader 무변경. coeff 수치=tuning(스펙 TBD).
 - ✅ **획득 경로(S6b-lite)**: ally-only lootable은 적 드롭 안 됨 → `dungeon_run` **ally-cache 상자**(RM-ADV-01, `ALLY_CACHE_POOL` 2종 랜덤·At-Risk). shop/드롭표·gear roll-table은 **S6b 본격**.
+- ✅ **B2 데미지 sub 19종(2026-06-23 패스)**: 신규 `skillbook_bolt`(targeted 원거리, 옵션 lightning→LightningHit RX+Shock) = AB-003/004/008/055/056/058/059/073 + 재사용 = AB-005 strike·013 charge·006 blink·007 blink(`away` 후퇴)·030 stun(interrupt 근사)·012 vulnerable·048/074 dr·033 shield·060 execute·066 hot. 누적 sub **39종**·신규 effect kind 13. `party_pool_smoke.gd`+ci_smoke PASS. **이연(bespoke 5)**: AB-032 reveal·035 taunt·045 ally-relocate·050 slow-cone·051 pull(신규 시스템/타겟팅 필요).
 - ✅ **6 Identity 후보**(AB-021/022/052·027·029·031) — 기어 카탈로그(DRIFT-056)에서 완료.
 
 ### P2-S5 — 3세력 (F-028) + Encounter Variety 엔진 (M–L) — S3 event 후

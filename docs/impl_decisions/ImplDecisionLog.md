@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260623-014 — P2-S6a B2 데미지 sub 19종 (신규 skillbook_bolt + 재사용; 5 bespoke 이연)
+- **결정:** 남은 lootable 24종 중 **데미지/오펜스+재사용 가능한 19종**을 추가해 파티 풀 오펜스 라인을 닫음. 신규 effect kind는 **`skillbook_bolt` 1개만**(targeted 원거리 데미지, 옵션 `lightning`→LightningHit RX + Shock) — 라이트닝/원거리 너크 8종(AB-003/004/008/055/056/058/059/073)을 1 kind로 흡수. 나머지는 전부 기존 kind 재사용(strike/charge/blink/stun/vulnerable/dr/shield/execute/hot) + `skillbook_blink`에 `away` 플래그(AB-007 후퇴 hop) 추가.
+- **이유:** B2 = "기존 kind 재사용·데이터 중심"이 원칙. 라이트닝 너크는 `skillbook_fire`(FireDamageHit→oil 점화)로 매핑하면 RX가 틀려서 1개 전용 kind가 정합적. 멀티히트/포크/차지 shape는 단일 `damage_mult` 합산으로 근사(spec params=design example).
+- **대안(기각):** 24종 전부 구현 — AB-032 reveal·AB-035 taunt·AB-045 ally-relocate·AB-050 slow-cone·AB-051 pull은 **신규 시스템(시야 리빌·threat API·아군 타겟팅·슬로우/풀 kind)** 필요라 "데미지 sub" 범위 밖 + clean-first 원칙([[refactor-risk-preference]]) → **5종 이연**(B2 잔여).
+- **근사:** AB-030 interrupt=stun 근사(stun이 적 캐스트 취소)·AB-012 HEX-WEAK=vulnerable 근사·AB-048 reflect/AB-074 redirect=dr 근사·AB-033 intercept-soak=shield 근사·AB-066 heal-zone=hot(반경 펄스) 근사. 모두 DRIFT-057 로깅.
+- **검증:** party_pool_smoke(전 24 신규 포함 skillbook kind→effect 커버·sub_bands 밴드 검증) + ci_smoke PASS.
+- **영향:** `effects/sb_bolt.gd`(신규)·`effects/sb_blink.gd`(away) · `ability_dispatch.gd`(preload) · `id_registry.json`(14 신규 ID)·`skillbooks.json`(19 엔트리)·`dungeon_run.gd`(ALLY_CACHE_POOL 확장).
+
 ### IMPL-DEC-20260623-013 — P2-S6a B1 잔여(stealth/buff/channel/barrier/purge/silence) + 밴드 패널티 + ally-cache
 - **밴드 패널티 = 가산 `sub_bands`(equip_classes 게이트 유지):** D-016 mainClasses/subClasses 두 필드로 `equip_classes`를 쪼개는 대신, **`equip_classes`는 Role Equip Gate(=main∪sub) 그대로 두고** skillbook 마스터에 `sub_bands {classId: band}`만 가산. `ability_dispatch`가 `Slice01Data.get_skillbook_master(base_ability_id).sub_bands`로 coeff 산출(`BAND_COEFF {B0:1.0,B1:.9,B2:.75,B3:.55}`·`_band_coeff`). **대안(기각):** equip_classes를 main/sub로 전면 분리 — item_factory·equip_panel·loot_service·controlled_sheet·slice01_data 등 ~10 reader 변경 → 고위험. 가산 방식은 reader 0 변경. coeff 수치는 spec TBD(tuning).
 - **신규 상태 = 기존 단일 chokepoint에 끼움:** ① **Veiled**(party) — `enemy_ai._is_hostile`가 veiled 멤버 false 반환 한 곳에서 타겟/헌트/스플래시 전부 드롭(중복 필터 없음). ② **Silenced**(enemy) — 6개 `_try_cast_*` 함수 top에서 `is_silenced()` 가드(평타·이동 게이트는 무손). ③ **Purge** — `outcome_status.remove(id)` 재사용 + `enemy_unit.purge_one_buff()`.

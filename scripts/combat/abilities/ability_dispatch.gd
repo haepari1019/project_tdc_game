@@ -52,6 +52,8 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_barrier.gd"),     # AB-034 Rampart Slam (Tank, ENT-RAMPART-001)
 	preload("res://scripts/combat/abilities/effects/sb_purge.gd"),       # AB-070 Purge Light (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_silence.gd"),     # AB-044 Hush Ward (Healer, Silenced)
+	# P2-S6a B2 — remaining ranged/burst lootables → one targeted bolt kind (옵션 lightning→Shock).
+	preload("res://scripts/combat/abilities/effects/sb_bolt.gd"),        # AB-003/004/008/055/056/058/059/073
 ]
 
 # F-009 §3.2.1 / D-016 §3.2 / D-012 §2.4 — cross-class (sub) skillbook penalty by IDENTITY-DISTANCE

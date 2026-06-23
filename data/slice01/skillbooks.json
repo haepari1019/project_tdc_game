@@ -190,6 +190,113 @@
     },
 
     {
+      "base_ability_id": "AB-003", "display_name": "Arc Bolt Volley", "equip_classes": ["DPS", "Nuker"],
+      "sub_bands": { "Nuker": "B1" },
+      "range_band": "Mid", "charges_max": 10,
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 2, "targeted": true, "range_m": 11, "radius_m": 1.6, "damage_mult": 1.0, "lightning": true, "shock_s": 2.0 }
+    },
+    {
+      "base_ability_id": "AB-004", "display_name": "Charged Voltaic Shot", "equip_classes": ["Nuker", "DPS"],
+      "sub_bands": { "DPS": "B3" },
+      "range_band": "Long", "charges_max": 6,
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 5, "targeted": true, "range_m": 14, "radius_m": 1.2, "damage_mult": 2.0, "lightning": true, "shock_s": 2.0 }
+    },
+    {
+      "base_ability_id": "AB-005", "display_name": "Melee Flurry", "equip_classes": ["Nuker"],
+      "sub_bands": { "Nuker": "B2" },
+      "range_band": "Mid", "charges_max": 12,
+      "cast": { "kind": "skillbook_strike", "cooldown_s": 1, "radius_m": 2.2, "damage_mult": 1.0, "knockback_m": 0.0 }
+    },
+    {
+      "base_ability_id": "AB-006", "display_name": "Gap-Close Dash", "equip_classes": ["Nuker"],
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_blink", "cooldown_s": 4, "targeted": true, "range_m": 10, "blink_m": 7.0 }
+    },
+    {
+      "base_ability_id": "AB-007", "display_name": "Retreat Hop", "equip_classes": ["Nuker"],
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_blink", "cooldown_s": 6, "away": true, "blink_m": 6.0 }
+    },
+    {
+      "base_ability_id": "AB-008", "display_name": "Slag Spit", "equip_classes": ["DPS", "Nuker"],
+      "sub_bands": { "Nuker": "B1" },
+      "range_band": "Mid", "charges_max": 10,
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 2.5, "targeted": true, "range_m": 10, "radius_m": 2.0, "damage_mult": 0.8 }
+    },
+    {
+      "base_ability_id": "AB-012", "display_name": "Hex Bolt", "equip_classes": ["Healer", "Nuker"],
+      "sub_bands": { "Nuker": "B2" },
+      "range_band": "Long", "charges_max": 6,
+      "cast": { "kind": "skillbook_vulnerable", "cooldown_s": 4, "targeted": true, "range_m": 13, "radius_m": 1.6, "vulnerable_pct": 0.15, "duration_s": 4.0 }
+    },
+    {
+      "base_ability_id": "AB-013", "display_name": "Backstab Dash", "equip_classes": ["Nuker"],
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_charge", "cooldown_s": 5, "targeted": true, "range_m": 8, "cone_deg": 24, "damage_mult": 1.5, "knockback_m": 0.0 }
+    },
+    {
+      "base_ability_id": "AB-030", "display_name": "Voltaic Interrupt", "equip_classes": ["Nuker", "DPS"],
+      "sub_bands": { "DPS": "B2" },
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_stun", "cooldown_s": 8, "targeted": true, "range_m": 10, "radius_m": 2.0, "damage_mult": 0.4, "stun_s": 0.5 }
+    },
+    {
+      "base_ability_id": "AB-033", "display_name": "Intercept Step", "equip_classes": ["Tank"],
+      "range_band": "Melee", "charges_max": 6,
+      "cast": { "kind": "skillbook_shield", "cooldown_s": 8, "radius_m": 4.0, "shield_pct": 0.10, "duration_s": 2.0 }
+    },
+    {
+      "base_ability_id": "AB-048", "display_name": "Counter Stance", "equip_classes": ["Tank"],
+      "range_band": "Melee", "charges_max": 6,
+      "cast": { "kind": "skillbook_dr", "cooldown_s": 9, "radius_m": 0.5, "damage_reduction": 0.4, "duration_s": 1.5 }
+    },
+    {
+      "base_ability_id": "AB-055", "display_name": "Scatter Shot", "equip_classes": ["DPS", "Nuker"],
+      "sub_bands": { "Nuker": "B2" },
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 4, "targeted": true, "range_m": 9, "radius_m": 2.6, "damage_mult": 1.2 }
+    },
+    {
+      "base_ability_id": "AB-056", "display_name": "Longshot Bolt", "equip_classes": ["Nuker", "DPS"],
+      "sub_bands": { "DPS": "B1" },
+      "range_band": "Long", "charges_max": 8,
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 4, "targeted": true, "range_m": 15, "radius_m": 1.2, "damage_mult": 1.2, "lightning": true }
+    },
+    {
+      "base_ability_id": "AB-058", "display_name": "Arc Detonation", "equip_classes": ["Nuker", "DPS"],
+      "sub_bands": { "Nuker": "B2", "DPS": "B1" },
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 8, "targeted": true, "range_m": 10, "radius_m": 3.0, "damage_mult": 2.5, "lightning": true, "shock_s": 2.0 }
+    },
+    {
+      "base_ability_id": "AB-059", "display_name": "Void Lance", "equip_classes": ["Nuker", "DPS"],
+      "sub_bands": { "DPS": "B2" },
+      "range_band": "Long", "charges_max": 5,
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 9, "targeted": true, "range_m": 15, "radius_m": 1.2, "damage_mult": 4.0 }
+    },
+    {
+      "base_ability_id": "AB-060", "display_name": "Rupture Strike", "equip_classes": ["Nuker"],
+      "range_band": "Mid", "charges_max": 6,
+      "cast": { "kind": "skillbook_execute", "cooldown_s": 7, "targeted": true, "range_m": 9, "radius_m": 2.0, "damage_mult": 1.0, "execute_under": 0.3, "execute_mult": 2.0, "on_kill_heal_pct": 0.0 }
+    },
+    {
+      "base_ability_id": "AB-066", "display_name": "Sanctuary Font", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_hot", "cooldown_s": 12, "radius_m": 4.0, "regen_pct_s": 0.04, "duration_s": 5.0 }
+    },
+    {
+      "base_ability_id": "AB-073", "display_name": "Overcharge", "equip_classes": ["Nuker", "DPS"],
+      "sub_bands": { "DPS": "B2" },
+      "range_band": "Long", "charges_max": 5,
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 10, "targeted": true, "range_m": 15, "radius_m": 1.4, "damage_mult": 3.5, "lightning": true, "shock_s": 2.0 }
+    },
+    {
+      "base_ability_id": "AB-074", "display_name": "Guardian Oath", "equip_classes": ["Tank"],
+      "range_band": "Melee", "charges_max": 4,
+      "cast": { "kind": "skillbook_dr", "cooldown_s": 16, "radius_m": 4.0, "damage_reduction": 0.3, "duration_s": 6.0 }
+    },
+
+    {
       "base_ability_id": "AB-100", "display_name": "Pounce", "equip_classes": ["Nuker"],
       "range_band": "Mid", "charges_max": 6,
       "cast": { "kind": "skillbook_pin", "cooldown_s": 6, "targeted": true, "range_m": 12, "radius_m": 1.8, "damage_mult": 1.2, "pin_s": 0.6 }

@@ -1,7 +1,7 @@
 extends RefCounted
-## AB-061 Shadowstep (kind=skillbook_blink) — short self-teleport toward the aim point (targeted) or
-## the nearest enemy, up to blink_m. (Spec "next hit +20%" deferred.) Drop-in skillbook effect.
-## ref: F-009 · STATUS-OUTCOME · DRIFT-057.
+## kind=skillbook_blink — short self-teleport up to blink_m. AB-061 Shadowstep / AB-006 Gap-Close
+## (toward the aim point or nearest enemy); AB-007 Retreat Hop (`away`=true → hop AWAY from the
+## nearest enemy, disengage). (Spec "next hit +20%" deferred.) ref: F-009 · STATUS-OUTCOME · DRIFT-057.
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 
@@ -13,7 +13,10 @@ func kind() -> String:
 func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var dist := float(p.get("blink_m", 6.0))
 	var to: Vector3
-	if target_pos != Vector3.ZERO:
+	if bool(p.get("away", false)):   # AB-007 Retreat Hop — hop away from the nearest threat
+		var foe = ctx.nearest_enemy_in_range(m.global_position, 20.0)
+		to = (m.global_position - foe.global_position) if foe != null else Vector3(0, 0, -1)
+	elif target_pos != Vector3.ZERO and target_pos.distance_to(m.global_position) > 0.3:
 		to = target_pos - m.global_position
 	else:
 		var tgt = ctx.nearest_enemy_in_range(m.global_position, 20.0)
