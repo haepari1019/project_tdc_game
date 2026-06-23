@@ -71,6 +71,12 @@
     },
 
     {
+      "base_ability_id": "AB-053", "display_name": "Searing Volley", "equip_classes": ["DPS", "Nuker"],
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 9, "radius_m": 2.6, "damage_mult": 1.2 }
+    },
+
+    {
       "base_ability_id": "AB-100", "display_name": "Pounce", "equip_classes": ["Nuker"],
       "range_band": "Mid", "charges_max": 6,
       "cast": { "kind": "skillbook_pin", "cooldown_s": 6, "targeted": true, "range_m": 12, "radius_m": 1.8, "damage_mult": 1.2, "pin_s": 0.6 }
