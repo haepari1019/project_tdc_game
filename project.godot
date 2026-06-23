@@ -134,5 +134,6 @@ toggle_inventory={
 
 [rendering]
 
+renderer/rendering_method="forward_plus"
 limits/opengl/max_renderable_lights=256
 limits/opengl/max_lights_per_object=32
