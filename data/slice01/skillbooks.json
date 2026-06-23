@@ -95,6 +95,21 @@
       "range_band": "Mid", "charges_max": 8,
       "cast": { "kind": "skillbook_strike", "cooldown_s": 6, "radius_m": 3.0, "damage_mult": 1.0, "knockback_m": 0.0 }
     },
+    {
+      "base_ability_id": "AB-064", "display_name": "Quick Mend", "equip_classes": ["Healer"],
+      "range_band": "Mid", "charges_max": 8,
+      "cast": { "kind": "skillbook_heal", "cooldown_s": 5, "radius_m": 5.0, "heal_pct": 0.18 }
+    },
+    {
+      "base_ability_id": "AB-046", "display_name": "Shield Wall", "equip_classes": ["Tank"],
+      "range_band": "Melee", "charges_max": 6,
+      "cast": { "kind": "skillbook_dr", "cooldown_s": 9, "radius_m": 0.5, "damage_reduction": 0.5, "duration_s": 2.0 }
+    },
+    {
+      "base_ability_id": "AB-047", "display_name": "Aegis Pulse", "equip_classes": ["Tank", "Healer"],
+      "range_band": "Mid", "charges_max": 5,
+      "cast": { "kind": "skillbook_dr", "cooldown_s": 12, "radius_m": 4.0, "damage_reduction": 0.2, "duration_s": 3.0 }
+    },
 
     {
       "base_ability_id": "AB-100", "display_name": "Pounce", "equip_classes": ["Nuker"],

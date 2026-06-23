@@ -436,6 +436,16 @@ func enter_sentinel(dr: float, dur: float) -> void:
 	apply_outcome("Rooted", dur)   # move-lock (MOVE_MULT 0.0), can still act
 
 
+## F-009 temporary damage reduction (Shield Wall AB-046 / Aegis Pulse AB-047 subs) — DR WITHOUT the
+## Sentinel move-lock. Shares the Sentinel decay (_sentinel_timer → damage_taken_mult resets to 1.0).
+## Strongest DR wins while active (minf). ref: STATUS Fortified/Warded.
+func apply_damage_reduction(dr: float, dur: float) -> void:
+	if not _alive:
+		return
+	damage_taken_mult = minf(damage_taken_mult, clampf(1.0 - dr, 0.0, 1.0))
+	_sentinel_timer_s = maxf(_sentinel_timer_s, dur)
+
+
 ## F-009/F-008 Ward Pulse (AB-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
 func cleanse_one() -> String:
 	return _outcome.cleanse_one() if _outcome != null else ""
