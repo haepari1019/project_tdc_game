@@ -3,7 +3,7 @@
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`. 실행 로드맵: [docs/ROADMAP_P2_FullCoverage.md](docs/ROADMAP_P2_FullCoverage.md).
 
 - spec_ref_pin: `bc22c38` (`main`, 2026-06-22; 제3세력 Stalker Pack 전파 DEC-20260621-001)
-- last_sprint: **P2-S6a 파티 능력 풀 lootable 완료** — lootable sub 44종 + 신규 effect kind 18종. B1 잔여 + 밴드 패널티(sub_bands) + ally-cache + B2 데미지 sub 19 + **bespoke 5종(taunt/pull/slow/relocate/reveal)** 완료. 이전: P2-S5a 진영전+제3세력 · P2-S6a Phase1 · 기어 카탈로그(DRIFT-056) · 메타세이브 I1–I4. **다음: S6b 본격(shop/드롭표·gear roll-table·affix·UI) + 메타세이브 I5 + (잔여 근사: Shadowstep+20%·Rampart 투사체흡수·Sentinel 반사)**
+- last_sprint: **P2-S6a 파티 능력 풀 lootable 완료** — lootable sub 44종 + 신규 effect kind 18종. B1 잔여 + 밴드 패널티(sub_bands) + ally-cache + B2 데미지 sub 19 + **bespoke 5종(taunt/pull/slow/relocate/reveal)** 완료. 이전: P2-S5a 진영전+제3세력 · P2-S6a Phase1 · 기어 카탈로그(DRIFT-056). **메타세이브 I1–I5 완료** + **이연 능력 디테일**(Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale) 완료. **다음: S6b 본격(shop/드롭표·gear roll-table·affix·UI) + S5b. 잔여 BLOCKED: Rampart 투사체흡수(투사체 엔티티 부재)·Tether leash-DoT(트래커 필요)**
 - last_updated: 2026-06-23
 
 ## Full Spec Coverage — AB-### 스냅샷 (2026-06-23 갱신)
@@ -16,7 +16,7 @@
 | 적 zone/원소 | ✅ 7/7 | AB-009/036/039/040/041/042/043 — F-027 ZONE (P2-S3) |
 | 제3세력 (AB-100~106) | ✅ 7/7 | 적측+lootable 아군 6종 (S5a·S6a Phase1) |
 | 정체성 ability effect | ✅ 6/6 | AB-021/022/052·027·029/031 (기어 카탈로그, DRIFT-056) |
-| 파티 능력 풀 (기타 lootable) | ✅ ~49/~49 | 완료 — B1 신규 kind 12 + B2 19(skillbook_bolt 8 + 재사용) + **bespoke 5**(taunt/pull/slow/relocate_ally/reveal). 밴드 패널티(sub_bands)·ally-cache 적용. 근사 잔여(후속): shop/드롭표(S6b)·Shadowstep+20%·Rampart 투사체흡수·Sentinel 반사 |
+| 파티 능력 풀 (기타 lootable) | ✅ ~49/~49 | 완료 — B1 신규 kind 12 + B2 19(skillbook_bolt 8 + 재사용) + **bespoke 5**(taunt/pull/slow/relocate_ally/reveal). 밴드 패널티(sub_bands)·ally-cache 적용. **능력 디테일 해결**: Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale. 잔여 BLOCKED: Rampart 투사체흡수·Tether leash-DoT |
 | 적 기본타 rom_* (별도) | 15/15 | rom_stalker/snarer/reaver 포함 |
 | PT-### 적 패턴 (별도) | ✅ 17/17 | PT-023~025(제3세력) 포함 |
 
@@ -32,7 +32,7 @@
 | P2-S4 | ☑ | Hub(F-029) — 8시설 Tier·Quest/Haul 게이트·vault 파이프·UI-029 승급·디스크 영속·ENC haul 드롭표·QA-029 스모크. **효과 실연동 이연**: armory B/C(GEAR-COR-000)·분석/상점(F-009)·passive(F-020)·capacity 강제. |
 | P2-S5a | ☑ | 진영전(F-028 core: 교차진영 타겟·N진영/혼합분대) + **제3세력 Stalker Pack**(EN-3RD-01~03 추적/포획/학살·AB-100~106·PT-023~025·ENC-3RD-001·outcome Rooted/Pinned/Scented/Tethered/Bloodlust). 진영전 크래시 전수정리. ci_smoke+third_smoke PASS. |
 | P2-S6a Phase1 | ☑ | 제3세력 lootable 아군 효과 6종(loot 루프 완성, 2ddf580). |
-| P2-S6a 파티풀 | ✅ lootable 완료 | lootable sub **44종** + 신규 effect kind **18종**. B1(12) + **B2 데미지 19**(skillbook_bolt 8 + 재사용 11) + **bespoke 5**(taunt AB-035·pull AB-051·slow AB-050·relocate_ally AB-045·reveal AB-032). **밴드 패널티**(`sub_bands`+BAND_COEFF) · **ally-cache 상자**(RM-ADV-01). `party_pool_smoke.gd`(전 kind 커버) + ci_smoke PASS. **근사 잔여(후속)**: shop/드롭표(S6b)·Shadowstep+20%·Rampart 투사체흡수·Sentinel 반사. 13cb343·5103b68·(bespoke 미커밋). DRIFT-057/058·IMPL-DEC-013/014/015. |
+| P2-S6a 파티풀 | ✅ lootable 완료 | lootable sub **44종** + 신규 effect kind **18종**. B1(12) + **B2 데미지 19**(skillbook_bolt 8 + 재사용 11) + **bespoke 5**(taunt AB-035·pull AB-051·slow AB-050·relocate_ally AB-045·reveal AB-032). **밴드 패널티**(`sub_bands`+BAND_COEFF) · **ally-cache 상자**(RM-ADV-01). `party_pool_smoke.gd`(전 kind 커버 + 디테일 거동) + ci_smoke PASS. **능력 디테일 해결**(Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale, IMPL-DEC-017). **잔여 BLOCKED**: Rampart 투사체흡수(투사체 엔티티 부재)·Tether leash-DoT. 13cb343·5103b68·3859579·644c29e(I5)·(디테일 미커밋). DRIFT-055/056/057/058·IMPL-DEC-013~017. |
 | 기어 카탈로그 | ☑ | 17 신규 기어·6 정체성·6 ability effect(beacon_threat/march_advance/sentinel_form/arc_line/flank_dash/ward_shield)·기어귀속 평타(D-019)·평타 VFX 8종·샌드박스 검증툴 (DRIFT-056). |
 | 메타세이브 B | ✅ I1–I5 | SaveProfile 단일파일·Backpack 오토로드·낱개/장착서브/소비/장착기어 영속·재료 금고 일원화·스태시/금고 편집창. **I5**: RunLoadout config 전용(죽은 인벤 필드 제거)·서브 **충전수 영속**(부분소모 런간 유지). 완전 Backpack화는 기존 가드/동기화로 이미 도달. IMPL-DEC-016. |
 

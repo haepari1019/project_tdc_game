@@ -32,9 +32,13 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var beam = BeamChannel.new()
 	ctx.add_child(beam)
 	beam.setup(m, m.global_position, dir, range_m, half_deg, dmg, ticks, interval, ctx)
-	# Channeling move-lock for the duration — Rooted = MOVE_MULT 0 (caster can still be hit / cast ends).
+	# Channeling for the duration: Rooted = move-lock (MOVE_MULT 0) + begin_channel = busy flag that
+	# blocks other sub casts (the caster is occupied). Caster can still be hit; channel ends on cast end.
+	var channel_s := float(ticks) * interval
 	if m.has_method("apply_outcome"):
-		m.apply_outcome("Rooted", float(ticks) * interval)
+		m.apply_outcome("Rooted", channel_s)
+	if m.has_method("begin_channel"):
+		m.begin_channel(channel_s)
 	ctx.sub_shake(p)
 	print("[SB] %s Rending Beam — %d tick x%d%% over %.1fs" % [m.class_id, ticks, int(float(p.get("tick_mult", 0.25)) * 100.0), float(ticks) * interval])
 	return true

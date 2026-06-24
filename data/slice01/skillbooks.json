@@ -144,7 +144,7 @@
       "base_ability_id": "AB-061", "display_name": "Shadowstep", "equip_classes": ["Nuker", "DPS"],
       "sub_bands": { "DPS": "B2" },
       "range_band": "Mid", "charges_max": 8,
-      "cast": { "kind": "skillbook_blink", "cooldown_s": 6, "targeted": true, "range_m": 12, "blink_m": 6.0 }
+      "cast": { "kind": "skillbook_blink", "cooldown_s": 6, "targeted": true, "range_m": 12, "blink_m": 6.0, "next_hit_bonus": 0.2 }
     },
     {
       "base_ability_id": "AB-057", "display_name": "Focus Fire", "equip_classes": ["Healer", "Nuker"],

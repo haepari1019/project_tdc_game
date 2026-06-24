@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260623-017 — 이연 능력 디테일 4종 (Shadowstep+20% · Sentinel 반사 · Beam Channeling · Bloodlust HP-scale)
+- **결정:** 능력 근사로 미뤄둔 디테일 중 **아키텍처상 구현 가능한 4종**을 처리. ① **Shadowstep(AB-061) next-hit +20%** — `party_member._next_hit_bonus`(grant/consume 1회) + 중앙 `combat_controller._deal_damage` 훅(basic·sub 모두 이 경로 → 한 곳에서 적용). ② **Sentinel Form(AB-052) 40% 반사** — `take_damage(amount, attacker=null)`로 시그니처 확장(양 take_damage 동일), `_apply_enemy_hit`가 `enemy`를 attacker로 전달 → 스탠스 중 reflect_frac 반사. ③ **Beam(AB-054) Channeling** — `begin_channel`/`is_channeling` busy 플래그(채널 동안 다른 서브 캐스트 차단; dungeon_run·sandbox 게이트), 기존 Rooted move-lock 병행. ④ **Bloodlust(AB-105) HP-scale** — `attack_interval_now`/`contact_damage_mult`가 `_missing_hp_frac`로 rage 램프(저장 mult=0HP 최대). 
+- **이유:** 전부 기존 단일 경로/시그니처 확장으로 해결(새 시스템 0). next-hit는 `_deal_damage` 단일 chokepoint, 반사는 attacker 인자 1개 추가(기본 null → 기존 호출 무손).
+- **BLOCKED(여전히 이연):** **Rampart(AB-034) 투사체 1회 흡수·threat-on-hit** — 전투가 target-locked/즉발이라 벽에 부딪힐 투사체 엔티티도, 벽으로 라우팅되는 공격도 없음 → **투사체 엔티티 시스템 선행 필요**(노력 아닌 의존성). **Tether(AB-103) leash-DoT** — 거리추적 트래커(beam_channel류 ticking 노드) 필요, 후속. dash i-frame·ccTenacity = 밸런스 후속.
+- **검증:** party_pool_smoke §7/§8(next-hit 소모·channel 플래그·Sentinel 40% 반사 end-to-end·Bloodlust missing-HP 램프) + ci_smoke PASS.
+- **영향:** `party_member.gd`(_next_hit_bonus·_sentinel_reflect·_channel_timer·take_damage attacker) · `combat_controller.gd`(_deal_damage 훅) · `enemy_ai.gd`(_apply_enemy_hit attacker 전달) · `enemy_unit.gd`(take_damage 시그니처·Bloodlust HP-scale) · `effects/sb_blink.gd`·`sb_beam.gd`·`sentinel_form.gd` · `skillbooks.json`(AB-061 next_hit_bonus) · `dungeon_run.gd`·`combat_sandbox.gd`(채널 게이트).
+
 ### IMPL-DEC-20260623-016 — 메타세이브 I5: RunLoadout config-only + 서브 충전수 영속 (B-리팩터 완료)
 - **결정:** 메타세이브 B-리팩터 마지막 증분. ① **RunLoadout → config 전용**(formation/difficulty/run_seed) — 죽은 인벤 브리지 필드(`consumables`/`backpack`/`member_subs` + `set_consumables`) 제거(I2b/I3/I4에서 Backpack 오토로드로 이관 완료, `set_consumables` 호출자 0). ② **서브 충전수 영속** — `Backpack.apply_to_party`가 equip 후 저장된 잔여 탄수를 복원(equip은 max 리셋이라 clamp-set으로 덮어씀). 부분소모 스킬북이 런간 풀충전되던 버그(I3 ⚠️) 해소.
 - **"완전 Backpack화"는 이미 도달:** 기어/스킬북/소비 stash↔backpack 이동은 `_drop` 가드 허용 + `_sync_stash_from_source` 동기화로 동작. haul=금고(재료 일원화)·generic=제거 → 스태시 입금 대상 아님(의도된 최종 설계). 추가 작업 불필요.

@@ -81,6 +81,7 @@ var _shield_dur: float = 1.0
 # F-008 Sentinel Form (AB-052) — temporary turtle-stance damage reduction (1.0 = none) + timer.
 var damage_taken_mult: float = 1.0
 var _sentinel_timer_s: float = 0.0
+var _sentinel_reflect: float = 0.0   # AB-052 reflect fraction of incoming hits while the stance holds
 # F-009 HoT (Renewing Tide AB-065) — regen % of maxHP per second over a timer.
 var _regen_pct_s: float = 0.0
 var _regen_timer_s: float = 0.0
@@ -91,6 +92,10 @@ var _haste_timer_s: float = 0.0
 # F-009 Veiled (Smoke Veil AB-062) — brief stealth: enemy targeting drops this member while active.
 var _veil_timer_s: float = 0.0
 var _veil_dur: float = 1.0
+# F-009 Shadowstep (AB-061) — the NEXT damaging hit by this member is boosted, consumed once.
+var _next_hit_bonus: float = 0.0
+# F-009 Channeling (AB-054 Rending Beam) — caster occupied; blocks other active casts for the channel.
+var _channel_timer_s: float = 0.0
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/
 ## WindBuffeted — shared container with enemy_unit. Movement folds into move_speed_mult; Slippery
 ## adds inertia (player_controller); Ignited DoT applied in _physics_process.
@@ -397,9 +402,14 @@ func _apply_controlled_visual(active: bool) -> void:
 	scale = Vector3(s, s, s)
 
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, attacker: Node = null) -> void:
 	if not _alive:
 		return
+	# F-008 Sentinel Form (AB-052) — reflect a fraction of the incoming hit back to the attacker
+	# (melee 근사: any direct attacker-sourced hit while the stance holds; pre-mitigation amount).
+	if _sentinel_reflect > 0.0 and _sentinel_timer_s > 0.0 and attacker != null \
+			and is_instance_valid(attacker) and attacker.has_method("take_damage"):
+		attacker.take_damage(amount * _sentinel_reflect)
 	amount *= damage_taken_mult   # F-008 Sentinel Form stance DR (AB-052; 1.0 = none)
 	# Shield absorbs first (AB-020).
 	if shield > 0.0:
@@ -440,9 +450,10 @@ func add_shield(value: float, duration: float) -> void:
 
 ## F-008 Sentinel Form (AB-052) — enter the turtle stance: reduce incoming damage by `dr` (0..1)
 ## and move-lock for `dur` seconds. (Reflect deferred — take_damage has no attacker source.)
-func enter_sentinel(dr: float, dur: float) -> void:
+func enter_sentinel(dr: float, dur: float, reflect: float = 0.0) -> void:
 	damage_taken_mult = clampf(1.0 - dr, 0.0, 1.0)
 	_sentinel_timer_s = dur
+	_sentinel_reflect = clampf(reflect, 0.0, 1.0)   # AB-052 reflect (40% draft)
 	apply_outcome("Rooted", dur)   # move-lock (MOVE_MULT 0.0), can still act
 
 
@@ -493,6 +504,27 @@ func apply_veil(dur: float) -> void:
 
 func is_veiled() -> bool:
 	return _alive and _veil_timer_s > 0.0
+
+
+## F-009 Shadowstep (AB-061) — boost this member's NEXT damaging hit; consumed once on damage.
+func grant_next_hit_bonus(b: float) -> void:
+	_next_hit_bonus = maxf(_next_hit_bonus, b)
+
+
+## Read + clear the next-hit damage bonus (combat_controller._deal_damage calls this per hit). 0 if none.
+func consume_next_hit_bonus() -> float:
+	var b := _next_hit_bonus
+	_next_hit_bonus = 0.0
+	return b
+
+
+## F-009 Channeling (AB-054 Rending Beam) — mark the caster occupied for `dur` (blocks other sub casts).
+func begin_channel(dur: float) -> void:
+	_channel_timer_s = maxf(_channel_timer_s, dur)
+
+
+func is_channeling() -> bool:
+	return _alive and _channel_timer_s > 0.0
 
 
 ## F-009/F-008 Ward Pulse (AB-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
@@ -584,6 +616,9 @@ func _physics_process(delta: float) -> void:
 		_sentinel_timer_s -= delta
 		if _sentinel_timer_s <= 0.0:
 			damage_taken_mult = 1.0   # Sentinel Form expired → normal damage
+			_sentinel_reflect = 0.0   # reflect ends with the stance
+	if _channel_timer_s > 0.0:        # AB-054 Rending Beam channel — caster occupied while > 0
+		_channel_timer_s -= delta
 	if _regen_timer_s > 0.0:           # F-009 HoT — heal whole-HP ticks of maxHP%/s
 		_regen_timer_s -= delta
 		_regen_accum += max_hp * _regen_pct_s * delta

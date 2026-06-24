@@ -178,7 +178,8 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 		set_attention(true)
 
 
-func take_damage(amount: float) -> void:
+## `_attacker` accepted for call-site symmetry with party_member.take_damage (enemies don't reflect).
+func take_damage(amount: float, _attacker: Node = null) -> void:
 	if hp <= 0.0:
 		return
 	amount *= 1.0 + _outcome.mag("Vulnerable")   # AB-057 Focus Fire — Vulnerable: 받는 피해 증폭
@@ -328,13 +329,23 @@ var bloodlust_dmg_mult: float = 1.0
 func is_bloodlust() -> bool:
 	return _outcome.has("Bloodlust")
 
-## Attack interval folding Bloodlust haste (faster while raging). Used by EnemyAI's attack gate.
-func attack_interval_now() -> float:
-	return attack_interval_s / bloodlust_spd_mult if is_bloodlust() else attack_interval_s
+## Missing-HP fraction (0 at full, 1 at death) — Bloodlust scales by this (AB-105 scaleByMissingHp).
+func _missing_hp_frac() -> float:
+	return clampf(1.0 - hp / maxf(max_hp, 1.0), 0.0, 1.0)
 
-## Damage multiplier from Bloodlust (1.0 when not raging). Folded into EnemyAI hit damage.
+## Attack interval folding Bloodlust haste — scales with MISSING HP (DRIFT-055 resolve): the stored
+## bloodlust_spd_mult is the MAX rage (at 0 HP); at the cast threshold it ramps from there by missing HP.
+func attack_interval_now() -> float:
+	if not is_bloodlust():
+		return attack_interval_s
+	var spd: float = 1.0 + (bloodlust_spd_mult - 1.0) * _missing_hp_frac()
+	return attack_interval_s / maxf(spd, 0.01)
+
+## Damage multiplier from Bloodlust (1.0 when not raging), scaled by missing HP. EnemyAI folds it in.
 func contact_damage_mult() -> float:
-	return bloodlust_dmg_mult if is_bloodlust() else 1.0
+	if not is_bloodlust():
+		return 1.0
+	return 1.0 + (bloodlust_dmg_mult - 1.0) * _missing_hp_frac()
 
 
 func is_slippery() -> bool:

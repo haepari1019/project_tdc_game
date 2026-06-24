@@ -806,6 +806,8 @@ func _cast_sub(slot: int) -> void:
 		return
 	if ctrl.has_method("is_provoked") and ctrl.is_provoked():
 		return
+	if ctrl.has_method("is_channeling") and ctrl.is_channeling():
+		return  # Channeling (AB-054 Rending Beam) — busy until the channel finishes
 	var inst = ctrl.get_skillbook(slot)
 	if inst == null:
 		return

@@ -27,5 +27,8 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var start: Vector3 = m.global_position
 	m.global_position += to.normalized() * minf(dist, to.length())
 	SkillVfx.dash_streak(ctx, start, m.global_position, Color(0.55, 0.38, 0.78))   # shadow blink trail
-	print("[SB] %s Shadowstep — blink %.1fm" % [m.class_id, start.distance_to(m.global_position)])
+	var nhb := float(p.get("next_hit_bonus", 0.0))   # AB-061 Shadowstep — boost the next hit
+	if nhb > 0.0 and m.has_method("grant_next_hit_bonus"):
+		m.grant_next_hit_bonus(nhb)
+	print("[SB] %s Shadowstep — blink %.1fm%s" % [m.class_id, start.distance_to(m.global_position), (" (+%d%% next)" % int(nhb * 100)) if nhb > 0.0 else ""])
 	return true

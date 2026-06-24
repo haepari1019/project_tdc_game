@@ -369,6 +369,10 @@ func _nearest_enemy_in_range(from: Vector3, range_m: float) -> CharacterBody3D:
 ## Party→enemy damage with F-022 threat: damage*mult, first-attack bonus,
 ## group-pull propagation, and first-aggressor floor.
 func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float) -> void:
+	# Shadowstep (AB-061) — the caster's NEXT hit is boosted, consumed here (basic OR sub; threat
+	# below reflects the boosted damage). No-op for members without a pending bonus.
+	if attacker != null and attacker.has_method("consume_next_hit_bonus"):
+		dmg *= 1.0 + attacker.consume_next_hit_bonus()
 	# D-010 §4.1: damaging a foe engages it and wakes its squad (cohesion radius);
 	# group-pull threat below stays within the same squad so distant squads sleep.
 	# (Camera hit-feel is emitted ONCE per SUB cast — see AbilityDispatch._sub_hit_shake

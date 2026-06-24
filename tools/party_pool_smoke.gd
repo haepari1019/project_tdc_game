@@ -101,6 +101,32 @@ func _initialize() -> void:
 	_chk("charge persist (stored 3, not max)", inst0 != null and int(inst0.charges) == 3 and int(inst0.charges_max) > 3)
 	pm2.free()
 
+	# 7) Deferred ability details — Shadowstep next-hit, Beam channel flag, Sentinel reflect.
+	var pm3 = PM.new()
+	pm3.grant_next_hit_bonus(0.2)
+	_chk("next-hit bonus consume 0.2", is_equal_approx(pm3.consume_next_hit_bonus(), 0.2))
+	_chk("next-hit bonus one-shot", is_equal_approx(pm3.consume_next_hit_bonus(), 0.0))
+	pm3.begin_channel(1.0)
+	_chk("channel active", pm3.is_channeling())
+	var atk = EN.new()
+	var atk_hp0 := float(atk.hp)
+	pm3.enter_sentinel(0.5, 4.0, 0.4)
+	pm3.take_damage(100.0, atk)
+	_chk("Sentinel reflects 40% to attacker", is_equal_approx(float(atk.hp), atk_hp0 - 40.0))
+	atk.free()
+	pm3.free()
+
+	# 8) Bloodlust HP-scale (AB-105) — rage scales with missing HP (≈half at 50%, full near death).
+	var en2 = EN.new()
+	en2.bloodlust_dmg_mult = 1.3   # MAX rage (at 0 HP)
+	en2.apply_outcome("Bloodlust", 999.0)
+	en2.hp = en2.max_hp * 0.5      # 50% missing → ~15% dmg bonus (half of 30%)
+	var half_mult := float(en2.contact_damage_mult())
+	en2.hp = en2.max_hp * 0.01     # ~100% missing → ~full 30% bonus
+	var low_mult := float(en2.contact_damage_mult())
+	_chk("Bloodlust scales with missing HP", half_mult > 1.0 and low_mult > half_mult)
+	en2.free()
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 
