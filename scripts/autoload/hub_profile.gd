@@ -6,14 +6,22 @@ extends Node
 
 const FACILITY_IDS := ["barracks", "stash", "scriptorium", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"]
 # 영속 = SaveProfile 단일 파일(user://save.json)의 "hub" 섹션 (구 user://hub_profile.json은 1회 마이그레이션).
+# Skillbook economy (F-009 §3.5 / D-018 §7.1) — 분석 의뢰 N=3 → 상점 해금; 생본 가격 ward_scrap/tier.
+const ANALYSIS_REQUIRED := 3
+const SHOP_PRICE := {"Basic": 12, "Advanced": 30, "Master": 60}   # ward_scrap, D-018 §7.1
+const TIER_RANK := {"Basic": 1, "Advanced": 2, "Master": 3}       # vs shop_tier_ceiling (scribe_shop Tier)
 
 signal facilities_changed()
 signal vault_changed()
+signal economy_changed()   # analysis progress / shop unlock / ward_scrap changed (UI-029 후속)
 
 var facilities: Dictionary = {}        # facilityId -> facilityTier (int, ≥0)
 var hub_haul_vault: Dictionary = {}    # haulMaterialId -> qty (Safe only)
 var quest_completed: Dictionary = {}   # questId -> bool
 var enc_cleared: Dictionary = {}       # encounterId -> true (런 이벤트 퀘스트 판정용, B4)
+var analysis_progress: Dictionary = {} # baseAbilityId -> 분석 의뢰 누적 횟수 (Safe meta, F-009 §3.5)
+var shop_listing_unlocked: Dictionary = {}  # baseAbilityId -> bool (progress >= ANALYSIS_REQUIRED)
+var ward_scrap: int = 0                # 상점 통화 (D-018 §7.1 placeholder); 추출 성공 시 획득
 var persist: bool = true               # false면 디스크 저장/로드 skip (테스트 인스턴스용 — 실 save 미오염)
 var _q_dirty: bool = false
 
@@ -40,6 +48,9 @@ func to_dict() -> Dictionary:
 		"hub_haul_vault": hub_haul_vault,
 		"quest_completed": quest_completed,
 		"enc_cleared": enc_cleared,
+		"analysis_progress": analysis_progress,
+		"shop_listing_unlocked": shop_listing_unlocked,
+		"ward_scrap": ward_scrap,
 	}
 
 
@@ -58,6 +69,9 @@ func apply_dict(d: Dictionary) -> void:
 	hub_haul_vault = d.get("hub_haul_vault", {})
 	quest_completed = d.get("quest_completed", {})
 	enc_cleared = d.get("enc_cleared", {})
+	analysis_progress = d.get("analysis_progress", {})
+	shop_listing_unlocked = d.get("shop_listing_unlocked", {})
+	ward_scrap = int(d.get("ward_scrap", 0))
 
 
 ## 테스트/디버그 — 허브 메타(시설 Tier/vault/퀘스트/ENC clear)를 초기 상태로 초기화.
@@ -66,10 +80,14 @@ func reset_to_seed() -> void:
 	hub_haul_vault = {}
 	quest_completed = {}
 	enc_cleared = {}
+	analysis_progress = {}
+	shop_listing_unlocked = {}
+	ward_scrap = 0
 	for f in FACILITY_IDS:
 		facilities[f] = 0
 	vault_changed.emit()
 	facilities_changed.emit()
+	economy_changed.emit()
 	save_profile()
 
 
@@ -208,3 +226,66 @@ func can_analyze() -> bool:
 
 func shop_tier_ceiling() -> int:
 	return facility_tier("scribe_shop")   # 0=locked, 1=Basic, 2=Advanced
+
+
+# --- Skillbook economy (F-009 §3.5 / D-018 §7.1) ----------------------------------------------
+
+## Submit a skillbook for analysis (caller consumes the instance): +1 progress, unlock at N=3.
+## Returns {ok, progress, unlocked, reason}. Rejects if scriptorium locked / already unlocked
+## (no duplicate burn, F-009 §3.5). Safe meta — survives death.
+func submit_analysis(base_id: String) -> Dictionary:
+	if base_id.is_empty():
+		return {"ok": false, "reason": "invalid"}
+	if not can_analyze():
+		return {"ok": false, "reason": "facility"}        # scriptorium Tier 1 needed
+	if is_shop_unlocked(base_id):
+		return {"ok": false, "reason": "already_unlocked"} # 해금 후 의뢰 거부
+	var p := int(analysis_progress.get(base_id, 0)) + 1
+	analysis_progress[base_id] = p
+	var unlocked: bool = p >= ANALYSIS_REQUIRED
+	if unlocked:
+		shop_listing_unlocked[base_id] = true
+	economy_changed.emit()
+	save_profile()
+	return {"ok": true, "progress": p, "unlocked": unlocked, "reason": "ok"}
+
+
+func analysis_count(base_id: String) -> int:
+	return int(analysis_progress.get(base_id, 0))
+
+
+func is_shop_unlocked(base_id: String) -> bool:
+	return bool(shop_listing_unlocked.get(base_id, false))
+
+
+func scrap() -> int:
+	return ward_scrap
+
+
+## Grant ward_scrap (extraction reward / sale). No-op for ≤0.
+func add_scrap(n: int) -> void:
+	if n <= 0:
+		return
+	ward_scrap += n
+	economy_changed.emit()
+	save_profile()
+
+
+func shop_price(tier: String) -> int:
+	return int(SHOP_PRICE.get(tier, 999))
+
+
+## Buy a Raw (affix-less) skillbook of `base_id` (default Basic). Gated by unlock + scribe_shop Tier
+## ceiling + ward_scrap. Spends scrap on success; the CALLER grants the instance. {ok, reason, cost}.
+func buy_raw(base_id: String, tier: String = "Basic") -> Dictionary:
+	if not is_shop_unlocked(base_id):
+		return {"ok": false, "reason": "locked", "cost": 0}
+	if int(TIER_RANK.get(tier, 9)) > shop_tier_ceiling():
+		return {"ok": false, "reason": "tier_ceiling", "cost": shop_price(tier)}
+	var cost := shop_price(tier)
+	if ward_scrap < cost:
+		return {"ok": false, "reason": "scrap", "cost": cost}
+	ward_scrap -= cost
+	economy_changed.emit()
+	save_profile()
+	return {"ok": true, "reason": "ok", "cost": cost}

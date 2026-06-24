@@ -45,6 +45,23 @@ func _init() -> void:
 	_expect(sd.get_haul_drops("ENC-NORM-001").size() == 2, "haul_drops NORM-001 = 2행")
 	_expect(not sd.get_haul_drops("ENC-BOSS-001").is_empty(), "haul_drops BOSS-001 존재")
 
+	# F-009 §3.5 / D-018 §7.1 — Skillbook economy: 분석(N=3)→해금→상점 구매(ward_scrap).
+	_expect(String(hp.submit_analysis("AB-037").get("reason", "")) == "facility", "분석 — scriptorium 잠김 거부")
+	hp.facilities["scriptorium"] = 1   # 테스트: scriptorium T1 (분석 가능)
+	var r1: Dictionary = hp.submit_analysis("AB-037")
+	_expect(bool(r1.get("ok", false)) and int(r1.get("progress", 0)) == 1 and not bool(r1.get("unlocked", false)), "분석 1/3")
+	hp.submit_analysis("AB-037")
+	var r3: Dictionary = hp.submit_analysis("AB-037")
+	_expect(bool(r3.get("unlocked", false)) and hp.is_shop_unlocked("AB-037"), "분석 3/3 → 해금")
+	_expect(String(hp.submit_analysis("AB-037").get("reason", "")) == "already_unlocked", "해금 후 의뢰 거부")
+	_expect(String(hp.buy_raw("AB-037").get("reason", "")) == "tier_ceiling", "상점 — scribe_shop 잠김 차단")
+	hp.facilities["scribe_shop"] = 1   # 테스트: scribe_shop T1 (Basic 판매)
+	_expect(String(hp.buy_raw("AB-037").get("reason", "")) == "scrap", "상점 — scrap 부족 차단")
+	hp.add_scrap(30)
+	var buy: Dictionary = hp.buy_raw("AB-037")
+	_expect(bool(buy.get("ok", false)) and hp.scrap() == 18, "Basic 구매 -12 scrap (30→18)")
+	_expect(String(hp.buy_raw("AB-099").get("reason", "")) == "locked", "미해금 base 구매 차단")
+
 	hp.free()
 	if _ok:
 		print("HUB SMOKE PASSED")

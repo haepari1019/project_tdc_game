@@ -456,3 +456,10 @@
 - **Phase 2a(완료) — 파티 데미지 어빌리티 분류 + VFX 승격:** sb_fire/sb_cold도 `cast()`/`resolve_at()` 분리. `delivery:projectile` 부여 = bolt(003/004/008/055/056/058/059/073)·fire(037/053)·cold(041 Glacial Bolt). **instant 유지**: Hailstorm(072 비)·zone 설치·self/aura·melee·CC/utility(지면/대상 즉발). 투사체 비주얼 element 틴트(`proj_color`: 화염 주황·냉기 cyan·void 보라·lightning 자동 blue). 호밍 VFX→실엔티티 승격(투사체가 곧 비주얼).
 - **Phase 2b(완료) — 적 샷 interception (RP-02 정방향):** 적 RANGED 히트(`_apply_enemy_hit`, dist>3m)가 시전자→표적 사이 벽/**파티 Rampart**에 막히면 무효(`_shot_blocked` raycast, world layer; 파티 Rampart=`absorb_projectile`). **homing-locked 유지**(공정성 — 파티 AI 회피 불가라 적중 보장은 그대로, 기하만 차단). 적 샷을 실엔티티(회피가능)로 만들지 **않음**(의도적 — locked 설계 보존). → **내 Rampart/엄폐물이 적 누커 샷을 막는다.**
 - **이연(후속):** range 클램프·pierce·AoE-projectile의 벽 폭발(현 fizzle)·적 샷 VFX가 차단 시 벽까지만 날아가게(현재 호밍 VFX는 차단돼도 끝까지 날아가는 비주얼만 — 데미지는 정확히 차단). 적 진짜 탄도(회피가능)는 비채택(locked 설계).
+
+### DRIFT-060 — P2-S6b 스킬북 economy 1a: 분석/상점/ward_scrap (통화 source·tier만 데모) 🔶 impl/tuning
+- **구현(F-009 §3.5 / D-018 §7.1):** HubProfile에 `analysis_progress`·`shop_listing_unlocked`·`ward_scrap` + 메서드 — `submit_analysis`(N=3→해금, 해금 후 거부, scriptorium T1 게이트)·`buy_raw`(해금+scribe_shop Tier ceiling+scrap 차감)·`add_scrap`. 가격 ward_scrap Basic 12/Adv 30/Master 60(스펙 정확). Safe meta(SaveProfile 영속).
+- **starter 스킬북 정렬(F-009 §3.1.1):** Backpack 시드 = 구 데모 Ember(AB-037) → 스펙 스타터(Tank AB-033·DPS AB-028·Nuker AB-030·Healer AB-044+045). 신규 프로필/리셋 시 적용.
+- **데모 근사(tuning, 로깅만):** ① **ward_scrap source** = 추출 성공 시 `15 + 생존자×5`(D-018 §7은 통화·가격만 정의, 획득 source 미지정 → 데모 보상값). ② 상점 생본 tier = 데모상 **Basic 기본**(per-AB abilityTier 데이터 미보유 → Advanced/Master는 loot 경로; tier 데이터 후속). ③ affix·gear roll-table = **미구현(고위험 게이트 이연)**.
+- **분류\전파:** impl + tuning. 통화·해금 N·가격·게이트는 spec(F-009/D-018) 그대로 → 규칙 드리프트 없음; source 수치만 데모. UI(분석/상점 패널) = **1b 후속**(F5).
+- **검증:** hub_smoke(분석 1/3·3/3 해금·해금 후 거부·scribe_shop 잠김 차단·scrap 부족·Basic 구매 −12·미해금 차단) PASS.

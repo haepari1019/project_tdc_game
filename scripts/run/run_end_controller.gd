@@ -101,6 +101,11 @@ func _settle_extraction() -> void:
 			casualties.append(String(m.class_id))   # ExtractCasualty (§3.0)
 		else:
 			survivors.append(String(m.class_id))
+	# ward_scrap 획득 (F-009 상점 통화 / D-018 §7.1) — 추출 성공 보상. base + 생존자당(데모 근사;
+	# 스펙은 source 미지정 → SPEC_DRIFT 로깅). 허브 상점 생본 구매 재화.
+	var hp_eco := get_node_or_null("/root/HubProfile")
+	if hp_eco != null and hp_eco.has_method("add_scrap"):
+		hp_eco.add_scrap(15 + survivors.size() * 5)
 	var safe_items := _collect_at_risk()             # At-Risk → Safe (전량, §3.6.1)
 	_inv.mark_run_inventory_safe()
 	if _inv.has_method("commit_loose_to_backpack"):

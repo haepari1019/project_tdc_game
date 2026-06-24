@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260623-020 — P2-S6b 스킬북 economy 1a (분석→해금→상점, ward_scrap) + 시드 정렬
+- **결정:** S6b를 **1a(economy 상태·로직, 헤드리스 검증) → 1b(허브 UI)**로 분할. **gear roll-table·affix는 고위험 게이트라 이연**([[refactor-risk-preference]]·ROADMAP §6). 1a = F-009 §3.5/D-018 §7.1 메타 루프를 HubProfile에 구현: 분석 의뢰(N=3·scriptorium 게이트·해금 후 거부) → `shop_listing_unlocked` → `buy_raw`(scribe_shop Tier ceiling + ward_scrap 차감). 가격 Basic 12/Adv 30/Master 60(스펙). + Backpack 시드를 F-009 §3.1.1 스타터(AB-033/028/030/044/045)로 정렬(구 Ember 대체).
+- **데모 결정(SPEC_DRIFT DRIFT-060):** ① ward_scrap source = 추출 `15+생존자×5`(스펙 source 미지정). ② 상점 tier=Basic 기본(per-AB tier 데이터 미보유). 둘 다 tuning.
+- **이유:** 로직 먼저(hub_smoke로 검증) + UI 후속 = P2-S4 Hub 패턴 동일. economy 통화/해금/가격은 spec 그대로(드리프트 없음). gear roll-table은 loot/extraction 메타 리팩터라 단독 결정.
+- **검증:** hub_smoke 7 assertion(분석·해금·구매·차단) + ci_smoke PASS.
+- **영향:** `hub_profile.gd`(economy state+methods) · `run_end_controller.gd`(추출 scrap 그랜트) · `backpack.gd`(스타터 시드) · `tools/hub_smoke.gd`.
+
 ### IMPL-DEC-20260623-019 — 투사체 Phase 2 (2a 파티 분류·VFX 승격 / 2b 적 샷 interception)
 - **결정:** Phase 1 증명 후 투사체 시스템 확장. **2a(저위험)**: sb_fire/sb_cold도 `cast()`/`resolve_at()` 분리, 파티 데미지 어빌리티 10종에 `delivery:projectile` 부여(bolt 8 + fire 2 + Glacial cold) — 지면 AoE 설치/self/aura/melee/CC는 instant 유지. 투사체 element 틴트(`proj_color`). **2b(적 샷)**: 적 RANGED 히트가 벽/파티 Rampart에 막히면 무효(`_shot_blocked` raycast world layer) → **내 벽이 적 누커 샷을 막음(RP-02 정방향)**.
 - **이유:** 2a는 데이터+effect 분리(AI 무관, 저위험). 2b는 **homing-locked 유지 + 기하 차단**만 — 적 샷을 실엔티티(회피가능)로 만들면 파티 AI가 회피 못 해 손해 + locked 가독성 설계 뒤집힘 → raycast interception이 정답(공정성 보존 + 벽 차단 획득).

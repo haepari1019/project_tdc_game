@@ -3,7 +3,7 @@
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`. 실행 로드맵: [docs/ROADMAP_P2_FullCoverage.md](docs/ROADMAP_P2_FullCoverage.md).
 
 - spec_ref_pin: `bc22c38` (`main`, 2026-06-22; 제3세력 Stalker Pack 전파 DEC-20260621-001)
-- last_sprint: **P2-S6a 파티 능력 풀 lootable 완료** — lootable sub 44종 + 신규 effect kind 18종. B1 잔여 + 밴드 패널티(sub_bands) + ally-cache + B2 데미지 sub 19 + **bespoke 5종(taunt/pull/slow/relocate/reveal)** 완료. 이전: P2-S5a 진영전+제3세력 · P2-S6a Phase1 · 기어 카탈로그(DRIFT-056). **메타세이브 I1–I5 완료** + **이연 능력 디테일**(Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale) 완료. **투사체 delivery 시스템 Phase 1+2**(범용 projectile·진영필터 + 파티 데미지 10종 projectile + 적 ranged 샷 interception=내 Rampart가 적 샷 차단 RP-02, DRIFT-059·IMPL-DEC-018/019). **다음: S6b 본격(shop/드롭표·gear roll-table·affix·UI) 또는 S5b(Encounter Variety)**
+- last_sprint: **P2-S6a 파티 능력 풀 lootable 완료** — lootable sub 44종 + 신규 effect kind 18종. B1 잔여 + 밴드 패널티(sub_bands) + ally-cache + B2 데미지 sub 19 + **bespoke 5종(taunt/pull/slow/relocate/reveal)** 완료. 이전: P2-S5a 진영전+제3세력 · P2-S6a Phase1 · 기어 카탈로그(DRIFT-056). **메타세이브 I1–I5 완료** + **이연 능력 디테일**(Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale) 완료. 투사체 delivery Phase 1+2(범용 projectile·진영필터 + 파티 10종 + 적 샷 interception RP-02). **P2-S6b-1a 시작**: 스킬북 economy 로직(분석 N=3→해금→상점 buy_raw·ward_scrap, F-009/D-018) + 스타터 시드 정렬(§3.1.1), hub_smoke 검증. **다음: S6b-1b(분석/상점 허브 UI) → gear roll-table(고위험 게이트)·affix 또는 S5b**
 - last_updated: 2026-06-23
 
 ## Full Spec Coverage — AB-### 스냅샷 (2026-06-23 갱신)
@@ -35,6 +35,7 @@
 | P2-S6a 파티풀 | ✅ lootable 완료 | lootable sub **44종** + 신규 effect kind **18종**. B1(12) + **B2 데미지 19**(skillbook_bolt 8 + 재사용 11) + **bespoke 5**(taunt AB-035·pull AB-051·slow AB-050·relocate_ally AB-045·reveal AB-032). **밴드 패널티**(`sub_bands`+BAND_COEFF) · **ally-cache 상자**(RM-ADV-01). `party_pool_smoke.gd`(전 kind 커버 + 디테일 거동) + ci_smoke PASS. **능력 디테일 해결**(Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale, IMPL-DEC-017). **잔여 BLOCKED**: Rampart 투사체흡수(투사체 엔티티 부재)·Tether leash-DoT. 13cb343·5103b68·3859579·644c29e(I5)·(디테일 미커밋). DRIFT-055/056/057/058·IMPL-DEC-013~017. |
 | 기어 카탈로그 | ☑ | 17 신규 기어·6 정체성·6 ability effect(beacon_threat/march_advance/sentinel_form/arc_line/flank_dash/ward_shield)·기어귀속 평타(D-019)·평타 VFX 8종·샌드박스 검증툴 (DRIFT-056). |
 | 메타세이브 B | ✅ I1–I5 | SaveProfile 단일파일·Backpack 오토로드·낱개/장착서브/소비/장착기어 영속·재료 금고 일원화·스태시/금고 편집창. **I5**: RunLoadout config 전용(죽은 인벤 필드 제거)·서브 **충전수 영속**(부분소모 런간 유지). 완전 Backpack화는 기존 가드/동기화로 이미 도달. IMPL-DEC-016. |
+| P2-S6b-1a | ◐ | 스킬북 economy 로직(F-009 §3.5/D-018 §7.1): HubProfile 분석 의뢰(N=3·scriptorium 게이트·해금 후 거부)→해금→`buy_raw`(scribe_shop tier ceiling+ward_scrap Basic12/Adv30/Master60). ward_scrap=추출 보상(15+생존자×5, 데모). 스타터 시드 §3.1.1 정렬(Ember→AB-033/028/030/044/045). hub_smoke 7 assertion PASS. **잔여**: 1b 분석/상점 UI·tier 데이터·affix·gear roll-table(게이트). DRIFT-060·IMPL-DEC-020. |
 
 ## P2-S2 checklist (combat redesign)
 

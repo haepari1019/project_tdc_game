@@ -37,10 +37,14 @@ func _seed() -> void:
 	if _seeded:
 		return
 	_seeded = true
-	# loose carry seed = the demo starting kit. ONLY functional items now (no generic filler):
-	# lootable skillbook + revive consumable. Gear lives in equipped; haul drops in-run. (사용자 요청)
+	# F-009 §3.1.1 Hub Starter Skillbooks (StarterGrant) — 역할별 핵심 유틸 1권(Healer 2권), 분석 불요·
+	# 즉시 장착 가능. + 부활 소비. Gear는 equipped, haul은 런 중 드롭. (구 데모 Ember 스타터 → 스펙 정렬)
 	loose = [
-		{"id": "Ember Lance", "kind": "skillbook", "base_ability_id": "AB-037", "charges": 8, "charges_max": 8, "w": 1, "h": 1, "at_risk": true},
+		{"id": "Intercept Step", "kind": "skillbook", "base_ability_id": "AB-033", "charges": 6, "charges_max": 6, "w": 1, "h": 1, "at_risk": true},
+		{"id": "Guard Break Rhythm", "kind": "skillbook", "base_ability_id": "AB-028", "charges": 8, "charges_max": 8, "w": 1, "h": 1, "at_risk": true},
+		{"id": "Voltaic Interrupt", "kind": "skillbook", "base_ability_id": "AB-030", "charges": 6, "charges_max": 6, "w": 1, "h": 1, "at_risk": true},
+		{"id": "Hush Ward", "kind": "skillbook", "base_ability_id": "AB-044", "charges": 6, "charges_max": 6, "w": 1, "h": 1, "at_risk": true},
+		{"id": "Lifeline", "kind": "skillbook", "base_ability_id": "AB-045", "charges": 5, "charges_max": 5, "w": 1, "h": 1, "at_risk": true},
 		{"id": "con_revive_scroll", "kind": "consumable", "consumable_id": "con_revive_scroll", "count": 3, "w": 1, "h": 1},
 	]
 	# Worn starter Identity Gear per role (F-008 §3.7). Gear lives in equipped (Safe on death),
