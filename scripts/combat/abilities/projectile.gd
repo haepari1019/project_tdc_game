@@ -49,7 +49,14 @@ func _build_visual() -> void:
 	s.radius = 0.20
 	s.height = 0.40
 	mi.mesh = s
-	var col: Color = Color(0.62, 0.84, 1.0) if bool(_params.get("lightning", false)) else Color(1.0, 0.78, 0.4)
+	var col: Color
+	if _params.has("proj_color"):                                    # explicit element tint (fire/cold/void)
+		var a: Array = _params["proj_color"]
+		col = Color(float(a[0]), float(a[1]), float(a[2])) if a.size() >= 3 else Color(0.85, 0.9, 1.0)
+	elif bool(_params.get("lightning", false)):
+		col = Color(0.62, 0.84, 1.0)                                 # electric blue
+	else:
+		col = Color(1.0, 0.78, 0.4)                                  # default warm
 	_mat = StandardMaterial3D.new()
 	_mat.albedo_color = col
 	_mat.emission_enabled = true

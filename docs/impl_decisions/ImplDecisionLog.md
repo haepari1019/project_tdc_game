@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260623-019 — 투사체 Phase 2 (2a 파티 분류·VFX 승격 / 2b 적 샷 interception)
+- **결정:** Phase 1 증명 후 투사체 시스템 확장. **2a(저위험)**: sb_fire/sb_cold도 `cast()`/`resolve_at()` 분리, 파티 데미지 어빌리티 10종에 `delivery:projectile` 부여(bolt 8 + fire 2 + Glacial cold) — 지면 AoE 설치/self/aura/melee/CC는 instant 유지. 투사체 element 틴트(`proj_color`). **2b(적 샷)**: 적 RANGED 히트가 벽/파티 Rampart에 막히면 무효(`_shot_blocked` raycast world layer) → **내 벽이 적 누커 샷을 막음(RP-02 정방향)**.
+- **이유:** 2a는 데이터+effect 분리(AI 무관, 저위험). 2b는 **homing-locked 유지 + 기하 차단**만 — 적 샷을 실엔티티(회피가능)로 만들면 파티 AI가 회피 못 해 손해 + locked 가독성 설계 뒤집힘 → raycast interception이 정답(공정성 보존 + 벽 차단 획득).
+- **대안(기각):** 적 샷도 진짜 탄도 투사체 → 회피 AI 없는 AI파티엔 손해, locked 설계 반전. 비채택.
+- **이연:** range 클램프·pierce·AoE 투사체 벽 폭발(현 fizzle)·차단 시 적 호밍 VFX가 끝까지 날아가는 비주얼(데미지는 정확히 차단). threat-on-hit.
+- **검증:** ci_smoke + party_pool_smoke(진영필터·delivery flag) + 샌드박스 부팅. 충돌/차단 실거동 = F5(샌드박스 Rampart 테스트 — 적 벽 흡수·내 벽 통과; 적 ranged는 ENC 스폰 후 내 Rampart로 막기).
+- **영향:** `effects/sb_fire.gd`·`sb_cold.gd`(cast/resolve_at) · `projectile.gd`(proj_color) · `skillbooks.json`(10 delivery flag) · `enemy_ai.gd`(_shot_blocked + _apply_enemy_hit 가드).
+
 ### IMPL-DEC-20260623-018 — 어빌리티 전달(delivery) 축 + 투사체 시스템 (Phase 1 증명)
 - **결정(사용자 설계):** 어빌리티를 모양(범위/단일)이 아니라 **전달 방식**으로 분류 — `delivery ∈ {instant, projectile}` × payload(단일/범위/존…) 직교. `projectile`만 이동·충돌·차단(벽/Rampart 흡수)을 가짐. 통제자(플레이어/AI)는 조준만 다르고 전달 물리는 동일.
 - **아키텍처:** ① 범용 `projectile.gd` — segment-raycast(prev→next, 터널링 방지) 이동, 첫 충돌: Rampart(group)→`absorb_projectile`, 벽(world)→불발, 적유닛/도달점→`effect.resolve_at()` 콜백. hit mask=시전자 진영 제외(아군→world|enemy, 적→world|party; Rampart=world layer 1이라 양쪽 차단). ② effect를 `cast()`(분기: instant→즉시 resolve_at / projectile→`ctx.spawn_projectile(self,…)`) + `resolve_at(caster,center,params,ctx)`(공유 판정)로 분리 → 즉발·투사체가 동일 게임플레이 코드. ③ params는 투사체가 `duplicate()` 스냅샷(전이 `_coeff` 포착).

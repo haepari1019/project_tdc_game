@@ -34,7 +34,7 @@
       "sub_bands": { "Nuker": "B1" },
       "range_band": "Mid",
       "charges_max": 8,
-      "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 12, "radius_m": 3.0, "damage_mult": 1.8 }
+      "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 12, "radius_m": 3.0, "damage_mult": 1.8, "delivery": "projectile", "speed_mps": 20.0, "proj_color": [1.0, 0.5, 0.15] }
     },
 
     {
@@ -77,14 +77,14 @@
       "base_ability_id": "AB-041", "display_name": "Glacial Bolt", "equip_classes": ["DPS", "Nuker"],
       "sub_bands": { "DPS": "B2" },
       "range_band": "Long", "charges_max": 8,
-      "cast": { "kind": "skillbook_cold", "cooldown_s": 5.5, "targeted": true, "range_m": 12, "radius_m": 2.0, "damage_mult": 1.2, "chill_dur_s": 3.0 }
+      "cast": { "kind": "skillbook_cold", "cooldown_s": 5.5, "targeted": true, "range_m": 12, "radius_m": 2.0, "damage_mult": 1.2, "chill_dur_s": 3.0, "delivery": "projectile", "speed_mps": 22.0, "proj_color": [0.6, 0.9, 1.0] }
     },
 
     {
       "base_ability_id": "AB-053", "display_name": "Searing Volley", "equip_classes": ["DPS", "Nuker"],
       "sub_bands": { "Nuker": "B2" },
       "range_band": "Mid", "charges_max": 8,
-      "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 9, "radius_m": 2.6, "damage_mult": 1.2 }
+      "cast": { "kind": "skillbook_fire", "cooldown_s": 5, "targeted": true, "range_m": 9, "radius_m": 2.6, "damage_mult": 1.2, "delivery": "projectile", "speed_mps": 20.0, "proj_color": [1.0, 0.5, 0.15] }
     },
     {
       "base_ability_id": "AB-049", "display_name": "Ground Pound", "equip_classes": ["Tank", "Nuker"],
@@ -193,13 +193,13 @@
       "base_ability_id": "AB-003", "display_name": "Arc Bolt Volley", "equip_classes": ["DPS", "Nuker"],
       "sub_bands": { "Nuker": "B1" },
       "range_band": "Mid", "charges_max": 10,
-      "cast": { "kind": "skillbook_bolt", "cooldown_s": 2, "targeted": true, "range_m": 11, "radius_m": 1.6, "damage_mult": 1.0, "lightning": true, "shock_s": 2.0 }
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 2, "targeted": true, "range_m": 11, "radius_m": 1.6, "damage_mult": 1.0, "lightning": true, "shock_s": 2.0, "delivery": "projectile", "speed_mps": 24.0 }
     },
     {
       "base_ability_id": "AB-004", "display_name": "Charged Voltaic Shot", "equip_classes": ["Nuker", "DPS"],
       "sub_bands": { "DPS": "B3" },
       "range_band": "Long", "charges_max": 6,
-      "cast": { "kind": "skillbook_bolt", "cooldown_s": 5, "targeted": true, "range_m": 14, "radius_m": 1.2, "damage_mult": 2.0, "lightning": true, "shock_s": 2.0 }
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 5, "targeted": true, "range_m": 14, "radius_m": 1.2, "damage_mult": 2.0, "lightning": true, "shock_s": 2.0, "delivery": "projectile", "speed_mps": 26.0 }
     },
     {
       "base_ability_id": "AB-005", "display_name": "Melee Flurry", "equip_classes": ["Nuker"],
@@ -221,7 +221,7 @@
       "base_ability_id": "AB-008", "display_name": "Slag Spit", "equip_classes": ["DPS", "Nuker"],
       "sub_bands": { "Nuker": "B1" },
       "range_band": "Mid", "charges_max": 10,
-      "cast": { "kind": "skillbook_bolt", "cooldown_s": 2.5, "targeted": true, "range_m": 10, "radius_m": 2.0, "damage_mult": 0.8 }
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 2.5, "targeted": true, "range_m": 10, "radius_m": 2.0, "damage_mult": 0.8, "delivery": "projectile", "speed_mps": 16.0 }
     },
     {
       "base_ability_id": "AB-012", "display_name": "Hex Bolt", "equip_classes": ["Healer", "Nuker"],
@@ -254,7 +254,7 @@
       "base_ability_id": "AB-055", "display_name": "Scatter Shot", "equip_classes": ["DPS", "Nuker"],
       "sub_bands": { "Nuker": "B2" },
       "range_band": "Mid", "charges_max": 8,
-      "cast": { "kind": "skillbook_bolt", "cooldown_s": 4, "targeted": true, "range_m": 9, "radius_m": 2.6, "damage_mult": 1.2 }
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 4, "targeted": true, "range_m": 9, "radius_m": 2.6, "damage_mult": 1.2, "delivery": "projectile", "speed_mps": 20.0 }
     },
     {
       "base_ability_id": "AB-056", "display_name": "Longshot Bolt", "equip_classes": ["Nuker", "DPS"],
@@ -266,13 +266,13 @@
       "base_ability_id": "AB-058", "display_name": "Arc Detonation", "equip_classes": ["Nuker", "DPS"],
       "sub_bands": { "Nuker": "B2", "DPS": "B1" },
       "range_band": "Mid", "charges_max": 5,
-      "cast": { "kind": "skillbook_bolt", "cooldown_s": 8, "targeted": true, "range_m": 10, "radius_m": 3.0, "damage_mult": 2.5, "lightning": true, "shock_s": 2.0 }
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 8, "targeted": true, "range_m": 10, "radius_m": 3.0, "damage_mult": 2.5, "lightning": true, "shock_s": 2.0, "delivery": "projectile", "speed_mps": 18.0 }
     },
     {
       "base_ability_id": "AB-059", "display_name": "Void Lance", "equip_classes": ["Nuker", "DPS"],
       "sub_bands": { "DPS": "B2" },
       "range_band": "Long", "charges_max": 5,
-      "cast": { "kind": "skillbook_bolt", "cooldown_s": 9, "targeted": true, "range_m": 15, "radius_m": 1.2, "damage_mult": 4.0 }
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 9, "targeted": true, "range_m": 15, "radius_m": 1.2, "damage_mult": 4.0, "delivery": "projectile", "speed_mps": 28.0, "proj_color": [0.7, 0.4, 0.95] }
     },
     {
       "base_ability_id": "AB-060", "display_name": "Rupture Strike", "equip_classes": ["Nuker"],
@@ -288,7 +288,7 @@
       "base_ability_id": "AB-073", "display_name": "Overcharge", "equip_classes": ["Nuker", "DPS"],
       "sub_bands": { "DPS": "B2" },
       "range_band": "Long", "charges_max": 5,
-      "cast": { "kind": "skillbook_bolt", "cooldown_s": 10, "targeted": true, "range_m": 15, "radius_m": 1.4, "damage_mult": 3.5, "lightning": true, "shock_s": 2.0 }
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 10, "targeted": true, "range_m": 15, "radius_m": 1.4, "damage_mult": 3.5, "lightning": true, "shock_s": 2.0, "delivery": "projectile", "speed_mps": 24.0 }
     },
     {
       "base_ability_id": "AB-074", "display_name": "Guardian Oath", "equip_classes": ["Tank"],

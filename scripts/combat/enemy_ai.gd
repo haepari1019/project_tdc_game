@@ -866,6 +866,12 @@ func _on_shot_arrived(enemy, target, eff: Dictionary, chosen: Dictionary) -> voi
 func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
 	var kind := String(eff.get("kind", "enemy_melee"))
 	var from := enemy.global_position
+	# RP-02 / DRIFT-059 Phase 2b — RANGED shot interception: a wall or PARTY Rampart on the line to
+	# the target blocks the shot (homing stays LOCKED for fairness; only geometry blocks it). Melee
+	# range (≤ RANGED_BLOCK_MIN_M) is exempt — no room for a wall between adjacent units.
+	if from.distance_to(target.global_position) > RANGED_BLOCK_MIN_M and _shot_blocked(from, target.global_position, enemy):
+		print("[EN] %s ranged shot blocked (wall/Rampart)" % enemy.enemy_id)
+		return
 	# Multi-hit rom_* (voltaic double / melee flurry / flank stab) fold into one resolved total
 	# for now (true sequential hits = S2b polish). hits defaults 1.
 	var hits: int = maxi(1, int(eff.get("hits", 1)))
@@ -939,6 +945,37 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	if kind == "enemy_execute" and enemy.assassin:
 		enemy.assassin_revealed = true  # disguise dropped after the execute lands
 		print("[EN] %s ASSASSIN execute (x%.1f) -> %s" % [enemy.enemy_id, float(eff.get("damage_mult", 1.0)), _tname(target)])
+
+
+## Below this distance a hit is melee — no shot interception (no room for a wall between units).
+const RANGED_BLOCK_MIN_M := 3.0
+
+## True if a wall or HOSTILE Rampart lies on the segment attacker→target (the enemy ranged shot is
+## blocked). A PARTY Rampart absorbs the shot here (RP-02 정방향). Owner's-own-team Ramparts are
+## skipped. Raycasts the WORLD layer only (1 = walls + Rampart; units on 2/4 are ignored). DRIFT-059.
+func _shot_blocked(from: Vector3, to: Vector3, attacker) -> bool:
+	if not (attacker is Node3D):
+		return false
+	var a := from + Vector3(0, 0.8, 0)
+	var b := to + Vector3(0, 0.8, 0)
+	var space := (attacker as Node3D).get_world_3d().direct_space_state
+	var exclude: Array[RID] = []
+	for _i in 6:
+		var q := PhysicsRayQueryParameters3D.create(a, b, 1)   # world layer = walls + Rampart
+		q.exclude = exclude
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			return false
+		var c = hit.collider
+		if c != null and c.is_in_group("rampart_barrier"):
+			if c.has_method("blocks_projectile_from") and not c.blocks_projectile_from(attacker):
+				exclude.append(c.get_rid())    # owner's own team → pass through
+				continue
+			if c.has_method("absorb_projectile"):
+				c.absorb_projectile()           # party Rampart soaks the enemy shot (RP-02)
+			return true
+		return true                             # a world wall blocks the shot
+	return false
 
 
 func _telegraph_color(kind: String) -> Color:
