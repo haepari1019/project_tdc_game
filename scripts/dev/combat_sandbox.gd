@@ -321,6 +321,13 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	torch_btn.pressed.connect(_on_lay_torch)
 	box.add_child(torch_btn)
 
+	# --- RAMPART (투사체 delivery 흡수 테스트, DRIFT-059) — 앞에 벽 + 북쪽 적 + Q/E 로드아웃 세팅 ---
+	box.add_child(_section("RAMPART (투사체 흡수 테스트)"))
+	var rampart_btn := Button.new()
+	rampart_btn.text = "Rampart 테스트 (Q=벽 / E=Longshot 투사체)"
+	rampart_btn.pressed.connect(_on_rampart_test)
+	box.add_child(rampart_btn)
+
 	# --- GEAR SWAP (F-008) — pick a gear → equips onto its matching-role member (REAL equip_gear:
 	# gear → bundled identity → stats/skill), setting BOTH 평타+identity to the gear defaults. Pick
 	# (none) to UNEQUIP the controlled member so 평타/Identity below can be chosen independently.
@@ -518,6 +525,32 @@ func _on_lay_torch() -> void:
 	if t.has_method("setup"):
 		t.setup(_combat)  # wires ignite_at so the thrown torch lands as FireDamageHit
 	_status.text = "Torch laid @ north — spawn ENC-PAT-003 (dormant) + 접근 → EN-010 픽업/투척"
+
+
+## Projectile delivery test (DRIFT-059 Phase 1): set up a Rampart wall + a north target + the Q/E
+## loadout so you can watch AB-056 Longshot (delivery=projectile) get ABSORBED by the wall.
+## Q = AB-034 Rampart Slam (re-summon the wall toward the enemy), E = AB-056 Longshot (the projectile).
+## Aim E THROUGH the wall → absorbed (blue soak flash, no hit). Aim E around the wall → hits the enemy.
+func _on_rampart_test() -> void:
+	_on_clear()
+	var ctrl: CharacterBody3D = _party.get_controlled()
+	if ctrl == null:
+		return
+	if ctrl.has_method("equip_skillbook_by_id"):
+		ctrl.equip_skillbook_by_id(0, "AB-034")   # Q = Rampart Slam (summon wall)
+		ctrl.equip_skillbook_by_id(1, "AB-056")   # E = Longshot Bolt (delivery=projectile)
+	_refresh_loadout_ui()
+	_combat.debug_spawn_unit("EN-012", 1, "SANDBOX", false, "Dungeon")   # stationary north target
+	# Pre-place a persistent Rampart ~6 m ahead of the party spawn so firing E north is absorbed
+	# immediately (no walking). duration/hp bumped so the test wall doesn't expire/break mid-test.
+	var disp = _combat.get("_ability_dispatch")
+	if disp != null and disp.has_method("spawn_barrier"):
+		var params: Dictionary = Slice01Data.get_skillbook_master("AB-034").get("cast", {}).duplicate()
+		params["duration_s"] = 120.0
+		params["barrier_hp"] = 9999.0
+		var pos: Vector3 = _map.get_spawn_position("SANDBOX") + Vector3(0.0, 0.0, 6.0)
+		disp.spawn_barrier(ctrl, pos, Vector3(0, 0, 1), params)
+	_status.text = "Rampart 테스트 — 앞 6m 벽 + 북쪽 적. E(Longshot 투사체)를 북/적 조준 → 벽에 흡수(파란 플래시·관통 X). 벽 옆 조준 → 적 명중. Q로 벽 재소환."
 
 
 ## Identity channel for the controlled member: pick an identity (on) or OFF (identity_enabled=false,

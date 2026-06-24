@@ -451,5 +451,5 @@
 - **스펙 근거:** `targetType`(Enemy/Area)은 있으나 투사체 이동/충돌 규칙 미정의 → **impl 결정**. `ENT-RAMPART-001`(LineProjectile 1회 흡수)·`RX-PHYSICAL-BARRIER-001`이 투사체-차단을 전제 → 구현은 스펙 의도 충족(전파 불요).
 - **Phase 1(증명):** 범용 `projectile.gd`(segment-raycast 이동→첫 충돌: Rampart→흡수·벽→불발·적유닛/도달→payload) + `ability_dispatch.spawn_projectile`/`_projectile_mask`(시전자 진영 제외=무방수/자가타격 방지, Rampart=world layer 1) + effect `cast()`/`resolve_at()` 분리(즉발·투사체 공유 판정) + `rampart_barrier.absorb_projectile`(DMG-BARRIER-HIT-10). 아군 볼트 **AB-056 Longshot만** `delivery:projectile`(speed 22)로 라우팅해 증명. 나머지 bolt(003/004/008/055/058/059/073)·전 어빌리티는 **instant 유지(무변경)**.
 - **분류\전파:** **impl(아키텍처).** 규칙 드리프트 없음. **Rampart 투사체흡수(DRIFT-057 BLOCKED) → 부분 해소**: projectile-delivery 어빌리티가 시전자↔표적 사이 Rampart/벽에 맞으면 흡수·차단(현재 AB-056만). threat-on-hit은 후속.
-- **검증:** ci_smoke(컴파일·부팅) + party_pool_smoke(AB-056 flag·resolve_at·spawn_projectile 배선). **실제 충돌/비행은 헤드리스 불가 → 플레이테스트(F5)** 필요(샌드박스/던전에서 AB-056을 Rampart 뒤 적에게 → 흡수 관찰).
+- **검증:** ci_smoke(컴파일·부팅) + party_pool_smoke(AB-056 flag·resolve_at·spawn_projectile 배선) + 샌드박스 헤드리스 부팅. **실제 충돌/비행은 헤드리스 불가 → 플레이테스트(F5)**: `combat_sandbox` **"Rampart 테스트" 버튼**(앞 6m 벽 + 북쪽 적 + Q=AB-034·E=AB-056 로드아웃 자동세팅) → E를 벽 너머로 조준=흡수, 벽 옆=명중.
 - **Phase 2(후속):** 전 어빌리티 instant/projectile 데이터 분류(파티+적, 범위폭발 포함) + 적 샷 라우팅 + VFX 승격(호밍 VFX→실엔티티) + range 클램프·pierce.
