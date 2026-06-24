@@ -140,6 +140,17 @@ func _initialize() -> void:
 	_chk("dispatch has spawn_projectile", adp.has_method("spawn_projectile"))
 	adp.free()
 
+	# 10) Rampart faction filter (DRIFT-059) — a wall blocks HOSTILE projectiles, friendly pass through.
+	var RB = load("res://scripts/world/objects/rampart_barrier.gd")
+	var bar = RB.new()
+	var ally_a = PM.new(); ally_a.add_to_group("party_member")
+	var ally_b = PM.new(); ally_b.add_to_group("party_member")
+	bar._caster = ally_a   # wall owned by a party member
+	_chk("ally wall PASSES ally shot", not bar.blocks_projectile_from(ally_b))
+	var foe = EN.new()     # enemy shooter (not party_member)
+	_chk("ally wall BLOCKS enemy shot", bar.blocks_projectile_from(foe))
+	bar.free(); ally_a.free(); ally_b.free(); foe.free()
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

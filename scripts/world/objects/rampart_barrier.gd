@@ -70,8 +70,23 @@ func take_damage(amount: float) -> void:
 		queue_free()   # Break — barrier hp 0
 
 
-## Absorb one projectile (delivery=projectile) — RP-02 / RX-PHYSICAL-BARRIER-001: the barrier soaks
-## the shot, taking DMG-BARRIER-HIT (10) per projectile, with an impact flash. ref: AB-034 · DRIFT-059.
+## A barrier blocks/absorbs only HOSTILE projectiles — the owner's own team passes through (RP-02:
+## the tank's wall stops the ENEMY's shots, not the party's own). party↔party + same-faction enemies
+## = friendly (pass); party↔enemy + cross-faction = hostile (block). ref: AB-034 · ENT-RAMPART-001 · DRIFT-059.
+func blocks_projectile_from(shooter) -> bool:
+	if _caster == null or not is_instance_valid(_caster) or shooter == null:
+		return true   # unknown owner → block (safe default)
+	var owner_party := _caster.is_in_group("party_member")
+	var shooter_party: bool = shooter.is_in_group("party_member")
+	if owner_party and shooter_party:
+		return false  # both party → friendly
+	if not owner_party and not shooter_party:
+		return String(_caster.get("faction")) != String(shooter.get("faction"))   # cross-faction only
+	return true       # party vs enemy → hostile
+
+
+## Absorb one HOSTILE projectile (delivery=projectile) — RP-02 / RX-PHYSICAL-BARRIER-001: the barrier
+## soaks the shot, taking DMG-BARRIER-HIT (10) per projectile, with an impact flash. ref: AB-034 · DRIFT-059.
 func absorb_projectile() -> void:
 	SkillVfx.telegraph(self, global_position, Color(0.55, 0.70, 1.0), 1.0)   # soak flash
 	take_damage(10.0)

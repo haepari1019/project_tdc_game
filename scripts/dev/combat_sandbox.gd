@@ -527,30 +527,32 @@ func _on_lay_torch() -> void:
 	_status.text = "Torch laid @ north — spawn ENC-PAT-003 (dormant) + 접근 → EN-010 픽업/투척"
 
 
-## Projectile delivery test (DRIFT-059 Phase 1): set up a Rampart wall + a north target + the Q/E
-## loadout so you can watch AB-056 Longshot (delivery=projectile) get ABSORBED by the wall.
-## Q = AB-034 Rampart Slam (re-summon the wall toward the enemy), E = AB-056 Longshot (the projectile).
-## Aim E THROUGH the wall → absorbed (blue soak flash, no hit). Aim E around the wall → hits the enemy.
+## Projectile delivery test (DRIFT-059 Phase 1) — faction-correct: an ENEMY-owned Rampart blocks the
+## player's shot (your own wall would NOT — RP-02). Q = AB-034 (your own wall: your shots PASS through),
+## E = AB-056 Longshot (delivery=projectile). Aim E through the ENEMY wall → absorbed (blue flash);
+## summon your wall (Q) and aim E through IT → passes (friendly).
 func _on_rampart_test() -> void:
 	_on_clear()
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl == null:
 		return
 	if ctrl.has_method("equip_skillbook_by_id"):
-		ctrl.equip_skillbook_by_id(0, "AB-034")   # Q = Rampart Slam (summon wall)
+		ctrl.equip_skillbook_by_id(0, "AB-034")   # Q = your own Rampart (friendly — your shots pass)
 		ctrl.equip_skillbook_by_id(1, "AB-056")   # E = Longshot Bolt (delivery=projectile)
 	_refresh_loadout_ui()
 	_combat.debug_spawn_unit("EN-012", 1, "SANDBOX", false, "Dungeon")   # stationary north target
-	# Pre-place a persistent Rampart ~6 m ahead of the party spawn so firing E north is absorbed
-	# immediately (no walking). duration/hp bumped so the test wall doesn't expire/break mid-test.
+	# Pre-place a persistent ENEMY-OWNED Rampart ~6 m ahead (hostile to the player → absorbs the shot).
+	# Owner = a spawned enemy so blocks_projectile_from(player) = true. duration/hp bumped for the test.
+	var enemies := get_tree().get_nodes_in_group("enemy")
+	var owner: Node = enemies[0] if not enemies.is_empty() else null
 	var disp = _combat.get("_ability_dispatch")
-	if disp != null and disp.has_method("spawn_barrier"):
+	if disp != null and owner != null and disp.has_method("spawn_barrier"):
 		var params: Dictionary = Slice01Data.get_skillbook_master("AB-034").get("cast", {}).duplicate()
 		params["duration_s"] = 120.0
 		params["barrier_hp"] = 9999.0
 		var pos: Vector3 = _map.get_spawn_position("SANDBOX") + Vector3(0.0, 0.0, 6.0)
-		disp.spawn_barrier(ctrl, pos, Vector3(0, 0, 1), params)
-	_status.text = "Rampart 테스트 — 앞 6m 벽 + 북쪽 적. E(Longshot 투사체)를 북/적 조준 → 벽에 흡수(파란 플래시·관통 X). 벽 옆 조준 → 적 명중. Q로 벽 재소환."
+		disp.spawn_barrier(owner, pos, Vector3(0, 0, 1), params)   # facing N/S — blocks the northward shot
+	_status.text = "Rampart 테스트 — 앞 6m는 [적] 벽. E(Longshot)를 북/적 조준 → 적 벽에 흡수(파란 플래시). Q로 [내] 벽 소환 후 E → 내 샷은 통과(아군 벽). 벽 옆 조준 → 적 명중."
 
 
 ## Identity channel for the controlled member: pick an identity (on) or OFF (identity_enabled=false,

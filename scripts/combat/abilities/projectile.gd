@@ -25,6 +25,7 @@ var _ctx
 var _life := 0.0
 var _done := false
 var _mat: StandardMaterial3D
+var _exclude: Array[RID] = []   # friendly barriers the shot passes through (owner's own team)
 
 
 func setup(caster: CharacterBody3D, origin: Vector3, dest: Vector3, speed: float, mask: int, effect, params: Dictionary, ctx) -> void:
@@ -67,15 +68,28 @@ func _physics_process(delta: float) -> void:
 	var reached := global_position.distance_to(_dest) <= maxf(step, ARRIVE_EPS) or _life >= MAX_LIFETIME_S
 	var to_point: Vector3 = _dest if reached else global_position + _dir * step
 	var space := get_world_3d().direct_space_state
-	var q := PhysicsRayQueryParameters3D.create(global_position, to_point, _mask)
-	var hit := space.intersect_ray(q)
+	# Segment-cast, skipping FRIENDLY Rampart barriers (the owner's own team passes through — RP-02:
+	# a wall stops the ENEMY's shots, not your own). Bounded loop in case several stack.
+	var hit := {}
+	for _i in 6:
+		var q := PhysicsRayQueryParameters3D.create(global_position, to_point, _mask)
+		q.exclude = _exclude
+		hit = space.intersect_ray(q)
+		if hit.is_empty():
+			break
+		var c = hit.collider
+		if c != null and c.is_in_group("rampart_barrier") and c.has_method("blocks_projectile_from") \
+				and not c.blocks_projectile_from(_caster):
+			_exclude.append(c.get_rid())   # friendly wall → ignore for the rest of the flight
+			continue
+		break
 	if not hit.is_empty():
 		var col = hit.collider
 		var pos: Vector3 = hit.get("position", to_point)
 		if col != null and col.is_in_group("rampart_barrier"):
 			if col.has_method("absorb_projectile"):
 				col.absorb_projectile()
-			_impact(pos, false)     # Rampart soaks it — no payload (RP-02)
+			_impact(pos, false)     # HOSTILE Rampart soaks it — no payload (RP-02)
 		elif col != null and (col.is_in_group("enemy") or col.is_in_group("party_member")):
 			_impact(pos, true)      # hostile unit → resolve payload here
 		else:
