@@ -6,6 +6,12 @@
 
 ---
 
+### IMPL-DEC-20260623-024 — 기어 롤테이블 G3 (rolls 스탯 적용)
+- **결정(사용자 "적용해"):** G2에서 저장만 하던 `rolls`를 실제 스탯에 적용. `_bind_gear`: **dmg_mult → basic_damage**(매 bind fresh 재계산이라 비누적), **cd_mult → `cooldown_mult` → identity 쿨**(ability_dispatch.try_identity가 `cooldown_s * cooldown_mult`). 이제 상세 툴팁의 "옵션: 피해 ×.. · 쿨 ×.."가 실효.
+- **이유:** 굴린 옵션이 전투에 반영돼야 롤테이블이 의미. dmg는 basic_damage(평타+sb 스케일 기준), cd는 gear-bound identity 쿨(스펙 cdMult). potencyMult·Stash 인스턴스화는 잔여.
+- **검증:** party_pool_smoke(같은 기어 dmg_mult 1.0 vs 2.0 → basic_damage 2배 · cd_mult 0.9 → cooldown_mult 0.9) + ci_smoke PASS.
+- **영향:** `party_member.gd`(_bind_gear dmg 적용·cooldown_mult)·`ability_dispatch.gd`(try_identity 쿨 곱).
+
 ### IMPL-DEC-20260623-023 — 유저용 표시명 레이어 (display_names.json, 백엔드 ID 분리)
 - **결정(사용자):** 백엔드 ID(`identity_skill_id`·`AB-###`·`skillbook_*` kind)를 UI에 노출 안 함. 유저용 표시명을 **별도 데이터 `data/slice01/display_names.json`**(identities/effect_kinds/roles)로 적재, UI만 참조. 게임플레이·저장은 항상 ID.
 - **구현:** Slice01Data가 display_names.json 로드 + `get_identity_display`/`get_effect_label`/`get_role_label`(매핑 없으면 ID 폴백, UI 라벨이라 검증 없음). 인벤 그리드·장착 슬롯 툴팁이 ID 대신 표시명(강철 봉화·침묵·힐러). 기존 gear/skillbook display_name은 유지.

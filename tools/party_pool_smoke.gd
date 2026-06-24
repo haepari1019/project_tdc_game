@@ -175,6 +175,18 @@ func _initialize() -> void:
 	_chk("role 표시명", sd.get_role_label("Healer") == "힐러")
 	_chk("미등록 ID 폴백", sd.get_effect_label("nonexistent_kind") == "nonexistent_kind")
 
+	# 14) G3 — rolls mult 스탯 적용. 같은 기어 dmg_mult 1.0 vs 2.0 → basic_damage 2배 + cd_mult→cooldown_mult.
+	var pmA = PM.new(); pmA.class_id = "Tank"
+	var bpA = BP.new(); bpA.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "rolls": {"dmg_mult": 1.0, "cd_mult": 1.0}, "subs": [null, null, null]}}
+	bpA.apply_to_party(_PartyStub.new([pmA]))
+	var d1 := float(pmA.basic_damage)
+	var pmB = PM.new(); pmB.class_id = "Tank"
+	var bpB = BP.new(); bpB.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "rolls": {"dmg_mult": 2.0, "cd_mult": 0.9}, "subs": [null, null, null]}}
+	bpB.apply_to_party(_PartyStub.new([pmB]))
+	_chk("G3 dmg_mult 스탯 적용(2x)", d1 > 0.0 and is_equal_approx(float(pmB.basic_damage), d1 * 2.0))
+	_chk("G3 cd_mult → cooldown_mult", is_equal_approx(float(pmB.cooldown_mult), 0.9))
+	pmA.free(); pmB.free()
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

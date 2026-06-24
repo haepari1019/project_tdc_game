@@ -25,8 +25,10 @@ var base_gear_id: String = ""
 var gear_kind: String = ""
 var basic_attack_profile_id: String = ""
 var equip_classes: Array = []
-## F-008 §3.7 rolled 서브옵션(dmg_mult/cd_mult 등) — 인스턴스 굴림 저장. 적용(스탯 곱)=G3. ref: gear_roll_table.md.
+## F-008 §3.7 rolled 서브옵션(dmg_mult/cd_mult 등) — 인스턴스 굴림 저장 + 스탯 적용(G3). ref: gear_roll_table.md.
 var gear_rolls: Dictionary = {}
+## cd_mult 적용분 — identity 스킬 쿨다운에 곱(ability_dispatch.try_identity). 1.0 = none.
+var cooldown_mult: float = 1.0
 
 # --- Identity (resolved from equipped_gear's bundled identity) ---
 var identity_skill_id: String = ""
@@ -168,6 +170,10 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	basic_range_m = float(gear.get("basic_range_m", combat.get("basic_range_m", 2.0)))
 	basic_interval_s = float(gear.get("basic_interval_s", combat.get("basic_interval_s", 1.0)))
 	threat_mult = float(combat.get("threat_mult", 1.0))  # F-022 damageThreatMultiplier
+	# F-008 §3.7 옵션 roll 적용(G3): dmg_mult→평타 위력(매 bind마다 fresh 재계산이라 비누적), cd_mult→
+	# identity 쿨(ability_dispatch.try_identity가 cooldown_mult를 곱). ref: gear_roll_table.md.
+	basic_damage *= float(gear_rolls.get("dmg_mult", 1.0))
+	cooldown_mult = float(gear_rolls.get("cd_mult", 1.0))
 	# Identity + sub skill params are LINKED by id (abilities.json catalog).
 	identity_params = Slice01Data.get_ability(ability_id)
 	# Sub skills come from looted skillbooks (F-009 §3.1), NOT the identity/gear — the

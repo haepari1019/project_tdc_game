@@ -95,7 +95,9 @@ func try_identity(m: CharacterBody3D) -> bool:
 	if skill == null:
 		return false
 	if skill.cast(m, p, Vector3.ZERO, self):
-		m.identity_cooldown_s = float(p.get("cooldown_s", 6.0))
+		# F-008 §3.7 gear cd_mult 옵션 roll → identity 쿨다운에 곱(낮을수록 빠름). 1.0 = none.
+		var cdm: float = float(m.cooldown_mult) if "cooldown_mult" in m else 1.0
+		m.identity_cooldown_s = float(p.get("cooldown_s", 6.0)) * cdm
 		return true
 	return false
 
