@@ -259,6 +259,19 @@ func _skillbook_tip(item: Dictionary) -> Array:
 		for c in m.get("equip_classes", []):
 			eq.append(Slice01Data.get_role_label(String(c)))
 		out.append("  장착: %s" % ", ".join(eq))
+	# D-018 §7.3 affix — 루팅 인스턴스 굴림(효과/탄/쿨). {} = 무affix(상점 생본·스타터).
+	var affix = item.get("affix", {})
+	if typeof(affix) == TYPE_DICTIONARY and not (affix as Dictionary).is_empty():
+		var parts: Array = []
+		if float(affix.get("coeff", 0.0)) > 0.0:
+			parts.append("효과 +%d%%" % roundi(float(affix.get("coeff", 0.0)) * 100.0))
+		if int(affix.get("charges", 0)) > 0:
+			parts.append("탄 +%d" % int(affix.get("charges", 0)))
+		if float(affix.get("cd_trade", 0.0)) > 0.0:
+			parts.append("쿨 +%d%%" % roundi(float(affix.get("cd_trade", 0.0)) * 100.0))
+		var ids: Array = affix.get("ids", [])
+		var nm := Slice01Data.get_affix_label(String(ids[0])) if not ids.is_empty() else "affix"
+		out.append("  ✦ %s [%s] — %s" % [nm, String(affix.get("tier", "")), ", ".join(parts)])
 	return out
 
 

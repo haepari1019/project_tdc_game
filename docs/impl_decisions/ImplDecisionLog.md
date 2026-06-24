@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260623-026 — 스킬북 affix (D-018 §7.3/§7.6) 구현
+- **결정(사용자 "affix 하자"):** 루팅 스킬북 인스턴스에 affix 굴림(기어 롤의 스킬북 판본). 추가형 — 스킬북 instance/item에 `affix: Dictionary` 필드(`{}`=무affix=현 거동), cast 시 `_coeff`에 한 factor 추가. 회귀 위험 낮음(빈 affix=no-op).
+- **구현:** `affix_roller.gd`(static) = 루팅 18%·T1/T2/T3·종류 3(eff_plus/eff_minus_trade/charges_small)·coeff 단일 ≤12% 클램프. `cast_skillbook`: coeffMult를 **밴드와 독립 곱**(§7.3), cd_trade→쿨, charges→charges_max(equip 시). 보존: loot drop→`_strip`→`equip_skillbook_by_id(…, affix)`/`equip_panel._skillbook_inst(item.affix)`→capture/apply subs(gear 롤 G2와 동형). 툴팁+display_names.json `affixes`.
+- **결정 디테일:** ① Slice-01=인스턴스당 단일 affix(§7.3 합산 cap 자명 만족; multi=후속). ② `TIER_SCALE`(희귀 tier coeff 소폭↑)=게임측 파생(스펙 외, cap 클램프). ③ 상점 Raw=roll 안 함(0% 자연 충족).
+- **검증:** party_pool_smoke §16(roll cap 300샘플·charges_max +5·capture/apply 영속) + ci_smoke PASS.
+- **영향:** `affix_roller.gd`(신규)·`loot_service.gd`·`backpack.gd`·`party_member.gd`·`equip_panel.gd`·`ability_dispatch.gd`·`inventory_grid.gd`·`slice01_data.gd`·`display_names.json`. 설계=`docs/design/affix_design.md`. **잔여:** multi-affix·§7.5 sink·대장간.
+
 ### IMPL-DEC-20260623-025 — Stash 인스턴스화 (스페어도 roll 보존) + capture_from_party 버그 수정
 - **결정(사용자 "stash 인스턴스화부터"):** `Stash.gear`를 base_gear_id 문자열 리스트 → **인스턴스 dict `{base_gear_id, rolled_identity_skill_id?, rolls?}`** 리스트. G2에서 스태시 왕복 시 roll이 bundled로 리셋되던 한계 해소(스페어도 굴린 정체성·옵션 보존).
 - **구현:** `stash.gd` `_normalize_gear`(시드/레거시 세이브 문자열→dict, apply_dict·_seed에서 호출 → 마이그레이션)·`remove_gear`(base 매칭). `main._build_stash_items`(인스턴스 전달)·`_sync_stash_from_source`(rolled/rolls 왕복 기록). `inventory_ui.make_gear_stash_item(inst)`(master deep-copy에 rolled/rolls 병합 → gear_item 캐리).

@@ -475,3 +475,11 @@
 - **Stash 인스턴스화 완료:** `Stash.gear`가 문자열 → **인스턴스 dict `{base_gear_id, rolled_identity_skill_id?, rolls?}`**. `_normalize_gear`(시드/레거시 세이브 문자열→dict 마이그레이션)·`remove_gear`(base 매칭)·make_gear_stash_item/_sync_stash_from_source(rolled/rolls 왕복). 스페어도 굴린 정체성·옵션 보존(왕복 시 bundled 리셋 해소). **부수 수정:** `backpack.capture_from_party`의 `m.get(key, default)`(Node.get은 1-arg → 매 hub deploy/추출마다 런타임 에러)를 1-arg로. **G3 잔여:** potencyMult·affix(다음).
 - **분류\전파:** impl. 메커니즘은 spec(F-008/GEAR-COR-000/D-019) 그대로 → 규칙 드리프트 없음. mult band 수치=데모. 설계 = `docs/design/gear_roll_table.md`.
 - **검증:** ci_smoke(개명 id validate·부팅·인벤 패널) + party_pool_smoke(id 정렬·롤테이블·**G2 rolled identity apply/capture 영속·rolls 저장**) PASS. 인벤 드래그 거동 = F5.
+
+### DRIFT-062 — 스킬북 affix(D-018 §7.3/§7.6) 구현: 루팅 18% 굴림 + coeff/탄/쿨 적용·영속 🔶 impl/tuning
+- **현실(2026-06-23, 사용자 "affix 하자"):** 루팅 스킬북 인스턴스에 affix 굴림 추가(기어 롤의 스킬북 판본). `affix_roller.gd` — 루팅만 **18%**(상점 Raw=0%), affixTier T1 85/T2 12/T3 3, 종류 eff_plus/eff_minus_trade/charges_small(§7.6 examples).
+- **적용:** coeffMult = `cast_skillbook`에서 cross-class 밴드와 **독립으로 곱**(§7.3 note, `_coeff × (1+affix.coeff)`, 합산 ±15% 클램프) · cd_trade → 쿨 가산 · charges → instance `charges_max` 가산.
+- **인스턴스 스키마:** 스킬북 instance/item에 `affix: Dictionary` 필드(`{}` = 무affix). loot→`_strip`(키 유지)→장착(equip_panel `_skillbook_inst`·`equip_skillbook_by_id(…, affix)`)→member→capture/apply subs로 영속(gear 롤과 동형). 인벤 툴팁 affix 라인(표시명 `display_names.json` `affixes`).
+- **바운드/파생:** **Slice-01 = 인스턴스당 단일 affix**(§7.3 합산 ≤15% 자명 만족; multi=후속). `TIER_SCALE`(희귀 tier coeff 소폭↑)=게임측 파생(스펙 외, cap 클램프, 튜닝). 절대 수치=데모(런타임 SSOT F-025 §11). **이연:** §7.5 중복 sink·affixTier 5단·대장간 리롤.
+- **분류\전파:** impl. 메커니즘 spec(D-018/F-009) 그대로 → 규칙 드리프트 없음. 설계 = `docs/design/affix_design.md`.
+- **검증:** party_pool_smoke §16(roll cap·charges 가산·capture/apply 영속) + ci_smoke PASS. 전투 적용·툴팁 = F5.

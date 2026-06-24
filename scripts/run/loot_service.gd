@@ -6,6 +6,7 @@ extends Node3D
 
 const ItemDrop := preload("res://scripts/world/objects/item_drop.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
+const AffixRoller := preload("res://scripts/run/affix_roller.gd")   # D-018 §7.6 스킬북 affix roll
 
 ## PH gear-loot pool — dungeon-dropped Identity Gear (F-008 §3.3 / DEC-20260611-001; looted =
 ## At Risk). Same-role (Tank) equippable + cross-role (Healer) to show the equipClasses reject.
@@ -97,6 +98,7 @@ func _make_skillbook_drop_def(base_ability_id: String) -> Dictionary:
 		"color": UnitVisuals.role_color(cid).lightened(0.15),
 		"kind": "skillbook",
 		"base_ability_id": base_ability_id,
+		"affix": AffixRoller.roll(),   # D-018 §7.6 — 루팅만 18% affix(상점 Raw=0%). {} = 무affix.
 	}
 
 

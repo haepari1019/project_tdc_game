@@ -199,6 +199,39 @@ func _initialize() -> void:
 	_chk("Stash round-trip rolled 유지", String((st2.gear[1] as Dictionary).get("rolled_identity_skill_id", "")) == "dps_arc_weave" and is_equal_approx(float((st2.gear[1] as Dictionary).get("rolls", {}).get("dmg_mult", 0.0)), 1.2))
 	st.free(); st2.free()
 
+	# 16) 스킬북 affix(D-018 §7.3/§7.6) — roll cap 준수 + charges 가산 + capture/apply 영속.
+	var AffixRoller = load("res://scripts/run/affix_roller.gd")
+	var any_affix := false
+	var caps_ok := true
+	var ids_ok := true
+	for _i in 300:
+		var a: Dictionary = AffixRoller.roll()
+		if a.is_empty():
+			continue
+		any_affix = true
+		if float(a.get("coeff", 0.0)) > 0.1201 or int(a.get("charges", 0)) < 0 or int(a.get("charges", 0)) > 6:
+			caps_ok = false
+		if (a.get("ids", []) as Array).is_empty() or String(a.get("tier", "")).is_empty():
+			ids_ok = false
+	_chk("affix 발생(300샘플)", any_affix)
+	_chk("affix coeff≤12%·탄0..6", caps_ok)
+	_chk("affix ids·tier 존재", ids_ok)
+	# charges 가산 + 인스턴스 저장
+	var base_cmax := int(sd.get_skillbook_master("AB-044").get("charges_max", 30))
+	var pmc = PM.new(); pmc.class_id = "Healer"
+	pmc.equip_skillbook_by_id(0, "AB-044", {"ids": ["affix_charges_small"], "tier": "T1", "coeff": 0.0, "charges": 5, "cd_trade": 0.0})
+	var sb0 = pmc.get_skillbook(0)
+	_chk("affix charges_max +5", sb0 != null and int(sb0.charges_max) == base_cmax + 5)
+	_chk("affix 인스턴스 저장", sb0 != null and int((sb0.affix as Dictionary).get("charges", 0)) == 5)
+	# capture/apply 영속 round-trip
+	var bpc = BP.new()
+	bpc.capture_from_party(_PartyStub.new([pmc]))
+	var pmc2 = PM.new(); pmc2.class_id = "Healer"
+	bpc.apply_to_party(_PartyStub.new([pmc2]))
+	var sb1 = pmc2.get_skillbook(0)
+	_chk("affix 영속(capture/apply)", sb1 != null and int((sb1.affix as Dictionary).get("charges", 0)) == 5 and int(sb1.charges_max) == base_cmax + 5)
+	pmc.free(); pmc2.free()
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

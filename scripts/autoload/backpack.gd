@@ -172,7 +172,7 @@ func apply_to_party(party) -> void:
 			for j in mini(3, subs.size()):
 				var s = subs[j]
 				if typeof(s) == TYPE_DICTIONARY and String(s.get("base_ability_id", "")) != "":
-					m.equip_skillbook_by_id(j, String(s["base_ability_id"]))
+					m.equip_skillbook_by_id(j, String(s["base_ability_id"]), s.get("affix", {}))   # D-018 affix 복원
 					# Restore persisted remaining 탄수 (equip set it to max). I5 charge persistence.
 					if s.has("charges"):
 						var inst = m.get_skillbook(j)
@@ -200,7 +200,7 @@ func capture_from_party(party) -> void:
 			for j in 3:
 				var sb = m.get_skillbook(j)
 				if sb != null:
-					subs.append({"base_ability_id": String(sb.get("base_ability_id", "")), "charges": int(sb.get("charges", 0))})
+					subs.append({"base_ability_id": String(sb.get("base_ability_id", "")), "charges": int(sb.get("charges", 0)), "affix": sb.get("affix", {})})
 				else:
 					subs.append(null)
 			e["subs"] = subs
@@ -214,7 +214,8 @@ func _strip(it: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key in ["id", "kind", "base_gear_id", "base_ability_id", "haul_material_id",
 			"consumable_id", "w", "h", "count", "charges", "charges_max", "at_risk", "equipped",
-			"rolled_identity_skill_id", "rolls"]:   # F-008 §3.7 gear 인스턴스 굴림 보존(G2)
+			"rolled_identity_skill_id", "rolls",    # F-008 §3.7 gear 인스턴스 굴림 보존(G2)
+			"affix"]:                               # D-018 §7.3/§7.6 스킬북 affix 인스턴스 보존
 		if it.has(key):
 			out[key] = it[key]
 	return out

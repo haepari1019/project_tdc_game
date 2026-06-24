@@ -127,12 +127,14 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	# D-016 §3.2 / D-012 §2.4 — sub-class use is penalised by identity-distance band (the master's
 	# `sub_bands`); main class = full coeff. (was: flat −10% off the first equip class.)
 	var bands: Dictionary = Slice01Data.get_skillbook_master(String(inst.get("base_ability_id", ""))).get("sub_bands", {})
-	p["_coeff"] = _band_coeff(String(member.class_id), bands)
+	# D-018 §7.3 — affix coeffMult는 cross-class 밴드와 **독립**으로 곱(합산 ≤15% 안전 클램프). cd_trade는 쿨 가산.
+	var affix: Dictionary = inst.get("affix", {})
+	p["_coeff"] = _band_coeff(String(member.class_id), bands) * (1.0 + clampf(float(affix.get("coeff", 0.0)), -0.15, 0.15))
 	# target_pos = aimed ground point (targeted subs) or caster position (self-centered).
 	var skill = _skills.get(String(p.get("kind", "")))
 	if skill != null and skill.cast(member, p, target_pos, self):
 		inst.charges = int(inst.charges) - 1
-		inst.cooldown_s = float(p.get("cooldown_s", 6.0))
+		inst.cooldown_s = float(p.get("cooldown_s", 6.0)) * (1.0 + float(affix.get("cd_trade", 0.0)))
 
 
 # ============================================================================

@@ -49,5 +49,10 @@
     "DPS": "딜러",
     "Nuker": "누커",
     "Healer": "힐러"
+  },
+  "affixes": {
+    "affix_eff_plus": "효과 강화",
+    "affix_eff_minus_trade": "효과 강화 (쿨 증가)",
+    "affix_charges_small": "탄약 증가"
   }
 }

@@ -363,15 +363,18 @@ func _can_equip_sub_now(flat_index: int, master: Dictionary) -> bool:
 func _skillbook_inst(master: Dictionary, item: Dictionary) -> Dictionary:
 	var classes: Array = master.get("equip_classes", [])
 	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
+	var affix: Dictionary = item.get("affix", {})           # D-018 §7.3 인스턴스 affix
+	var cmax := int(master.get("charges_max", 0)) + int(affix.get("charges", 0))
 	return {
 		"base_ability_id": String(master.get("base_ability_id", "")),
 		"display_name": String(master.get("display_name", "")),
 		"params": master.get("cast", {}),
-		"charges": int(item.get("charges", master.get("charges_max", 0))),
-		"charges_max": int(master.get("charges_max", 0)),
+		"charges": int(item.get("charges", cmax)),
+		"charges_max": cmax,
 		"cooldown_s": 0.0,
 		"equip_classes": classes,
 		"color": item.get("color", UnitVisuals.role_color(cid)),
+		"affix": affix,
 	}
 
 
@@ -386,6 +389,7 @@ func _skillbook_item_from_inst(inst: Dictionary) -> Dictionary:
 		"charges": int(inst.charges),
 		"charges_max": int(inst.charges_max),
 		"at_risk": true,
+		"affix": inst.get("affix", {}),   # D-018 — 해제 시 affix 보존
 	}
 
 

@@ -234,13 +234,14 @@ func set_skillbook(sb_slot: int, inst):
 
 
 ## Equip a skillbook into a Q/E/R slot by base_ability_id (deployment loadout apply, F-010).
-func equip_skillbook_by_id(sb_slot: int, base_ability_id: String) -> void:
+func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Dictionary = {}) -> void:
 	if sb_slot < 0 or sb_slot >= skillbook_slots.size() or base_ability_id == "":
 		return
 	var master: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
 	if master.is_empty():
 		return
-	var cmax := int(master.get("charges_max", 30))
+	# D-018 §7.6 affix_charges_small → chargesMax 가산(coeff affix와 별도).
+	var cmax := int(master.get("charges_max", 30)) + int(affix.get("charges", 0))
 	set_skillbook(sb_slot, {
 		"base_ability_id": base_ability_id,
 		"display_name": String(master.get("display_name", base_ability_id)),
@@ -250,6 +251,7 @@ func equip_skillbook_by_id(sb_slot: int, base_ability_id: String) -> void:
 		"cooldown_s": 0.0,
 		"equip_classes": master.get("equip_classes", [class_id]),
 		"color": _base_color,
+		"affix": affix,   # D-018 §7.3 — coeffMult/cd_trade는 cast 시 적용(ability_dispatch)
 	})
 
 
