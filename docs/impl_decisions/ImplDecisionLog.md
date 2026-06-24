@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260623-023 — 유저용 표시명 레이어 (display_names.json, 백엔드 ID 분리)
+- **결정(사용자):** 백엔드 ID(`identity_skill_id`·`AB-###`·`skillbook_*` kind)를 UI에 노출 안 함. 유저용 표시명을 **별도 데이터 `data/slice01/display_names.json`**(identities/effect_kinds/roles)로 적재, UI만 참조. 게임플레이·저장은 항상 ID.
+- **구현:** Slice01Data가 display_names.json 로드 + `get_identity_display`/`get_effect_label`/`get_role_label`(매핑 없으면 ID 폴백, UI 라벨이라 검증 없음). 인벤 그리드·장착 슬롯 툴팁이 ID 대신 표시명(강철 봉화·침묵·힐러). 기존 gear/skillbook display_name은 유지.
+- **이유:** UI 네이밍을 데이터로 분리 → 로컬라이즈/리네이밍이 코드·ID 계약과 무관. 단일 파일이라 "따로 적재" 명확.
+- **검증:** party_pool_smoke(identity/effect/role 표시명 + 미등록 폴백) + ci_smoke PASS. 툴팁 표시=F5.
+- **영향:** `data/slice01/display_names.json`(신규)·`slice01_data.gd`(로드+3 accessor)·`inventory_grid.gd`(_gear_tip/_skillbook_tip)·`equip_panel.gd`(슬롯 tooltip).
+
 ### IMPL-DEC-20260623-022 — 기어 롤테이블 G2 (획득 롤 + 인스턴스 영속, 바운드 범위)
 - **결정:** G2 = "loot 기어가 굴린 identity를 갖고 장착·세이브로 영속". **바운드**: 인스턴스(`rolled_identity_skill_id`/`rolls`)를 **loot→백팩 loose→장착→equipped** 경로로 스레딩. Stash 스페어는 문자열 유지(roll 미보존), rolls 적용·UI=G3, affix·대장간 제외.
 - **스레딩:** loot_service(가중 identity 롤 + 던전 band mult) · item_factory.gear_item(입력 dict의 rolled 보존) · inventory_ui loose 재구축(디스크립터 rolled 병합) · Backpack `_strip`(keep)/apply(주입, 없으면 bundled 폴백)/capture(member.identity_skill_id+gear_rolls) · equip_panel `_commit_equip`(아이템 rolled 병합) · party_member `gear_rolls`.

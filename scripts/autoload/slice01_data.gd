@@ -21,6 +21,7 @@ const FACILITIES_PATH := SLICE01_DIR + "facilities_tiers.json"   # F-029 hub 시
 const QUESTS_PATH := SLICE01_DIR + "quests.json"                 # F-029 §3.3 hub 승급 퀘스트
 const HAUL_MATERIALS_PATH := SLICE01_DIR + "haul_materials.json" # D-029 §3 haul 카탈로그
 const HAUL_DROPS_PATH := SLICE01_DIR + "haul_drops.json"        # HUB-COR-000 §3 ENC별 haul 드롭
+const DISPLAY_NAMES_PATH := SLICE01_DIR + "display_names.json"  # 유저용 표시명(백엔드 ID 분리, UI 전용)
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -33,6 +34,8 @@ var _rooms: Dictionary = {}
 var _blueprint: Dictionary = {}
 var _gear: Array = []
 var _gear_by_id: Dictionary = {}
+## 유저용 표시명(백엔드 ID 분리) — {identities, effect_kinds, roles}. UI 전용, 없으면 ID 폴백.
+var _display: Dictionary = {}
 var _skillbooks: Array = []
 var _skillbook_by_ability: Dictionary = {}
 var _consumables: Array = []
@@ -105,6 +108,17 @@ func get_gear_rows() -> Array:
 func get_gear_master(base_gear_id: String) -> Dictionary:
 	var g = _gear_by_id.get(base_gear_id, {})
 	return g.duplicate(true) if typeof(g) == TYPE_DICTIONARY else {}
+
+
+# --- 유저용 표시명 (display_names.json) — 백엔드 ID와 분리. 매핑 없으면 ID로 폴백. UI 전용. ---
+func get_identity_display(identity_skill_id: String) -> String:
+	return String((_display.get("identities", {}) as Dictionary).get(identity_skill_id, identity_skill_id))
+
+func get_effect_label(kind: String) -> String:
+	return String((_display.get("effect_kinds", {}) as Dictionary).get(kind, kind))
+
+func get_role_label(class_id: String) -> String:
+	return String((_display.get("roles", {}) as Dictionary).get(class_id, class_id))
 
 
 ## Identity roll table for a gear archetype (F-008 §3.7) — DERIVED 권고안(게임측, 명시 데이터 override 향후):
@@ -367,6 +381,7 @@ func _load_and_validate() -> bool:
 	var quests_doc := _read_json_dict(QUESTS_PATH, "quests", errors)
 	var haul_doc := _read_json_dict(HAUL_MATERIALS_PATH, "haul_materials", errors)
 	var haul_drops_doc := _read_json_dict(HAUL_DROPS_PATH, "haul_drops", errors)
+	_display = _read_json_dict(DISPLAY_NAMES_PATH, "display_names", errors)   # UI 라벨(검증 없음 — gameplay 아님)
 
 	if errors.is_empty():
 		_validate_blueprint(errors)

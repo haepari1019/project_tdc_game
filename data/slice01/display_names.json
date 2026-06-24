@@ -1,0 +1,53 @@
+{
+  "_note": "유저용 표시명 레이어 — 백엔드 ID와 분리(F-008/F-009 검증·UI). 게임플레이/저장은 항상 ID 사용, UI(툴팁·패널)만 여기를 참조. 매핑 없으면 ID로 폴백. 미등록 ID는 검증 오류 아님(UI 라벨, gameplay 아님).",
+  "identities": {
+    "tank_anchor_guard": "닻 수호",
+    "tank_iron_beacon": "강철 봉화",
+    "tank_bulwark_march": "방벽 행군",
+    "tank_sentinel_form": "파수꾼 태세",
+    "dps_press_line": "압박 전선",
+    "dps_arc_weave": "호 직조",
+    "nuker_mark_ruin": "파멸 표식",
+    "nuker_flank_collapse": "측면 붕괴",
+    "healer_mend_circle": "치유의 원",
+    "healer_ward_pulse": "수호 파동"
+  },
+  "effect_kinds": {
+    "skillbook_strike": "강타",
+    "skillbook_poison": "맹독",
+    "skillbook_stun": "기절",
+    "skillbook_fire": "화염",
+    "skillbook_cold": "냉기",
+    "skillbook_zone": "장판 생성",
+    "skillbook_heal": "치유",
+    "skillbook_dr": "피해 감소",
+    "skillbook_shield": "보호막",
+    "skillbook_hot": "지속 치유",
+    "skillbook_blink": "순간이동",
+    "skillbook_vulnerable": "취약 표식",
+    "skillbook_haste": "가속",
+    "skillbook_stealth": "은신",
+    "skillbook_beam": "관통 빔",
+    "skillbook_barrier": "방벽 소환",
+    "skillbook_purge": "정화",
+    "skillbook_silence": "침묵",
+    "skillbook_bolt": "원거리 탄",
+    "skillbook_taunt": "도발",
+    "skillbook_pull": "끌어당김",
+    "skillbook_slow": "둔화",
+    "skillbook_relocate_ally": "아군 견인",
+    "skillbook_reveal": "정찰",
+    "skillbook_pin": "포박",
+    "skillbook_scent": "혈향 추적",
+    "skillbook_root": "속박",
+    "skillbook_tether": "사슬",
+    "skillbook_charge": "돌진",
+    "skillbook_execute": "처형"
+  },
+  "roles": {
+    "Tank": "탱커",
+    "DPS": "딜러",
+    "Nuker": "누커",
+    "Healer": "힐러"
+  }
+}

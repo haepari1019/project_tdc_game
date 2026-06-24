@@ -169,6 +169,12 @@ func _initialize() -> void:
 	_chk("G2 rolled identity capture 영속", String((bp2.equipped["Tank"] as Dictionary).get("rolled_identity", "")) == "tank_iron_beacon")
 	tank.free()
 
+	# 13) 유저 표시명 (display_names.json) — 백엔드 ID 분리, 매핑 없으면 ID 폴백.
+	_chk("identity 표시명", sd.get_identity_display("tank_iron_beacon") == "강철 봉화")
+	_chk("effect 표시명", sd.get_effect_label("skillbook_silence") == "침묵")
+	_chk("role 표시명", sd.get_role_label("Healer") == "힐러")
+	_chk("미등록 ID 폴백", sd.get_effect_label("nonexistent_kind") == "nonexistent_kind")
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

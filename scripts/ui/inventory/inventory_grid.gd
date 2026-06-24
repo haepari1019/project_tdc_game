@@ -235,15 +235,15 @@ func _gear_tip(item: Dictionary) -> Array:
 	var idr: Dictionary = Slice01Data.get_identity_row(rid)
 	if not idr.is_empty():
 		var combat: Dictionary = idr.get("combat", {})
-		out.append("정체성: %s  (%s · %s)" % [rid, String(idr.get("class_id", "")), String(idr.get("ability_id", ""))])
-		out.append("  HP %d · 평타 %d dmg / %.1fs / %.1fm" % [
+		out.append("정체성: %s  (%s)" % [Slice01Data.get_identity_display(rid), Slice01Data.get_role_label(String(idr.get("class_id", "")))])
+		out.append("  HP %d · 평타 %d / %.1fs / %.1fm" % [
 			int(combat.get("hp", 0)),
 			int(g.get("basic_damage", combat.get("basic_damage", 0))),
 			float(g.get("basic_interval_s", combat.get("basic_interval_s", 1.0))),
 			float(g.get("basic_range_m", combat.get("basic_range_m", 2.0)))])
 	var rolls = item.get("rolls", {})
 	if typeof(rolls) == TYPE_DICTIONARY and not (rolls as Dictionary).is_empty():
-		out.append("옵션 roll: dmg ×%.2f · cd ×%.2f  (스탯 적용=G3)" % [float(rolls.get("dmg_mult", 1.0)), float(rolls.get("cd_mult", 1.0))])
+		out.append("옵션: 피해 ×%.2f · 쿨 ×%.2f" % [float(rolls.get("dmg_mult", 1.0)), float(rolls.get("cd_mult", 1.0))])
 	return out
 
 
@@ -251,17 +251,14 @@ func _gear_tip(item: Dictionary) -> Array:
 func _skillbook_tip(item: Dictionary) -> Array:
 	var out: Array = []
 	out.append("스킬북 (서브) · 탄 %d/%d · At Risk" % [int(item.get("charges", 0)), int(item.get("charges_max", 0))])
-	var base := String(item.get("base_ability_id", ""))
-	var m: Dictionary = Slice01Data.get_skillbook_master(base)
+	var m: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
 	if not m.is_empty():
 		var cast: Dictionary = m.get("cast", {})
-		out.append("  %s · kind=%s · cd %ss" % [base, String(cast.get("kind", "?")), str(cast.get("cooldown_s", "?"))])
-		var eq: Array = m.get("equip_classes", [])
-		var sb: Dictionary = m.get("sub_bands", {})
-		var gate := "  장착: %s" % ", ".join(eq)
-		if not sb.is_empty():
-			gate += "  (sub밴드 %s)" % str(sb)
-		out.append(gate)
+		out.append("  효과: %s · 쿨 %ss" % [Slice01Data.get_effect_label(String(cast.get("kind", ""))), str(cast.get("cooldown_s", "?"))])
+		var eq: Array = []
+		for c in m.get("equip_classes", []):
+			eq.append(Slice01Data.get_role_label(String(c)))
+		out.append("  장착: %s" % ", ".join(eq))
 	return out
 
 
