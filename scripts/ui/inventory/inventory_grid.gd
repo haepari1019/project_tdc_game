@@ -209,21 +209,60 @@ func refresh_item_label(item: Dictionary) -> void:
 			return
 
 
-## Hover tooltip for an item: name + optional blurb + footprint size.
+## Hover tooltip for an item: name + 상세 스펙(기어 = 굴린 identity·스탯·옵션 / 스킬북 = 효과·쿨·밴드)
+## + footprint. F-008 §3.7 / F-009 검증용 — 마우스오버로 인스턴스 롤·스킬 효과 확인. ref: gear_roll_table.md.
 func _item_tip(item: Dictionary) -> String:
 	var id := String(item.id)
 	var lines: Array = [id]
-	if String(item.get("kind", "")) == "gear":
-		lines.append("장비 (Identity Gear) · %s" % ("At Risk" if bool(item.get("at_risk", false)) else "Safe"))
-	elif String(item.get("kind", "")) == "skillbook":
-		lines.append("스킬북 (서브) · 탄 %d/%d · At Risk" % [int(item.get("charges", 0)), int(item.get("charges_max", 0))])
-	elif String(item.get("kind", "")) == "consumable":
-		lines.append("소모품 · 보유 x%d · 호버+Z/X/C 또는 드래그로 핫키 등록" % int(item.get("count", 1)))
+	match String(item.get("kind", "")):
+		"gear": lines.append_array(_gear_tip(item))
+		"skillbook": lines.append_array(_skillbook_tip(item))
+		"consumable": lines.append("소모품 · 보유 x%d · 호버+Z/X/C 또는 드래그로 핫키 등록" % int(item.get("count", 1)))
+		"haul": lines.append("재료 (haul) · 금고/'재료 모두 금고로'로 입금")
 	var desc := String(ITEM_DESC.get(id, ""))
 	if not desc.is_empty():
 		lines.append(desc)
 	lines.append("크기 %d×%d" % [int(item.w), int(item.h)])
 	return "\n".join(lines)
+
+
+## Gear detail — 아키타입 + 굴린 identity(rolled>bundled) + 그 정체성 스탯 + 옵션 roll(mult). F-008 §3.7.
+func _gear_tip(item: Dictionary) -> Array:
+	var out: Array = []
+	var g: Dictionary = Slice01Data.get_gear_master(String(item.get("base_gear_id", "")))
+	out.append("장비 (Identity Gear) · %s · %s" % [String(g.get("range_band", "?")), "At Risk" if bool(item.get("at_risk", false)) else "Safe"])
+	var rid := String(item.get("rolled_identity_skill_id", g.get("bundled_identity_skill_id", "")))
+	var idr: Dictionary = Slice01Data.get_identity_row(rid)
+	if not idr.is_empty():
+		var combat: Dictionary = idr.get("combat", {})
+		out.append("정체성: %s  (%s · %s)" % [rid, String(idr.get("class_id", "")), String(idr.get("ability_id", ""))])
+		out.append("  HP %d · 평타 %d dmg / %.1fs / %.1fm" % [
+			int(combat.get("hp", 0)),
+			int(g.get("basic_damage", combat.get("basic_damage", 0))),
+			float(g.get("basic_interval_s", combat.get("basic_interval_s", 1.0))),
+			float(g.get("basic_range_m", combat.get("basic_range_m", 2.0)))])
+	var rolls = item.get("rolls", {})
+	if typeof(rolls) == TYPE_DICTIONARY and not (rolls as Dictionary).is_empty():
+		out.append("옵션 roll: dmg ×%.2f · cd ×%.2f  (스탯 적용=G3)" % [float(rolls.get("dmg_mult", 1.0)), float(rolls.get("cd_mult", 1.0))])
+	return out
+
+
+## Skillbook detail — base AB + 효과 kind·쿨다운·핵심 params + 장착 클래스/sub 밴드 + 탄수. F-009.
+func _skillbook_tip(item: Dictionary) -> Array:
+	var out: Array = []
+	out.append("스킬북 (서브) · 탄 %d/%d · At Risk" % [int(item.get("charges", 0)), int(item.get("charges_max", 0))])
+	var base := String(item.get("base_ability_id", ""))
+	var m: Dictionary = Slice01Data.get_skillbook_master(base)
+	if not m.is_empty():
+		var cast: Dictionary = m.get("cast", {})
+		out.append("  %s · kind=%s · cd %ss" % [base, String(cast.get("kind", "?")), str(cast.get("cooldown_s", "?"))])
+		var eq: Array = m.get("equip_classes", [])
+		var sb: Dictionary = m.get("sub_bands", {})
+		var gate := "  장착: %s" % ", ".join(eq)
+		if not sb.is_empty():
+			gate += "  (sub밴드 %s)" % str(sb)
+		out.append(gate)
+	return out
 
 
 ## Grid cell for an item whose top-left is at `global_topleft` (screen). Used by the

@@ -105,7 +105,8 @@
 - ✅ **1a 완료(2026-06-23, DRIFT-060·IMPL-DEC-020) — economy 로직(헤드리스):** HubProfile 분석 의뢰(N=3·scriptorium 게이트·해금 후 거부)→`shop_listing_unlocked`→`buy_raw`(scribe_shop Tier ceiling + ward_scrap Basic12/Adv30/Master60). ward_scrap=추출 보상(15+생존자×5, 데모). 스타터 스킬북 시드 §3.1.1 정렬. hub_smoke 7 assertion PASS.
 - ✅ **1b 완료 — 분석/상점 허브 UI:** `hub_economy_panel.gd`(풀스크린 오버레이) — 분석(스태시 책 의뢰→progress/해금, scriptorium 게이트) + 상점(해금 base ward_scrap 구매→스태시, scribe_shop 게이트) + ward_scrap 표시. `main.gd` "필기소·상점" 버튼. 부팅 스모크 PASS; 거동=F5.
 - ◐ **gear `identityRollTable` 이행 G1+G2 완료(DRIFT-061·IMPL-DEC-021/022):** G1=id 스펙 정렬+세이브 마이그레이션·파생 롤테이블·bind fwd-prep. G2=획득 롤(loot identity 가중+던전 band mult)+인스턴스(rolled identity/rolls) **loot→백팩 loose→장착→equipped 세이브 영속**(Stash 스페어=문자열·bundled 유지). 설계=`docs/design/gear_roll_table.md`. **G3:** rolls 적용(스탯 mult)+UI 표시·Stash 인스턴스화.
-- **고위험 게이트(잔여):** roll-table **G3**(rolls 적용+UI) + Stash 인스턴스화 + affix(D-018 §7.3) + per-AB tier — 단독 결정([[refactor-risk-preference]]).
+- ◐ **G3 일부 — 상세 툴팁(검증 UI):** 인벤 그리드 마우스오버 = 기어 굴린 identity·스탯·옵션 roll(mult) / 스킬북 효과 kind·쿨·장착밴드·탄수; 장착 슬롯 = 멤버 effective identity+roll. (read-only, G2/economy F5 검증용.)
+- **고위험 게이트(잔여):** roll-table **G3 잔여**(rolls 스탯 적용 mult) + Stash 인스턴스화 + affix(D-018 §7.3) + per-AB tier — 단독 결정([[refactor-risk-preference]]).
 - ◐ **ally 획득 lite 선납(P2-S6a 패스)**: ally-only lootable 인-런 획득은 `dungeon_run` ally-cache 상자(RM-ADV-01)로 우선 충족. **본격(S6b)**: shop 매대·ENC 드롭표·affix·자동 분배 시 정식화.
 
 ### P2-S7 — 통합/QA

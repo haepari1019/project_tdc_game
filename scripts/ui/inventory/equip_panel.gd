@@ -123,6 +123,17 @@ func _refresh_equip_slots() -> void:
 		var gear: Dictionary = m.equipped_gear
 		var col: Color = UnitVisuals.role_color(String(m.class_id))
 		_equip_tiles[i].text = String(gear.get("display_name", gear.get("base_gear_id", "—")))
+		# F-008 §3.7 검증 — 장착된 기어의 effective(굴린) identity + 옵션 roll을 마우스오버로 표시.
+		if not gear.is_empty():
+			var tip := "%s · %s\n정체성: %s (%s)" % [
+				String(gear.get("display_name", gear.get("base_gear_id", ""))), String(m.class_id),
+				String(m.identity_skill_id), String(m.ability_id)]
+			var gr: Dictionary = m.gear_rolls
+			if not gr.is_empty():
+				tip += "\n옵션 roll: dmg ×%.2f · cd ×%.2f (적용 G3)" % [float(gr.get("dmg_mult", 1.0)), float(gr.get("cd_mult", 1.0))]
+			_equip_tiles[i].tooltip_text = tip
+		else:
+			_equip_tiles[i].tooltip_text = "%s · 미장착" % String(m.class_id)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(col.r, col.g, col.b, 0.30)
 		sb.border_color = col.lightened(0.35)
