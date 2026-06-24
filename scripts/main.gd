@@ -154,7 +154,7 @@ func _build_stash_items() -> Array:
 	var items: Array = []
 	var gear_pos := [[0, 0], [2, 0], [0, 2], [2, 2]]   # 2×2 each, fills cols 0–3 / rows 0–3
 	for i in _stash.gear.size():
-		var it: Dictionary = _inv.make_gear_stash_item(String(_stash.gear[i]))
+		var it: Dictionary = _inv.make_gear_stash_item(_stash.gear[i])   # 인스턴스 dict(rolled/rolls 포함)
 		if it.is_empty() or i >= gear_pos.size():
 			continue
 		it["col"] = gear_pos[i][0]
@@ -231,7 +231,14 @@ func _sync_stash_from_source() -> void:
 	for it in _stash_src.items:
 		match String(it.get("kind", "")):
 			"gear":
-				gear.append(String(it.get("base_gear_id", "")))   # 장착=Backpack.equipped로 빠짐, 보관분만 여기
+				# 보관분만(장착=Backpack.equipped로 빠짐). F-008 §3.7 인스턴스 — 스페어도 굴린 정체성·옵션 보존.
+				var gi := {"base_gear_id": String(it.get("base_gear_id", ""))}
+				var rid := String(it.get("rolled_identity_skill_id", ""))
+				if not rid.is_empty():
+					gi["rolled_identity_skill_id"] = rid
+				if it.has("rolls"):
+					gi["rolls"] = it["rolls"]
+				gear.append(gi)
 			"skillbook":
 				skillbooks.append(String(it.get("base_ability_id", "")))
 			"consumable":

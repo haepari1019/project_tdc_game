@@ -189,8 +189,8 @@ func capture_from_party(party) -> void:
 			continue
 		var e: Dictionary = equipped.get(String(m.get("class_id")), {})
 		e["gear"] = String(m.get("base_gear_id"))   # worn Identity Gear archetype (Safe on death — F-009 §3.7)
-		e["rolled_identity"] = String(m.get("identity_skill_id", ""))   # F-008 §3.7 effective rolled identity
-		var gr = m.get("gear_rolls", {})
+		e["rolled_identity"] = String(m.get("identity_skill_id"))   # F-008 §3.7 effective rolled identity (Node.get = 1-arg)
+		var gr = m.get("gear_rolls")
 		if typeof(gr) == TYPE_DICTIONARY and not (gr as Dictionary).is_empty():
 			e["rolls"] = gr
 		else:

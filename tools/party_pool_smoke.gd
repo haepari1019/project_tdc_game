@@ -187,6 +187,18 @@ func _initialize() -> void:
 	_chk("G3 cd_mult → cooldown_mult", is_equal_approx(float(pmB.cooldown_mult), 0.9))
 	pmA.free(); pmB.free()
 
+	# 15) Stash 인스턴스화(F-008 §3.7) — 레거시 문자열 정규화 + 굴린 인스턴스 round-trip(apply_dict/to_dict).
+	#     add_child 안 함(autoload 없는 --script에서 _ready/save_stash의 get_node 절대경로 회피).
+	var StashScript = load("res://scripts/autoload/stash.gd")
+	var st = StashScript.new()
+	st.apply_dict({"gear": ["gear_ward_tank_kite_shield", {"base_gear_id": "gear_ward_dps_ember_wand", "rolled_identity_skill_id": "dps_arc_weave", "rolls": {"dmg_mult": 1.2}}], "skillbooks": [], "consumables": {}})
+	_chk("Stash 레거시 문자열 정규화", typeof(st.gear[0]) == TYPE_DICTIONARY and String((st.gear[0] as Dictionary).get("base_gear_id", "")) == "gear_ward_tank_kite_shield")
+	_chk("Stash 굴린 인스턴스 보존", String((st.gear[1] as Dictionary).get("rolled_identity_skill_id", "")) == "dps_arc_weave")
+	var st2 = StashScript.new()
+	st2.apply_dict(st.to_dict())
+	_chk("Stash round-trip rolled 유지", String((st2.gear[1] as Dictionary).get("rolled_identity_skill_id", "")) == "dps_arc_weave" and is_equal_approx(float((st2.gear[1] as Dictionary).get("rolls", {}).get("dmg_mult", 0.0)), 1.2))
+	st.free(); st2.free()
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

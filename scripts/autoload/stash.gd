@@ -4,7 +4,7 @@ extends Node
 ## stash ↔ run inventory ↔ character slots; what's brought is At-Risk (F-007). Seeded with
 ## demo content on first load. ref: F-010 §3.2.
 
-var gear: Array = []               # owned base_gear_id strings (Identity Gear)
+var gear: Array = []               # owned gear 인스턴스 {base_gear_id, rolled_identity_skill_id?, rolls?} — F-008 §3.7. 레거시=문자열(로드 시 정규화).
 var skillbooks: Array = []         # owned base_ability_id strings (skillbooks)
 var consumables: Dictionary = {}   # consumable_id -> count owned
 # 재료(haul)는 일반 스태시가 아니라 HubProfile 금고(vault)에 일원화 — 별도 store 두지 않음(혼란 방지).
@@ -36,9 +36,18 @@ func to_dict() -> Dictionary:
 
 func apply_dict(d: Dictionary) -> void:
 	gear = d.get("gear", [])
+	_normalize_gear()   # 레거시 세이브(문자열 gear) → 인스턴스 dict 마이그레이션
 	skillbooks = d.get("skillbooks", [])
 	consumables = d.get("consumables", {})
 	_seeded = true
+
+
+## gear 엔트리를 인스턴스 dict로 정규화 — 시드/레거시 세이브의 문자열 base_gear_id → {base_gear_id}.
+## 인스턴스 = {base_gear_id, rolled_identity_skill_id?, rolls?} (F-008 §3.7 스페어도 굴린 정체성·옵션 보존).
+func _normalize_gear() -> void:
+	for i in gear.size():
+		if typeof(gear[i]) == TYPE_STRING:
+			gear[i] = {"base_gear_id": String(gear[i])}
 
 
 func _seed() -> void:
@@ -55,6 +64,7 @@ func _seed() -> void:
 	]
 	skillbooks = ["AB-002", "AB-010", "AB-011", "AB-037"]
 	consumables = {"con_revive_scroll": 8}
+	_normalize_gear()   # 시드 스페어는 문자열로 적고 인스턴스 {base_gear_id}로 정규화(roll 없음=bundled)
 
 
 ## 테스트/디버그 — 스태시를 데모 시드로 초기화.
@@ -87,12 +97,14 @@ func return_consumable(cid: String, amount: int = 1) -> void:
 
 ## Permanently remove one owned gear from the stash (hub 버리기). True if it was present.
 func remove_gear(base_gear_id: String) -> bool:
-	var i := gear.find(base_gear_id)
-	if i < 0:
-		return false
-	gear.remove_at(i)
-	save_stash()
-	return true
+	for i in gear.size():
+		var g = gear[i]
+		var bid := String(g.get("base_gear_id", "")) if typeof(g) == TYPE_DICTIONARY else String(g)
+		if bid == base_gear_id:
+			gear.remove_at(i)
+			save_stash()
+			return true
+	return false
 
 
 ## Add one owned skillbook to the stash (shop 구매 / 회수). F-009 상점 생본은 affix 없음(base만 보관).

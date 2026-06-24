@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260623-025 — Stash 인스턴스화 (스페어도 roll 보존) + capture_from_party 버그 수정
+- **결정(사용자 "stash 인스턴스화부터"):** `Stash.gear`를 base_gear_id 문자열 리스트 → **인스턴스 dict `{base_gear_id, rolled_identity_skill_id?, rolls?}`** 리스트. G2에서 스태시 왕복 시 roll이 bundled로 리셋되던 한계 해소(스페어도 굴린 정체성·옵션 보존).
+- **구현:** `stash.gd` `_normalize_gear`(시드/레거시 세이브 문자열→dict, apply_dict·_seed에서 호출 → 마이그레이션)·`remove_gear`(base 매칭). `main._build_stash_items`(인스턴스 전달)·`_sync_stash_from_source`(rolled/rolls 왕복 기록). `inventory_ui.make_gear_stash_item(inst)`(master deep-copy에 rolled/rolls 병합 → gear_item 캐리).
+- **부수 버그 수정:** `backpack.capture_from_party` 192~193행 `m.get(key, default)` — **Node.get()은 1-arg**(2-arg → "Invalid call" 런타임 에러). 매 hub deploy/추출 capture마다 로그 에러 발생하던 것을 1-arg로 수정(ci_smoke ERRPAT에 걸려 발견).
+- **검증:** party_pool_smoke(레거시 문자열 정규화·굴린 인스턴스 보존·to_dict/apply_dict round-trip rolled+rolls 유지) + ci_smoke PASS.
+- **영향:** `stash.gd`·`main.gd`·`inventory_ui.gd`·`backpack.gd`. **잔여:** potencyMult·affix.
+
 ### IMPL-DEC-20260623-024 — 기어 롤테이블 G3 (rolls 스탯 적용)
 - **결정(사용자 "적용해"):** G2에서 저장만 하던 `rolls`를 실제 스탯에 적용. `_bind_gear`: **dmg_mult → basic_damage**(매 bind fresh 재계산이라 비누적), **cd_mult → `cooldown_mult` → identity 쿨**(ability_dispatch.try_identity가 `cooldown_s * cooldown_mult`). 이제 상세 툴팁의 "옵션: 피해 ×.. · 쿨 ×.."가 실효.
 - **이유:** 굴린 옵션이 전투에 반영돼야 롤테이블이 의미. dmg는 basic_damage(평타+sb 스케일 기준), cd는 gear-bound identity 쿨(스펙 cdMult). potencyMult·Stash 인스턴스화는 잔여.

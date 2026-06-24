@@ -19,7 +19,7 @@
 | **ZONE/반응 (F-021/F-027)** | ✅ keystone | 9매체 zone·event bus·resolver·Hit-RX 4축(Fire/Cold/Lightning/Physical)·연쇄 per-RX VFX · zone AB 7종 enemy+lootable. S3e spread만 보류 |
 | **Hub (F-029)** | ✅ 시설 progression | 8시설 Tier·Quest/Haul 게이트·vault 파이프·UI-029 승급·디스크 영속·ENC haul 드롭표(HUB-COR-000)·QA-029 스모크. **효과 실연동 이연**: armory B/C(GEAR-COR-000)·분석/상점(F-009)·passive(F-020)·capacity 강제 — 해당 피처 구현 시 |
 | **3세력 (F-028)** | ✅ S5a 코어 | 진영전(교차진영 타겟·N진영/혼합분대) + 제3세력 Stalker Pack(EN-3RD-01~03·AB-100~106·ENC-3RD-001·outcome Rooted/Pinned/Scented/Tethered/Bloodlust). **잔여=Encounter Variety 엔진(조합 제너레이터·창발 모디파이어)=S5b** |
-| **기어/정체성 (F-008/D-019)** | ✅ 롤테이블 G1+G2+G3 | 17 신규 기어·6 정체성·6 ability effect·기어귀속 평타 (DRIFT-056). **롤테이블 G1–G3**(DRIFT-061): id 스펙 정렬·파생 롤테이블 · 획득 롤+인스턴스 loot→장착→세이브 영속 · **rolls 스탯 적용**(dmg_mult→평타·cd_mult→identity 쿨) + 상세 툴팁(표시명 레이어). 잔여=Stash 인스턴스화·affix·ba 특수거동 |
+| **기어/정체성 (F-008/D-019)** | ✅ 롤테이블 G1+G2+G3 | 17 신규 기어·6 정체성·6 ability effect·기어귀속 평타 (DRIFT-056). **롤테이블 G1–G3**(DRIFT-061): id 스펙 정렬·파생 롤테이블 · 획득 롤+인스턴스 loot→장착→세이브 영속 · **rolls 스탯 적용**(dmg_mult→평타·cd_mult→identity 쿨) + 상세 툴팁(표시명 레이어) + **Stash 인스턴스화**(스페어도 roll 보존). 잔여=affix·potencyMult·ba 특수거동 |
 | **메타세이브 (B리팩터)** | ◐ I1–I4 | SaveProfile 단일파일·Backpack 오토로드·낱개/장착서브/소비/장착기어 영속·재료 금고 일원화·스태시/금고 편집창. **잔여=I5(허브 완전 Backpack화·RunLoadout 잔여 제거)·충전수 영속** |
 
 ---
@@ -105,7 +105,8 @@
 - ✅ **1a 완료(2026-06-23, DRIFT-060·IMPL-DEC-020) — economy 로직(헤드리스):** HubProfile 분석 의뢰(N=3·scriptorium 게이트·해금 후 거부)→`shop_listing_unlocked`→`buy_raw`(scribe_shop Tier ceiling + ward_scrap Basic12/Adv30/Master60). ward_scrap=추출 보상(15+생존자×5, 데모). 스타터 스킬북 시드 §3.1.1 정렬. hub_smoke 7 assertion PASS.
 - ✅ **1b 완료 — 분석/상점 허브 UI:** `hub_economy_panel.gd`(풀스크린 오버레이) — 분석(스태시 책 의뢰→progress/해금, scriptorium 게이트) + 상점(해금 base ward_scrap 구매→스태시, scribe_shop 게이트) + ward_scrap 표시. `main.gd` "필기소·상점" 버튼. 부팅 스모크 PASS; 거동=F5.
 - ◐ **gear `identityRollTable` 이행 G1+G2 완료(DRIFT-061·IMPL-DEC-021/022):** G1=id 스펙 정렬+세이브 마이그레이션·파생 롤테이블·bind fwd-prep. G2=획득 롤(loot identity 가중+던전 band mult)+인스턴스(rolled identity/rolls) **loot→백팩 loose→장착→equipped 세이브 영속**(Stash 스페어=문자열·bundled 유지). 설계=`docs/design/gear_roll_table.md`. **G3 완료:** rolls 스탯 적용(dmg_mult→평타 위력·cd_mult→identity 쿨) + 상세 툴팁(굴린 identity·옵션·스킬 효과, 유저 표시명 레이어 display_names.json, 백엔드 ID 비노출).
-- **잔여:** roll-table Stash 인스턴스화(스페어 roll 보존)·potencyMult + affix(D-018 §7.3) + per-AB tier — 단독 결정([[refactor-risk-preference]]).
+- ✅ **Stash 인스턴스화(IMPL-DEC-025):** `Stash.gear` 문자열→인스턴스 dict(`_normalize_gear` 마이그레이션·remove_gear base 매칭·_sync 왕복) → 스페어도 굴린 정체성·옵션 보존. + capture_from_party `m.get` 2-arg 버그픽스.
+- **잔여:** **affix**(D-018 §7.3, 다음) + potencyMult + per-AB tier — 단독 결정([[refactor-risk-preference]]).
 - ◐ **ally 획득 lite 선납(P2-S6a 패스)**: ally-only lootable 인-런 획득은 `dungeon_run` ally-cache 상자(RM-ADV-01)로 우선 충족. **본격(S6b)**: shop 매대·ENC 드롭표·affix·자동 분배 시 정식화.
 
 ### P2-S7 — 통합/QA

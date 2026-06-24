@@ -336,9 +336,20 @@ func commit_loose_to_backpack() -> void:
 
 # --- stash item builders (deployment hub) — public wrappers so the hub can fill a stash grid
 # with the exact item dicts the equip/sub/backpack drag system expects (F-010). ---
-func make_gear_stash_item(base_gear_id: String) -> Dictionary:
-	var m := Slice01Data.get_gear_master(base_gear_id)
-	return ItemFactory.gear_item(m, true) if not m.is_empty() else {}
+## inst = stash 인스턴스 {base_gear_id, rolled_identity_skill_id?, rolls?} (레거시=문자열). 굴린 정체성/옵션을
+## master(deep copy)에 병합 → gear_item이 캐리(F-008 §3.7 스페어 roll 보존).
+func make_gear_stash_item(inst) -> Dictionary:
+	var base := String(inst.get("base_gear_id", "")) if typeof(inst) == TYPE_DICTIONARY else String(inst)
+	var m := Slice01Data.get_gear_master(base)
+	if m.is_empty():
+		return {}
+	if typeof(inst) == TYPE_DICTIONARY:
+		var rid := String((inst as Dictionary).get("rolled_identity_skill_id", ""))
+		if not rid.is_empty():
+			m["rolled_identity_skill_id"] = rid
+		if (inst as Dictionary).has("rolls"):
+			m["rolls"] = (inst as Dictionary)["rolls"]
+	return ItemFactory.gear_item(m, true)
 
 
 func make_skillbook_stash_item(base_ability_id: String) -> Dictionary:
