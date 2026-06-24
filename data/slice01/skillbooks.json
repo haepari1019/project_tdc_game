@@ -260,7 +260,7 @@
       "base_ability_id": "AB-056", "display_name": "Longshot Bolt", "equip_classes": ["Nuker", "DPS"],
       "sub_bands": { "DPS": "B1" },
       "range_band": "Long", "charges_max": 8,
-      "cast": { "kind": "skillbook_bolt", "cooldown_s": 4, "targeted": true, "range_m": 15, "radius_m": 1.2, "damage_mult": 1.2, "lightning": true }
+      "cast": { "kind": "skillbook_bolt", "cooldown_s": 4, "targeted": true, "range_m": 15, "radius_m": 1.2, "damage_mult": 1.2, "lightning": true, "delivery": "projectile", "speed_mps": 22.0 }
     },
     {
       "base_ability_id": "AB-058", "display_name": "Arc Detonation", "equip_classes": ["Nuker", "DPS"],

@@ -70,6 +70,13 @@ func take_damage(amount: float) -> void:
 		queue_free()   # Break — barrier hp 0
 
 
+## Absorb one projectile (delivery=projectile) — RP-02 / RX-PHYSICAL-BARRIER-001: the barrier soaks
+## the shot, taking DMG-BARRIER-HIT (10) per projectile, with an impact flash. ref: AB-034 · DRIFT-059.
+func absorb_projectile() -> void:
+	SkillVfx.telegraph(self, global_position, Color(0.55, 0.70, 1.0), 1.0)   # soak flash
+	take_damage(10.0)
+
+
 func _process(delta: float) -> void:
 	_ttl -= delta
 	if _ttl <= 0.0:

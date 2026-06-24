@@ -127,6 +127,19 @@ func _initialize() -> void:
 	_chk("Bloodlust scales with missing HP", half_mult > 1.0 and low_mult > half_mult)
 	en2.free()
 
+	# 9) Projectile delivery (Phase 1) — AB-056 flagged + sb_bolt resolve_at payload + dispatch hook.
+	_chk("AB-056 delivery=projectile", String(sd.get_skillbook_master("AB-056").get("cast", {}).get("delivery", "")) == "projectile")
+	var bolt_eff = null
+	for s in AD._SKILL_SCRIPTS:
+		var inst = s.new()
+		if String(inst.kind()) == "skillbook_bolt":
+			bolt_eff = inst
+			break
+	_chk("sb_bolt exposes resolve_at", bolt_eff != null and bolt_eff.has_method("resolve_at"))
+	var adp = AD.new()
+	_chk("dispatch has spawn_projectile", adp.has_method("spawn_projectile"))
+	adp.free()
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

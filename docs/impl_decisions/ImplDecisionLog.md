@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260623-018 — 어빌리티 전달(delivery) 축 + 투사체 시스템 (Phase 1 증명)
+- **결정(사용자 설계):** 어빌리티를 모양(범위/단일)이 아니라 **전달 방식**으로 분류 — `delivery ∈ {instant, projectile}` × payload(단일/범위/존…) 직교. `projectile`만 이동·충돌·차단(벽/Rampart 흡수)을 가짐. 통제자(플레이어/AI)는 조준만 다르고 전달 물리는 동일.
+- **아키텍처:** ① 범용 `projectile.gd` — segment-raycast(prev→next, 터널링 방지) 이동, 첫 충돌: Rampart(group)→`absorb_projectile`, 벽(world)→불발, 적유닛/도달점→`effect.resolve_at()` 콜백. hit mask=시전자 진영 제외(아군→world|enemy, 적→world|party; Rampart=world layer 1이라 양쪽 차단). ② effect를 `cast()`(분기: instant→즉시 resolve_at / projectile→`ctx.spawn_projectile(self,…)`) + `resolve_at(caster,center,params,ctx)`(공유 판정)로 분리 → 즉발·투사체가 동일 게임플레이 코드. ③ params는 투사체가 `duplicate()` 스냅샷(전이 `_coeff` 포착).
+- **Phase 1 스코프(증명):** 아군 볼트 **AB-056 Longshot만** projectile 라우팅 + Rampart 흡수(DMG-BARRIER-HIT-10). 나머지 전 어빌리티 **instant 유지(무변경, 저위험)**. **Rampart 투사체흡수(DRIFT-057 BLOCKED) 부분 해소.**
+- **이유:** 한 데이터 플래그 + 엔티티 1 + effect cast/resolve_at 분리로 즉발/투사체 통합. 스펙(ENT-RAMPART projectile-block) 의도 충족(전파 불요).
+- **검증:** ci_smoke(컴파일·부팅) + party_pool_smoke(flag·resolve_at·spawn_projectile 배선). **충돌/비행 실거동 = 헤드리스 불가 → F5 플레이테스트.**
+- **Phase 2(후속):** 전 어빌리티 instant/projectile 분류(파티+적, 범위폭발 포함)·적 샷 라우팅·VFX 승격·range/pierce.
+- **영향:** `projectile.gd`(신규) · `ability_dispatch.gd`(spawn_projectile·_projectile_mask·preload) · `effects/sb_bolt.gd`(cast/resolve_at) · `rampart_barrier.gd`(absorb_projectile) · `skillbooks.json`(AB-056 delivery) · `party_pool_smoke.gd`.
+
 ### IMPL-DEC-20260623-017 — 이연 능력 디테일 4종 (Shadowstep+20% · Sentinel 반사 · Beam Channeling · Bloodlust HP-scale)
 - **결정:** 능력 근사로 미뤄둔 디테일 중 **아키텍처상 구현 가능한 4종**을 처리. ① **Shadowstep(AB-061) next-hit +20%** — `party_member._next_hit_bonus`(grant/consume 1회) + 중앙 `combat_controller._deal_damage` 훅(basic·sub 모두 이 경로 → 한 곳에서 적용). ② **Sentinel Form(AB-052) 40% 반사** — `take_damage(amount, attacker=null)`로 시그니처 확장(양 take_damage 동일), `_apply_enemy_hit`가 `enemy`를 attacker로 전달 → 스탠스 중 reflect_frac 반사. ③ **Beam(AB-054) Channeling** — `begin_channel`/`is_channeling` busy 플래그(채널 동안 다른 서브 캐스트 차단; dungeon_run·sandbox 게이트), 기존 Rooted move-lock 병행. ④ **Bloodlust(AB-105) HP-scale** — `attack_interval_now`/`contact_damage_mult`가 `_missing_hp_frac`로 rage 램프(저장 mult=0HP 최대). 
 - **이유:** 전부 기존 단일 경로/시그니처 확장으로 해결(새 시스템 0). next-hit는 `_deal_damage` 단일 chokepoint, 반사는 attacker 인자 1개 추가(기본 null → 기존 호출 무손).

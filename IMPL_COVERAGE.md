@@ -3,7 +3,7 @@
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`. 실행 로드맵: [docs/ROADMAP_P2_FullCoverage.md](docs/ROADMAP_P2_FullCoverage.md).
 
 - spec_ref_pin: `bc22c38` (`main`, 2026-06-22; 제3세력 Stalker Pack 전파 DEC-20260621-001)
-- last_sprint: **P2-S6a 파티 능력 풀 lootable 완료** — lootable sub 44종 + 신규 effect kind 18종. B1 잔여 + 밴드 패널티(sub_bands) + ally-cache + B2 데미지 sub 19 + **bespoke 5종(taunt/pull/slow/relocate/reveal)** 완료. 이전: P2-S5a 진영전+제3세력 · P2-S6a Phase1 · 기어 카탈로그(DRIFT-056). **메타세이브 I1–I5 완료** + **이연 능력 디테일**(Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale) 완료. **다음: S6b 본격(shop/드롭표·gear roll-table·affix·UI) + S5b. 잔여 BLOCKED: Rampart 투사체흡수(투사체 엔티티 부재)·Tether leash-DoT(트래커 필요)**
+- last_sprint: **P2-S6a 파티 능력 풀 lootable 완료** — lootable sub 44종 + 신규 effect kind 18종. B1 잔여 + 밴드 패널티(sub_bands) + ally-cache + B2 데미지 sub 19 + **bespoke 5종(taunt/pull/slow/relocate/reveal)** 완료. 이전: P2-S5a 진영전+제3세력 · P2-S6a Phase1 · 기어 카탈로그(DRIFT-056). **메타세이브 I1–I5 완료** + **이연 능력 디테일**(Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale) 완료. **투사체 delivery 시스템 Phase 1**(범용 projectile + AB-056 라우팅 + Rampart 흡수, DRIFT-059) — F5 검증 대기. **다음: 투사체 Phase 2(전 어빌리티 instant/projectile 분류·적 샷·VFX) 또는 S6b 본격(shop/드롭표·gear roll-table) 또는 S5b**
 - last_updated: 2026-06-23
 
 ## Full Spec Coverage — AB-### 스냅샷 (2026-06-23 갱신)

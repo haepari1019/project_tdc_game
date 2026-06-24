@@ -10,6 +10,7 @@ extends Node3D
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 const _RampartBarrier := preload("res://scripts/world/objects/rampart_barrier.gd")  # AB-034 spawn
+const _Projectile := preload("res://scripts/combat/abilities/projectile.gd")        # delivery=projectile
 
 ## Drop-in skill effects. Each is loaded + instantiated once at setup() and registered by its
 ## kind(). Horizontal expansion: new skill = new effects/<name>.gd + one preload line here.
@@ -211,3 +212,19 @@ func reveal_enemies(dur: float) -> void:
 	for v in get_tree().get_nodes_in_group("enemy_visibility"):
 		if v.has_method("reveal"):
 			v.reveal(dur)
+
+
+## Spawn a traveling projectile (delivery="projectile") that carries `effect` as its payload — on
+## impact it calls effect.resolve_at(). Hit mask excludes the caster's own side (no friendly fire);
+## Rampart (world layer) blocks/absorbs it. ref: F-021 · AB-034 · DRIFT-059.
+func spawn_projectile(effect, caster: CharacterBody3D, target_pos: Vector3, params: Dictionary) -> void:
+	var proj = _Projectile.new()
+	add_child(proj)
+	proj.setup(caster, caster.global_position, target_pos, float(params.get("speed_mps", 18.0)),
+		_projectile_mask(caster), effect, params, self)
+
+
+## Projectile hit mask by caster side: ally → world(1) + enemy(4); enemy → world(1) + party(2).
+## Rampart Barrier sits on world(1), so it's hit either way. The caster's own layer is excluded.
+func _projectile_mask(caster: CharacterBody3D) -> int:
+	return (1 | 4) if caster.is_in_group("party_member") else (1 | 2)
