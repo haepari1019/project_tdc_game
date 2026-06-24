@@ -107,6 +107,27 @@ func get_gear_master(base_gear_id: String) -> Dictionary:
 	return g.duplicate(true) if typeof(g) == TYPE_DICTIONARY else {}
 
 
+## Identity roll table for a gear archetype (F-008 §3.7) — DERIVED 권고안(게임측, 명시 데이터 override 향후):
+## main(현 bundled, weight 50) + 동클래스 나머지 identity(잔여 균등). [{skill_id, weight}]. ref: gear_roll_table.md.
+func get_gear_identity_roll_table(base_gear_id: String) -> Array:
+	var g: Dictionary = get_gear_master(base_gear_id)
+	if g.is_empty():
+		return []
+	var main := String(g.get("bundled_identity_skill_id", ""))
+	var classes: Array = g.get("equip_classes", [])
+	var cls := String(classes[0]) if not classes.is_empty() else ""
+	var others: Array = []
+	for row in get_identity_rows():
+		var iid := String(row.get("identity_skill_id", ""))
+		if iid != "" and iid != main and String(row.get("class_id", "")) == cls:
+			others.append(iid)
+	var table: Array = [{"skill_id": main, "weight": 50}]
+	var w := int(round(50.0 / maxf(float(others.size()), 1.0)))
+	for o in others:
+		table.append({"skill_id": o, "weight": w})
+	return table
+
+
 ## Starter gear whose bundled identity == identity_skill_id (1:1). {} if none.
 func get_starter_gear_for_identity(identity_skill_id: String) -> Dictionary:
 	for row in _gear:

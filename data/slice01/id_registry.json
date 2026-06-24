@@ -55,16 +55,16 @@
   "_note_pattern_ids": "PT-001~009/012~016 = enemy combat patterns (EN-AI-000, catalog data/slice01/patterns.json). PT-010/020/021/022 = player role auto-patterns (identities.json). PT-011 (TankPlayerToolkit) unused in demo.",
   "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
   "base_gear_ids": [
-    "gear_ward_tank_anchor_set",
-    "gear_ward_dps_press_set",
-    "gear_ward_nuker_ruin_set",
-    "gear_ward_healer_mend_set",
+    "gear_ward_tank_anchor_bulwark",
+    "gear_ward_dps_press_rod",
+    "gear_ward_nuker_ruin_sight",
+    "gear_ward_healer_mend_lantern",
     "gear_ward_tank_kite_shield", "gear_ward_tank_beacon_hook", "gear_ward_tank_march_plate", "gear_ward_tank_rampart_wall", "gear_ward_tank_sentinel_aegis",
     "gear_ward_dps_weave_staff", "gear_ward_dps_rift_needle", "gear_ward_dps_ember_wand", "gear_ward_dps_brand_foci", "gear_ward_dps_tide_censer",
     "gear_ward_nuker_scout_frame", "gear_ward_nuker_flank_knife", "gear_ward_nuker_hex_scope", "gear_mag_nuker_coil_rifle", "gear_mag_nuker_volt_lance",
     "gear_ward_healer_ward_sigil", "gear_ward_healer_beacon_lantern"
   ],
-  "_note_base_gear_ids": "스타터 4 = _set 별칭(GEAR-011/021/031/041, Backpack.equipped 착용). 이하 17 = GEAR-012~016/022~026/032~036/042~043 카탈로그(스태시 스페어, 스왑용). gear_mag_* = Magitech.",
+  "_note_base_gear_ids": "스타터 4 = spec 슬러그 정렬(GEAR-011 anchor_bulwark/021 press_rod/031 ruin_sight/041 mend_lantern; 구 _set→1회 개명+세이브 alias, GEAR-COR-000 §2). 이하 17 = GEAR-012~016/022~026/032~036/042~043 카탈로그(스태시 스페어). gear_mag_* = Magitech. 롤테이블 이행: docs/design/gear_roll_table.md (G1).",
   "basic_attack_profile_ids": [
     "ba_tank_shield_tap",
     "ba_dps_arc_bolt",

@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260623-021 — 기어 롤테이블 이행 G1 (스타터 id 스펙 정렬 + 파생 롤테이블 토대)
+- **결정(사용자 게이트 클리어):** gear 1:1 `bundled_identity_skill_id` → 아키타입(롤테이블)+인스턴스(굴린 identity, F-008 §3.7) 이행. ① **id = 스펙 엄격 정렬** ② **롤테이블 = 권고안(파생)** ③ **인스턴스 스키마 = 아키타입 풀 + 굴린 선택 저장**. G1=저위험 토대만.
+- **id 정렬 범위(작음):** 17 비스타터는 이미 GEAR-COR-000 슬러그 일치 → **스타터 4 id만 개명**(`_set`→spec) + 4파일 동기 + Backpack 세이브 마이그레이션(alias). 큰 churn 없음.
+- **롤테이블 = 파생(Slice01Data.get_gear_identity_roll_table):** main(bundled w50)+동클래스 나머지. 21행 명시 테이블 안 넣음(권고안; override 향후) — 데이터 verbosity 회피.
+- **bind 폴백:** _bind_gear가 rolled>bundled. master엔 rolled 없어 거동 불변(가산 fwd-prep).
+- **이유:** G1 토대(개명·파생·폴백)는 안전. G2(획득 롤+저장 포맷 문자열→딕셔너리)가 진짜 위험 → 별도. 설계 doc=docs/design/gear_roll_table.md.
+- **검증:** ci_smoke + party_pool_smoke(id 정렬·롤테이블) PASS.
+- **영향:** `gear.json`·`id_registry.json`(스타터 4 id) · `backpack.gd`(시드+_migrate_gear_ids) · `loot_service.gd`(GEAR_LOOT) · `slice01_data.gd`(get_gear_identity_roll_table) · `party_member.gd`(_bind_gear) · `docs/design/gear_roll_table.md`.
+
 ### IMPL-DEC-20260623-020 — P2-S6b 스킬북 economy 1a (분석→해금→상점, ward_scrap) + 시드 정렬
 - **결정:** S6b를 **1a(economy 상태·로직, 헤드리스 검증) → 1b(허브 UI)**로 분할. **gear roll-table·affix는 고위험 게이트라 이연**([[refactor-risk-preference]]·ROADMAP §6). 1a = F-009 §3.5/D-018 §7.1 메타 루프를 HubProfile에 구현: 분석 의뢰(N=3·scriptorium 게이트·해금 후 거부) → `shop_listing_unlocked` → `buy_raw`(scribe_shop Tier ceiling + ward_scrap 차감). 가격 Basic 12/Adv 30/Master 60(스펙). + Backpack 시드를 F-009 §3.1.1 스타터(AB-033/028/030/044/045)로 정렬(구 Ember 대체).
 - **데모 결정(SPEC_DRIFT DRIFT-060):** ① ward_scrap source = 추출 `15+생존자×5`(스펙 source 미지정). ② 상점 tier=Basic 기본(per-AB tier 데이터 미보유). 둘 다 tuning.

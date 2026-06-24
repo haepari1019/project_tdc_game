@@ -151,6 +151,12 @@ func _initialize() -> void:
 	_chk("ally wall BLOCKS enemy shot", bar.blocks_projectile_from(foe))
 	bar.free(); ally_a.free(); ally_b.free(); foe.free()
 
+	# 11) Gear roll-table G1 (F-008 §3.7) — 스타터 spec id 정렬 + 파생 롤테이블(main bundled w50 + 동클래스).
+	_chk("starter gear id 스펙 정렬", not sd.get_gear_master("gear_ward_tank_anchor_bulwark").is_empty())
+	var rt: Array = sd.get_gear_identity_roll_table("gear_ward_tank_anchor_bulwark")
+	_chk("roll-table main=bundled w50", rt.size() >= 1 and String(rt[0].get("skill_id", "")) == "tank_anchor_guard" and int(rt[0].get("weight", 0)) == 50)
+	_chk("roll-table Tank 후보 다수", rt.size() >= 2)
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

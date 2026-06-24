@@ -9,7 +9,7 @@ const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
 ## PH gear-loot pool — dungeon-dropped Identity Gear (F-008 §3.3 / DEC-20260611-001; looted =
 ## At Risk). Same-role (Tank) equippable + cross-role (Healer) to show the equipClasses reject.
-const GEAR_LOOT: Array = ["gear_ward_tank_anchor_set", "gear_ward_healer_mend_set"]
+const GEAR_LOOT: Array = ["gear_ward_tank_anchor_bulwark", "gear_ward_healer_mend_lantern"]
 const GEAR_DROP_CHANCE := 0.08          # gear is RARE (per-kill, after the skillbook roll). (tuning)
 const SKILLBOOK_DROP_CHANCE := 0.85     # high so lootable-AB enemies almost always drop. (tuning)
 # haulMaterial(F-029/D-029)은 per-kill가 아니라 ENC(분대) 클리어 시 HUB-COR-000 §3 표로 드롭

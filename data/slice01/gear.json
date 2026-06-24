@@ -1,8 +1,8 @@
 {
-  "_note": "Identity Gear masters (Slice-01 starter). SSOT: spec GEAR-COR-000 / F-008 §3.7. base_gear_id <-> bundled_identity_skill_id is 1:1. Identity (stats/skills) resolves via bundled_identity_skill_id -> identities.json. F-008/DEC-20260611-001: equipped=Safe, unequipped looted instance=At Risk (run-inventory, future Track B step 5).",
+  "_note": "Identity Gear masters (아키타입). SSOT: spec GEAR-COR-000 / F-008 §3.7 / D-019. base_gear_id = spec 슬러그(스타터 4 = anchor_bulwark/press_rod/ruin_sight/mend_lantern, GEAR-011/021/031/041). bundled_identity_skill_id = 스타터 핀 identity / 비스타터 main 옵션. 롤테이블(identityRollTable)은 Slice01Data.get_gear_identity_roll_table 파생(권고안). 인스턴스(rolled_identity + rolls)는 G2부터. F-008: equipped=Safe, 미장착 loot=At Risk. ref: docs/design/gear_roll_table.md.",
   "gear": [
     {
-      "base_gear_id": "gear_ward_tank_anchor_set",
+      "base_gear_id": "gear_ward_tank_anchor_bulwark",
       "gear_kind": "WardGear",
       "equip_classes": [
         "Tank"
@@ -15,7 +15,7 @@
       "starter": true
     },
     {
-      "base_gear_id": "gear_ward_dps_press_set",
+      "base_gear_id": "gear_ward_dps_press_rod",
       "gear_kind": "WardGear",
       "equip_classes": [
         "DPS"
@@ -28,7 +28,7 @@
       "starter": true
     },
     {
-      "base_gear_id": "gear_ward_nuker_ruin_set",
+      "base_gear_id": "gear_ward_nuker_ruin_sight",
       "gear_kind": "WardGear",
       "equip_classes": [
         "Nuker"
@@ -41,7 +41,7 @@
       "starter": true
     },
     {
-      "base_gear_id": "gear_ward_healer_mend_set",
+      "base_gear_id": "gear_ward_healer_mend_lantern",
       "gear_kind": "WardGear",
       "equip_classes": [
         "Healer"

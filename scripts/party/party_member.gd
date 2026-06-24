@@ -148,7 +148,9 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	gear_kind = String(gear.get("gear_kind", ""))
 	basic_attack_profile_id = String(gear.get("basic_attack_profile_id", ""))
 	equip_classes = gear.get("equip_classes", [])
-	identity_skill_id = String(gear.get("bundled_identity_skill_id", ""))
+	# F-008 §3.7 — effective Identity = 인스턴스의 rolled_identity_skill_id(있으면, G2부터) > 아키타입
+	# bundled(스타터 핀·폴백). master 행엔 rolled 없음 → bundled(G1 거동 불변). ref: gear_roll_table.md.
+	identity_skill_id = String(gear.get("rolled_identity_skill_id", gear.get("bundled_identity_skill_id", "")))
 	var row: Dictionary = Slice01Data.get_identity_row(identity_skill_id)
 	class_id = String(row.get("class_id", ""))
 	ability_id = String(row.get("ability_id", ""))

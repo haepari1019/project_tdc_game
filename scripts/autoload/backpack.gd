@@ -11,6 +11,13 @@ extends Node
 var loose: Array = []          # [{id, kind, base_gear_id|base_ability_id|haul_material_id|consumable_id, w, h, count?, charges?, charges_max?, at_risk}]
 var equipped: Dictionary = {}  # member_key(String) -> {"gear": base_gear_id|"", "subs": [ {base_ability_id, charges} | null ×3 ]}
 var _seeded: bool = false
+## 스타터 기어 id 스펙 정렬(GEAR-COR-000 §2) — 구 세이브의 _set id를 spec 슬러그로 1회 마이그레이션.
+const GEAR_ID_ALIAS := {
+	"gear_ward_tank_anchor_set": "gear_ward_tank_anchor_bulwark",
+	"gear_ward_dps_press_set": "gear_ward_dps_press_rod",
+	"gear_ward_nuker_ruin_set": "gear_ward_nuker_ruin_sight",
+	"gear_ward_healer_mend_set": "gear_ward_healer_mend_lantern",
+}
 
 
 func _ready() -> void:
@@ -23,6 +30,25 @@ func _ready() -> void:
 		loose = s.get("loose", [])
 		equipped = s.get("equipped", {})
 		_seeded = true
+		_migrate_gear_ids()   # 구 세이브 _set id → spec 슬러그 (1회)
+
+
+## Rewrite legacy starter gear ids (equipped + loose) to the spec slugs. ref: GEAR-COR-000 §2.
+func _migrate_gear_ids() -> void:
+	var dirty := false
+	for k in equipped.keys():
+		var e: Dictionary = equipped[k]
+		var g := String(e.get("gear", ""))
+		if GEAR_ID_ALIAS.has(g):
+			e["gear"] = GEAR_ID_ALIAS[g]
+			equipped[k] = e
+			dirty = true
+	for it in loose:
+		if typeof(it) == TYPE_DICTIONARY and GEAR_ID_ALIAS.has(String(it.get("base_gear_id", ""))):
+			it["base_gear_id"] = GEAR_ID_ALIAS[String(it["base_gear_id"])]
+			dirty = true
+	if dirty:
+		save()
 
 
 func save() -> void:
@@ -50,10 +76,10 @@ func _seed() -> void:
 	# Worn starter Identity Gear per role (F-008 §3.7). Gear lives in equipped (Safe on death),
 	# NOT in the Stash library — equipping a spare from the stash consumes it; the worn gear here.
 	equipped = {
-		"Tank": {"gear": "gear_ward_tank_anchor_set", "subs": [null, null, null]},
-		"DPS": {"gear": "gear_ward_dps_press_set", "subs": [null, null, null]},
-		"Nuker": {"gear": "gear_ward_nuker_ruin_set", "subs": [null, null, null]},
-		"Healer": {"gear": "gear_ward_healer_mend_set", "subs": [null, null, null]},
+		"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "subs": [null, null, null]},
+		"DPS": {"gear": "gear_ward_dps_press_rod", "subs": [null, null, null]},
+		"Nuker": {"gear": "gear_ward_nuker_ruin_sight", "subs": [null, null, null]},
+		"Healer": {"gear": "gear_ward_healer_mend_lantern", "subs": [null, null, null]},
 	}
 
 
