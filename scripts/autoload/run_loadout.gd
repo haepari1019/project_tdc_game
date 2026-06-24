@@ -1,18 +1,13 @@
 extends Node
-## Cross-scene run loadout (F-010) — the deployment screen sets the brought consumables; the
-## dungeon scene reads them on start and adds them to the run inventory (At-Risk). Launching the
-## dungeon directly (no deployment) leaves it empty. ref: F-010 §3.2 / F-007 §3.0.
+## Cross-scene RUN CONFIG (F-010) — formation / difficulty / run seed chosen in the hub and read by
+## the dungeon scene at run start. Inventory (consumables / skillbooks / gear) is NOT carried here:
+## it moved to the **Backpack** autoload (loose + equipped) in the B-model unification (I2b/I3/I4),
+## which survives the scene change and IS the hub→run bridge. This node is config-only now
+## (the old consumables/backpack/member_subs bridges were removed in I5). ref: F-010 §3.2 / F-007.
 
-var consumables: Dictionary = {}   # consumable_id -> count brought this run (deployment v1)
-var backpack: Array = []           # brought run-inventory item dicts from the hub (At-Risk)
-var member_subs: Array = []        # per party slot: [base_ability_id|"" ×3] equipped in the hub
-var formation: Array = []          # [{class_id, offset:[x,z]}] formation slot offsets (hub editor)
-var difficulty: String = ""        # hub-chosen run difficulty ("Normal"/"Hard"); "" = manifest default
-var run_seed: int = 0              # per-run seed: weighted ENC resolve + spawn-position scatter (LDG-SPAWN-DEMO-001 §2)
-
-
-func set_consumables(d: Dictionary) -> void:
-	consumables = d.duplicate()
+var formation: Array = []     # [{class_id, offset:[x,z]}] formation slot offsets (hub editor)
+var difficulty: String = ""   # hub-chosen run difficulty ("Normal"/"Hard"); "" = manifest default
+var run_seed: int = 0         # per-run seed: weighted ENC resolve + spawn scatter (LDG-SPAWN-DEMO-001 §2)
 
 
 ## Single source of truth for the run's difficulty: the hub selection if set, else the

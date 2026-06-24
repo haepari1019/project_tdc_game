@@ -34,7 +34,7 @@
 | P2-S6a Phase1 | ☑ | 제3세력 lootable 아군 효과 6종(loot 루프 완성, 2ddf580). |
 | P2-S6a 파티풀 | ✅ lootable 완료 | lootable sub **44종** + 신규 effect kind **18종**. B1(12) + **B2 데미지 19**(skillbook_bolt 8 + 재사용 11) + **bespoke 5**(taunt AB-035·pull AB-051·slow AB-050·relocate_ally AB-045·reveal AB-032). **밴드 패널티**(`sub_bands`+BAND_COEFF) · **ally-cache 상자**(RM-ADV-01). `party_pool_smoke.gd`(전 kind 커버) + ci_smoke PASS. **근사 잔여(후속)**: shop/드롭표(S6b)·Shadowstep+20%·Rampart 투사체흡수·Sentinel 반사. 13cb343·5103b68·(bespoke 미커밋). DRIFT-057/058·IMPL-DEC-013/014/015. |
 | 기어 카탈로그 | ☑ | 17 신규 기어·6 정체성·6 ability effect(beacon_threat/march_advance/sentinel_form/arc_line/flank_dash/ward_shield)·기어귀속 평타(D-019)·평타 VFX 8종·샌드박스 검증툴 (DRIFT-056). |
-| 메타세이브 B | ◐ I1–I4 | SaveProfile 단일파일·Backpack 오토로드·낱개/장착서브/소비/장착기어 영속·재료 금고 일원화·스태시/금고 편집창·잡템 제거. **잔여=I5(허브 완전 Backpack화·RunLoadout 잔여)·충전수 영속.** |
+| 메타세이브 B | ✅ I1–I5 | SaveProfile 단일파일·Backpack 오토로드·낱개/장착서브/소비/장착기어 영속·재료 금고 일원화·스태시/금고 편집창. **I5**: RunLoadout config 전용(죽은 인벤 필드 제거)·서브 **충전수 영속**(부분소모 런간 유지). 완전 Backpack화는 기존 가드/동기화로 이미 도달. IMPL-DEC-016. |
 
 ## P2-S2 checklist (combat redesign)
 

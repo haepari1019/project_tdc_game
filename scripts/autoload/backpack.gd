@@ -114,8 +114,9 @@ func clear_at_risk_equipped() -> void:
 
 
 ## Apply persisted equipped GEAR + SUBS to a LIVE party (run start / hub load). Keyed by class_id
-## (4 distinct roles). Gear overrides the starter spawn (F-008); subs charges reset to max on equip
-## (live-charge persistence = later increment).
+## (4 distinct roles). Gear overrides the starter spawn (F-008); equipping a sub resets it to max
+## 탄수, so we then RESTORE the persisted remaining charges (I5) — a partially-spent skillbook carries
+## its 탄수 across runs (F-009).
 func apply_to_party(party) -> void:
 	if party == null or not party.has_method("get_members"):
 		return
@@ -136,6 +137,11 @@ func apply_to_party(party) -> void:
 				var s = subs[j]
 				if typeof(s) == TYPE_DICTIONARY and String(s.get("base_ability_id", "")) != "":
 					m.equip_skillbook_by_id(j, String(s["base_ability_id"]))
+					# Restore persisted remaining 탄수 (equip set it to max). I5 charge persistence.
+					if s.has("charges"):
+						var inst = m.get_skillbook(j)
+						if inst != null:
+							inst.charges = clampi(int(s["charges"]), 0, int(inst.charges_max))
 
 
 ## Capture a live party's equipped GEAR + SUBS into the persistent store (extract / hub deploy). One save.

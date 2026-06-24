@@ -317,7 +317,8 @@ func _load_backpack_from_autoload() -> void:
 
 
 ## B-model — commit the loose backpack grid back to the persistent Backpack autoload (extract = keep,
-## hub deploy = persist edits). Consumables excluded (I2b — they stay on the seed/RunLoadout path).
+## hub deploy = persist edits). Consumables INCLUDED — the whole loose carry persists (I3; RunLoadout
+## no longer carries inventory).
 func commit_loose_to_backpack() -> void:
 	var bp := get_node_or_null("/root/Backpack")
 	if bp == null:

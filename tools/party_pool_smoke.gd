@@ -9,6 +9,15 @@ extends SceneTree
 var _ok := true
 
 
+## Minimal party stand-in for Backpack.apply_to_party (it only calls get_members()).
+class _PartyStub:
+	var _m: Array = []
+	func _init(arr: Array) -> void:
+		_m = arr
+	func get_members() -> Array:
+		return _m
+
+
 func _initialize() -> void:
 	# Data — instantiate Slice01Data so its _ready loads + validates the catalogs (aborts on bad ID).
 	var sd = preload("res://scripts/autoload/slice01_data.gd").new()
@@ -80,6 +89,17 @@ func _initialize() -> void:
 	_chk("Purge removes Bloodlust", en.purge_one_buff() == "Bloodlust" and not en.is_bloodlust())
 	_chk("Purge nothing -> ''", en.purge_one_buff() == "")
 	en.free()
+
+	# 6) I5 charge persistence — Backpack.apply_to_party restores a sub's stored 탄수 (not max).
+	var BP = load("res://scripts/autoload/backpack.gd")
+	var bp = BP.new()   # bare instance (not in tree → no _ready seed)
+	bp.set_member_subs("Healer", [{"base_ability_id": "AB-064", "charges": 3}, null, null])
+	var pm2 = PM.new()
+	pm2.class_id = "Healer"
+	bp.apply_to_party(_PartyStub.new([pm2]))
+	var inst0 = pm2.get_skillbook(0)
+	_chk("charge persist (stored 3, not max)", inst0 != null and int(inst0.charges) == 3 and int(inst0.charges_max) > 3)
+	pm2.free()
 
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)

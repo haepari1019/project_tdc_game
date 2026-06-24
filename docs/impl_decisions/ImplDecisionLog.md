@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260623-016 — 메타세이브 I5: RunLoadout config-only + 서브 충전수 영속 (B-리팩터 완료)
+- **결정:** 메타세이브 B-리팩터 마지막 증분. ① **RunLoadout → config 전용**(formation/difficulty/run_seed) — 죽은 인벤 브리지 필드(`consumables`/`backpack`/`member_subs` + `set_consumables`) 제거(I2b/I3/I4에서 Backpack 오토로드로 이관 완료, `set_consumables` 호출자 0). ② **서브 충전수 영속** — `Backpack.apply_to_party`가 equip 후 저장된 잔여 탄수를 복원(equip은 max 리셋이라 clamp-set으로 덮어씀). 부분소모 스킬북이 런간 풀충전되던 버그(I3 ⚠️) 해소.
+- **"완전 Backpack화"는 이미 도달:** 기어/스킬북/소비 stash↔backpack 이동은 `_drop` 가드 허용 + `_sync_stash_from_source` 동기화로 동작. haul=금고(재료 일원화)·generic=제거 → 스태시 입금 대상 아님(의도된 최종 설계). 추가 작업 불필요.
+- **이유:** RunLoadout 인벤 잔재 = SoT 이중화 위험. 충전수 영속 = F-009 탄수 의미 보존.
+- **검증:** party_pool_smoke에 charge-persist end-to-end(stored 3 복원, max 아님) 추가 + ci_smoke PASS.
+- **영향:** `run_loadout.gd`(필드 제거) · `backpack.gd`(apply_to_party 충전 복원) · `inventory_ui.gd`(stale 주석) · `tools/party_pool_smoke.gd`.
+
 ### IMPL-DEC-20260623-015 — P2-S6a B2 잔여 bespoke 5종 (taunt/pull/slow/relocate/reveal) — 파티 풀 완료
 - **결정:** 이연했던 bespoke 5종을 마저 구현해 파티 lootable 풀을 닫음. 신규 effect kind 5(taunt/pull/slow/relocate_ally/reveal) + ctx `reveal_enemies` 1 + EnemyVisibility reveal 훅 1.
 - **타겟팅 회피(시스템 추가 없이):** ① **AB-035 taunt**·**AB-051 pull**·**AB-050 slow**는 기존 `enemy_unit` 공개 메서드(`add_threat`/`set_threat_floor`/`apply_knockback`/`apply_slow`)로 충분 — ctx 신규 API 불요. pull = `apply_knockback(caster−enemy)`(밀치기를 당김 방향으로). ② **AB-045 Lifeline**은 스펙 targetType=Ally지만 조준 시스템에 아군 픽이 없어 → **반경 내 최저 HP 아군 자동선택**(endangered 의미 보존), 새 타겟팅 UI 안 만듦. ③ **AB-032 reveal**만 시스템 훅 필요 → `EnemyVisibility`에 `_reveal_timer` + `reveal(dur)` 추가(활성 동안 LOS 무시 `set_seen(true)`), `ability_dispatch.reveal_enemies`가 group `enemy_visibility`로 호출.
