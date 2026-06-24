@@ -2,9 +2,16 @@ extends Control
 ## Clockwise radial cooldown overlay (UI-003 style). ratio 0 = ready, 1 = full cd.
 ## Gray wedge shrinks clockwise from top as the cooldown counts down.
 
+const RichTooltip := preload("res://scripts/ui/rich_tooltip.gd")
+
 var ratio: float = 0.0
 var icon_color: Color = Color(0.55, 0.55, 0.62)
 var empty: bool = false
+
+
+## 스킬 슬롯 툴팁을 BBCode(색)로 렌더 — tooltip_text에 색 태그(affix/패널티)를 넣을 수 있게.
+func _make_custom_tooltip(for_text: String) -> Object:
+	return RichTooltip.make(for_text)
 
 
 ## Mark an unequipped sub slot (dim placeholder, no wedge).

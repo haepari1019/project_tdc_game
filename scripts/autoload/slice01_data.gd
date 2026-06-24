@@ -123,6 +123,9 @@ func get_role_label(class_id: String) -> String:
 func get_affix_label(affix_id: String) -> String:
 	return String((_display.get("affixes", {}) as Dictionary).get(affix_id, affix_id))
 
+func get_skill_desc(kind: String) -> String:
+	return String((_display.get("skill_desc", {}) as Dictionary).get(kind, ""))
+
 
 ## Identity roll table for a gear archetype (F-008 §3.7) — DERIVED 권고안(게임측, 명시 데이터 override 향후):
 ## main(현 bundled, weight 50) + 동클래스 나머지 identity(잔여 균등). [{skill_id, weight}]. ref: gear_roll_table.md.

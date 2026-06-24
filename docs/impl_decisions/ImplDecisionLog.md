@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260623-027 — 스킬 슬롯 상세 설명 + 색구분 affix 툴팁 (커스텀 BBCode)
+- **결정(사용자):** ① 스킬 슬롯(액션바) 호버 설명이 너무 간략 → 롤급 설명문. ② affix는 색으로 한눈에(긍정 초록/부정 빨강). 두 요구가 합쳐짐.
+- **핵심 제약:** Godot `tooltip_text`는 평문 → 색 불가. **커스텀 툴팁**(`Control._make_custom_tooltip` → RichTextLabel BBCode)으로 해결. `scripts/ui/rich_tooltip.gd`(Panel 서브클래스 + static make + 색 consts POS/NEG/ACCENT) — RadialCooldown(액션바)·인벤 그리드 셀이 공유.
+- **설명문 레이어:** `display_names.json` `skill_desc`(kind→prose, skillbook 30종) + `Slice01Data.get_skill_desc`. `scripts/ui/skill_text.gd`(공유) = `describe`(prose+핵심수치 피해/반경/지속)·`affix_lines`(▲초록/▼빨강)·`band_pct`/`band_line`(비주력 패널티 실제 %)·`gear_roll_line`(피해↑/쿨↓ 초록).
+- **적용:** controlled_sheet `_sub_tip`(표시명+설명+탄/쿨+affix색+패널티색)·`_skill_tip`(identity, BBCode). inventory_grid 셀=RichTooltip(BBCode)·skillbook affix·gear rolls 색구분. 비주력 패널티는 기존 하드코딩 −10% → **밴드별 실제 %**(B1 10/B2 25/B3 45).
+- **검증:** party_pool_smoke §17(skill_desc·affix_lines 색태그·band_pct·gear_roll_line) + ci_smoke(액션바·인벤 부팅) PASS. 색 렌더=F5.
+- **영향:** `rich_tooltip.gd`·`skill_text.gd`(신규)·`radial_cooldown.gd`·`controlled_sheet.gd`·`inventory_grid.gd`·`slice01_data.gd`·`display_names.json`.
+
 ### IMPL-DEC-20260623-026 — 스킬북 affix (D-018 §7.3/§7.6) 구현
 - **결정(사용자 "affix 하자"):** 루팅 스킬북 인스턴스에 affix 굴림(기어 롤의 스킬북 판본). 추가형 — 스킬북 instance/item에 `affix: Dictionary` 필드(`{}`=무affix=현 거동), cast 시 `_coeff`에 한 factor 추가. 회귀 위험 낮음(빈 affix=no-op).
 - **구현:** `affix_roller.gd`(static) = 루팅 18%·T1/T2/T3·종류 3(eff_plus/eff_minus_trade/charges_small)·coeff 단일 ≤12% 클램프. `cast_skillbook`: coeffMult를 **밴드와 독립 곱**(§7.3), cd_trade→쿨, charges→charges_max(equip 시). 보존: loot drop→`_strip`→`equip_skillbook_by_id(…, affix)`/`equip_panel._skillbook_inst(item.affix)`→capture/apply subs(gear 롤 G2와 동형). 툴팁+display_names.json `affixes`.

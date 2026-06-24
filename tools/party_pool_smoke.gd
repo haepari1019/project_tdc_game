@@ -232,6 +232,14 @@ func _initialize() -> void:
 	_chk("affix 영속(capture/apply)", sb1 != null and int((sb1.affix as Dictionary).get("charges", 0)) == 5 and int(sb1.charges_max) == base_cmax + 5)
 	pmc.free(); pmc2.free()
 
+	# 17) 스킬 설명문 + 색구분 툴팁 빌더 (display_names.skill_desc / SkillText).
+	_chk("skill_desc(silence) 존재", not sd.get_skill_desc("skillbook_silence").is_empty())
+	var ST = load("res://scripts/ui/skill_text.gd")
+	var alines: Array = ST.affix_lines({"ids": ["affix_eff_plus"], "tier": "T1", "coeff": 0.09, "charges": 0, "cd_trade": 0.0})
+	_chk("affix_lines 색태그", alines.size() >= 1 and String(alines[0]).contains("color="))
+	_chk("band_pct 주력=0", ST.band_pct("AB-044", "Healer") == 0)
+	_chk("gear_roll_line 색태그", String(ST.gear_roll_line({"dmg_mult": 1.1, "cd_mult": 0.95})).contains("color="))
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

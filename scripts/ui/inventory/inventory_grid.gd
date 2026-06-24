@@ -10,6 +10,8 @@ const C_EMPTY := Color(0.14, 0.15, 0.18)
 const C_LINE := Color(0.28, 0.30, 0.36)
 const C_OK := Color(0.30, 0.85, 0.40, 0.40)
 const C_BAD := Color(0.95, 0.25, 0.20, 0.45)
+const RichTooltip := preload("res://scripts/ui/rich_tooltip.gd")   # 색 가능한 BBCode 툴팁(affix 강조)
+const SkillText := preload("res://scripts/ui/skill_text.gd")
 
 ## Optional flavor blurb per item id, for the hover tooltip (PH). Generic-loot entries removed —
 ## only real items remain (Key = sealed-door key). Functional items show their own id/name.
@@ -161,7 +163,7 @@ func export_items() -> Array:
 
 
 func _make_node(item: Dictionary) -> Panel:
-	var p := Panel.new()
+	var p := RichTooltip.new()   # BBCode 툴팁(색구분 affix/옵션) — 일반 Panel처럼 동작
 	p.size = item_px(int(item.w), int(item.h))
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.tooltip_text = _item_tip(item)
@@ -241,9 +243,9 @@ func _gear_tip(item: Dictionary) -> Array:
 			int(g.get("basic_damage", combat.get("basic_damage", 0))),
 			float(g.get("basic_interval_s", combat.get("basic_interval_s", 1.0))),
 			float(g.get("basic_range_m", combat.get("basic_range_m", 2.0)))])
-	var rolls = item.get("rolls", {})
-	if typeof(rolls) == TYPE_DICTIONARY and not (rolls as Dictionary).is_empty():
-		out.append("옵션: 피해 ×%.2f · 쿨 ×%.2f" % [float(rolls.get("dmg_mult", 1.0)), float(rolls.get("cd_mult", 1.0))])
+	var roll_line := SkillText.gear_roll_line(item.get("rolls", {}))   # 색구분(피해↑/쿨↓ 초록)
+	if not roll_line.is_empty():
+		out.append(roll_line)
 	return out
 
 
@@ -259,19 +261,8 @@ func _skillbook_tip(item: Dictionary) -> Array:
 		for c in m.get("equip_classes", []):
 			eq.append(Slice01Data.get_role_label(String(c)))
 		out.append("  장착: %s" % ", ".join(eq))
-	# D-018 §7.3 affix — 루팅 인스턴스 굴림(효과/탄/쿨). {} = 무affix(상점 생본·스타터).
-	var affix = item.get("affix", {})
-	if typeof(affix) == TYPE_DICTIONARY and not (affix as Dictionary).is_empty():
-		var parts: Array = []
-		if float(affix.get("coeff", 0.0)) > 0.0:
-			parts.append("효과 +%d%%" % roundi(float(affix.get("coeff", 0.0)) * 100.0))
-		if int(affix.get("charges", 0)) > 0:
-			parts.append("탄 +%d" % int(affix.get("charges", 0)))
-		if float(affix.get("cd_trade", 0.0)) > 0.0:
-			parts.append("쿨 +%d%%" % roundi(float(affix.get("cd_trade", 0.0)) * 100.0))
-		var ids: Array = affix.get("ids", [])
-		var nm := Slice01Data.get_affix_label(String(ids[0])) if not ids.is_empty() else "affix"
-		out.append("  ✦ %s [%s] — %s" % [nm, String(affix.get("tier", "")), ", ".join(parts)])
+	# D-018 §7.3 affix — 루팅 인스턴스 굴림. 색구분(긍정 초록/부정 빨강) 라인. {} = 무affix.
+	out.append_array(SkillText.affix_lines(item.get("affix", {})))
 	return out
 
 

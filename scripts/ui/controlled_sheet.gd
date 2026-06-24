@@ -5,6 +5,7 @@ extends Control
 
 const RadialCooldown := preload("res://scripts/ui/radial_cooldown.gd")
 const UiColors := preload("res://scripts/core/ui_colors.gd")
+const SkillText := preload("res://scripts/ui/skill_text.gd")
 
 const SLOT := 42
 const HP_W := 230
@@ -138,26 +139,42 @@ func _process(_delta: float) -> void:
 				var _pen: bool = not _classes.is_empty() and String(m.class_id) != String(_classes[0])
 				s.key.add_theme_color_override("font_color", Color(1.0, 0.5, 0.25) if _pen else Color(0.92, 0.92, 0.92))
 				s.key.text = "%s·%d%s" % [key, int(inst.charges), ("▼" if _pen else "")]
-				s.radial.tooltip_text = "%s (%s)\n탄 %d/%d · 쿨 %ss%s" % [String(inst.display_name), key, int(inst.charges), int(inst.charges_max), _num(cdmax), (("\n⚠ 비주력 -10%") if _pen else "")]
+				s.radial.tooltip_text = _sub_tip(m, inst, key, cdmax)
 
 
 func _hp_color(r: float) -> Color:
 	return UiColors.hp_color(r)
 
 
-## Hover tooltip for a skill slot: header + readable name/blurb + cooldown (from data).
+## Identity(주 스킬) 슬롯 툴팁 — 표시명 + 설명문 + 쿨. BBCode(RadialCooldown custom tooltip가 렌더).
 func _skill_tip(skill_id: String, params: Dictionary, header: String) -> String:
 	if params.is_empty():
-		return "%s\n(미장착)" % header
+		return "[color=#9aa4b2]%s[/color]\n(미장착)" % header
 	var kind := String(params.get("kind", ""))
 	var info: Dictionary = SKILL_INFO.get(kind, {})
-	var nm := String(info.get("name", kind))
-	var lines: Array = [header, "%s  ·  %s" % [nm, skill_id] if not skill_id.is_empty() else nm]
-	if info.has("desc"):
-		lines.append(String(info["desc"]))
+	var nm := String(info.get("name", Slice01Data.get_identity_display(skill_id)))
+	var lines: Array = ["[color=#9aa4b2]%s[/color]" % header, "[b]%s[/b]" % nm]
+	var desc := String(info.get("desc", Slice01Data.get_skill_desc(kind)))
+	if not desc.is_empty():
+		lines.append(desc)
 	var cd := float(params.get("cooldown_s", 0.0))
 	if cd > 0.0:
-		lines.append("쿨다운 %ss" % _num(cd))
+		lines.append("[color=#9aa4b2]쿨다운 %ss[/color]" % _num(cd))
+	return "\n".join(lines)
+
+
+## 보조(Q/E/R) 스킬북 슬롯 툴팁 — 표시명 + 설명문 + 탄/쿨 + affix(색) + 비주력 패널티(색). BBCode.
+func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float) -> String:
+	var kind := String(inst.params.get("kind", ""))
+	var lines: Array = [
+		"[b]%s[/b]  [color=#9aa4b2]· 보조 %s[/color]" % [String(inst.display_name), key],
+		SkillText.describe(kind, inst.params),
+		"[color=#9aa4b2]탄 %d/%d  ·  쿨 %ss[/color]" % [int(inst.charges), int(inst.charges_max), _num(cdmax)],
+	]
+	lines.append_array(SkillText.affix_lines(inst.get("affix", {})))
+	var bp := SkillText.band_pct(String(inst.get("base_ability_id", "")), String(m.class_id))
+	if bp > 0:
+		lines.append(SkillText.band_line(bp))
 	return "\n".join(lines)
 
 
