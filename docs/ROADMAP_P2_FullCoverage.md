@@ -103,7 +103,7 @@
 ### P2-S6b — economy/UI + gear roll-table
 - 분석진척·shop·affix(hub 의존) + **gear `identityRollTable` 이행**(현 1:1 `bundled_identity_skill_id` = 레거시 핀; F-008 §3.7) + 21 gear 아키타입 + UI 폴리시(shop/analysis·HUD 확장·핑).
 - ✅ **1a 완료(2026-06-23, DRIFT-060·IMPL-DEC-020) — economy 로직(헤드리스):** HubProfile 분석 의뢰(N=3·scriptorium 게이트·해금 후 거부)→`shop_listing_unlocked`→`buy_raw`(scribe_shop Tier ceiling + ward_scrap Basic12/Adv30/Master60). ward_scrap=추출 보상(15+생존자×5, 데모). 스타터 스킬북 시드 §3.1.1 정렬. hub_smoke 7 assertion PASS.
-- **1b(다음):** 분석/상점 **허브 UI**(scriptorium 의뢰 패널·scribe_shop 구매 패널·ward_scrap 표시) — main.gd 허브 통합(F5).
+- ✅ **1b 완료 — 분석/상점 허브 UI:** `hub_economy_panel.gd`(풀스크린 오버레이) — 분석(스태시 책 의뢰→progress/해금, scriptorium 게이트) + 상점(해금 base ward_scrap 구매→스태시, scribe_shop 게이트) + ward_scrap 표시. `main.gd` "필기소·상점" 버튼. 부팅 스모크 PASS; 거동=F5.
 - **고위험 게이트(이연):** gear `identityRollTable` 이행 + affix(D-018 §7.3) + per-AB tier 데이터 — 단독 결정([[refactor-risk-preference]]).
 - ◐ **ally 획득 lite 선납(P2-S6a 패스)**: ally-only lootable 인-런 획득은 `dungeon_run` ally-cache 상자(RM-ADV-01)로 우선 충족. **본격(S6b)**: shop 매대·ENC 드롭표·affix·자동 분배 시 정식화.
 

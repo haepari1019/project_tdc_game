@@ -95,6 +95,14 @@ func remove_gear(base_gear_id: String) -> bool:
 	return true
 
 
+## Add one owned skillbook to the stash (shop 구매 / 회수). F-009 상점 생본은 affix 없음(base만 보관).
+func add_skillbook(base_ability_id: String) -> void:
+	if base_ability_id.is_empty():
+		return
+	skillbooks.append(base_ability_id)
+	save_stash()
+
+
 ## Permanently remove one owned skillbook from the stash (hub 버리기). True if it was present.
 func remove_skillbook(base_ability_id: String) -> bool:
 	var i := skillbooks.find(base_ability_id)

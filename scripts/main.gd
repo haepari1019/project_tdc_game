@@ -11,6 +11,7 @@ const StashSource := preload("res://scripts/ui/inventory/stash_source.gd")
 const FormationEditor := preload("res://scripts/ui/inventory/formation_editor.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const HubFacilitiesPanel := preload("res://scripts/ui/hub_facilities_panel.gd")  # UI-029 시설 승급
+const HubEconomyPanel := preload("res://scripts/ui/hub_economy_panel.gd")        # F-009 분석·상점
 
 @onready var _status: Label = $Panel/Margin/VBox/Status
 @onready var _loadout: VBoxContainer = $Panel/Margin/VBox/LoadoutStub
@@ -76,6 +77,14 @@ func _setup_hub() -> void:
 	facilities_btn.pressed.connect(facilities_panel.open_panel)
 	$Panel/Margin/VBox.add_child(facilities_btn)
 	$Panel/Margin/VBox.move_child(facilities_btn, _loadout.get_index())
+	# F-009 필기소·상점 — 스킬북 분석(해금) + 생본 구매(ward_scrap). 풀스크린 오버레이.
+	var economy_panel := HubEconomyPanel.new()
+	add_child(economy_panel)
+	var economy_btn := Button.new()
+	economy_btn.text = "필기소 · 상점 (분석/구매)"
+	economy_btn.pressed.connect(economy_panel.open_panel)
+	$Panel/Margin/VBox.add_child(economy_btn)
+	$Panel/Margin/VBox.move_child(economy_btn, _loadout.get_index())
 	# 저장 초기화 (테스트/디버그) — 스태시·백팩·허브 메타를 데모 시드로. 확인 다이얼로그로 보호.
 	var reset_btn := Button.new()
 	reset_btn.text = "저장 초기화 (시드로)"
