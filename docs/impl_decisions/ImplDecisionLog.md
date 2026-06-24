@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260623-022 — 기어 롤테이블 G2 (획득 롤 + 인스턴스 영속, 바운드 범위)
+- **결정:** G2 = "loot 기어가 굴린 identity를 갖고 장착·세이브로 영속". **바운드**: 인스턴스(`rolled_identity_skill_id`/`rolls`)를 **loot→백팩 loose→장착→equipped** 경로로 스레딩. Stash 스페어는 문자열 유지(roll 미보존), rolls 적용·UI=G3, affix·대장간 제외.
+- **스레딩:** loot_service(가중 identity 롤 + 던전 band mult) · item_factory.gear_item(입력 dict의 rolled 보존) · inventory_ui loose 재구축(디스크립터 rolled 병합) · Backpack `_strip`(keep)/apply(주입, 없으면 bundled 폴백)/capture(member.identity_skill_id+gear_rolls) · equip_panel `_commit_equip`(아이템 rolled 병합) · party_member `gear_rolls`.
+- **rolled 빈 값 가드:** rolled_identity_skill_id는 **non-empty일 때만 주입** → `_bind_gear`의 bundled 폴백 보존(빈 키로 폴백 깨짐 방지).
+- **바운드 이유(refactor-risk):** 전체 인벤 인스턴스화(Stash 포함 + 드래그 전 경로)는 큰 UI churn → 핵심 루프만. Stash 왕복·revert는 bundled로(문서화). rolls 적용은 G3로 분리(G2는 identity 다양성만, 전투수치 mult 미변경).
+- **검증:** party_pool_smoke(equipped rolled identity apply=tank_iron_beacon(bundled 아님)·rolls 저장·capture 영속) + ci_smoke PASS. 드래그 UI = F5.
+- **영향:** `loot_service.gd`·`item_factory.gd`·`inventory_ui.gd`(loose 재구축)·`backpack.gd`(strip/apply/capture)·`equip_panel.gd`(_commit_equip)·`party_member.gd`(gear_rolls).
+
 ### IMPL-DEC-20260623-021 — 기어 롤테이블 이행 G1 (스타터 id 스펙 정렬 + 파생 롤테이블 토대)
 - **결정(사용자 게이트 클리어):** gear 1:1 `bundled_identity_skill_id` → 아키타입(롤테이블)+인스턴스(굴린 identity, F-008 §3.7) 이행. ① **id = 스펙 엄격 정렬** ② **롤테이블 = 권고안(파생)** ③ **인스턴스 스키마 = 아키타입 풀 + 굴린 선택 저장**. G1=저위험 토대만.
 - **id 정렬 범위(작음):** 17 비스타터는 이미 GEAR-COR-000 슬러그 일치 → **스타터 4 id만 개명**(`_set`→spec) + 4파일 동기 + Backpack 세이브 마이그레이션(alias). 큰 churn 없음.

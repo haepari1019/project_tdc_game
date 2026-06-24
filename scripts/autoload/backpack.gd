@@ -159,6 +159,12 @@ func apply_to_party(party) -> void:
 		if gid != "" and m.has_method("equip_gear"):
 			var gm: Dictionary = Slice01Data.get_gear_master(gid)
 			if not gm.is_empty():
+				# F-008 §3.7 — 인스턴스 rolled identity/rolls 주입(있을 때만 → 없으면 bundled 폴백, G2).
+				var rid := String(e.get("rolled_identity", ""))
+				if rid != "":
+					gm["rolled_identity_skill_id"] = rid
+				if e.has("rolls") and typeof(e["rolls"]) == TYPE_DICTIONARY and not (e["rolls"] as Dictionary).is_empty():
+					gm["rolls"] = e["rolls"]
 				m.equip_gear(gm)
 		# Equipped subs (Q/E/R)
 		if m.has_method("equip_skillbook_by_id"):
@@ -182,7 +188,13 @@ func capture_from_party(party) -> void:
 		if m == null or not is_instance_valid(m):
 			continue
 		var e: Dictionary = equipped.get(String(m.get("class_id")), {})
-		e["gear"] = String(m.get("base_gear_id"))   # worn Identity Gear (Safe on death — F-009 §3.7)
+		e["gear"] = String(m.get("base_gear_id"))   # worn Identity Gear archetype (Safe on death — F-009 §3.7)
+		e["rolled_identity"] = String(m.get("identity_skill_id", ""))   # F-008 §3.7 effective rolled identity
+		var gr = m.get("gear_rolls", {})
+		if typeof(gr) == TYPE_DICTIONARY and not (gr as Dictionary).is_empty():
+			e["rolls"] = gr
+		else:
+			e.erase("rolls")
 		if m.has_method("get_skillbook"):
 			var subs: Array = []
 			for j in 3:
@@ -201,7 +213,8 @@ func capture_from_party(party) -> void:
 func _strip(it: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key in ["id", "kind", "base_gear_id", "base_ability_id", "haul_material_id",
-			"consumable_id", "w", "h", "count", "charges", "charges_max", "at_risk", "equipped"]:
+			"consumable_id", "w", "h", "count", "charges", "charges_max", "at_risk", "equipped",
+			"rolled_identity_skill_id", "rolls"]:   # F-008 §3.7 gear 인스턴스 굴림 보존(G2)
 		if it.has(key):
 			out[key] = it[key]
 	return out

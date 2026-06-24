@@ -465,10 +465,11 @@
 - **1b UI 완료:** `hub_economy_panel.gd`(풀스크린) — 분석 의뢰(스태시 책→소멸·progress/해금)·상점(해금 base ward_scrap 구매→스태시)·scrap 표시 + `main.gd` "필기소·상점" 버튼. 부팅 스모크 PASS, 거동=F5.
 - **검증:** hub_smoke(분석 1/3·3/3 해금·해금 후 거부·scribe_shop 잠김 차단·scrap 부족·Basic 구매 −12·미해금 차단) + ci_smoke(허브 패널 부팅) PASS.
 
-### DRIFT-061 — 기어 롤테이블 이행 G1: 스타터 id 스펙 정렬 + 파생 롤테이블 (토대) 🔶 impl
+### DRIFT-061 — 기어 롤테이블 이행 G1+G2: id 정렬·파생 롤테이블·획득 롤·인스턴스 영속 🔶 impl
 - **현실(2026-06-23, 사용자 결정):** gear 1:1 `bundled_identity_skill_id`(레거시 핀) → 아키타입(롤테이블)+인스턴스(굴린 identity) 이행(F-008 §3.7/DEC-20260618-002). G1 = 저위험 토대(가산·거동 불변).
 - **id 스펙 엄격 정렬(GEAR-COR-000):** 17 비스타터는 이미 spec 슬러그 일치 → **스타터 4종만 개명**: `_set` → anchor_bulwark/press_rod/ruin_sight/mend_lantern(GEAR-011/021/031/041). gear.json·id_registry·Backpack 시드·loot_service 동기 + **세이브 마이그레이션**(Backpack `_migrate_gear_ids` old→new alias, equipped+loose 1회).
 - **파생 롤테이블(권고안):** `Slice01Data.get_gear_identity_roll_table` = main(bundled w50) + 동클래스 나머지(잔여 균등). 명시 per-archetype 테이블 override = 향후(사용자: 필요 시 수정).
 - **bind fwd-prep:** `party_member._bind_gear` = `rolled_identity_skill_id`(있으면) > bundled. master 행엔 rolled 없음 → bundled(**G1 거동 불변**). 인스턴스 저장(G2)부터 rolled 적용.
-- **분류\전파:** impl. id 정렬·롤테이블 메커니즘은 spec(F-008/GEAR-COR-000) 그대로 → 규칙 드리프트 없음. **이연:** G2(획득 롤 + 인스턴스 저장 문자열→딕셔너리·위험) · G3(서브옵션 mult + UI) · affix · 대장간(Expansion). 설계 = `docs/design/gear_roll_table.md`.
-- **검증:** ci_smoke(개명 id validate·부팅) + party_pool_smoke(starter id 정렬·롤테이블 main w50·Tank 후보 다수) PASS.
+- **G2 완료(획득 롤 + 인스턴스 영속) — 바운드 범위:** loot_service 기어 드롭 = identity 가중 롤 + 서브옵션 mult(던전 band) → 인스턴스 디스크립터. 인스턴스 필드(`rolled_identity_skill_id`/`rolls`)가 **loot→백팩 loose(디스크립터+재구축)→장착→equipped(capture/apply)** 경로로 보존(item_factory·inventory_ui 재구축·Backpack `_strip`/apply/capture·equip_panel `_commit_equip` 병합·party_member `gear_rolls`). rolled 없으면 bundled 폴백(거동 호환). **바운드/이연:** Stash 스페어 = 문자열 유지(roll 미보존, 스태시 왕복 시 bundled로) · revert(드래그 취소) edge = bundled · **rolls 적용(스탯 곱)·UI = G3** · affix·대장간(Expansion).
+- **분류\전파:** impl. 메커니즘은 spec(F-008/GEAR-COR-000/D-019) 그대로 → 규칙 드리프트 없음. mult band 수치=데모. 설계 = `docs/design/gear_roll_table.md`.
+- **검증:** ci_smoke(개명 id validate·부팅·인벤 패널) + party_pool_smoke(id 정렬·롤테이블·**G2 rolled identity apply/capture 영속·rolls 저장**) PASS. 인벤 드래그 거동 = F5.

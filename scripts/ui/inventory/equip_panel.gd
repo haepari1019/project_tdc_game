@@ -162,9 +162,16 @@ func _matching_member(master: Dictionary) -> int:
 
 ## Apply the equip (caller already removed the item from its grid). Displaced gear
 ## returns to the backpack as an At-Risk instance (F-008 §3.3, decision B).
-func _commit_equip(member: Node, master: Dictionary) -> void:
+func _commit_equip(member: Node, master: Dictionary, item: Dictionary = {}) -> void:
 	var displaced: Dictionary = member.equipped_gear
-	member.equip_gear(master)
+	# F-008 §3.7 — 아이템 인스턴스의 rolled(identity/rolls)을 master에 병합해 장착(G2). 없으면 bundled.
+	var gm := master.duplicate(true)
+	var rid := String(item.get("rolled_identity_skill_id", ""))
+	if rid != "":
+		gm["rolled_identity_skill_id"] = rid
+	if item.has("rolls") and typeof(item["rolls"]) == TYPE_DICTIONARY:
+		gm["rolls"] = item["rolls"]
+	member.equip_gear(gm)
 	if not displaced.is_empty():
 		if not _inv.backpack_grid().add_item_dict(ItemFactory.gear_item(displaced, true)):
 			push_warning("[TDC] Backpack full — displaced gear had nowhere to go")
@@ -185,7 +192,7 @@ func try_equip_gear(slot_index: int, item: Dictionary) -> bool:
 	if not member.can_equip_gear(master):
 		msg("역할 불일치 — %s 전용 장비" % String((master.get("equip_classes", ["?"]) as Array)[0]))
 		return false
-	_commit_equip(member, master)
+	_commit_equip(member, master, item)
 	return true
 
 
@@ -202,7 +209,7 @@ func equip_gear_to_matching(grid: Node, item: Dictionary) -> void:
 		msg("착용 가능한 %s 캐릭터 없음" % String((master.get("equip_classes", ["?"]) as Array)[0]))
 		return
 	grid.lift(item)  # remove from backpack (consumed → equipped)
-	_commit_equip(_party.get_member(idx), master)
+	_commit_equip(_party.get_member(idx), master, item)
 
 
 ## Re-equip a gear item reverted onto its origin slot (coordinator._revert_drag "gear").

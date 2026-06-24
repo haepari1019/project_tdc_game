@@ -25,6 +25,8 @@ var base_gear_id: String = ""
 var gear_kind: String = ""
 var basic_attack_profile_id: String = ""
 var equip_classes: Array = []
+## F-008 §3.7 rolled 서브옵션(dmg_mult/cd_mult 등) — 인스턴스 굴림 저장. 적용(스탯 곱)=G3. ref: gear_roll_table.md.
+var gear_rolls: Dictionary = {}
 
 # --- Identity (resolved from equipped_gear's bundled identity) ---
 var identity_skill_id: String = ""
@@ -148,9 +150,10 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	gear_kind = String(gear.get("gear_kind", ""))
 	basic_attack_profile_id = String(gear.get("basic_attack_profile_id", ""))
 	equip_classes = gear.get("equip_classes", [])
-	# F-008 §3.7 — effective Identity = 인스턴스의 rolled_identity_skill_id(있으면, G2부터) > 아키타입
-	# bundled(스타터 핀·폴백). master 행엔 rolled 없음 → bundled(G1 거동 불변). ref: gear_roll_table.md.
+	# F-008 §3.7 — effective Identity = 인스턴스의 rolled_identity_skill_id(있으면) > 아키타입 bundled
+	# (스타터 핀·폴백). master 행엔 rolled 없음 → bundled. ref: gear_roll_table.md.
 	identity_skill_id = String(gear.get("rolled_identity_skill_id", gear.get("bundled_identity_skill_id", "")))
+	gear_rolls = gear.get("rolls", {}) if typeof(gear.get("rolls", {})) == TYPE_DICTIONARY else {}   # G2 저장(적용=G3)
 	var row: Dictionary = Slice01Data.get_identity_row(identity_skill_id)
 	class_id = String(row.get("class_id", ""))
 	ability_id = String(row.get("ability_id", ""))

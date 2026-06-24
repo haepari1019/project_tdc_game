@@ -8,17 +8,25 @@ const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 
 
 ## Backpack item dict from a gear master (id=display name, role color, 2×2).
-static func gear_item(master: Dictionary, at_risk: bool) -> Dictionary:
-	var classes: Array = master.get("equip_classes", [])
+## `g` = a gear master OR an instance dict (equipped_gear / loot def / loose-merged) — F-008 §3.7
+## rolled fields (rolled_identity_skill_id / rolls) are carried through if present (non-empty).
+static func gear_item(g: Dictionary, at_risk: bool) -> Dictionary:
+	var classes: Array = g.get("equip_classes", [])
 	var cid := String(classes[0]) if not classes.is_empty() else "Tank"
-	return {
-		"id": String(master.get("display_name", master.get("base_gear_id", "Gear"))),
+	var out := {
+		"id": String(g.get("display_name", g.get("base_gear_id", "Gear"))),
 		"w": 2, "h": 2,
 		"color": UnitVisuals.role_color(cid),
 		"kind": "gear",
-		"base_gear_id": String(master.get("base_gear_id", "")),
+		"base_gear_id": String(g.get("base_gear_id", "")),
 		"at_risk": at_risk,
 	}
+	var rid := String(g.get("rolled_identity_skill_id", ""))
+	if rid != "":
+		out["rolled_identity_skill_id"] = rid
+	if g.has("rolls") and typeof(g["rolls"]) == TYPE_DICTIONARY and not (g["rolls"] as Dictionary).is_empty():
+		out["rolls"] = g["rolls"]
+	return out
 
 
 ## Backpack item dict from a haul material (1×1, ochre). Run-inventory At-Risk; on Extraction

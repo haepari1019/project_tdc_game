@@ -157,6 +157,18 @@ func _initialize() -> void:
 	_chk("roll-table main=bundled w50", rt.size() >= 1 and String(rt[0].get("skill_id", "")) == "tank_anchor_guard" and int(rt[0].get("weight", 0)) == 50)
 	_chk("roll-table Tank 후보 다수", rt.size() >= 2)
 
+	# 12) Gear roll-table G2 — equipped 인스턴스의 rolled identity가 apply/capture로 영속(bundled 아님).
+	var bp2 = BP.new()   # bare instance (no _ready seed)
+	bp2.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "rolled_identity": "tank_iron_beacon", "rolls": {"dmg_mult": 1.1}, "subs": [null, null, null]}}
+	var tank = PM.new()
+	tank.class_id = "Tank"
+	bp2.apply_to_party(_PartyStub.new([tank]))
+	_chk("G2 rolled identity 적용(bundled 아님)", String(tank.identity_skill_id) == "tank_iron_beacon")
+	_chk("G2 rolls 저장", float((tank.gear_rolls as Dictionary).get("dmg_mult", 0.0)) > 1.0)
+	bp2.capture_from_party(_PartyStub.new([tank]))
+	_chk("G2 rolled identity capture 영속", String((bp2.equipped["Tank"] as Dictionary).get("rolled_identity", "")) == "tank_iron_beacon")
+	tank.free()
+
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
 

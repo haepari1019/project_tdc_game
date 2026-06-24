@@ -104,10 +104,34 @@ func _make_gear_drop_def(base_gear_id: String) -> Dictionary:
 	var m: Dictionary = Slice01Data.get_gear_master(base_gear_id)
 	var classes: Array = m.get("equip_classes", [])
 	var cid := String(classes[0]) if not classes.is_empty() else "Tank"
-	return {
+	# F-008 §3.7 인스턴스 굴림 (DungeonDrop): identity = 가중 롤테이블, 서브옵션 mult = 넓은 band(D-019 §8).
+	var def := {
 		"id": String(m.get("display_name", base_gear_id)),
 		"w": 2, "h": 2,
 		"color": UnitVisuals.role_color(cid),
 		"kind": "gear",
 		"base_gear_id": base_gear_id,
+		"rolls": {"dmg_mult": snappedf(randf_range(0.90, 1.10), 0.01), "cd_mult": snappedf(randf_range(0.94, 1.06), 0.01)},
 	}
+	var rid := _roll_identity(base_gear_id)
+	if rid != "":
+		def["rolled_identity_skill_id"] = rid
+	return def
+
+
+## Weighted pick from a gear's identity roll table (F-008 §3.7). "" if no table.
+func _roll_identity(base_gear_id: String) -> String:
+	var table: Array = Slice01Data.get_gear_identity_roll_table(base_gear_id)
+	if table.is_empty():
+		return ""
+	var total := 0.0
+	for e in table:
+		total += float(e.get("weight", 0))
+	if total <= 0.0:
+		return String(table[0].get("skill_id", ""))
+	var r := randf() * total
+	for e in table:
+		r -= float(e.get("weight", 0))
+		if r <= 0.0:
+			return String(e.get("skill_id", ""))
+	return String(table[-1].get("skill_id", ""))

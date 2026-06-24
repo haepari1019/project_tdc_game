@@ -305,7 +305,15 @@ func _load_backpack_from_autoload() -> void:
 	for d in bp.get_loose():
 		match String(d.get("kind", "generic")):
 			"gear":
-				add_gear_to_backpack(String(d.get("base_gear_id", "")), bool(d.get("at_risk", true)))
+				# F-008 §3.7 — 디스크립터의 rolled(identity/rolls)을 master에 병합해 인스턴스 보존(G2).
+				var gm: Dictionary = Slice01Data.get_gear_master(String(d.get("base_gear_id", "")))
+				if not gm.is_empty():
+					var rid := String(d.get("rolled_identity_skill_id", ""))
+					if rid != "":
+						gm["rolled_identity_skill_id"] = rid
+					if d.has("rolls"):
+						gm["rolls"] = d["rolls"]
+					_backpack.add_item_dict(ItemFactory.gear_item(gm, bool(d.get("at_risk", true))))
 			"skillbook":
 				add_skillbook_to_backpack(String(d.get("base_ability_id", "")), bool(d.get("at_risk", true)))
 			"haul":
