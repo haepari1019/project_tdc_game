@@ -215,7 +215,7 @@ func refresh_item_label(item: Dictionary) -> void:
 ## + footprint. F-008 §3.7 / F-009 검증용 — 마우스오버로 인스턴스 롤·스킬 효과 확인. ref: gear_roll_table.md.
 func _item_tip(item: Dictionary) -> String:
 	var id := String(item.id)
-	var lines: Array = [id]
+	var lines: Array = ["[b]%s[/b]" % id]   # 이름 = 헤더(굵게). 나머지 라인은 종류별 상세.
 	match String(item.get("kind", "")):
 		"gear": lines.append_array(_gear_tip(item))
 		"skillbook": lines.append_array(_skillbook_tip(item))
@@ -224,7 +224,7 @@ func _item_tip(item: Dictionary) -> String:
 	var desc := String(ITEM_DESC.get(id, ""))
 	if not desc.is_empty():
 		lines.append(desc)
-	lines.append("크기 %d×%d" % [int(item.w), int(item.h)])
+	lines.append("[color=#9aa4b2]크기 %d×%d[/color]" % [int(item.w), int(item.h)])
 	return "\n".join(lines)
 
 
@@ -249,19 +249,19 @@ func _gear_tip(item: Dictionary) -> Array:
 	return out
 
 
-## Skillbook detail — base AB + 효과 kind·쿨다운·핵심 params + 장착 클래스/sub 밴드 + 탄수. F-009.
+## Skillbook detail — 표시명(상단) + 풀 설명문(SkillText) + 쿨/장착 + affix(색구분). 액션바 툴팁과 동일 수준. F-009/D-018.
 func _skillbook_tip(item: Dictionary) -> Array:
 	var out: Array = []
-	out.append("스킬북 (서브) · 탄 %d/%d · At Risk" % [int(item.get("charges", 0)), int(item.get("charges_max", 0))])
+	out.append("[color=#9aa4b2]스킬북 (서브) · 탄 %d/%d · At Risk[/color]" % [int(item.get("charges", 0)), int(item.get("charges_max", 0))])
 	var m: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
 	if not m.is_empty():
 		var cast: Dictionary = m.get("cast", {})
-		out.append("  효과: %s · 쿨 %ss" % [Slice01Data.get_effect_label(String(cast.get("kind", ""))), str(cast.get("cooldown_s", "?"))])
+		out.append(SkillText.describe(String(cast.get("kind", "")), cast))   # 풀 설명문 + 핵심 수치
 		var eq: Array = []
 		for c in m.get("equip_classes", []):
 			eq.append(Slice01Data.get_role_label(String(c)))
-		out.append("  장착: %s" % ", ".join(eq))
-	# D-018 §7.3 affix — 루팅 인스턴스 굴림. 색구분(긍정 초록/부정 빨강) 라인. {} = 무affix.
+		out.append("[color=#9aa4b2]쿨 %ss · 장착: %s[/color]" % [str(cast.get("cooldown_s", "?")), ", ".join(eq)])
+	# D-018 §7.3 affix — 루팅 인스턴스 굴림. 색구분(긍정 초록/부정 빨강) 라인. {} = 무affix(스태시 base).
 	out.append_array(SkillText.affix_lines(item.get("affix", {})))
 	return out
 
