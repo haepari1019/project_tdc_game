@@ -159,30 +159,40 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Build the stash container items (gear 2×2, skillbooks 1×1, consumables 1×1) with grid
 ## placement, from the Stash autoload. Reuses InventoryUI's item builders for the exact format.
+## 스태시 전체를 10×12 그리드에 배치(기어 2×2 → 스킬북 1×1 → 소비 1×1, 행 흐름). 모든 항목을 표시해야
+## deploy 시 _sync_stash_from_source(에디터 = 스태시 최종 상태)가 표시 안 된 항목을 잃지 않는다.
+## (구 버그: 기어 4·스킬북 4개만 표시 → deploy 동기화가 나머지를 스태시에서 삭제. 사용자 버그.)
 func _build_stash_items() -> Array:
 	var items: Array = []
-	var gear_pos := [[0, 0], [2, 0], [0, 2], [2, 2]]   # 2×2 each, fills cols 0–3 / rows 0–3
+	var cols: int = int(_stash_src.cols) if _stash_src != null and "cols" in _stash_src else 10
+	var gear_per_row: int = maxi(1, cols / 2)   # 기어 2×2
+	var g := 0
 	for i in _stash.gear.size():
 		var it: Dictionary = _inv.make_gear_stash_item(_stash.gear[i])   # 인스턴스 dict(rolled/rolls 포함)
-		if it.is_empty() or i >= gear_pos.size():
+		if it.is_empty():
 			continue
-		it["col"] = gear_pos[i][0]
-		it["row"] = gear_pos[i][1]
+		it["col"] = (g % gear_per_row) * 2
+		it["row"] = floori(float(g) / float(gear_per_row)) * 2
 		items.append(it)
+		g += 1
+	var gear_rows: int = int(ceil(float(g) / float(gear_per_row))) * 2   # 기어가 쓴 행 수
+	var s := 0
 	for i in _stash.skillbooks.size():
 		var it: Dictionary = _inv.make_skillbook_stash_item(_stash.skillbooks[i])   # 인스턴스(affix/탄 포함)
-		if it.is_empty() or i >= 4:
+		if it.is_empty():
 			continue
-		it["col"] = 4
-		it["row"] = i
+		it["col"] = s % cols
+		it["row"] = gear_rows + floori(float(s) / float(cols))
 		items.append(it)
+		s += 1
+	var sb_rows: int = int(ceil(float(s) / float(cols)))
 	var c := 0
 	for cid in _stash.consumables:
 		var it: Dictionary = _inv.make_consumable_stash_item(String(cid), int(_stash.consumables[cid]))
 		if it.is_empty():
 			continue
-		it["col"] = c
-		it["row"] = 4
+		it["col"] = c % cols
+		it["row"] = gear_rows + sb_rows + floori(float(c) / float(cols))
 		items.append(it)
 		c += 1
 	return items
