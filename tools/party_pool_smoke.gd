@@ -277,6 +277,14 @@ func _initialize() -> void:
 	_chk("common 상자 재료 위주(>50%)", ch_total > 0 and float(ch_haul) / float(ch_total) > 0.5)
 	ls2.free()
 
+	# 18b) 몬스터 킬 = 스킬 OR 재화 — 비lootable 킬은 run_scrap 누적(킬 기어/재료 없음).
+	var ls3 = LS.new()
+	ls3.setup(null)
+	ls3.on_enemy_defeated(Vector3.ZERO, [])            # fodder(lootable 없음) → 재화
+	ls3.on_enemy_defeated(Vector3.ZERO, ["rom_basic"]) # 비lootable ref → 재화
+	_chk("킬 재화 누적(스킬 미드롭)", int(ls3.run_scrap) == 2 * int(ls3.KILL_SCRAP))
+	ls3.free()
+
 	# 17) 스킬 설명문 + 색구분 툴팁 빌더 (display_names.skill_desc / SkillText).
 	_chk("skill_desc(silence) 존재", not sd.get_skill_desc("skillbook_silence").is_empty())
 	var ST = load("res://scripts/ui/skill_text.gd")

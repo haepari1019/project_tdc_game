@@ -181,6 +181,7 @@ func _ready() -> void:
 	_run_end = RunEndController.new()  # extraction channel + settlement + party-wipe (F-007)
 	add_child(_run_end)
 	_run_end.setup(_run, _party, _combat, _inventory_ui, _map, _extract_count)
+	_run_end.set_loot_service(_loot)   # 추출 성공 시 run_scrap(At-Risk 킬 재화) 지급
 	_run_end.party_alert.connect(_on_party_alert)
 	# World loop — chest (holding the extraction key) in the objective room.
 	var chest := Chest.new()

@@ -8,11 +8,10 @@ const ItemDrop := preload("res://scripts/world/objects/item_drop.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const AffixRoller := preload("res://scripts/run/affix_roller.gd")   # D-018 §7.6 스킬북 affix roll
 
-## PH gear-loot pool — dungeon-dropped Identity Gear (F-008 §3.3 / DEC-20260611-001; looted =
-## At Risk). Same-role (Tank) equippable + cross-role (Healer) to show the equipClasses reject.
-const GEAR_LOOT: Array = ["gear_ward_tank_anchor_bulwark", "gear_ward_healer_mend_lantern"]
-const GEAR_DROP_CHANCE := 0.04          # gear is RARE (per-kill, after the skillbook roll). (tuning)
 const SKILLBOOK_DROP_CHANCE := 0.15     # 스펙 §7.4 대역(Normal 8% / Hard 15%) — 탄약수↑(50~80)에 맞춰 빈도↓(피로 완화). (tuning)
+# 몬스터 킬 = 자기 스킬 OR 소량 재화(사용자 요청). 스킬 미드롭 시 ward_scrap 소량 → At-Risk 런 누적(추출 성공 시
+# 지급, 실패 시 소실). 기어·재료는 킬에서 안 나옴(→ 상자). gear는 상자(build_chest_items)에서만 드롭.
+const KILL_SCRAP := 1                    # 스킬 미드롭 킬당 재화(소량, At-Risk). (tuning)
 # 상자(chest) 루트 — 상자가 재료·스킬·기어의 주 공급원(사용자 요청). 티어로 품질 차등.
 const CHEST_HAUL_COMMON := Vector2i(1, 3)   # 일반(안좋은) 상자: 재료 1~3 (재료 주 공급원)
 const CHEST_HAUL_RARE := Vector2i(1, 1)     # 희귀(좋은) 상자: 재료 1 + 스킬/기어 집중
@@ -34,10 +33,14 @@ const CLASS_BALANCE_TAPER := 0.25   # 평균 초과 1건당 드롭확률 배수 
 const CLASS_BALANCE_FLOOR := 0.15   # 과대표 클래스 최소 드롭확률 배수
 const PARTY_ROLE_COUNT := 4         # Tank/DPS/Nuker/Healer — 평균 기준
 
+## 몬스터 킬 누적 재화(At-Risk) — 추출 성공 시 run_end가 HubProfile.add_scrap, 실패 시 소실.
+var run_scrap: int = 0
+
 
 func setup(inventory_ui: Node) -> void:
 	_inv = inventory_ui
 	_class_drops = {}   # per-run 리셋
+	run_scrap = 0
 
 
 ## Drop a backpack item back into the world (player Shift+우클릭 버리기) — a re-pickable ItemDrop
@@ -51,20 +54,10 @@ func drop_item(def: Dictionary, world_pos: Vector3) -> void:
 	add_child(drop)
 
 
-## CombatController.enemy_defeated → spawn a PH loot drop at the death position.
+## CombatController.enemy_defeated → 몬스터 킬 = 자기 스킬 드롭 OR 소량 재화(둘 중 하나).
+## 기어·재료는 킬에서 안 나옴(상자 전용). 스킬 = 그 적의 own lootable AB(F-009/DEC-20260611-002)
+## + 클래스 밸런스 소프트-피티. 미드롭 시 ward_scrap 소량(At-Risk 런 누적).
 func on_enemy_defeated(world_pos: Vector3, ability_refs: Array) -> void:
-	var def := _roll_loot_def(ability_refs)
-	if def.is_empty():
-		return
-	var drop := ItemDrop.new()
-	drop.setup(_inv, def)
-	drop.position = Vector3(world_pos.x, 0.0, world_pos.z)
-	add_child(drop)
-
-
-## Per-kill roll: (1) skillbook — if this enemy USES a lootable AB, roll for that AB
-## (F-009/DEC-20260611-002); (2) else gear; (3) else NO drop ({} = nothing spawns).
-func _roll_loot_def(ability_refs: Array) -> Dictionary:
 	var lootable: Array = []
 	for r in ability_refs:
 		if not Slice01Data.get_skillbook_master(String(r)).is_empty():
@@ -72,13 +65,14 @@ func _roll_loot_def(ability_refs: Array) -> Dictionary:
 	if not lootable.is_empty():
 		var base := String(lootable[randi() % lootable.size()])
 		var eq: Array = Slice01Data.get_skillbook_master(base).get("equip_classes", [])
-		# 클래스 밸런스 소프트-피티: 과대표 클래스 스킬은 확률 점감 → 클래스 쏠림 자가 교정.
 		if randf() < SKILLBOOK_DROP_CHANCE * _class_balance_factor(eq):
 			_record_class_drop(eq)
-			return _make_skillbook_drop_def(base)
-	if randf() < GEAR_DROP_CHANCE and not GEAR_LOOT.is_empty():
-		return _make_gear_drop_def(String(GEAR_LOOT[randi() % GEAR_LOOT.size()]))
-	return {}   # no generic filler — nothing drops
+			var drop := ItemDrop.new()
+			drop.setup(_inv, _make_skillbook_drop_def(base))
+			drop.position = Vector3(world_pos.x, 0.0, world_pos.z)
+			add_child(drop)
+			return
+	run_scrap += KILL_SCRAP   # 스킬 미드롭 → 소량 재화(추출 시 지급)
 
 
 ## 이 스킬북이 '봉사할' 가장 덜 나온 eligible 클래스 기준 드롭확률 배수. 그 클래스가 평균 이하면 1.0(통과),

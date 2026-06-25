@@ -21,6 +21,7 @@ var _combat: Node3D
 var _inv: Node
 var _map: Node3D
 var _count: Label
+var _loot: Node = null               # LootService — 추출 성공 시 run_scrap(At-Risk 킬 재화) 지급
 var _active: bool = false
 var _remaining: float = 0.0
 var _combat_sized: bool = false      # combat state the current countdown was sized for
@@ -34,6 +35,11 @@ func setup(run: Node, party: Node3D, combat: Node3D, inventory_ui: Node, map: No
 	_inv = inventory_ui
 	_map = map
 	_count = count_label
+
+
+## LootService 연결 — 추출 성공 정산 시 run_scrap(At-Risk 킬 재화)을 읽어 지급. (dungeon_run 배선)
+func set_loot_service(loot: Node) -> void:
+	_loot = loot
 
 
 func _process(delta: float) -> void:
@@ -105,7 +111,8 @@ func _settle_extraction() -> void:
 	# 스펙은 source 미지정 → SPEC_DRIFT 로깅). 허브 상점 생본 구매 재화.
 	var hp_eco := get_node_or_null("/root/HubProfile")
 	if hp_eco != null and hp_eco.has_method("add_scrap"):
-		hp_eco.add_scrap(15 + survivors.size() * 5)
+		var kill_scrap: int = int(_loot.run_scrap) if _loot != null and "run_scrap" in _loot else 0
+		hp_eco.add_scrap(15 + survivors.size() * 5 + kill_scrap)   # base + 생존자 + At-Risk 킬 재화(추출 성공만)
 	var safe_items := _collect_at_risk()             # At-Risk → Safe (전량, §3.6.1)
 	_inv.mark_run_inventory_safe()
 	if _inv.has_method("commit_loose_to_backpack"):

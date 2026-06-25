@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260625-031 — 루트 경제 재구성: 절차적 티어 상자 + 몬스터=스킬/재화 + 재료=상자
+- **결정(사용자):** ① 루트 상자를 맵 구석구석 **절차적 배치**(퀘스트 Key 상자만 고정) ② 상자 **티어**(일반/희귀, 희귀는 덜 배치·affix 확률↑) ③ **재료는 상자 주공급** ④ **몬스터 킬 = 자기 스킬 OR At-Risk 소량 재화**(재료·기어 미드롭).
+- **상자:** `chest.gd` tier(common/rare/fixed)+비주얼(희귀 금색). `loot_service.build_chest_items(tier)`(일반=재료1~3+스킬40%(자연 affix)+기어15% / 희귀=재료1+스킬90%(**affix 강제** `affix_roller.roll_forced`)+기어50%). `dungeon_run._place_loot_chests()`(런 시드 산포·면적 비례 개수·희귀 18%·EXT/ROUTE 제외·fog). `map_demo_layout.get_room_size` 추가.
+- **몬스터:** `on_enemy_defeated` = own-skill(0.15×소프트피티) **OR** `run_scrap += 1`(킬 기어 제거, `_roll_loot_def`/`GEAR_LOOT` 폐기). `on_squad_cleared` haul ×0.2.
+- **재화 At-Risk:** `loot_service.run_scrap` 런 누적 → `run_end`가 **추출 성공 시** `add_scrap(15+생존자×5+run_scrap)`, 실패 시 소실. `set_loot_service` 배선.
+- **검증:** 부팅 19상자 배치 로그 + party_pool_smoke(roll_forced·rare 스킬 affix 보장·common 재료 위주·킬 재화 누적) + ci_smoke PASS. 배치/비주얼/체감=F5.
+- **영향:** `chest.gd`·`loot_service.gd`·`dungeon_run.gd`·`map_demo_layout.gd`·`run_end_controller.gd`·`affix_roller.gd`. 수치·재료출처 divergence=DRIFT-064.
+
 ### IMPL-DEC-20260625-030 — 스킬북 드롭 클래스 밸런스 소프트-피티 (Tank 쏠림 보완)
 - **문제(사용자 관측, 데이터 확인):** 드롭이 Tank 스킬로 쏠림. 원인 = 코드의 엘리트 가중이 아니라 **EN-001(가장 흔한 lootable 적, 게임 데이터 등장 12 vs 다음 4)이 단일 Tank 스킬(AB-002)에 1:1 매핑** + flat 85% 드롭. 드롭 풀 자체는 Nuker 편향이나 빈도 때문에 실측 Tank 우세(시뮬 44%).
 - **결정(A안):** `loot_service`에 per-run 클래스별 드롭 카운트(`_class_drops`) + 소프트-피티 — 드롭 시 스킬의 equip_classes가 봉사할 **가장 부족한 클래스가 평균 초과면 드롭확률 점감**(`_class_balance_factor`, TAPER 0.25·FLOOR 0.15·warmup<4). 기록은 봉사 클래스 1건(`_record_class_drop`). 데이터·스펙 변경 없음, 코드만, 튜닝 노브.
