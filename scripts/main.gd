@@ -12,6 +12,7 @@ const FormationEditor := preload("res://scripts/ui/inventory/formation_editor.gd
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const HubFacilitiesPanel := preload("res://scripts/ui/hub_facilities_panel.gd")  # UI-029 시설 승급
 const HubEconomyPanel := preload("res://scripts/ui/hub_economy_panel.gd")        # F-009 분석·상점
+const HubQuestPanel := preload("res://scripts/ui/hub_quest_panel.gd")            # F-029 §3.3 퀘스트 로그
 
 @onready var _status: Label = $Panel/Margin/VBox/Status
 @onready var _loadout: VBoxContainer = $Panel/Margin/VBox/LoadoutStub
@@ -85,6 +86,14 @@ func _setup_hub() -> void:
 	economy_btn.pressed.connect(economy_panel.open_panel)
 	$Panel/Margin/VBox.add_child(economy_btn)
 	$Panel/Margin/VBox.move_child(economy_btn, _loadout.get_index())
+	# F-029 §3.3 퀘스트 로그 — 승급 의뢰 전체 + 완료 조건 확인. 풀스크린 오버레이.
+	var quest_panel := HubQuestPanel.new()
+	add_child(quest_panel)
+	var quest_btn := Button.new()
+	quest_btn.text = "퀘스트 (의뢰 목록)"
+	quest_btn.pressed.connect(quest_panel.open_panel)
+	$Panel/Margin/VBox.add_child(quest_btn)
+	$Panel/Margin/VBox.move_child(quest_btn, _loadout.get_index())
 	# 저장 초기화 (테스트/디버그) — 스태시·백팩·허브 메타를 데모 시드로. 확인 다이얼로그로 보호.
 	var reset_btn := Button.new()
 	reset_btn.text = "저장 초기화 (시드로)"
