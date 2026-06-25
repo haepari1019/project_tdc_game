@@ -2,7 +2,7 @@
   "spawn_table_id": "LDG-SPAWN-DEMO-001",
   "_ref": "spec docs/level-design/spawn-tables/LDG-SPAWN-DEMO-001.md §2. Resolve key: (pool_slot, difficulty, world_layer) -> weighted candidate set; run_seed picks one (DEC-20260620-002). force_overrides win (DBP-DEMO-001 §5.1). `placement` mirrors each ENC's placement_behavior. P-ADV-06..09 = DungeonScale 확장(게임).",
   "force_overrides": {
-    "P-ADV-01": "ENC-NORM-001"
+    "P-ADV-01": { "Normal": "ENC-NORM-001", "Hard": "ENC-HARD-001" }
   },
   "rows": [
     { "pool_slot": "P-ENTRY-01",     "run_phase": "Entry",             "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-NORM-002", "placement": "Fixed",      "weight": 3 },

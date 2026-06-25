@@ -288,7 +288,13 @@ func get_encounter_for_pool(pool_slot: String, difficulty: String, world_layer: 
 	if pool_slot.is_empty():
 		return ""
 	if _spawn_overrides.has(pool_slot):
-		return String(_spawn_overrides[pool_slot])
+		var ov = _spawn_overrides[pool_slot]
+		if typeof(ov) == TYPE_DICTIONARY:
+			# 난이도별 핀 {difficulty: enc} — 해당 난이도 핀이 있으면 강제, 없으면 일반 resolve로 진행.
+			if (ov as Dictionary).has(difficulty):
+				return String(ov[difficulty])
+		else:
+			return String(ov)   # 단일 문자열 = 모든 난이도 강제(back-compat)
 	var exact: Array = []       # [{enc, weight}] — matching world_layer
 	var any_layer: Array = []   # fallback: right pool+difficulty, other layer
 	for row in _spawn_rows:
@@ -591,8 +597,14 @@ func _parse_spawn_table(doc: Dictionary, errors: Array[String]) -> void:
 	if typeof(ov) == TYPE_DICTIONARY:
 		for pool_key in ov.keys():
 			IdValidate.require_id(String(pool_key), allowed_pools, "pool_slot", errors)
-			IdValidate.require_id(String(ov[pool_key]), allowed_enc, "encounter_id", errors)
-			_spawn_overrides[String(pool_key)] = String(ov[pool_key])
+			var v = ov[pool_key]
+			if typeof(v) == TYPE_DICTIONARY:   # 난이도별 핀 {difficulty: enc} — 각 enc 검증, dict 그대로 보존
+				for diff_key in v.keys():
+					IdValidate.require_id(String(v[diff_key]), allowed_enc, "encounter_id", errors)
+				_spawn_overrides[String(pool_key)] = v
+			else:
+				IdValidate.require_id(String(v), allowed_enc, "encounter_id", errors)
+				_spawn_overrides[String(pool_key)] = String(v)
 
 
 ## Hub (F-029/D-029): 시설 Tier 표 · 승급 퀘스트 · haul 카탈로그. ID는 id_registry로 검증;
@@ -809,10 +821,13 @@ func _load_encounters(errors: Array[String]) -> void:
 			seen[e] = true
 			enc_ids.append(e)
 	for pool_key in _spawn_overrides.keys():
-		var e := String(_spawn_overrides[pool_key])
-		if not e.is_empty() and not seen.has(e):
-			seen[e] = true
-			enc_ids.append(e)
+		var ov2 = _spawn_overrides[pool_key]
+		var encs: Array = (ov2 as Dictionary).values() if typeof(ov2) == TYPE_DICTIONARY else [String(ov2)]
+		for e2 in encs:
+			var e := String(e2)
+			if not e.is_empty() and not seen.has(e):
+				seen[e] = true
+				enc_ids.append(e)
 	for enc_id in enc_ids:
 		var path := SLICE01_DIR + "encounters/%s.json" % enc_id
 		var doc := _read_json_dict(path, "encounter", errors)

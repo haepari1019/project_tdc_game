@@ -514,3 +514,12 @@
 - **스펙과의 차이:** ENC가 authored 1:1이 아니라 (difficulty,seed)→생성. ENC-000(group/budget 생성)·LDG-SPAWN(resolve)·F-006(placement)에 표면 변경. tier/mechanicAxes taxonomy는 스펙 준수(가드레일).
 - **분류\전파:** impl/design — **전파 후보**(S5b 빌드 직전 ENC-000/F-006/LDG-SPAWN OPS_30 예약, 설계 §6). 현재 게임측 검증 우선·미전파. 절대 수치(SCALE·SCATTER_FRAC)=데모.
 - **검증:** party_pool_smoke(태그 + 제너레이터 3난이도×149시드 가드레일) + dungeon_run 부팅 prespawn 생성 + ci_smoke PASS. **잔여=P3 제3세력 창발 모디파이어·P4 런 내 비복원.** 체감=F5.
+
+### DRIFT-067 — force_overrides 난이도별 핀 스키마 + P-ADV-01 Hard=ENC-HARD-001 🔶 impl (전파 후보)
+- **현실(2026-06-26, 사용자 "하드 들어갔더니 적이없어" / 무기고 개방용 ENC-HARD-001 필요):** spawn_table `force_overrides`가 P-ADV-01을 **모든 난이도에서** ENC-NORM-001로 강제 → Hard에서도 ENC-HARD-001이 등장 불가 → Q-HUB-020(armory 승급) 달성 불가였음.
+  - **수정:** `force_overrides[pool]` 값이 **문자열(전 난이도 강제, back-compat)** 또는 **{difficulty: enc}(난이도별 핀)** 둘 다 허용하도록 `get_encounter_for_pool`·`_parse_spawn_table`·enc 커버리지 확장. 데이터=`{"P-ADV-01": {"Normal":"ENC-NORM-001","Hard":"ENC-HARD-001"}}`.
+  - **결과:** Normal P-ADV-01=NORM-001(QA핀 유지)·Hard=HARD-001(도달). budget(4~5전투)+ADV-01 weight 1.8로 대부분 런에서 등장.
+- **스펙과의 차이:** LDG-SPAWN-DEMO-001 forceEncounter 스키마가 단일 enc → 난이도별 map 허용으로 확장(하위호환). Hard HARD-001 핀은 게임측 콘텐츠 결정.
+- **분류\전파:** impl — **전파 후보**(LDG-SPAWN forceEncounter 스키마 OPS_30). 하위호환이라 비파괴. 미전파.
+- **검증:** 난이도별 resolve 확인(P-ADV-01 Normal→NORM-001·Hard→HARD-001) + ci_smoke PASS. 체감=Hard F5 → ENC-HARD-001 클리어 → 무기고 개방.
+- **참고:** P-ENTRY-01·P-DEEP-01은 Hard 행이 없어 Hard에서 ∅(콘텐츠 갭, 비차단). budget상 대부분 ADV/MID/BOSS가 채움. EncounterGenerator는 Hard SCALE(2~5 fodder) 정상 → "적 0"의 원인은 generator가 아니라 force핀+budget이었음.

@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260626-032 — force_overrides 난이도별 핀(Hard ENC-HARD-001 도달) — 무기고 개방 차단 해소
+- **문제:** spawn_table force_override가 P-ADV-01을 난이도 무관 ENC-NORM-001로 고정 → Hard에서도 ENC-HARD-001 미등장 → Q-HUB-020(armory 승급) 불가. (사용자: "하드 들어갔더니 적이없어".)
+- **결정:** `force_overrides[pool]` 값을 문자열(전 난이도 강제, back-compat) 또는 `{difficulty: enc}`(난이도별)로 허용. 데이터=P-ADV-01={Normal:NORM-001, Hard:HARD-001}. Normal QA핀 유지 + Hard 도달.
+- **대안 기각:** override 완전 제거(Normal 단일후보라 동작은 동일하나 propagated QA핀 의도 소실) → 난이도별 핀이 의도 보존 + Hard 추가.
+- **영향:** `slice01_data.gd`(get_encounter_for_pool·_parse_spawn_table·enc 커버리지)·`data/slice01/spawn_table.json`. 스키마 확장 divergence=DRIFT-067.
+- **부수 확인:** EncounterGenerator SCALE에 Hard 존재(2~5 fodder)·difficulty 미스→Normal fallback → "적 0"은 generator 아님(force핀+4~5전투 budget이 원인). P-ENTRY/P-DEEP은 Hard 행 없음(콘텐츠 갭, 비차단).
+
 ### IMPL-DEC-20260625-031 — 루트 경제 재구성: 절차적 티어 상자 + 몬스터=스킬/재화 + 재료=상자
 - **결정(사용자):** ① 루트 상자를 맵 구석구석 **절차적 배치**(퀘스트 Key 상자만 고정) ② 상자 **티어**(일반/희귀, 희귀는 덜 배치·affix 확률↑) ③ **재료는 상자 주공급** ④ **몬스터 킬 = 자기 스킬 OR At-Risk 소량 재화**(재료·기어 미드롭).
 - **상자:** `chest.gd` tier(common/rare/fixed)+비주얼(희귀 금색). `loot_service.build_chest_items(tier)`(일반=재료1~3+스킬40%(자연 affix)+기어15% / 희귀=재료1+스킬90%(**affix 강제** `affix_roller.roll_forced`)+기어50%). `dungeon_run._place_loot_chests()`(런 시드 산포·면적 비례 개수·희귀 18%·EXT/ROUTE 제외·fog). `map_demo_layout.get_room_size` 추가.
