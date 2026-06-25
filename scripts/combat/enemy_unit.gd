@@ -4,6 +4,9 @@ extends CharacterBody3D
 
 signal died(unit: CharacterBody3D)
 
+## 마지막 가해자가 파티였는지 — 킬 귀속(파티 킬만 전리품/재화). 3세력·몬스터 간 킬 = false. (S5b P3b)
+var killed_by_party: bool = false
+
 ## Layer 3 = bit value 4. (Was 3 = bits 1|2, which put enemies on the WORLD bit —
 ## broke LOS raycasts and made steering wall-rays treat enemies as walls. Fixed 2026-06-08.)
 const LAYER_ENEMY := 4
@@ -178,10 +181,13 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 		set_attention(true)
 
 
-## `_attacker` accepted for call-site symmetry with party_member.take_damage (enemies don't reflect).
-func take_damage(amount: float, _attacker: Node = null) -> void:
+## attacker → 마지막 가해자 진영 기억(킬 귀속). 파티 킬만 전리품/재화(loot_service) — 3세력·몬스터 간
+## 오프스크린 킬은 플레이어에게 드롭/재화 안 줌(S5b P3b). (enemies don't reflect.)
+func take_damage(amount: float, attacker: Node = null) -> void:
 	if hp <= 0.0:
 		return
+	if attacker != null and is_instance_valid(attacker):
+		killed_by_party = attacker.is_in_group("party_member")
 	amount *= 1.0 + _outcome.mag("Vulnerable")   # AB-057 Focus Fire — Vulnerable: 받는 피해 증폭
 	hp = maxf(0.0, hp - amount)
 	if _hp_bar:

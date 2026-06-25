@@ -19,7 +19,7 @@ signal camera_shake(trauma: float, kick_world: Vector3)
 @warning_ignore("unused_signal")  # emitted cross-class (enemy_ai) → connected in dungeon_run
 signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool)
 ## An enemy was defeated at world_pos — drives world item drops (loot). ref: F-010 loot.
-signal enemy_defeated(world_pos: Vector3, ability_refs: Array)
+signal enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool)
 ## A squad's last enemy fell — drives ENC-bound haul drops (HUB-COR-000 §3). Fires once per squad.
 signal squad_cleared(encounter_id: String, world_pos: Vector3)
 
@@ -447,10 +447,16 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	var budget: int = RUN_ENCOUNTER_MIN + abs(hash("encbudget|%d" % run_seed)) % (RUN_ENCOUNTER_MAX - RUN_ENCOUNTER_MIN + 1)
 	var chosen: Array = _weighted_pick_rooms(candidates, budget, run_seed)
 	var combat_rooms: Array = []
+	var used_encs: Dictionary = {}   # S5b P4 런 내 비복원 — 같은 ENC frame 반복 회피(시드 재롤)
 	for cand in chosen:
-		var enc_id := Slice01Data.get_encounter_for_pool(String(cand["pool"]), difficulty, String(cand["layer"]), run_seed)
+		var enc_id := ""
+		for attempt in 4:   # 미사용 ENC를 찾도록 몇 번 재롤(풀이 단일이면 어쩔 수 없이 반복)
+			enc_id = Slice01Data.get_encounter_for_pool(String(cand["pool"]), difficulty, String(cand["layer"]), run_seed + attempt * 7919)
+			if enc_id.is_empty() or not used_encs.has(enc_id):
+				break
 		if enc_id.is_empty():
 			continue
+		used_encs[enc_id] = true
 		# 시작 방이 뽑히면 파티 위로 스폰 → 연결된 방으로 이전.
 		var target_room := String(cand["room"])
 		if target_room == spawn_room:
@@ -846,7 +852,8 @@ func _on_enemy_died(unit: CharacterBody3D) -> void:
 		for a in unit.abilities:
 			if typeof(a) == TYPE_DICTIONARY:
 				refs.append(String(a.get("ref", "")))
-		enemy_defeated.emit(unit.global_position, refs)  # → dungeon_run rolls per-kill loot
+		var by_party: bool = bool(unit.killed_by_party) if "killed_by_party" in unit else true
+		enemy_defeated.emit(unit.global_position, refs, by_party)  # → 파티 킬만 loot/scrap
 		# Squad fully cleared → ENC-bound haul drop, once (HUB-COR-000 §3).
 		var sq_id := int(unit.squad_id)
 		if _squad_alive_count(sq_id) == 0:

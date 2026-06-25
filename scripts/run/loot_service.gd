@@ -60,7 +60,9 @@ func drop_item(def: Dictionary, world_pos: Vector3) -> void:
 ## CombatController.enemy_defeated → 몬스터 킬 = 자기 스킬 드롭 OR 소량 재화(둘 중 하나).
 ## 기어·재료는 킬에서 안 나옴(상자 전용). 스킬 = 그 적의 own lootable AB(F-009/DEC-20260611-002)
 ## + 클래스 밸런스 소프트-피티. 미드롭 시 ward_scrap 소량(At-Risk 런 누적).
-func on_enemy_defeated(world_pos: Vector3, ability_refs: Array) -> void:
+func on_enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool = true) -> void:
+	if not by_party:
+		return   # 3세력·몬스터 간 오프스크린 킬 — 플레이어 전리품/재화 없음(S5b P3b: run_scrap 인플레·난장판 방지)
 	var lootable: Array = []
 	for r in ability_refs:
 		if not Slice01Data.get_skillbook_master(String(r)).is_empty():
