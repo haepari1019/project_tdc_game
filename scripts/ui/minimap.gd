@@ -16,6 +16,8 @@ const C_ROOM_EDGE := Color(0.46, 0.49, 0.57)
 const C_EXTRACT := Color(0.34, 0.90, 0.45)
 const C_INTERACT := Color(0.95, 0.82, 0.30)
 const C_PLAYER := Color(0.32, 0.78, 1.0)
+const C_BATTLE := Color(0.95, 0.35, 0.25)   # 제3세력 교전 흔적(F-028 §3.3 — 멀리서 정보·기회)
+const THIRD_FACTION_TAG := "Third"          # combat_controller.THIRD_FACTION_NAME과 동일
 
 var _map: Node = null
 var _party: Node = null
@@ -96,6 +98,13 @@ func _draw() -> void:
 		if is_instance_valid(n) and n is Node3D:
 			var ip: Vector3 = (n as Node3D).global_position
 			draw_circle(_w2m(ip.x, ip.z), 2.6, C_INTERACT)
+	# S5b P3b — 제3세력 교전 단서: engaged 제3세력(faction "Third") 위치에 적색 마커(멀리서 "저기서 싸운다"
+	# 정보). 몬스터 위치는 표시 안 함(포그 유지) — 3세력만 흔적으로 노출(F-028 §3.3).
+	for n in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(n) and n is Node3D and bool(n.engaged) and String(n.faction) == THIRD_FACTION_TAG:
+			var bp := _w2m((n as Node3D).global_position.x, (n as Node3D).global_position.z)
+			draw_circle(bp, 4.6, Color(C_BATTLE.r, C_BATTLE.g, C_BATTLE.b, 0.32))
+			draw_circle(bp, 2.4, C_BATTLE)
 	# Player (controlled) + facing line.
 	if _party and _party.has_method("get_controlled"):
 		var ctrl: Node3D = _party.get_controlled()
