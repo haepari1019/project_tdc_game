@@ -31,13 +31,17 @@ static func gear_item(g: Dictionary, at_risk: bool) -> Dictionary:
 
 ## Backpack item dict from a haul material (1×1, ochre). Run-inventory At-Risk; on Extraction
 ## Success → hubHaulVault Safe (F-029 §3.2 / D-029 §4). 시설 승급 전용 재화.
-static func haul_item(haul_material_id: String, display: String, at_risk: bool) -> Dictionary:
+const HAUL_MAX_STACK := 99   # 재료는 크게 스택(백팩/스태시/금고). (tuning)
+
+static func haul_item(haul_material_id: String, display: String, at_risk: bool, count: int = 1) -> Dictionary:
 	return {
 		"id": display if not display.is_empty() else haul_material_id,
 		"w": 1, "h": 1,
 		"color": Color(0.62, 0.5, 0.32),
 		"kind": "haul",
 		"haul_material_id": haul_material_id,
+		"count": count,
+		"max_stack": HAUL_MAX_STACK,
 		"at_risk": at_risk,
 	}
 

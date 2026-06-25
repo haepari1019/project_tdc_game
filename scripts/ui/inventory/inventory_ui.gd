@@ -260,10 +260,28 @@ func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool, inst: Dic
 
 ## Add a looted haul material to the backpack as At-Risk run inventory (D-029 §4). On Extraction
 ## Success it transfers to hubHaulVault (Safe); on failure it is lost. Returns false if full.
-func add_haul_to_backpack(haul_material_id: String, at_risk: bool) -> bool:
+## 재료는 스택 — 같은 haul_material_id 기존 타일을 채운 뒤(≤max_stack) 새 타일 생성(소비품과 동형).
+func add_haul_to_backpack(haul_material_id: String, at_risk: bool, count: int = 1) -> bool:
 	var m: Dictionary = Slice01Data.get_haul_material(haul_material_id)
 	var display := String(m.get("display", haul_material_id))
-	return _backpack.add_item_dict(ItemFactory.haul_item(haul_material_id, display, at_risk))
+	var max_stack := ItemFactory.HAUL_MAX_STACK
+	var remaining := count
+	for it in _backpack.items:
+		if remaining <= 0:
+			break
+		if String(it.get("kind", "")) == "haul" and String(it.get("haul_material_id", "")) == haul_material_id:
+			var room := max_stack - int(it.get("count", 1))
+			if room > 0:
+				var add := mini(room, remaining)
+				it["count"] = int(it.get("count", 1)) + add
+				remaining -= add
+				_backpack.refresh_item_label(it)
+	while remaining > 0:
+		var n := mini(max_stack, remaining)
+		if not _backpack.add_item_dict(ItemFactory.haul_item(haul_material_id, display, at_risk, n)):
+			break
+		remaining -= n
+	return remaining < count   # true if any added (스택 채움 포함)
 
 
 ## Haul materials currently in the run inventory → {haulMaterialId: count}. Consumed by the run-end
@@ -324,7 +342,7 @@ func _load_backpack_from_autoload() -> void:
 			"skillbook":
 				add_skillbook_to_backpack(String(d.get("base_ability_id", "")), bool(d.get("at_risk", true)), d)   # affix·탄 보존
 			"haul":
-				add_haul_to_backpack(String(d.get("haul_material_id", "")), bool(d.get("at_risk", true)))
+				add_haul_to_backpack(String(d.get("haul_material_id", "")), bool(d.get("at_risk", true)), int(d.get("count", 1)))
 			"consumable":
 				add_consumable_to_backpack(String(d.get("consumable_id", "")), int(d.get("count", 1)))
 			_:

@@ -28,7 +28,10 @@ const LOOT_CHEST_ROOMS := [
 const CHEST_AREA_PER := 520.0    # m²당 상자 ~1개 기대(+ rng 0~1 가산)
 const CHEST_MAX_PER_ROOM := 3
 const RARE_CHEST_FRAC := 0.18    # 좋은(희귀) 상자 비율 — 덜 배치
-const CHEST_WALL_MARGIN := 4.0   # 벽에서 안쪽으로
+const CHEST_WALL_MARGIN := 4.0   # 벽에서 안쪽으로(클램프 경계)
+const CHEST_PERIM_MARGIN := 2.5  # 주변부 배치 시 벽에서 안쪽(벽 근처)
+const CHEST_OBSTACLE_FRAC := 0.55  # 장애물 보유 방에서 기둥/장애물 옆 배치 비율
+const CHEST_OBSTACLE_GAP := 3.2  # 장애물 중심에서 떨어진 거리(옆에 붙음)
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
 const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
 const EnemyVisionOverlay := preload("res://scripts/run/controllers/enemy_vision_overlay.gd")
@@ -496,9 +499,12 @@ func _place_loot_chests() -> void:
 	for room_ref in LOOT_CHEST_ROOMS:
 		var center: Vector3 = _map.get_spawn_position(room_ref)
 		var size: Vector3 = _map.get_room_size(room_ref) if _map.has_method("get_room_size") else Vector3(16, 0, 16)
+		var obstacles: Array = _map.get_obstacle_positions(room_ref) if _map.has_method("get_obstacle_positions") else []
 		var n: int = clampi(int(floor(size.x * size.z / CHEST_AREA_PER + rng.randf())), 0, CHEST_MAX_PER_ROOM)
-		var hx: float = maxf(1.0, size.x * 0.5 - CHEST_WALL_MARGIN)
+		var hx: float = maxf(1.0, size.x * 0.5 - CHEST_WALL_MARGIN)        # 클램프 경계(벽)
 		var hz: float = maxf(1.0, size.z * 0.5 - CHEST_WALL_MARGIN)
+		var px: float = maxf(1.0, size.x * 0.5 - CHEST_PERIM_MARGIN)       # 주변부(벽 근처)
+		var pz: float = maxf(1.0, size.z * 0.5 - CHEST_PERIM_MARGIN)
 		for _i in n:
 			var rare := rng.randf() < RARE_CHEST_FRAC
 			var c := Chest.new()
@@ -506,7 +512,20 @@ func _place_loot_chests() -> void:
 			c.title = "봉인된 유물함" if rare else "유물 상자"
 			c.items = _loot.build_chest_items(c.tier)
 			c.setup(_inventory_ui)
-			c.position = center + Vector3(rng.randf_range(-hx, hx), 0.0, rng.randf_range(-hz, hz))
+			var pos: Vector3
+			if not obstacles.is_empty() and rng.randf() < CHEST_OBSTACLE_FRAC:
+				# 장애물/기둥 옆에 붙임
+				var o: Vector3 = obstacles[rng.randi() % obstacles.size()]
+				var ang := rng.randf() * TAU
+				pos = o + Vector3(cos(ang), 0.0, sin(ang)) * CHEST_OBSTACLE_GAP
+			else:
+				# 주변부(모서리) — 벽/모서리에 붙음(중앙 회피; 모서리 편향으로 개구부도 회피)
+				var sx: float = 1.0 if rng.randf() < 0.5 else -1.0
+				var sz: float = 1.0 if rng.randf() < 0.5 else -1.0
+				pos = center + Vector3(sx * (px - rng.randf_range(0.0, 2.0)), 0.0, sz * (pz - rng.randf_range(0.0, 2.0)))
+			pos.x = clampf(pos.x, center.x - hx, center.x + hx)   # 방 안으로 클램프
+			pos.z = clampf(pos.z, center.z - hz, center.z + hz)
+			c.position = pos
 			add_child(c)
 			_vision_fog.fog_object(c)
 			placed += 1

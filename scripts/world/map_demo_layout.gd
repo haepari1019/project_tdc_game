@@ -239,6 +239,16 @@ func get_room_size(room_ref: String) -> Vector3:
 	return p.get("size", Vector3(8, 0, 8))
 
 
+## 방 내 장애물(기둥/상자/배리어) 월드 위치들. 절차적 상자를 장애물/기둥에 붙여 배치하는 데 사용.
+func get_obstacle_positions(room_ref: String) -> Array:
+	var out: Array = []
+	var center: Vector3 = get_spawn_position(room_ref)
+	for obs in OBSTACLE_SPECS.get(room_ref, []):
+		var p: Vector2 = obs.get("pos", Vector2.ZERO)
+		out.append(Vector3(center.x + p.x, 0.0, center.z + p.y))
+	return out
+
+
 ## A spawn point pushed toward the room's FAR interior, away from `away_from` (the
 ## party's approach). Keeps enemies out of the start sightline/combat range until
 ## the party advances in. Clamped inside the room with margin for spawn scatter.
