@@ -117,6 +117,19 @@ func remove_gear(base_gear_id: String) -> bool:
 	return false
 
 
+## Add one owned gear to the stash (무기고 구매 / 회수). 상점 기어 = bundled identity(굴림 없음, 확정 세트).
+func add_gear(base_gear_id: String, rolled_identity_skill_id: String = "", rolls: Dictionary = {}) -> void:
+	if base_gear_id.is_empty():
+		return
+	var inst := {"base_gear_id": base_gear_id}
+	if not rolled_identity_skill_id.is_empty():
+		inst["rolled_identity_skill_id"] = rolled_identity_skill_id
+	if not rolls.is_empty():
+		inst["rolls"] = rolls
+	gear.append(inst)
+	save_stash()
+
+
 ## Add one owned skillbook to the stash (shop 구매 / 회수). 상점 생본=affix 없음; 회수 본은 affix/잔여탄 보존.
 func add_skillbook(base_ability_id: String, affix: Dictionary = {}, charges: int = -1) -> void:
 	if base_ability_id.is_empty():

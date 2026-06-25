@@ -81,6 +81,15 @@ func _init() -> void:
 	hp.record_party_wipe()
 	_expect(hp.is_quest_done("Q-HUB-040"), "성소 — 전멸 1회로 해금")
 
+	# F-029 무기고 기어 상점 — armory Tier 게이트 + ward_scrap 차감.
+	hp.facilities["armory"] = 0
+	hp.ward_scrap = 100
+	_expect(String(hp.buy_gear("gear_ward_tank_iron_set", 1).get("reason", "")) == "tier", "기어 — armory 잠김 차단")
+	hp.facilities["armory"] = 1
+	var gear_before: int = hp.scrap()
+	_expect(bool(hp.buy_gear("gear_ward_tank_iron_set", 1).get("ok", false)) and hp.scrap() == gear_before - 40, "B세트 구매 -40 scrap")
+	_expect(String(hp.buy_gear("gear_ward_dps_guardbreak_set", 2).get("reason", "")) == "tier", "C세트(T2) armory T1선 차단")
+
 	hp.free()
 	if _ok:
 		print("HUB SMOKE PASSED")

@@ -12,6 +12,7 @@ const SHOP_PRICE := {"Basic": 12, "Advanced": 30, "Master": 60}   # ward_scrap, 
 const TIER_RANK := {"Basic": 1, "Advanced": 2, "Master": 3}       # vs shop_tier_ceiling (scribe_shop Tier)
 const SINK_DISASSEMBLE := 8   # D-018 §7.5 — 해금 후 중복 스킬북 분해
 const SINK_SELL := 4          # D-018 §7.5 — 미해금 중복 스킬북 허브 매각(분석 재료 대안)
+const GEAR_PRICE := {1: 40, 2: 90}   # F-029 armory 카탈로그 tier별 기어 가격(ward_scrap, B/C)
 
 signal facilities_changed()
 signal vault_changed()
@@ -305,6 +306,24 @@ func shop_price(tier: String) -> int:
 ## CALLER가 스태시에서 책을 제거하고 add_scrap(이 값)을 호출(buy_raw와 대칭: hub=통화, caller=인스턴스).
 func skillbook_sink_value(base_id: String) -> int:
 	return SINK_DISASSEMBLE if is_shop_unlocked(base_id) else SINK_SELL
+
+
+func gear_price(catalog_tier: int) -> int:
+	return int(GEAR_PRICE.get(catalog_tier, 999))
+
+
+## F-029 무기고 기어 구매 — armory Tier ≥ catalog_tier + ward_scrap. 성공 시 scrap 차감(CALLER가 스태시 추가,
+## buy_raw와 대칭). {ok, reason("ok"|"tier"|"scrap"), cost}.
+func buy_gear(base_gear_id: String, catalog_tier: int) -> Dictionary:
+	if facility_tier("armory") < catalog_tier:
+		return {"ok": false, "reason": "tier", "cost": 0}
+	var cost := gear_price(catalog_tier)
+	if ward_scrap < cost:
+		return {"ok": false, "reason": "scrap", "cost": cost}
+	ward_scrap -= cost
+	economy_changed.emit()
+	save_profile()
+	return {"ok": true, "reason": "ok", "cost": cost}
 
 
 ## Buy a Raw (affix-less) skillbook of `base_id` (default Basic). Gated by unlock + scribe_shop Tier
