@@ -180,7 +180,9 @@ func _make_node(item: Dictionary) -> Panel:
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lbl.add_theme_font_size_override("font_size", 10)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # 긴 이름은 칸 안에서 줄바꿈
+	lbl.clip_text = true                                  # 그래도 넘치면 칸 밖으로 안 나오게 클립(전체명=툴팁)
+	lbl.add_theme_font_size_override("font_size", 9)
 	p.add_child(lbl)
 	return p
 
