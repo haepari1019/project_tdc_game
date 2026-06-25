@@ -505,3 +505,12 @@
 - **구현:** HubProfile `extraction_success`/`party_wiped` 카운터(+영속) + `record_extraction_success`/`record_party_wipe`(run_end_controller 성공/PartyWipe 시 호출) + evaluate_quests 3줄. quests.json `completion` 텍스트도 데모 조건으로 갱신(퀘스트 로그 표시). 퀘스트 로그 패널(hub_quest_panel)에서 조건 노출.
 - **분류\전파:** impl — **전파 후보**(실 완료 조건은 2맵/복구/NPC; B4-full에서 교체). 게임은 데모 proxy. 미전파.
 - **검증:** hub_smoke(추출 1→군수·2→창고T2·전멸→성소) + ci_smoke PASS.
+
+### DRIFT-066 — S5b Encounter Variety: EN-* 태그 + 조합 제너레이터(라이브) + 절차적 스폰 위치 🔶 impl/design (전파 후보)
+- **현실(2026-06-25, 사용자 "S5b 진행"):** 인카운터를 authored ENC 1:1 → **조합 생성 하이브리드**로. 설계=`docs/design/encounter_variety_architecture.md`.
+  - **P1 태그:** enemies.json 17종 `tags{tier·archetype·bucket·axis·faction·placement_affinity·fodder_variant}`(taxonomy=D-013/ENC-000). `Slice01Data.get_enemy_tags`.
+  - **P2 제너레이터:** `encounter_generator.gd` `generate(difficulty, seed)` — ENC-000 §2 가드레일(mechanicAxes=elite+고유 specialist 축 ≤2·fodder min/max·variant_min) 준수. 제3세력 base 제외. 결정적.
+  - **P2b 라이브:** `combat_controller.prespawn`이 보스/3RD 외 ENC의 units를 생성 조합으로 대체(frame=placement/faction/reinforcement는 authored 유지=하이브리드). 스폰 위치=방 크기 비례 산포(고정 4.5m→0.28×최소변, 상한 13m)+벽 클램프.
+- **스펙과의 차이:** ENC가 authored 1:1이 아니라 (difficulty,seed)→생성. ENC-000(group/budget 생성)·LDG-SPAWN(resolve)·F-006(placement)에 표면 변경. tier/mechanicAxes taxonomy는 스펙 준수(가드레일).
+- **분류\전파:** impl/design — **전파 후보**(S5b 빌드 직전 ENC-000/F-006/LDG-SPAWN OPS_30 예약, 설계 §6). 현재 게임측 검증 우선·미전파. 절대 수치(SCALE·SCATTER_FRAC)=데모.
+- **검증:** party_pool_smoke(태그 + 제너레이터 3난이도×149시드 가드레일) + dungeon_run 부팅 prespawn 생성 + ci_smoke PASS. **잔여=P3 제3세력 창발 모디파이어·P4 런 내 비복원.** 체감=F5.

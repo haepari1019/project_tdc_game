@@ -46,6 +46,7 @@ const EncounterGenerator := preload("res://scripts/run/encounter_generator.gd") 
 const GEN_SCATTER_FRAC := 0.28   # 절차적 스폰: 방 최소변의 이 비율까지 deep-anchor 주변 산포(고정 4.5 대체)
 const GEN_SCATTER_MAX := 13.0    # 산포 반경 상한(m)
 const SPAWN_WALL_MARGIN := 5.0   # 산포 후 벽에서 안쪽 클램프(유닛/스폰 여유)
+const MAX_SQUADS_PER_ROOM := 3   # spawn_weight 가중에도 방당 분대 상한(안전)
 const ANCHOR_SEP_M := 14.0   # AmbushHold dual-anchor separation (> SQUAD_PROP_RADIUS_M so the two
 							 # hiding spots wake independently — sequential reveal)
 
@@ -430,24 +431,31 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 		var room_ref := String(row.get("room_ref", ""))
 		var pool := String(row.get("pool_slot", ""))
 		var layer := String(row.get("world_layer", "Upper"))
-		var enc_id := Slice01Data.get_encounter_for_pool(pool, difficulty, layer, run_seed)
-		if enc_id.is_empty():
-			continue
-		print("[TDC] prespawn resolve: room=%s pool=%s layer=%s diff=%s -> %s" % [room_ref, pool, layer, difficulty, enc_id])
-		# The start room's own encounter would spawn on the party — relocate it into
-		# the main combat room (the start room's connected room) as its own squad.
-		var target_room := room_ref
-		if room_ref == spawn_room:
-			target_room = _first_connected(spawn_room)
-			if target_room.is_empty():
+		if pool.is_empty():
+			continue   # 비전투 룸(OBJ/EXT 등) — 스폰 없음
+		# 방별 스폰 밀도(LD 노브, rooms.json spawn_weight) → 이 방의 분대 수. 0=무스폰·1=기본·>1=조밀.
+		var weight := float(row.get("spawn_weight", 1.0))
+		var squad_n := _squads_for_weight(weight, run_seed, room_ref)
+		for i in squad_n:
+			# 분대마다 다른 seed → 같은 풀이라도 다른 ENC/조합(다중 분대 방 다양성).
+			var enc_id := Slice01Data.get_encounter_for_pool(pool, difficulty, layer, run_seed + i * 1009)
+			if enc_id.is_empty():
 				continue
-		# S5b 하이브리드: 보스·제3세력은 authored set-piece 유지, 그 외 일반 전투는 조합 제너레이터로
-		# 유닛 생성(ENC frame=placement/faction/reinforcement 유지, units만 교체). 룸별 시드로 결정적.
-		var units_override: Array = []
-		if _should_generate(enc_id):
-			var comp: Dictionary = EncounterGenerator.generate(difficulty, abs(hash("%d|%s" % [run_seed, target_room])))
-			units_override = _comp_to_units(comp.get("enemies", []))
-		_spawn_squad(enc_id, target_room, units_override)
+			# The start room's own encounter would spawn on the party — relocate it into
+			# the main combat room (the start room's connected room) as its own squad.
+			var target_room := room_ref
+			if room_ref == spawn_room:
+				target_room = _first_connected(spawn_room)
+				if target_room.is_empty():
+					continue
+			print("[TDC] prespawn: room=%s w=%.1f squad %d/%d pool=%s -> %s" % [room_ref, weight, i + 1, squad_n, pool, enc_id])
+			# S5b 하이브리드: 보스·제3세력은 authored set-piece 유지, 그 외는 조합 제너레이터로 유닛 생성
+			# (ENC frame=placement/faction/reinforcement 유지). 룸+분대 인덱스 시드로 결정적.
+			var units_override: Array = []
+			if _should_generate(enc_id):
+				var comp: Dictionary = EncounterGenerator.generate(difficulty, abs(hash("%d|%s|%d" % [run_seed, target_room, i])))
+				units_override = _comp_to_units(comp.get("enemies", []))
+			_spawn_squad(enc_id, target_room, units_override)
 
 
 ## DEBUG (dev combat sandbox): spawn ONE encounter. engaged=true skips the perception dance.
@@ -579,6 +587,20 @@ func _anchor_center(base: Vector3, anchor_id: int, anchor_count: int) -> Vector3
 	var perp := Vector3(dir.z, 0.0, -dir.x)  # 90° to the approach axis
 	var t := float(anchor_id) - float(anchor_count - 1) * 0.5  # center the spread (2 → -0.5,+0.5)
 	return base + perp * (t * ANCHOR_SEP_M)
+
+
+## 방별 분대 수 — spawn_weight(LD 밀도) → 정수부 + 소수부 확률(시드 결정적). 0=무스폰. 상한 MAX_SQUADS_PER_ROOM.
+## 예: 1.0→1 · 0.4→40% 확률로 1 · 1.8→80% 확률로 2(아니면 1) · 0→0.
+func _squads_for_weight(weight: float, seed: int, room_ref: String) -> int:
+	if weight <= 0.0:
+		return 0
+	var base := int(floor(weight))
+	var frac := weight - float(base)
+	if frac > 0.0:
+		var h: int = abs(hash("%d|%s|squadcount" % [seed, room_ref]))
+		if float(h % 1000) / 1000.0 < frac:
+			base += 1
+	return clampi(base, 0, MAX_SQUADS_PER_ROOM)
 
 
 ## S5b 하이브리드 게이트 — 보스·제3세력(set-piece)은 authored 유지, 나머지 일반 전투는 생성.

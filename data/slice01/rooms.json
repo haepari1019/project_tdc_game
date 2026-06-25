@@ -6,24 +6,37 @@
     {
       "room_ref": "RM-ENTRY-01",
       "world_layer": "Upper",
-      "connects": ["RM-ADV-01", "RM-ADV-03", "RM-ADV-04"],
+      "connects": [
+        "RM-ADV-01",
+        "RM-ADV-03",
+        "RM-ADV-04"
+      ],
       "lighting_profile": "lit",
-      "pool_slot": "P-ENTRY-01"
+      "pool_slot": "P-ENTRY-01",
+      "spawn_weight": 0.4
     },
     {
       "room_ref": "RM-ADV-01",
       "world_layer": "Upper",
-      "connects": ["RM-ADV-02", "RM-OBJ-01"],
+      "connects": [
+        "RM-ADV-02",
+        "RM-OBJ-01"
+      ],
       "lighting_profile": "lit",
       "pool_slot": "P-ADV-01",
-      "run_phase_on_enter": "Advance"
+      "run_phase_on_enter": "Advance",
+      "spawn_weight": 1.8
     },
     {
       "room_ref": "RM-ADV-02",
       "world_layer": "Upper",
-      "connects": ["RM-ROUTE-01", "RM-MID-01"],
+      "connects": [
+        "RM-ROUTE-01",
+        "RM-MID-01"
+      ],
       "lighting_profile": "standard",
-      "pool_slot": "P-ADV-02"
+      "pool_slot": "P-ADV-02",
+      "spawn_weight": 1.0
     },
     {
       "room_ref": "RM-OBJ-01",
@@ -31,15 +44,19 @@
       "connects": [],
       "lighting_profile": "dim",
       "gimmick_ref": "GIMMICK-DEMO-01",
-      "run_phase_on_enter": "Objective"
+      "run_phase_on_enter": "Objective",
+      "spawn_weight": 0.0
     },
     {
       "room_ref": "RM-ROUTE-01",
       "world_layer": "Upper",
-      "connects": ["RM-EXT-01"],
+      "connects": [
+        "RM-EXT-01"
+      ],
       "lighting_profile": "standard",
       "pool_slot": "P-EXT-ROUTE-01",
-      "run_phase_on_enter": "AdvanceExtraction"
+      "run_phase_on_enter": "AdvanceExtraction",
+      "spawn_weight": 0.3
     },
     {
       "room_ref": "RM-EXT-01",
@@ -47,78 +64,116 @@
       "connects": [],
       "lighting_profile": "lit",
       "extraction_point_id": "POINT-DEMO-01",
-      "run_phase_on_enter": "Extraction"
+      "run_phase_on_enter": "Extraction",
+      "spawn_weight": 0.0
     },
     {
       "room_ref": "RM-ADV-03",
       "world_layer": "Upper",
-      "connects": ["RM-ENTRY-01", "RM-ADV-06"],
+      "connects": [
+        "RM-ENTRY-01",
+        "RM-ADV-06"
+      ],
       "lighting_profile": "standard",
-      "pool_slot": "P-ADV-03"
+      "pool_slot": "P-ADV-03",
+      "spawn_weight": 1.0
     },
     {
       "room_ref": "RM-ADV-04",
       "world_layer": "Upper",
-      "connects": ["RM-ENTRY-01", "RM-ADV-05"],
+      "connects": [
+        "RM-ENTRY-01",
+        "RM-ADV-05"
+      ],
       "lighting_profile": "standard",
-      "pool_slot": "P-ADV-04"
+      "pool_slot": "P-ADV-04",
+      "spawn_weight": 0.8
     },
     {
       "room_ref": "RM-ADV-05",
       "world_layer": "Upper",
-      "connects": ["RM-ADV-04"],
+      "connects": [
+        "RM-ADV-04"
+      ],
       "lighting_profile": "standard",
-      "pool_slot": "P-ADV-05"
+      "pool_slot": "P-ADV-05",
+      "spawn_weight": 1.2
     },
     {
       "room_ref": "RM-MID-01",
       "world_layer": "Mid",
-      "connects": ["RM-ADV-02", "RM-DEEP-01", "RM-BOSS-01"],
+      "connects": [
+        "RM-ADV-02",
+        "RM-DEEP-01",
+        "RM-BOSS-01"
+      ],
       "lighting_profile": "dim",
-      "pool_slot": "P-MID-01"
+      "pool_slot": "P-MID-01",
+      "spawn_weight": 1.5
     },
     {
       "room_ref": "RM-BOSS-01",
       "world_layer": "Mid",
-      "connects": ["RM-MID-01"],
+      "connects": [
+        "RM-MID-01"
+      ],
       "lighting_profile": "dim",
       "pool_slot": "P-BOSS-01",
-      "run_phase_on_enter": "Objective"
+      "run_phase_on_enter": "Objective",
+      "spawn_weight": 1.0
     },
     {
       "room_ref": "RM-DEEP-01",
       "world_layer": "Deep",
-      "connects": ["RM-MID-01"],
+      "connects": [
+        "RM-MID-01"
+      ],
       "lighting_profile": "dim",
-      "pool_slot": "P-DEEP-01"
+      "pool_slot": "P-DEEP-01",
+      "spawn_weight": 1.3
     },
     {
       "room_ref": "RM-ADV-06",
       "world_layer": "Upper",
-      "connects": ["RM-ADV-03", "RM-ADV-07"],
+      "connects": [
+        "RM-ADV-03",
+        "RM-ADV-07"
+      ],
       "lighting_profile": "standard",
-      "pool_slot": "P-ADV-06"
+      "pool_slot": "P-ADV-06",
+      "spawn_weight": 0.9
     },
     {
       "room_ref": "RM-ADV-07",
       "world_layer": "Upper",
-      "connects": ["RM-ADV-06", "RM-ADV-08"],
+      "connects": [
+        "RM-ADV-06",
+        "RM-ADV-08"
+      ],
       "lighting_profile": "standard",
-      "pool_slot": "P-ADV-07"
+      "pool_slot": "P-ADV-07",
+      "spawn_weight": 1.1
     },
     {
       "room_ref": "RM-ADV-08",
       "world_layer": "Upper",
-      "connects": ["RM-ADV-07", "RM-ADV-09"],
+      "connects": [
+        "RM-ADV-07",
+        "RM-ADV-09"
+      ],
       "lighting_profile": "standard",
-      "pool_slot": "P-ADV-08"
+      "pool_slot": "P-ADV-08",
+      "spawn_weight": 0.7
     },
     {
       "room_ref": "RM-ADV-09",
       "world_layer": "Upper",
-      "connects": ["RM-ADV-08"],
+      "connects": [
+        "RM-ADV-08"
+      ],
       "lighting_profile": "standard",
-      "pool_slot": "P-ADV-09"
+      "pool_slot": "P-ADV-09",
+      "spawn_weight": 1.4
     }
   ]
 }
