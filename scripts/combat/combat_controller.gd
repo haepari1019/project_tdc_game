@@ -47,6 +47,11 @@ const GEN_SCATTER_FRAC := 0.28   # 절차적 스폰: 방 최소변의 이 비율
 const GEN_SCATTER_MAX := 13.0    # 산포 반경 상한(m)
 const SPAWN_WALL_MARGIN := 5.0   # 산포 후 벽에서 안쪽 클램프(유닛/스폰 여유)
 const MAX_SQUADS_PER_ROOM := 3   # spawn_weight 가중에도 방당 분대 상한(안전)
+const THIRD_FACTION_MAX := 4     # F-028 제3세력 동시 squad 상한(≤4팀)
+const THIRD_FACTION_NAME := "Third"   # 제3세력 combat faction(ENC-3RD-001과 동일) — 몬스터("Dungeon")·파티에 적대
+const THIRD_FACTION_PACK: Array = [   # Stalker Pack(EN-3RD-01 추적자 + 02 포획꾼 + 03 학살자)
+	{"enemy_id": "EN-3RD-01", "count": 1}, {"enemy_id": "EN-3RD-02", "count": 1}, {"enemy_id": "EN-3RD-03", "count": 1},
+]
 const ANCHOR_SEP_M := 14.0   # AmbushHold dual-anchor separation (> SQUAD_PROP_RADIUS_M so the two
 							 # hiding spots wake independently — sequential reveal)
 
@@ -425,6 +430,7 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	# Resolve per room via the spawn table: (pool, run difficulty, room world_layer).
 	var difficulty := RunLoadout.get_difficulty()   # hub selection > manifest default (single source)
 	var run_seed := int(RunLoadout.get_run_seed())  # weighted ENC resolve + spawn scatter (LDG-SPAWN §2)
+	var combat_rooms: Array = []   # 몬스터 squad가 들어간 방 — 제3세력 창발 주입(P3) 후보
 	for row in Slice01Data.get_rooms_document().get("rooms", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
@@ -456,6 +462,11 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 				var comp: Dictionary = EncounterGenerator.generate(difficulty, abs(hash("%d|%s|%d" % [run_seed, target_room, i])))
 				units_override = _comp_to_units(comp.get("enemies", []))
 			_spawn_squad(enc_id, target_room, units_override)
+			if not combat_rooms.has(target_room):
+				combat_rooms.append(target_room)
+	# S5b P3 (F-028) — 제3세력 창발 주입: run-start에 ≤4 squad를 몬스터 방에 활성 스폰 → 기존 교차진영
+	# 지각/전투(매 프레임 틱)로 몬스터와 실시간 교전(오프스크린 포함). 플레이어는 입장 시 결과를 만남.
+	_inject_third_faction(run_seed, combat_rooms)
 
 
 ## DEBUG (dev combat sandbox): spawn ONE encounter. engaged=true skips the perception dance.
@@ -601,6 +612,35 @@ func _squads_for_weight(weight: float, seed: int, room_ref: String) -> int:
 		if float(h % 1000) / 1000.0 < frac:
 			base += 1
 	return clampi(base, 0, MAX_SQUADS_PER_ROOM)
+
+
+## S5b P3 (F-028) — 제3세력 창발 주입. 몬스터가 있는 방 중 시드로 ≤THIRD_FACTION_MAX개를 골라
+## Stalker Pack을 활성(engaged) 스폰 → 동일 방 몬스터(교차진영)와 기존 지각/전투로 실시간 교전.
+## 매 프레임 전체 적 틱이라 오프스크린에서도 진행 → 플레이어는 입장 시 교전중/약화/정리 상태를 만남.
+func _inject_third_faction(seed: int, combat_rooms: Array) -> void:
+	if combat_rooms.is_empty() or seed == 0:
+		return   # run_seed=0(샌드박스/무런)이면 주입 안 함
+	var pool: Array = combat_rooms.duplicate()
+	# seeded shuffle
+	for i in range(pool.size() - 1, 0, -1):
+		var j: int = abs(hash("3rd|%d|%d" % [seed, i])) % (i + 1)
+		var t = pool[i]; pool[i] = pool[j]; pool[j] = t
+	var n: int = clampi(1 + abs(hash("3rdn|%d" % seed)) % THIRD_FACTION_MAX, 1, mini(THIRD_FACTION_MAX, pool.size()))
+	for i in n:
+		_spawn_third_squad(String(pool[i]))
+	print("[TDC] 제3세력 창발 주입: %d squad → %s" % [n, str(pool.slice(0, n))])
+
+
+## 한 방에 제3세력 Stalker Pack을 활성 스폰(engaged) — 즉시 가장 가까운 적대(몬스터)를 사냥.
+func _spawn_third_squad(room_ref: String) -> void:
+	var squad_id := _next_squad_id
+	_next_squad_id += 1
+	var lane := int(_room_squad_count.get(room_ref, 0))
+	_room_squad_count[room_ref] = lane + 1
+	var center := _squad_spawn_center(room_ref, lane)
+	_spawn_at(THIRD_FACTION_PACK, center, squad_id, true, "Fixed", 1, "all", THIRD_FACTION_NAME)  # engaged=true → 몬스터 사냥
+	_squads.append({"id": squad_id, "room_ref": room_ref, "encounter_id": "ENC-3RD-emergent", "cleared": false, "reinforce": {}, "pending": false, "activated": true, "timer": 0.0, "warned": false})
+	print("[TDC] 제3세력 Squad %d (창발) %s @ %s" % [squad_id, room_ref, center])
 
 
 ## S5b 하이브리드 게이트 — 보스·제3세력(set-piece)은 authored 유지, 나머지 일반 전투는 생성.
