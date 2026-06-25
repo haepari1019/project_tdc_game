@@ -154,6 +154,8 @@ func _refresh_detail() -> void:
 		var done: bool = _hub.is_quest_done(q)
 		var qr: Dictionary = Slice01Data.get_quest(q)
 		_lbl("  퀘스트 %s %s — %s" % [q, ("✓" if done else "✗"), String(qr.get("one_liner", ""))], OK if done else BAD)
+		if not done:
+			_lbl("    조건: %s" % String(qr.get("completion", "?")), DIM)   # 완료 방법 표시(사용자: 퀘스트 내용 불명)
 	# haul gate — 선택 시설 요구 재료 vs 보유(금고). 읽기 전용: 재료는 런에서 회수 → '재료 모두 금고로'로
 	# 적재해야 채워진다(여기서 무료로 +/채우기 금지 — 사용자 지적). have/need만 표시.
 	var haul: Dictionary = nxt.get("haul", {})

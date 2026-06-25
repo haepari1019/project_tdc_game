@@ -94,6 +94,11 @@ func complete_objective() -> void:
 		return
 	objective_complete = true
 	print("[TDC] Objective GIMMICK-DEMO-01 complete (stub)")
+	# GIMMICK-DEMO-01 = Q-HUB-010(필기소 T1 게이트) 완료 트리거 — 목표(열쇠 게이트 개방) 1회면 해금.
+	# (기존: evaluate_quests에 Q-HUB-010 없고 여기서도 미설정 → 필기소 영구 잠김 버그. F-029 §3.3.)
+	var hp := get_node_or_null("/root/HubProfile")
+	if hp != null and hp.has_method("set_quest_completed"):
+		hp.set_quest_completed("Q-HUB-010")
 
 
 ## ExtractionActivate precondition (F-007 §3.1.2) — objective done + run still active.
