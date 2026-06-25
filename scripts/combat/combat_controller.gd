@@ -42,6 +42,10 @@ const SQUAD_PROP_RADIUS_M := 9.0
 ## sits beside the room's own squad instead of overlapping it).
 const SQUAD_LANE_SPACING := 12.0
 const SPAWN_SCATTER_M := 4.5   # per-run seeded scatter of the squad spawn center (navmesh-snapped)
+const EncounterGenerator := preload("res://scripts/run/encounter_generator.gd")   # S5b 조합 제너레이터
+const GEN_SCATTER_FRAC := 0.28   # 절차적 스폰: 방 최소변의 이 비율까지 deep-anchor 주변 산포(고정 4.5 대체)
+const GEN_SCATTER_MAX := 13.0    # 산포 반경 상한(m)
+const SPAWN_WALL_MARGIN := 5.0   # 산포 후 벽에서 안쪽 클램프(유닛/스폰 여유)
 const ANCHOR_SEP_M := 14.0   # AmbushHold dual-anchor separation (> SQUAD_PROP_RADIUS_M so the two
 							 # hiding spots wake independently — sequential reveal)
 
@@ -437,7 +441,13 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 			target_room = _first_connected(spawn_room)
 			if target_room.is_empty():
 				continue
-		_spawn_squad(enc_id, target_room)
+		# S5b 하이브리드: 보스·제3세력은 authored set-piece 유지, 그 외 일반 전투는 조합 제너레이터로
+		# 유닛 생성(ENC frame=placement/faction/reinforcement 유지, units만 교체). 룸별 시드로 결정적.
+		var units_override: Array = []
+		if _should_generate(enc_id):
+			var comp: Dictionary = EncounterGenerator.generate(difficulty, abs(hash("%d|%s" % [run_seed, target_room])))
+			units_override = _comp_to_units(comp.get("enemies", []))
+		_spawn_squad(enc_id, target_room, units_override)
 
 
 ## DEBUG (dev combat sandbox): spawn ONE encounter. engaged=true skips the perception dance.
@@ -483,9 +493,10 @@ func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: b
 
 ## Spawn one encounter as a dormant squad, pushed toward the room's FAR side (away
 ## from the party) so the start-adjacent room isn't in combat range at spawn.
-func _spawn_squad(encounter_id: String, room_ref: String) -> void:
+func _spawn_squad(encounter_id: String, room_ref: String, units_override: Array = []) -> void:
 	var enc := Slice01Data.get_encounter(encounter_id)
-	var units: Array = enc.get("units", [])
+	# S5b: 생성 조합이 있으면 ENC의 authored units를 대체(frame=placement/faction/reinforcement는 유지).
+	var units: Array = units_override if not units_override.is_empty() else enc.get("units", [])
 	if units.is_empty():
 		return
 	var squad_id := _next_squad_id
@@ -541,9 +552,19 @@ func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
 	if rng_seed != 0:
 		var h: int = abs(hash("%d|%s|%d" % [rng_seed, room_ref, lane]))
 		var ang := float(h % 360) * (PI / 180.0)
+		# 절차적 스폰 위치(S5b) — 고정 4.5m 대신 방 크기 비례 반경으로 deep-anchor 주변을 넓게 산포 →
+		# 런마다·방마다 위치가 달라짐. deep anchor가 far-side 편향을 유지(파티 반대편).
+		var size: Vector3 = _map.get_room_size(room_ref) if _map.has_method("get_room_size") else Vector3(16, 0, 16)
+		var max_rad := clampf(GEN_SCATTER_FRAC * minf(size.x, size.z), SPAWN_SCATTER_M, GEN_SCATTER_MAX)
 		@warning_ignore("integer_division")  # intentional — hash bit extraction for the seeded scatter
-		var rad := SPAWN_SCATTER_M * (0.35 + 0.65 * float((h / 360) % 100) / 100.0)
+		var rad := max_rad * (0.35 + 0.65 * float((h / 360) % 100) / 100.0)
 		center += Vector3(cos(ang), 0.0, sin(ang)) * rad
+		# 벽 안으로 클램프(방 중심 ± size/2 − margin) — 산포가 벽을 뚫지 않게.
+		var c0: Vector3 = _map.get_spawn_position(room_ref)
+		var hx := maxf(1.0, size.x * 0.5 - SPAWN_WALL_MARGIN)
+		var hz := maxf(1.0, size.z * 0.5 - SPAWN_WALL_MARGIN)
+		center.x = clampf(center.x, c0.x - hx, c0.x + hx)
+		center.z = clampf(center.z, c0.z - hz, c0.z + hz)
 	return center
 
 
@@ -558,6 +579,29 @@ func _anchor_center(base: Vector3, anchor_id: int, anchor_count: int) -> Vector3
 	var perp := Vector3(dir.z, 0.0, -dir.x)  # 90° to the approach axis
 	var t := float(anchor_id) - float(anchor_count - 1) * 0.5  # center the spread (2 → -0.5,+0.5)
 	return base + perp * (t * ANCHOR_SEP_M)
+
+
+## S5b 하이브리드 게이트 — 보스·제3세력(set-piece)은 authored 유지, 나머지 일반 전투는 생성.
+## (forceEncounter QA핀은 get_encounter_for_pool에서 이미 처리됨 — 여기선 그 결과 id로 판정.)
+func _should_generate(encounter_id: String) -> bool:
+	if encounter_id.is_empty():
+		return false
+	return not (encounter_id.begins_with("ENC-BOSS") or encounter_id.begins_with("ENC-3RD"))
+
+
+## 생성기의 flat enemy_id 리스트 → {enemy_id, count} 유닛 리스트(같은 id 집계, 등장 순서 유지).
+func _comp_to_units(enemy_ids: Array) -> Array:
+	var counts: Dictionary = {}
+	var order: Array = []
+	for eid in enemy_ids:
+		var s := String(eid)
+		if not counts.has(s):
+			order.append(s)
+		counts[s] = int(counts.get(s, 0)) + 1
+	var out: Array = []
+	for s in order:
+		out.append({"enemy_id": s, "count": int(counts[s])})
+	return out
 
 
 ## First room the given room opens onto (used to relocate the start-room encounter).
