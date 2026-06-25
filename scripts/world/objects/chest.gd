@@ -4,6 +4,7 @@ extends Node3D
 ## backpack (cross-container move). ref: world loop (chest→key→door→extraction) / F-010.
 
 var title := "CHEST"
+var tier := "fixed"          # "common" | "rare" | "fixed"(퀘스트/특수) — 비주얼·등급 표시
 var items: Array = []        # [{id, w, h, col, row, color}] — persisted by InventoryUI
 var _inv: Node = null        # InventoryUI
 
@@ -20,7 +21,8 @@ func _ready() -> void:
 # --- interactable contract (duck-typed, group "interactable") -------------------
 
 func interact_prompt() -> String:
-	return "%s\n[우클릭] 열기" % title
+	var badge := "  ✦ 희귀" if tier == "rare" else ""
+	return "%s%s\n[우클릭] 열기" % [title, badge]
 
 
 func interact_anchor() -> Vector3:
@@ -39,10 +41,16 @@ func _build_visual() -> void:
 	mi.mesh = bm
 	mi.position.y = 0.55
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.55, 0.40, 0.18)
+	# 티어 비주얼 — 희귀(좋은) 상자는 금색 + 강한 발광으로 한눈에 구분. 일반/고정은 갈색.
+	if tier == "rare":
+		mat.albedo_color = Color(0.82, 0.66, 0.20)
+		mat.emission = Color(0.85, 0.62, 0.12)
+		mat.emission_energy_multiplier = 1.6
+	else:
+		mat.albedo_color = Color(0.55, 0.40, 0.18)
+		mat.emission = Color(0.30, 0.22, 0.06)
+		mat.emission_energy_multiplier = 0.6   # faint glow so it reads in dim rooms
 	mat.emission_enabled = true
-	mat.emission = Color(0.30, 0.22, 0.06)
-	mat.emission_energy_multiplier = 0.6   # faint glow so it reads in dim rooms
 	mi.material_override = mat
 	add_child(mi)
 

@@ -233,6 +233,12 @@ func get_spawn_position(room_ref: String = "RM-ENTRY-01") -> Vector3:
 	return p.get("spawn", Vector3(0, 0.02, 0))
 
 
+## 방 footprint 크기(XZ; y=0). 절차적 상자 산포 등 방 안쪽 배치에 사용. ref: _room_points 인터페이스.
+func get_room_size(room_ref: String) -> Vector3:
+	var p: Dictionary = _room_points.get(room_ref, {})
+	return p.get("size", Vector3(8, 0, 8))
+
+
 ## A spawn point pushed toward the room's FAR interior, away from `away_from` (the
 ## party's approach). Keeps enemies out of the start sightline/combat range until
 ## the party advances in. Clamped inside the room with margin for spawn scatter.

@@ -252,6 +252,31 @@ func _initialize() -> void:
 	_chk("멀티클래스는 부족한 쪽 기준(통과)", is_equal_approx(float(ls._class_balance_factor(["Tank", "Nuker"])), 1.0))
 	ls.free()
 
+	# 18) 절차적 상자 루트 — roll_forced 항상 affix · rare 상자 스킬 affix 보장 · common 재료 위주.
+	var AR = load("res://scripts/run/affix_roller.gd")
+	var fa: Dictionary = AR.roll_forced()
+	_chk("roll_forced 항상 affix", not fa.is_empty() and not (fa.get("ids", []) as Array).is_empty())
+	var ls2 = LS.new()
+	var rare_skill_seen := false
+	var rare_skill_affixed := true
+	for _k in 40:
+		for it in ls2.build_chest_items("rare"):
+			if String(it.get("kind", "")) == "skillbook":
+				rare_skill_seen = true
+				if (it.get("affix", {}) as Dictionary).is_empty():
+					rare_skill_affixed = false
+	_chk("rare 상자 스킬 등장", rare_skill_seen)
+	_chk("rare 상자 스킬 affix 보장", rare_skill_affixed)
+	var ch_haul := 0
+	var ch_total := 0
+	for _k in 40:
+		for it in ls2.build_chest_items("common"):
+			ch_total += 1
+			if String(it.get("kind", "")) == "haul":
+				ch_haul += 1
+	_chk("common 상자 재료 위주(>50%)", ch_total > 0 and float(ch_haul) / float(ch_total) > 0.5)
+	ls2.free()
+
 	# 17) 스킬 설명문 + 색구분 툴팁 빌더 (display_names.skill_desc / SkillText).
 	_chk("skill_desc(silence) 존재", not sd.get_skill_desc("skillbook_silence").is_empty())
 	var ST = load("res://scripts/ui/skill_text.gd")

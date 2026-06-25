@@ -19,6 +19,16 @@ const ALLY_CACHE_POOL := [
 	"AB-035", "AB-051", "AB-050", "AB-045", "AB-032",
 ]
 const InteractionController := preload("res://scripts/run/controllers/interaction_controller.gd")
+
+## 절차적 루트 상자 — 배치 가능 방(EXT 추출·ROUTE 좁은 복도 제외). 면적 비례 개수, 희귀는 소수.
+const LOOT_CHEST_ROOMS := [
+	"RM-ENTRY-01", "RM-ADV-01", "RM-OBJ-01", "RM-ADV-02", "RM-ADV-03", "RM-ADV-04", "RM-ADV-05",
+	"RM-MID-01", "RM-BOSS-01", "RM-DEEP-01", "RM-ADV-06", "RM-ADV-07", "RM-ADV-08", "RM-ADV-09",
+]
+const CHEST_AREA_PER := 520.0    # m²당 상자 ~1개 기대(+ rng 0~1 가산)
+const CHEST_MAX_PER_ROOM := 3
+const RARE_CHEST_FRAC := 0.18    # 좋은(희귀) 상자 비율 — 덜 배치
+const CHEST_WALL_MARGIN := 4.0   # 벽에서 안쪽으로
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
 const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
 const EnemyVisionOverlay := preload("res://scripts/run/controllers/enemy_vision_overlay.gd")
@@ -206,6 +216,7 @@ func _ready() -> void:
 	for o in [chest, ally_cache, door, trap, lever]:
 		_vision_fog.fog_object(o)
 	# Breakable oil barrels (ENT-BARREL) in the combat court — AoE breaks them → oil pool.
+	_place_loot_chests()   # 절차적 루트 상자 산포(퀘스트/아군 상자는 위에서 고정)
 	for bpos in [Vector3(7.0, 0.0, 28.0), Vector3(-8.0, 0.0, 34.0), Vector3(10.0, 0.0, 40.0)]:
 		var barrel := Barrel.new()
 		barrel.position = bpos
@@ -467,6 +478,38 @@ func _build_ally_cache_items(count: int) -> Array:
 		it["row"] = 0
 		out.append(it)
 	return out
+
+
+## 절차적 루트 상자 산포 — 런 시드로 시드(런마다 위치 변동·재현 가능). 퀘스트(Key)·아군 상자는 고정(별도).
+## 방 면적 비례 개수, 희귀(좋은) 상자는 소수(RARE_CHEST_FRAC). 스폰/벽 피해 방 안쪽에 배치 + fog.
+func _place_loot_chests() -> void:
+	if _loot == null or _map == null:
+		return
+	var rng := RandomNumberGenerator.new()
+	var seed_v := 0
+	var rl := get_node_or_null("/root/RunLoadout")
+	if rl != null and "run_seed" in rl:
+		seed_v = int(rl.run_seed)
+	rng.seed = hash("loot_chests:%d" % seed_v)
+	var placed := 0
+	for room_ref in LOOT_CHEST_ROOMS:
+		var center: Vector3 = _map.get_spawn_position(room_ref)
+		var size: Vector3 = _map.get_room_size(room_ref) if _map.has_method("get_room_size") else Vector3(16, 0, 16)
+		var n: int = clampi(int(floor(size.x * size.z / CHEST_AREA_PER + rng.randf())), 0, CHEST_MAX_PER_ROOM)
+		var hx: float = maxf(1.0, size.x * 0.5 - CHEST_WALL_MARGIN)
+		var hz: float = maxf(1.0, size.z * 0.5 - CHEST_WALL_MARGIN)
+		for _i in n:
+			var rare := rng.randf() < RARE_CHEST_FRAC
+			var c := Chest.new()
+			c.tier = "rare" if rare else "common"
+			c.title = "봉인된 유물함" if rare else "유물 상자"
+			c.items = _loot.build_chest_items(c.tier)
+			c.setup(_inventory_ui)
+			c.position = center + Vector3(rng.randf_range(-hx, hx), 0.0, rng.randf_range(-hz, hz))
+			add_child(c)
+			_vision_fog.fog_object(c)
+			placed += 1
+	print("[LOOT] 절차적 상자 %d개 배치 (seed %d)" % [placed, seed_v])
 
 
 ## Left-click → ray-pick an enemy (collision layer 4) for the inspect panel; else clear.

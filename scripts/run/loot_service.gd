@@ -13,6 +13,15 @@ const AffixRoller := preload("res://scripts/run/affix_roller.gd")   # D-018 §7.
 const GEAR_LOOT: Array = ["gear_ward_tank_anchor_bulwark", "gear_ward_healer_mend_lantern"]
 const GEAR_DROP_CHANCE := 0.04          # gear is RARE (per-kill, after the skillbook roll). (tuning)
 const SKILLBOOK_DROP_CHANCE := 0.15     # 스펙 §7.4 대역(Normal 8% / Hard 15%) — 탄약수↑(50~80)에 맞춰 빈도↓(피로 완화). (tuning)
+# 상자(chest) 루트 — 상자가 재료·스킬·기어의 주 공급원(사용자 요청). 티어로 품질 차등.
+const CHEST_HAUL_COMMON := Vector2i(1, 3)   # 일반(안좋은) 상자: 재료 1~3 (재료 주 공급원)
+const CHEST_HAUL_RARE := Vector2i(1, 1)     # 희귀(좋은) 상자: 재료 1 + 스킬/기어 집중
+const CHEST_SKILL_COMMON := 0.40
+const CHEST_SKILL_RARE := 0.90              # 희귀 상자 = 스킬 거의 + affix 강제
+const CHEST_GEAR_COMMON := 0.15
+const CHEST_GEAR_RARE := 0.50
+const CHEST_GRID_COLS := 5                  # chest open_loot 그리드 기준
+const SQUAD_HAUL_MULT := 0.2                # 몬스터(분대 클리어) 재료 드롭 = 상자로 이전, 잘 안 나오게(×0.2)
 # haulMaterial(F-029/D-029)은 per-kill가 아니라 ENC(분대) 클리어 시 HUB-COR-000 §3 표로 드롭
 # (on_squad_cleared). combat.squad_cleared → 여기 연결.
 
@@ -105,13 +114,47 @@ func _record_class_drop(equip_classes: Array) -> void:
 	_class_drops[pick] = int(_class_drops.get(pick, 0)) + 1
 
 
+## 상자 내용물 빌드 — 티어별(common/rare) 재료·스킬·기어 인스턴스 item dict 배열(그리드 col/row 포함).
+## 일반(안좋은)=재료 多 + 스킬/기어 적음(자연 affix). 희귀(좋은)=재료 1 + 스킬/기어 多 + **affix 보장**.
+## 콘텐츠는 global randf(다양성), 배치 시드는 호출측(dungeon_run)이 담당. ref: F-009/F-010.
+func build_chest_items(tier: String) -> Array:
+	var rare := tier == "rare"
+	var out: Array = []
+	# 1) 재료(haul) — 상자가 주 공급원. 일반 상자가 더 많이.
+	var haul_ids: Array = Slice01Data.get_haul_material_ids()
+	if not haul_ids.is_empty():
+		var span: Vector2i = CHEST_HAUL_RARE if rare else CHEST_HAUL_COMMON
+		for _h in randi_range(span.x, span.y):
+			out.append(_make_haul_drop_def(String(haul_ids[randi() % haul_ids.size()])))
+	# 2) 스킬북 — 희귀 상자는 거의 항상 + affix 강제. 일반은 자연 18% affix.
+	if randf() < (CHEST_SKILL_RARE if rare else CHEST_SKILL_COMMON):
+		var rows: Array = Slice01Data.get_skillbook_rows()
+		if not rows.is_empty():
+			var base := String((rows[randi() % rows.size()] as Dictionary).get("base_ability_id", ""))
+			var def := _make_skillbook_drop_def(base)   # 자연 18% affix 내장
+			if rare and (def.get("affix", {}) as Dictionary).is_empty():
+				def["affix"] = AffixRoller.roll_forced()   # 좋은 상자 = affix 보장
+			out.append(def)
+	# 3) 기어 — 희귀 상자가 더 잘(기어는 항상 rolled 보유).
+	if randf() < (CHEST_GEAR_RARE if rare else CHEST_GEAR_COMMON):
+		var grows: Array = Slice01Data.get_gear_rows()
+		if not grows.is_empty():
+			out.append(_make_gear_drop_def(String((grows[randi() % grows.size()] as Dictionary).get("base_gear_id", ""))))
+	# 그리드 배치(가로 우선)
+	for idx in out.size():
+		out[idx]["col"] = idx % CHEST_GRID_COLS
+		@warning_ignore("integer_division")
+		out[idx]["row"] = idx / CHEST_GRID_COLS
+	return out
+
+
 ## ENC(분대) 클리어 → HUB-COR-000 §3 ENC별 haul 드롭표를 각 행 1회 롤 → 클리어 지점에 재획득
 ## 가능한 At-Risk ItemDrop 생성. CombatController.squad_cleared 연결.
 func on_squad_cleared(encounter_id: String, world_pos: Vector3) -> void:
 	var i := 0
 	for row in Slice01Data.get_haul_drops(encounter_id):
 		var r: Dictionary = row
-		if randf() >= float(r.get("chance", 0.0)):
+		if randf() >= float(r.get("chance", 0.0)) * SQUAD_HAUL_MULT:   # 재료=상자 위주 → 분대 클리어 드롭 희귀화
 			continue
 		for _q in int(r.get("qty", 1)):
 			var drop := ItemDrop.new()

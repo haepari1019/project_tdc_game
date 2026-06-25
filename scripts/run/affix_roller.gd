@@ -26,6 +26,15 @@ const TYPES := [
 static func roll() -> Dictionary:
 	if randf() >= CHANCE:
 		return {}
+	return _make_affix()
+
+
+## Always returns an affix (18% 게이트 생략) — 희귀(좋은) 상자 전용. ref: chest loot 보장.
+static func roll_forced() -> Dictionary:
+	return _make_affix()
+
+
+static func _make_affix() -> Dictionary:
 	var tier := _roll_tier()
 	var t: Dictionary = _weighted_type()
 	var scale := float(TIER_SCALE.get(tier, 1.0))
