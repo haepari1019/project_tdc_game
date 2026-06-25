@@ -46,8 +46,9 @@ const EncounterGenerator := preload("res://scripts/run/encounter_generator.gd") 
 const GEN_SCATTER_FRAC := 0.28   # 절차적 스폰: 방 최소변의 이 비율까지 deep-anchor 주변 산포(고정 4.5 대체)
 const GEN_SCATTER_MAX := 13.0    # 산포 반경 상한(m)
 const SPAWN_WALL_MARGIN := 5.0   # 산포 후 벽에서 안쪽 클램프(유닛/스폰 여유)
-const MAX_SQUADS_PER_ROOM := 3   # spawn_weight 가중에도 방당 분대 상한(안전)
-const THIRD_FACTION_MAX := 4     # F-028 제3세력 동시 squad 상한(≤4팀)
+const RUN_ENCOUNTER_MIN := 4     # 런 전체 전투 수 하한(사용자: 한 런에 4~5 전투)
+const RUN_ENCOUNTER_MAX := 5     # 런 전체 전투 수 상한 — 방마다 무조건 X, 가중 추첨한 방에만 1분대
+const THIRD_FACTION_CHANCE := 0.6   # F-028 제3세력 창발: 런당 0~1 squad(이 확률로 1) — 난장판 방지
 const THIRD_FACTION_NAME := "Third"   # 제3세력 combat faction(ENC-3RD-001과 동일) — 몬스터("Dungeon")·파티에 적대
 const THIRD_FACTION_PACK: Array = [   # Stalker Pack(EN-3RD-01 추적자 + 02 포획꾼 + 03 학살자)
 	{"enemy_id": "EN-3RD-01", "count": 1}, {"enemy_id": "EN-3RD-02", "count": 1}, {"enemy_id": "EN-3RD-03", "count": 1},
@@ -430,42 +431,42 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	# Resolve per room via the spawn table: (pool, run difficulty, room world_layer).
 	var difficulty := RunLoadout.get_difficulty()   # hub selection > manifest default (single source)
 	var run_seed := int(RunLoadout.get_run_seed())  # weighted ENC resolve + spawn scatter (LDG-SPAWN §2)
-	var combat_rooms: Array = []   # 몬스터 squad가 들어간 방 — 제3세력 창발 주입(P3) 후보
+	# 런 전체 전투 수 = 예산(RUN_ENCOUNTER 4~5). 방마다 무조건(난장판) 대신 pool 방을 spawn_weight로
+	# 가중 추첨해 예산만큼만 1분대씩 배치. spawn_weight=선택 확률(0=제외·조밀할수록 잘 뽑힘). 향후 전투는 더 무겁게.
+	var candidates: Array = []
 	for row in Slice01Data.get_rooms_document().get("rooms", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
-		var room_ref := String(row.get("room_ref", ""))
 		var pool := String(row.get("pool_slot", ""))
-		var layer := String(row.get("world_layer", "Upper"))
 		if pool.is_empty():
-			continue   # 비전투 룸(OBJ/EXT 등) — 스폰 없음
-		# 방별 스폰 밀도(LD 노브, rooms.json spawn_weight) → 이 방의 분대 수. 0=무스폰·1=기본·>1=조밀.
+			continue   # 비전투 룸(OBJ/EXT 등)
 		var weight := float(row.get("spawn_weight", 1.0))
-		var squad_n := _squads_for_weight(weight, run_seed, room_ref)
-		for i in squad_n:
-			# 분대마다 다른 seed → 같은 풀이라도 다른 ENC/조합(다중 분대 방 다양성).
-			var enc_id := Slice01Data.get_encounter_for_pool(pool, difficulty, layer, run_seed + i * 1009)
-			if enc_id.is_empty():
+		if weight <= 0.0:
+			continue
+		candidates.append({"room": String(row.get("room_ref", "")), "pool": pool, "layer": String(row.get("world_layer", "Upper")), "weight": weight})
+	var budget: int = RUN_ENCOUNTER_MIN + abs(hash("encbudget|%d" % run_seed)) % (RUN_ENCOUNTER_MAX - RUN_ENCOUNTER_MIN + 1)
+	var chosen: Array = _weighted_pick_rooms(candidates, budget, run_seed)
+	var combat_rooms: Array = []
+	for cand in chosen:
+		var enc_id := Slice01Data.get_encounter_for_pool(String(cand["pool"]), difficulty, String(cand["layer"]), run_seed)
+		if enc_id.is_empty():
+			continue
+		# 시작 방이 뽑히면 파티 위로 스폰 → 연결된 방으로 이전.
+		var target_room := String(cand["room"])
+		if target_room == spawn_room:
+			target_room = _first_connected(spawn_room)
+			if target_room.is_empty():
 				continue
-			# The start room's own encounter would spawn on the party — relocate it into
-			# the main combat room (the start room's connected room) as its own squad.
-			var target_room := room_ref
-			if room_ref == spawn_room:
-				target_room = _first_connected(spawn_room)
-				if target_room.is_empty():
-					continue
-			print("[TDC] prespawn: room=%s w=%.1f squad %d/%d pool=%s -> %s" % [room_ref, weight, i + 1, squad_n, pool, enc_id])
-			# S5b 하이브리드: 보스·제3세력은 authored set-piece 유지, 그 외는 조합 제너레이터로 유닛 생성
-			# (ENC frame=placement/faction/reinforcement 유지). 룸+분대 인덱스 시드로 결정적.
-			var units_override: Array = []
-			if _should_generate(enc_id):
-				var comp: Dictionary = EncounterGenerator.generate(difficulty, abs(hash("%d|%s|%d" % [run_seed, target_room, i])))
-				units_override = _comp_to_units(comp.get("enemies", []))
-			_spawn_squad(enc_id, target_room, units_override)
-			if not combat_rooms.has(target_room):
-				combat_rooms.append(target_room)
-	# S5b P3 (F-028) — 제3세력 창발 주입: run-start에 ≤4 squad를 몬스터 방에 활성 스폰 → 기존 교차진영
-	# 지각/전투(매 프레임 틱)로 몬스터와 실시간 교전(오프스크린 포함). 플레이어는 입장 시 결과를 만남.
+		print("[TDC] prespawn: room=%s w=%.1f pool=%s -> %s (예산 %d방)" % [String(cand["room"]), float(cand["weight"]), String(cand["pool"]), enc_id, chosen.size()])
+		# S5b 하이브리드: 보스·제3세력은 authored set-piece, 그 외는 조합 제너레이터로 유닛 생성(frame 유지).
+		var units_override: Array = []
+		if _should_generate(enc_id):
+			var comp: Dictionary = EncounterGenerator.generate(difficulty, abs(hash("%d|%s" % [run_seed, target_room])))
+			units_override = _comp_to_units(comp.get("enemies", []))
+		_spawn_squad(enc_id, target_room, units_override)
+		if not combat_rooms.has(target_room):
+			combat_rooms.append(target_room)
+	# S5b P3 (F-028) — 제3세력 창발: 4~5 전투 중 0~1개만 3세력이 다투는 방으로(난장판 방지).
 	_inject_third_faction(run_seed, combat_rooms)
 
 
@@ -600,35 +601,44 @@ func _anchor_center(base: Vector3, anchor_id: int, anchor_count: int) -> Vector3
 	return base + perp * (t * ANCHOR_SEP_M)
 
 
-## 방별 분대 수 — spawn_weight(LD 밀도) → 정수부 + 소수부 확률(시드 결정적). 0=무스폰. 상한 MAX_SQUADS_PER_ROOM.
-## 예: 1.0→1 · 0.4→40% 확률로 1 · 1.8→80% 확률로 2(아니면 1) · 0→0.
-func _squads_for_weight(weight: float, seed: int, room_ref: String) -> int:
-	if weight <= 0.0:
-		return 0
-	var base := int(floor(weight))
-	var frac := weight - float(base)
-	if frac > 0.0:
-		var h: int = abs(hash("%d|%s|squadcount" % [seed, room_ref]))
-		if float(h % 1000) / 1000.0 < frac:
-			base += 1
-	return clampi(base, 0, MAX_SQUADS_PER_ROOM)
+## pool 방 후보를 spawn_weight로 가중 추첨(비복원) → 최대 `count`개 선택(시드 결정적). 런 전체 전투 예산.
+## spawn_weight = 선택 확률(조밀할수록 잘 뽑힘·0은 후보에서 이미 제외). 향후 각 전투를 더 무겁게 만들 예정.
+func _weighted_pick_rooms(candidates: Array, count: int, seed: int) -> Array:
+	var pool: Array = candidates.duplicate()
+	var chosen: Array = []
+	var draw := 0
+	while not pool.is_empty() and chosen.size() < count:
+		var total := 0.0
+		for c in pool:
+			total += float(c["weight"])
+		if total <= 0.0:
+			break
+		# 시드 결정적 가중 추첨(draw마다 다른 해시).
+		var r := float(abs(hash("encpick|%d|%d" % [seed, draw])) % 100000) / 100000.0 * total
+		var acc := 0.0
+		var idx := 0
+		for i in pool.size():
+			acc += float(pool[i]["weight"])
+			if r < acc:
+				idx = i
+				break
+		chosen.append(pool[idx])
+		pool.remove_at(idx)
+		draw += 1
+	return chosen
 
 
-## S5b P3 (F-028) — 제3세력 창발 주입. 몬스터가 있는 방 중 시드로 ≤THIRD_FACTION_MAX개를 골라
-## Stalker Pack을 활성(engaged) 스폰 → 동일 방 몬스터(교차진영)와 기존 지각/전투로 실시간 교전.
-## 매 프레임 전체 적 틱이라 오프스크린에서도 진행 → 플레이어는 입장 시 교전중/약화/정리 상태를 만남.
+## S5b P3 (F-028) — 제3세력 창발 주입. 4~5 전투 중 **0~1개**만(THIRD_FACTION_CHANCE 확률로 1) 몬스터 방을
+## 골라 Stalker Pack을 활성(engaged) 스폰 → 동일 방 몬스터(교차진영)와 기존 지각/전투로 실시간 교전(매
+## 프레임 틱이라 오프스크린에서도 진행) → 플레이어는 입장 시 교전중/약화/정리 상태를 만남. (난장판 방지로 1개 한정.)
 func _inject_third_faction(seed: int, combat_rooms: Array) -> void:
 	if combat_rooms.is_empty() or seed == 0:
 		return   # run_seed=0(샌드박스/무런)이면 주입 안 함
-	var pool: Array = combat_rooms.duplicate()
-	# seeded shuffle
-	for i in range(pool.size() - 1, 0, -1):
-		var j: int = abs(hash("3rd|%d|%d" % [seed, i])) % (i + 1)
-		var t = pool[i]; pool[i] = pool[j]; pool[j] = t
-	var n: int = clampi(1 + abs(hash("3rdn|%d" % seed)) % THIRD_FACTION_MAX, 1, mini(THIRD_FACTION_MAX, pool.size()))
-	for i in n:
-		_spawn_third_squad(String(pool[i]))
-	print("[TDC] 제3세력 창발 주입: %d squad → %s" % [n, str(pool.slice(0, n))])
+	if float(abs(hash("3rdchance|%d" % seed)) % 1000) / 1000.0 >= THIRD_FACTION_CHANCE:
+		return   # 이 런엔 제3세력 없음
+	var room := String(combat_rooms[abs(hash("3rdroom|%d" % seed)) % combat_rooms.size()])
+	_spawn_third_squad(room)
+	print("[TDC] 제3세력 창발 주입: 1 squad → %s" % room)
 
 
 ## 한 방에 제3세력 Stalker Pack을 활성 스폰(engaged) — 즉시 가장 가까운 적대(몬스터)를 사냥.
