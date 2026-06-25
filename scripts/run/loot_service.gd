@@ -7,6 +7,7 @@ extends Node3D
 const ItemDrop := preload("res://scripts/world/objects/item_drop.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const AffixRoller := preload("res://scripts/run/affix_roller.gd")   # D-018 §7.6 스킬북 affix roll
+const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")   # 상자 소모품 item dict
 
 const SKILLBOOK_DROP_CHANCE := 0.15     # 스펙 §7.4 대역(Normal 8% / Hard 15%) — 탄약수↑(50~80)에 맞춰 빈도↓(피로 완화). (tuning)
 # 몬스터 킬 = 자기 스킬 OR 소량 재화(사용자 요청). 스킬 미드롭 시 ward_scrap 소량 → At-Risk 런 누적(추출 성공 시
@@ -19,6 +20,8 @@ const CHEST_SKILL_COMMON := 0.40
 const CHEST_SKILL_RARE := 0.90              # 희귀 상자 = 스킬 거의 + affix 강제
 const CHEST_GEAR_COMMON := 0.15
 const CHEST_GEAR_RARE := 0.50
+const CHEST_CONSUM_COMMON := 0.25           # 소모품(부활 두루마리 등) — 상자에서 획득
+const CHEST_CONSUM_RARE := 0.40
 const CHEST_GRID_COLS := 5                  # chest open_loot 그리드 기준
 const SQUAD_HAUL_MULT := 0.2                # 몬스터(분대 클리어) 재료 드롭 = 상자로 이전, 잘 안 나오게(×0.2)
 # haulMaterial(F-029/D-029)은 per-kill가 아니라 ENC(분대) 클리어 시 HUB-COR-000 §3 표로 드롭
@@ -134,6 +137,11 @@ func build_chest_items(tier: String) -> Array:
 		var grows: Array = Slice01Data.get_gear_rows()
 		if not grows.is_empty():
 			out.append(_make_gear_drop_def(String((grows[randi() % grows.size()] as Dictionary).get("base_gear_id", ""))))
+	# 4) 소모품 — 부활 두루마리 등(상자에서도 획득). 픽업/드래그 시 스택.
+	if randf() < (CHEST_CONSUM_RARE if rare else CHEST_CONSUM_COMMON):
+		var crows: Array = Slice01Data.get_consumable_rows()
+		if not crows.is_empty():
+			out.append(ItemFactory.consumable_item(crows[randi() % crows.size()], randi_range(1, 2)))
 	# 그리드 배치(가로 우선)
 	for idx in out.size():
 		out[idx]["col"] = idx % CHEST_GRID_COLS

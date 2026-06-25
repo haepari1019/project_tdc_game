@@ -269,12 +269,16 @@ func _initialize() -> void:
 	_chk("rare 상자 스킬 affix 보장", rare_skill_affixed)
 	var ch_haul := 0
 	var ch_total := 0
+	var consum_seen := false
 	for _k in 40:
 		for it in ls2.build_chest_items("common"):
 			ch_total += 1
 			if String(it.get("kind", "")) == "haul":
 				ch_haul += 1
+			elif String(it.get("kind", "")) == "consumable":
+				consum_seen = true
 	_chk("common 상자 재료 위주(>50%)", ch_total > 0 and float(ch_haul) / float(ch_total) > 0.5)
+	_chk("상자 소모품 등장", consum_seen)
 	ls2.free()
 
 	# 18b) 몬스터 킬 = 스킬 OR 재화 — 비lootable 킬은 run_scrap 누적(킬 기어/재료 없음).
