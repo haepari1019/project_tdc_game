@@ -312,6 +312,19 @@ func gear_price(catalog_tier: int) -> int:
 	return int(GEAR_PRICE.get(catalog_tier, 999))
 
 
+## 소모품 구매(상점 — 기본 보급, 시설 게이트 없음). 가격 = consumables.json `price`(없으면 25). ward_scrap 차감.
+## 성공 시 CALLER가 스태시에 추가. {ok, reason("ok"|"scrap"), cost}.
+func buy_consumable(consumable_id: String) -> Dictionary:
+	var m: Dictionary = Slice01Data.get_consumable_master(consumable_id)
+	var cost := int(m.get("price", 25))
+	if ward_scrap < cost:
+		return {"ok": false, "reason": "scrap", "cost": cost}
+	ward_scrap -= cost
+	economy_changed.emit()
+	save_profile()
+	return {"ok": true, "reason": "ok", "cost": cost}
+
+
 ## F-029 무기고 기어 구매 — armory Tier ≥ catalog_tier + ward_scrap. 성공 시 scrap 차감(CALLER가 스태시 추가,
 ## buy_raw와 대칭). {ok, reason("ok"|"tier"|"scrap"), cost}.
 func buy_gear(base_gear_id: String, catalog_tier: int) -> Dictionary:

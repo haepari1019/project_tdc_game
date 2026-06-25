@@ -7,6 +7,7 @@
       "effect": "revive_ally",
       "max_stack": 10,
       "usable_in_combat": false,
+      "price": 20,
       "color": [0.55, 0.85, 0.55]
     }
   ]

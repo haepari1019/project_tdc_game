@@ -12,6 +12,7 @@ var _scrap_lbl: Label
 var _analysis_box: VBoxContainer
 var _shop_box: VBoxContainer
 var _armory_box: VBoxContainer
+var _consum_box: VBoxContainer
 # Runtime path (parse-time global 회피 — 새 autoload 미등록 에디터에서도 컴파일). main.gd 패턴.
 @onready var _hub: Node = get_node_or_null("/root/HubProfile")
 @onready var _stash: Node = get_node_or_null("/root/Stash")
@@ -77,6 +78,10 @@ func _ready() -> void:
 	_armory_box = VBoxContainer.new()
 	_armory_box.add_theme_constant_override("separation", 2)
 	col.add_child(_armory_box)
+	_header(col, "\n── 보급 (소모품 구매) ──")
+	_consum_box = VBoxContainer.new()
+	_consum_box.add_theme_constant_override("separation", 2)
+	col.add_child(_consum_box)
 
 	if _hub != null and _hub.has_signal("economy_changed"):
 		_hub.economy_changed.connect(_refresh)
@@ -105,6 +110,7 @@ func _refresh() -> void:
 	_refresh_analysis()
 	_refresh_shop()
 	_refresh_armory()
+	_refresh_consumables()
 
 
 ## Owned (stash) skillbooks → 의뢰 버튼. 게이트: scriptorium T1. 해금된 base는 '해금됨' 표시(거부).
@@ -223,6 +229,34 @@ func _on_buy_gear(base_gear_id: String, catalog_tier: int) -> void:
 	var r: Dictionary = _hub.buy_gear(base_gear_id, catalog_tier)
 	if bool(r.get("ok", false)) and _stash != null:
 		_stash.add_gear(base_gear_id)   # 확정 세트(굴림 없음) → 스태시
+	_refresh()
+
+
+## 소모품 상점(기본 보급, 게이트 없음) — 카탈로그 전체를 가격과 함께 구매 버튼. 구매 → 스태시 소모품 +1.
+func _refresh_consumables() -> void:
+	for c in _consum_box.get_children():
+		c.queue_free()
+	for row in Slice01Data.get_consumable_rows():
+		var cid := String((row as Dictionary).get("consumable_id", ""))
+		if cid.is_empty():
+			continue
+		var price: int = int((row as Dictionary).get("price", 25))
+		var have: int = int(_stash.consumables.get(cid, 0)) if _stash != null else 0
+		var r := HBoxContainer.new()
+		_lbl(r, "%s — %d scrap (보유 %d)" % [String((row as Dictionary).get("display_name", cid)), price, have], DIM)
+		var btn := Button.new()
+		btn.text = "구매"
+		btn.disabled = int(_hub.scrap()) < price
+		var c: String = cid
+		btn.pressed.connect(func() -> void: _on_buy_consumable(c))
+		r.add_child(btn)
+		_consum_box.add_child(r)
+
+
+func _on_buy_consumable(consumable_id: String) -> void:
+	var r: Dictionary = _hub.buy_consumable(consumable_id)
+	if bool(r.get("ok", false)) and _stash != null:
+		_stash.return_consumable(consumable_id, 1)   # 스태시 소모품 +1(보급)
 	_refresh()
 
 

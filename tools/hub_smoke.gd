@@ -90,6 +90,13 @@ func _init() -> void:
 	_expect(bool(hp.buy_gear("gear_ward_tank_iron_set", 1).get("ok", false)) and hp.scrap() == gear_before - 40, "B세트 구매 -40 scrap")
 	_expect(String(hp.buy_gear("gear_ward_dps_guardbreak_set", 2).get("reason", "")) == "tier", "C세트(T2) armory T1선 차단")
 
+	# F-010 소모품 상점 — price(consumables.json) 차감, 게이트 없음.
+	hp.ward_scrap = 50
+	var consum_before: int = hp.scrap()
+	_expect(bool(hp.buy_consumable("con_revive_scroll").get("ok", false)) and hp.scrap() == consum_before - 20, "소모품(부활) 구매 -20 scrap")
+	hp.ward_scrap = 5
+	_expect(String(hp.buy_consumable("con_revive_scroll").get("reason", "")) == "scrap", "소모품 — scrap 부족 차단")
+
 	hp.free()
 	if _ok:
 		print("HUB SMOKE PASSED")
