@@ -2,7 +2,7 @@
   "_ref": "spec F-029 §3.3/§3.3.1 — hub 승급 게이트 퀘스트. completion = Slice-01 구현 stub(B4 quest_controller가 판정해 HubProfile.questCompleted 설정). NPC/Objective SSOT 후속.",
   "quests": [
     { "quest_id": "Q-HUB-002", "facility": "stash",         "tier": 1, "one_liner": "창고 확장 의뢰 — 파편 2종 반입",   "completion": "haul_ward_splinter×2 in vault + talk" },
-    { "quest_id": "Q-HUB-003", "facility": "stash",         "tier": 2, "one_liner": "두 던전 mapId에서 탈출 증명",      "completion": "MAP-DEMO-001 + 1 other map success flags" },
+    { "quest_id": "Q-HUB-003", "facility": "stash",         "tier": 2, "one_liner": "두 던전 mapId에서 탈출 증명",      "completion": "추출 성공 2회 (데모: 맵 2종 대용 — 2번째 맵 구현 시 교체)" },
     { "quest_id": "Q-HUB-010", "facility": "scriptorium",   "tier": 1, "one_liner": "필기소 잔해 복구",                "completion": "Objective GIMMICK-DEMO-01 complete once" },
     { "quest_id": "Q-HUB-011", "facility": "scriptorium",   "tier": 2, "one_liner": "필기소 2단 — 아크 잉크 의뢰",      "completion": "haul_arc_ink×2 in vault" },
     { "quest_id": "Q-HUB-012", "facility": "scribe_shop",   "tier": 1, "one_liner": "필기 상점 개장",                  "completion": "scriptorium >= 1" },
@@ -11,8 +11,8 @@
     { "quest_id": "Q-HUB-021", "facility": "armory",        "tier": 2, "one_liner": "무기고 2단",                    "completion": "armory T1 + haul" },
     { "quest_id": "Q-HUB-030", "facility": "smithy",        "tier": 1, "one_liner": "대장간 건립",                    "completion": "haul_forge_coal×3" },
     { "quest_id": "Q-HUB-031", "facility": "smithy",        "tier": 2, "one_liner": "대장간 2단",                    "completion": "smithy T1 + haul" },
-    { "quest_id": "Q-HUB-040", "facility": "chapel",        "tier": 1, "one_liner": "성소 개방",                      "completion": "party wipe recover once" },
-    { "quest_id": "Q-HUB-050", "facility": "quartermaster", "tier": 1, "one_liner": "군수 고용",                      "completion": "quartermaster unlock NPC" },
+    { "quest_id": "Q-HUB-040", "facility": "chapel",        "tier": 1, "one_liner": "성소 개방",                      "completion": "파티 전멸 1회 경험 (데모: 복구 메커닉 대용)" },
+    { "quest_id": "Q-HUB-050", "facility": "quartermaster", "tier": 1, "one_liner": "군수 고용",                      "completion": "추출 성공 1회 (데모: NPC 고용 대용)" },
     { "quest_id": "Q-HUB-051", "facility": "quartermaster", "tier": 2, "one_liner": "군수 2단",                      "completion": "haul_pack_frame×2" }
   ]
 }

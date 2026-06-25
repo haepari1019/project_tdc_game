@@ -113,6 +113,8 @@ func _settle_extraction() -> void:
 	if hp_eco != null and hp_eco.has_method("add_scrap"):
 		var kill_scrap: int = int(_loot.run_scrap) if _loot != null and "run_scrap" in _loot else 0
 		hp_eco.add_scrap(15 + survivors.size() * 5 + kill_scrap)   # base + 생존자 + At-Risk 킬 재화(추출 성공만)
+	if hp_eco != null and hp_eco.has_method("record_extraction_success"):
+		hp_eco.record_extraction_success()   # 데모 이벤트 퀘스트(군수 1회·창고T2 2회) 판정용
 	var safe_items := _collect_at_risk()             # At-Risk → Safe (전량, §3.6.1)
 	_inv.mark_run_inventory_safe()
 	if _inv.has_method("commit_loose_to_backpack"):
@@ -145,6 +147,10 @@ func _settle_failure(cause: String) -> void:
 	if bp != null:
 		bp.clear_loose()                             # 사망/실패 = At-Risk 낱개 캐리 손실 (B / F-007 §3.7)
 		bp.clear_at_risk_equipped()                  # + 장착 서브도 At-Risk 손실 (F-009 §3.7; 장착 기어는 Safe)
+	if cause == "PartyWipe":
+		var hp_wipe := get_node_or_null("/root/HubProfile")
+		if hp_wipe != null and hp_wipe.has_method("record_party_wipe"):
+			hp_wipe.record_party_wipe()   # 데모 이벤트 퀘스트(성소 복구) 판정용
 	_run.settle_failure(cause, {
 		"result": "Run Failure",
 		"cause": cause,

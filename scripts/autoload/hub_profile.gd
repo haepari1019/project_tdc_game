@@ -21,6 +21,8 @@ var facilities: Dictionary = {}        # facilityId -> facilityTier (int, ≥0)
 var hub_haul_vault: Dictionary = {}    # haulMaterialId -> qty (Safe only)
 var quest_completed: Dictionary = {}   # questId -> bool
 var enc_cleared: Dictionary = {}       # encounterId -> true (런 이벤트 퀘스트 판정용, B4)
+var extraction_success: int = 0        # 누적 추출 성공 횟수 (데모 이벤트 퀘스트: 군수 1·창고T2 2 대용)
+var party_wiped: int = 0               # 누적 전멸 횟수 (데모 이벤트 퀘스트: 성소 복구 대용)
 var analysis_progress: Dictionary = {} # baseAbilityId -> 분석 의뢰 누적 횟수 (Safe meta, F-009 §3.5)
 var shop_listing_unlocked: Dictionary = {}  # baseAbilityId -> bool (progress >= ANALYSIS_REQUIRED)
 var ward_scrap: int = 0                # 상점 통화 (D-018 §7.1 placeholder); 추출 성공 시 획득
@@ -53,6 +55,8 @@ func to_dict() -> Dictionary:
 		"analysis_progress": analysis_progress,
 		"shop_listing_unlocked": shop_listing_unlocked,
 		"ward_scrap": ward_scrap,
+		"extraction_success": extraction_success,
+		"party_wiped": party_wiped,
 	}
 
 
@@ -74,6 +78,8 @@ func apply_dict(d: Dictionary) -> void:
 	analysis_progress = d.get("analysis_progress", {})
 	shop_listing_unlocked = d.get("shop_listing_unlocked", {})
 	ward_scrap = int(d.get("ward_scrap", 0))
+	extraction_success = int(d.get("extraction_success", 0))
+	party_wiped = int(d.get("party_wiped", 0))
 
 
 ## 테스트/디버그 — 허브 메타(시설 Tier/vault/퀘스트/ENC clear)를 초기 상태로 초기화.
@@ -85,6 +91,8 @@ func reset_to_seed() -> void:
 	analysis_progress = {}
 	shop_listing_unlocked = {}
 	ward_scrap = 0
+	extraction_success = 0
+	party_wiped = 0
 	for f in FACILITY_IDS:
 		facilities[f] = 0
 	vault_changed.emit()
@@ -98,6 +106,18 @@ func record_enc_cleared(encounter_id: String) -> void:
 	if encounter_id.is_empty() or bool(enc_cleared.get(encounter_id, false)):
 		return
 	enc_cleared[encounter_id] = true
+	save_profile()
+
+
+## 런 결과 기록 (데모 이벤트 퀘스트용) — run_end_controller에서 호출. 추출 성공 / 전멸.
+func record_extraction_success() -> void:
+	extraction_success += 1
+	evaluate_quests()
+	save_profile()
+
+func record_party_wipe() -> void:
+	party_wiped += 1
+	evaluate_quests()
 	save_profile()
 
 
@@ -145,6 +165,10 @@ func is_quest_done(quest_id: String) -> bool:
 func evaluate_quests() -> void:
 	_q_dirty = false
 	_q_if("Q-HUB-002", vault_count("haul_ward_splinter") >= 2)   # 창고 T1 — 파편 반입
+	# 데모 이벤트 퀘스트(미구현 기능 대용, DRIFT-065): 2번째 맵·전멸 복구·NPC → 추출/전멸 횟수로 근사.
+	_q_if("Q-HUB-003", extraction_success >= 2)                  # 창고 T2 — 추출 2회(맵 2종 대용)
+	_q_if("Q-HUB-040", party_wiped >= 1)                         # 성소 T1 — 전멸 1회(복구 대용)
+	_q_if("Q-HUB-050", extraction_success >= 1)                  # 군수 T1 — 추출 1회(NPC 고용 대용)
 	_q_if("Q-HUB-011", vault_count("haul_arc_ink") >= 2)         # 필기소 T2 — 아크 잉크
 	_q_if("Q-HUB-012", facility_tier("scriptorium") >= 1)        # 상점 개장 — 필기소 선행
 	_q_if("Q-HUB-013", facility_tier("scribe_shop") >= 1)        # 상점 T2

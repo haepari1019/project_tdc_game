@@ -69,6 +69,18 @@ func _init() -> void:
 	hp.add_scrap(hp.skillbook_sink_value("AB-037"))
 	_expect(hp.scrap() == scrap_before + 8, "sink — 분해 시 ward_scrap +8")
 
+	# 데모 이벤트 퀘스트(DRIFT-065) — 추출/전멸 횟수로 미구현 기능(2맵/복구/NPC) 대용.
+	hp.persist = false
+	hp.extraction_success = 0; hp.party_wiped = 0; hp.quest_completed.clear()
+	hp.record_extraction_success()   # =1
+	_expect(hp.is_quest_done("Q-HUB-050"), "군수 — 추출 1회로 해금")
+	_expect(not hp.is_quest_done("Q-HUB-003"), "창고T2 — 추출 1회론 미해금")
+	hp.record_extraction_success()   # =2
+	_expect(hp.is_quest_done("Q-HUB-003"), "창고T2 — 추출 2회로 해금")
+	_expect(not hp.is_quest_done("Q-HUB-040"), "성소 — 전멸 전 미해금")
+	hp.record_party_wipe()
+	_expect(hp.is_quest_done("Q-HUB-040"), "성소 — 전멸 1회로 해금")
+
 	hp.free()
 	if _ok:
 		print("HUB SMOKE PASSED")

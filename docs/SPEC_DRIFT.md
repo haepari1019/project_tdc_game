@@ -497,3 +497,11 @@
 - **수치(tuning):** 상자 면적당 ~1/520m²·희귀 18%·일반 재료 1~3/스킬 40%/기어 15%·희귀 재료 1/스킬 90%(affix 강제)/기어 50% · squad-clear haul ×0.2 · 킬 재화 1(At-Risk).
 - **분류\전파:** impl/design — **전파 후보**(재료=상자 + 킬=재화 모델은 HUB-COR-000/D-018 설계 의도와 다름). 현재 미전파(사용자 "아껴" 기조 유지) → 확정 시 OPS_08(아이디어)/OPS_30(규칙) 경로. 절대 수치=데모.
 - **검증:** 부팅 절차적 상자 배치 로그 + party_pool_smoke + ci_smoke PASS. IMPL-DEC-031.
+
+### DRIFT-065 — 허브 이벤트 퀘스트 데모 완료 경로 (미구현 기능 대용) 🔶 impl (전파 후보)
+- **현실(2026-06-25, 사용자 "A로 진행"):** 막혀 있던 이벤트형 승급 퀘스트 3종을 달성 가능하게 배선. 스펙(F-029 §3.3) 완료 조건이 미구현 기능(2번째 맵·전멸 복구·NPC 고용)에 의존 → 추출/전멸 횟수로 **데모 근사**.
+  - **Q-HUB-003**(창고 T2): "맵 2종 탈출" → **추출 성공 ≥2회**. **Q-HUB-040**(성소 T1): "전멸 복구" → **전멸 ≥1회**. **Q-HUB-050**(군수 T1): "NPC 고용" → **추출 성공 ≥1회**.
+  - **부수 버그:** Q-HUB-010(필기소)이 어디서도 완료 안 되던 것 수정(complete_objective→set, DRIFT 외 커밋 ce7b344).
+- **구현:** HubProfile `extraction_success`/`party_wiped` 카운터(+영속) + `record_extraction_success`/`record_party_wipe`(run_end_controller 성공/PartyWipe 시 호출) + evaluate_quests 3줄. quests.json `completion` 텍스트도 데모 조건으로 갱신(퀘스트 로그 표시). 퀘스트 로그 패널(hub_quest_panel)에서 조건 노출.
+- **분류\전파:** impl — **전파 후보**(실 완료 조건은 2맵/복구/NPC; B4-full에서 교체). 게임은 데모 proxy. 미전파.
+- **검증:** hub_smoke(추출 1→군수·2→창고T2·전멸→성소) + ci_smoke PASS.
