@@ -525,3 +525,9 @@
 - **분류\전파:** impl — **전파 후보**(LDG-SPAWN 스키마 + Q-HUB-020 조건 OPS_30). 하위호환·게이트 완화라 비파괴. 미전파.
 - **검증:** hub_smoke(Normal 클리어 미해금·임의 Hard 클리어 해금) + 난이도별 resolve + ci_smoke PASS. 체감=Hard F5 → 아무 Hard 전투 클리어 → 무기고 개방.
 - **참고:** P-ENTRY-01·P-DEEP-01은 Hard 행 없음(∅, 콘텐츠 갭·비차단). EncounterGenerator Hard SCALE(2~5 fodder) 정상 → "적 0" 체감은 generator 아닌 force핀(가림) + 4~5전투 budget(방 대부분 비전투).
+
+### DRIFT-068 — per-AB tier: 스펙 abilityTier 미정의 12 sub = Basic 기본 🔶 impl (재싱크 후보)
+- **현실(2026-06-26, S6b per-AB tier):** skillbooks 61종 `tier`를 스펙 AB-###.md `abilityTier`에서 소싱(67 정의). 12종은 스펙에 abilityTier 항목 없음(AB-028/030/032/033/034/035/044/045/051/062/070/074 — 대부분 identity 유래/bespoke 유틸·제어 sub) → 게임이 **Basic 기본** 부여.
+- **스펙과의 차이:** 해당 sub 정식 tier 미정(스펙 갭). 게임은 가장 보수적(저가·scribe_shop T1 접근) Basic으로 채움. 분포=Basic31·Adv28·Master2.
+- **분류\전파:** impl — **재싱크 후보**(스펙이 12종 abilityTier 정의 시 동기화). 비파괴(상점 가격/천장만 영향).
+- **검증:** ci_smoke + hub_smoke(AB-002 Basic·AB-004 Advanced·Adv 생본 T1차단/T2구매) PASS.

@@ -6,7 +6,6 @@ extends Control
 const OK := Color(0.62, 1.0, 0.62)
 const BAD := Color(1.0, 0.6, 0.55)
 const DIM := Color(0.75, 0.75, 0.78)
-const SHOP_TIER := "Basic"   # 데모 상점은 Basic 생본 판매(Adv/Master는 loot; per-AB tier 데이터 후속)
 
 var _scrap_lbl: Label
 var _analysis_box: VBoxContainer
@@ -160,6 +159,7 @@ func _refresh_shop() -> void:
 	if int(_hub.shop_tier_ceiling()) < 1:
 		_lbl(_shop_box, "  상점(scribe_shop) Tier 1 필요 — 허브 시설에서 승급.", BAD)
 		return
+	var ceiling: int = int(_hub.shop_tier_ceiling())
 	var unlocked: Dictionary = _hub.shop_listing_unlocked
 	var any := false
 	for base in unlocked:
@@ -168,14 +168,19 @@ func _refresh_shop() -> void:
 		any = true
 		var m: Dictionary = Slice01Data.get_skillbook_master(String(base))
 		var disp: String = String(m.get("display_name", base))
-		var price: int = int(_hub.shop_price(SHOP_TIER))
+		var tier: String = String(m.get("tier", "Basic"))   # per-AB tier(skillbooks.json ← 스펙 abilityTier)
+		var rank: int = int(_hub.TIER_RANK.get(tier, 9))
+		var price: int = int(_hub.shop_price(tier))
+		var locked: bool = rank > ceiling   # scribe_shop Tier 미달 → 상위 tier 구매 불가
+		var note: String = ("  (scribe_shop T%d 필요)" % rank) if locked else ""
 		var row := HBoxContainer.new()
-		_lbl(row, "%s — %s 생본 · %d scrap" % [disp, SHOP_TIER, price], DIM)
+		_lbl(row, "%s — %s 생본 · %d scrap%s" % [disp, tier, price, note], BAD if locked else DIM)
 		var btn := Button.new()
 		btn.text = "구매"
-		btn.disabled = int(_hub.scrap()) < price
+		btn.disabled = locked or int(_hub.scrap()) < price
 		var b: String = String(base)
-		btn.pressed.connect(func() -> void: _on_buy(b))
+		var t: String = tier
+		btn.pressed.connect(func() -> void: _on_buy(b, t))
 		row.add_child(btn)
 		_shop_box.add_child(row)
 	if not any:
@@ -189,8 +194,8 @@ func _on_analyze(base: String) -> void:
 	_refresh()
 
 
-func _on_buy(base: String) -> void:
-	var r: Dictionary = _hub.buy_raw(base, SHOP_TIER)
+func _on_buy(base: String, tier: String = "Basic") -> void:
+	var r: Dictionary = _hub.buy_raw(base, tier)
 	if bool(r.get("ok", false)) and _stash != null:
 		_stash.add_skillbook(base)      # 생본(affix 없음) → 스태시
 	_refresh()

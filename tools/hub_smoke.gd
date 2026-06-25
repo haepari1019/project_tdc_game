@@ -104,6 +104,16 @@ func _init() -> void:
 	hp.ward_scrap = 5
 	_expect(String(hp.buy_consumable("con_revive_scroll").get("reason", "")) == "scrap", "소모품 — scrap 부족 차단")
 
+	# S6b per-AB tier — skillbooks.json tier(스펙 abilityTier) + 상점 tier 천장 게이트.
+	_expect(String(sd.get_skillbook_master("AB-002").get("tier", "")) == "Basic", "per-AB tier — AB-002 Basic")
+	_expect(String(sd.get_skillbook_master("AB-004").get("tier", "")) == "Advanced", "per-AB tier — AB-004 Advanced")
+	hp.shop_listing_unlocked["AB-004"] = true
+	hp.ward_scrap = 200
+	hp.facilities["scribe_shop"] = 1
+	_expect(String(hp.buy_raw("AB-004", "Advanced").get("reason", "")) == "tier_ceiling", "Adv 생본 — scribe_shop T1선 차단")
+	hp.facilities["scribe_shop"] = 2
+	_expect(bool(hp.buy_raw("AB-004", "Advanced").get("ok", false)), "Adv 생본 — scribe_shop T2서 구매")
+
 	hp.free()
 	if _ok:
 		print("HUB SMOKE PASSED")

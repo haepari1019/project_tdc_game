@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260626-033 — per-AB tier(스펙 abilityTier) 적재 + 상점 tier 천장 게이트 (S6b 잔여)
+- **per-AB tier:** skillbooks.json 61종에 `tier`(Basic/Advanced/Master) 부여 — **스펙 `AB-###.md` `abilityTier`에서 소싱**(91파일·67정의). 미정의 12종=Basic 기본(DRIFT-068). 분포 Basic31·Adv28·Master2.
+- **상점 배선:** `hub_economy_panel`이 SHOP_TIER 하드코딩 제거 → 책별 `m.tier`로 가격(`shop_price`) + scribe_shop Tier 천장(`TIER_RANK`>ceiling이면 잠금·"T2 필요" 표기). `buy_raw`는 기존 게이트 그대로. → **scribe_shop T2 효과 실연동**(Advanced 생본 구매 개방).
+- **표시:** `inventory_grid` 스킬북 툴팁에 "등급: <tier>" 색구분(Basic 회색·Advanced 청색·Master 금색).
+- **영향:** `skillbooks.json`·`hub_economy_panel.gd`·`inventory_grid.gd`. 잔여 S6b=multi-affix·gear potencyMult(대장간=Expansion).
+- **검증:** hub_smoke(AB-002 Basic·AB-004 Advanced·Adv 생본 T1차단/T2구매) + ci_smoke PASS.
+
 ### IMPL-DEC-20260626-032 — Q-HUB-020(무기고)을 특정 ENC에서 분리: "임의 Hard 클리어" (절차생성 정합)
 - **문제:** Q-HUB-020 완료조건이 특정 `ENC-HARD-001 clear once`인데, S5b로 ENC는 절차생성(units=generate, 프레임=spawn_table resolve)으로 전환됨. force_override가 P-ADV-01을 난이도 무관 NORM-001로 고정해 Hard에서도 HARD-001 미등장 → 무기고 영구 차단. (사용자 "하드 들어갔더니 적이없어".)
 - **결정(사용자 "ENC도 절차적으로 뽑기로 한 거 아니냐" → 퀘스트 일반화 선택):** Q-HUB-020을 **특정 ENC 비의존**으로 — "임의 **Hard 인카운터 1회 클리어**". `HubProfile.hard_cleared` 플래그(영속) + `record_enc_cleared(enc, difficulty)`가 Hard면 set. force-pin은 **Hard 제거·Normal QA핀만 유지**(`{P-ADV-01:{Normal:NORM-001}}`).

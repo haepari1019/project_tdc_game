@@ -275,6 +275,13 @@ func _skillbook_tip(item: Dictionary) -> Array:
 		for c in m.get("equip_classes", []):
 			eq.append(Slice01Data.get_role_label(String(c)))
 		out.append("[color=#9aa4b2]쿨 %ss · 장착: %s[/color]" % [str(cast.get("cooldown_s", "?")), ", ".join(eq)])
+		var tier := String(m.get("tier", "Basic"))   # per-AB tier(스펙 abilityTier) — 등급 색구분
+		var tcol := "#9aa4b2"
+		if tier == "Advanced":
+			tcol = "#7fc8ff"
+		elif tier == "Master":
+			tcol = "#ffcf6b"
+		out.append("[color=%s]등급: %s[/color]" % [tcol, tier])
 	# D-018 §7.3 affix — 루팅 인스턴스 굴림. 색구분(긍정 초록/부정 빨강) 라인. {} = 무affix(스태시 base).
 	out.append_array(SkillText.affix_lines(item.get("affix", {})))
 	return out
