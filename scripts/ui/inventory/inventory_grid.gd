@@ -185,12 +185,19 @@ func _make_node(item: Dictionary) -> Panel:
 	return p
 
 
-## Item tile caption: stacked kinds (consumable·haul) show the count; others show their footprint.
+## Item tile caption: 스택류(consumable·haul)=보유 수, 스킬북=남은 탄수, 그 외(기어 등)=이름만.
+## (구: 차지 칸수 w×h — 불필요해 제거. 사용자 요청.)
 func _node_label(item: Dictionary) -> String:
 	var kind := String(item.get("kind", ""))
 	if kind == "consumable" or kind == "haul":
 		return "%s\nx%d" % [String(item.id), int(item.get("count", 1))]
-	return "%s\n%d×%d" % [String(item.id), int(item.w), int(item.h)]
+	if kind == "skillbook":
+		var c := int(item.get("charges", -1))
+		if c < 0:   # 루팅/디스크립터엔 charges 없음 → master 만탄 + affix 보너스로 표시
+			var m: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
+			c = int(m.get("charges_max", 0)) + int((item.get("affix", {}) as Dictionary).get("charges", 0))
+		return "%s\n탄 %d" % [String(item.id), c]
+	return String(item.id)   # 기어 등 — 이름만
 
 
 ## The item whose footprint covers cell (col,row), or {} if the cell is empty.
