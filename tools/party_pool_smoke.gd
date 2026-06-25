@@ -300,6 +300,36 @@ func _initialize() -> void:
 			all_tagged = false
 	_chk("모든 EN 태그 보유", all_tagged)
 
+	# 20) S5b P2 조합 제너레이터 — ENC-000 가드레일(mechanicAxes≤2·fodder 범위·variant min·고유 specialist 축) 항상 준수.
+	var EG = load("res://scripts/run/encounter_generator.gd")
+	var gen_ok := true
+	var saw_specialist := false
+	var saw_elite := false
+	for diff in ["Normal", "Hard", "Extreme"]:
+		var sc: Dictionary = EG.SCALE[diff]
+		for s in range(1, 150):
+			var c: Dictionary = EG.generate(diff, s)
+			var fn := (c["fodder"] as Array).size()
+			if int(c["mechanic_axes"]) > int(sc["axes_max"]): gen_ok = false
+			if fn < int(sc["fodder_min"]) or fn > int(sc["fodder_max"]): gen_ok = false
+			if (c["elites"] as Array).size() > int(sc["elite_max"]): gen_ok = false
+			var axes: Dictionary = {}
+			for sid in c["specialists"]:
+				var ax := String(sd.get_enemy_tags(String(sid)).get("axis", ""))
+				if axes.has(ax):
+					gen_ok = false
+				axes[ax] = true
+			if not (c["specialists"] as Array).is_empty(): saw_specialist = true
+			if not (c["elites"] as Array).is_empty(): saw_elite = true
+			if fn >= 3:
+				var vs: Dictionary = {}
+				for fid in c["fodder"]:
+					var tg: Dictionary = sd.get_enemy_tags(String(fid))
+					vs[String(tg.get("fodder_variant", tg.get("axis", "")))] = true
+				if vs.size() < int(sc["variant_min"]): gen_ok = false
+	_chk("제너레이터 가드레일 준수(축≤2·fodder범위·variant)", gen_ok)
+	_chk("제너레이터 elite/specialist 등장", saw_elite and saw_specialist)
+
 	# 17) 스킬 설명문 + 색구분 툴팁 빌더 (display_names.skill_desc / SkillText).
 	_chk("skill_desc(silence) 존재", not sd.get_skill_desc("skillbook_silence").is_empty())
 	var ST = load("res://scripts/ui/skill_text.gd")
