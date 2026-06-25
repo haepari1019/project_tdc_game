@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260625-030 — 스킬북 드롭 클래스 밸런스 소프트-피티 (Tank 쏠림 보완)
+- **문제(사용자 관측, 데이터 확인):** 드롭이 Tank 스킬로 쏠림. 원인 = 코드의 엘리트 가중이 아니라 **EN-001(가장 흔한 lootable 적, 게임 데이터 등장 12 vs 다음 4)이 단일 Tank 스킬(AB-002)에 1:1 매핑** + flat 85% 드롭. 드롭 풀 자체는 Nuker 편향이나 빈도 때문에 실측 Tank 우세(시뮬 44%).
+- **결정(A안):** `loot_service`에 per-run 클래스별 드롭 카운트(`_class_drops`) + 소프트-피티 — 드롭 시 스킬의 equip_classes가 봉사할 **가장 부족한 클래스가 평균 초과면 드롭확률 점감**(`_class_balance_factor`, TAPER 0.25·FLOOR 0.15·warmup<4). 기록은 봉사 클래스 1건(`_record_class_drop`). 데이터·스펙 변경 없음, 코드만, 튜닝 노브.
+- **효과(시뮬 4000런):** Tank 43.8→32.6 · DPS 9.3→20.1 · Nuker 32.6→26.7 · Healer 14.2→20.7. (EN-001 빈도가 워낙 커 Tank가 완전 25%까진 안 가나 대폭 평탄화; FLOOR↓/TAPER↑로 더 평탄 가능.)
+- **검증:** party_pool_smoke(초기 1.0·과대표 점감<0.5·미표 1.0·멀티클래스 부족쪽 기준) + ci_smoke PASS.
+- **영향:** `loot_service.gd`. 참고: flat 0.85는 스펙 §7.4(Normal 8%/Hard 15%)와의 기존 drift — 이번 변경과 별개(필요 시 B안으로 정렬).
+
 ### IMPL-DEC-20260625-029 — skillbook Stash 인스턴스화 + 루팅 인스턴스 보존 경로 보강
 - **결정(사용자 "보존으로 진행"):** 스킬북도 기어처럼 affix·잔여탄을 스태시·픽업·로드 전 경로에서 보존.
 - **발견한 latent gap:** affix(스킬북)·rolled(기어)가 **월드 픽업**(item_drop→add_*_to_backpack이 base만 전달)·**스킬북 loose-load**(inventory_ui base만)에서 유실되고 있었음 — G2/affix 스모크가 apply/capture 경로만 검증해 놓쳤던 구멍.

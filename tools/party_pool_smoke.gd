@@ -241,6 +241,17 @@ func _initialize() -> void:
 	_chk("affix 영속(capture/apply)", sb1 != null and int((sb1.affix as Dictionary).get("charges", 0)) == 5 and int(sb1.charges_max) == base_cmax + 5)
 	pmc.free(); pmc2.free()
 
+	# 17b) 클래스 밸런스 소프트-피티 (loot_service) — 과대표 클래스 점감, 미표 클래스 유지(EN-001 Tank 쏠림 보완).
+	var LS = load("res://scripts/run/loot_service.gd")
+	var ls = LS.new()
+	_chk("balance 초기 1.0", is_equal_approx(float(ls._class_balance_factor(["Tank"])), 1.0))
+	for _j in 8:
+		ls._record_class_drop(["Tank"])   # Tank만 8건 쌓기
+	_chk("Tank 과대표 → 점감(<0.5)", float(ls._class_balance_factor(["Tank"])) < 0.5)
+	_chk("Nuker 미표 → 1.0 유지", is_equal_approx(float(ls._class_balance_factor(["Nuker"])), 1.0))
+	_chk("멀티클래스는 부족한 쪽 기준(통과)", is_equal_approx(float(ls._class_balance_factor(["Tank", "Nuker"])), 1.0))
+	ls.free()
+
 	# 17) 스킬 설명문 + 색구분 툴팁 빌더 (display_names.skill_desc / SkillText).
 	_chk("skill_desc(silence) 존재", not sd.get_skill_desc("skillbook_silence").is_empty())
 	var ST = load("res://scripts/ui/skill_text.gd")

@@ -18,9 +18,17 @@ const SKILLBOOK_DROP_CHANCE := 0.85     # high so lootable-AB enemies almost alw
 
 var _inv: Node
 
+# 클래스 밸런스 소프트-피티 (사용자 요청) — per-run 클래스별 스킬북 드롭 수. 과대표 클래스 스킬은 드롭
+# 확률을 점감해 EN-001(가장 흔한 lootable 적)의 단일 Tank 스킬 쏠림을 자가 교정. equip_classes 기준.
+var _class_drops: Dictionary = {}
+const CLASS_BALANCE_TAPER := 0.25   # 평균 초과 1건당 드롭확률 배수 감소
+const CLASS_BALANCE_FLOOR := 0.15   # 과대표 클래스 최소 드롭확률 배수
+const PARTY_ROLE_COUNT := 4         # Tank/DPS/Nuker/Healer — 평균 기준
+
 
 func setup(inventory_ui: Node) -> void:
 	_inv = inventory_ui
+	_class_drops = {}   # per-run 리셋
 
 
 ## Drop a backpack item back into the world (player Shift+우클릭 버리기) — a re-pickable ItemDrop
@@ -52,11 +60,49 @@ func _roll_loot_def(ability_refs: Array) -> Dictionary:
 	for r in ability_refs:
 		if not Slice01Data.get_skillbook_master(String(r)).is_empty():
 			lootable.append(String(r))
-	if not lootable.is_empty() and randf() < SKILLBOOK_DROP_CHANCE:
-		return _make_skillbook_drop_def(String(lootable[randi() % lootable.size()]))
+	if not lootable.is_empty():
+		var base := String(lootable[randi() % lootable.size()])
+		var eq: Array = Slice01Data.get_skillbook_master(base).get("equip_classes", [])
+		# 클래스 밸런스 소프트-피티: 과대표 클래스 스킬은 확률 점감 → 클래스 쏠림 자가 교정.
+		if randf() < SKILLBOOK_DROP_CHANCE * _class_balance_factor(eq):
+			_record_class_drop(eq)
+			return _make_skillbook_drop_def(base)
 	if randf() < GEAR_DROP_CHANCE and not GEAR_LOOT.is_empty():
 		return _make_gear_drop_def(String(GEAR_LOOT[randi() % GEAR_LOOT.size()]))
 	return {}   # no generic filler — nothing drops
+
+
+## 이 스킬북이 '봉사할' 가장 덜 나온 eligible 클래스 기준 드롭확률 배수. 그 클래스가 평균 이하면 1.0(통과),
+## 초과면 (초과분 × TAPER)만큼 점감(FLOOR까지). 초반(총 < 역할수)엔 throttle 안 함.
+func _class_balance_factor(equip_classes: Array) -> float:
+	if equip_classes.is_empty():
+		return 1.0
+	var total := 0
+	for v in _class_drops.values():
+		total += int(v)
+	if total < PARTY_ROLE_COUNT:
+		return 1.0   # warmup
+	var avg := float(total) / float(PARTY_ROLE_COUNT)
+	var best := 1 << 30   # 이 스킬이 봉사 가능한 클래스 중 최소 보유수(가장 부족한 쪽)
+	for c in equip_classes:
+		best = mini(best, int(_class_drops.get(String(c), 0)))
+	if float(best) <= avg:
+		return 1.0
+	return clampf(1.0 - CLASS_BALANCE_TAPER * (float(best) - avg), CLASS_BALANCE_FLOOR, 1.0)
+
+
+## 드롭 기록 — 이 스킬이 봉사하는(가장 부족한) eligible 클래스 1건 증가.
+func _record_class_drop(equip_classes: Array) -> void:
+	if equip_classes.is_empty():
+		return
+	var pick := ""
+	var lo := 1 << 30
+	for c in equip_classes:
+		var n := int(_class_drops.get(String(c), 0))
+		if n < lo:
+			lo = n
+			pick = String(c)
+	_class_drops[pick] = int(_class_drops.get(pick, 0)) + 1
 
 
 ## ENC(분대) 클리어 → HUB-COR-000 §3 ENC별 haul 드롭표를 각 행 1회 롤 → 클리어 지점에 재획득
