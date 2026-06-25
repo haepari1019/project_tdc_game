@@ -9,6 +9,8 @@ extends Control
 
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
+const RichTooltip := preload("res://scripts/ui/rich_tooltip.gd")   # 색 가능한 BBCode 툴팁(장착 슬롯)
+const SkillText := preload("res://scripts/ui/skill_text.gd")
 
 const SLOT_OK := Color(0.30, 0.85, 0.40, 0.32)    # drag-over slot, equippable
 const SLOT_BAD := Color(0.95, 0.25, 0.20, 0.42)   # drag-over slot, wrong class / in combat
@@ -90,7 +92,7 @@ func _build_equip_column() -> void:
 		head.add_theme_font_size_override("font_size", 11)
 		head.modulate = UnitVisuals.role_color(cname)
 		_equip_box.add_child(head)
-		var slot := Panel.new()  # slot frame = drop target + drag source (gear)
+		var slot := RichTooltip.new()  # slot frame = drop target + drag source (gear) · BBCode 툴팁
 		slot.custom_minimum_size = Vector2(176, 50)
 		slot.mouse_filter = Control.MOUSE_FILTER_STOP
 		slot.gui_input.connect(_on_gear_slot_input.bind(i))
@@ -123,18 +125,8 @@ func _refresh_equip_slots() -> void:
 		var gear: Dictionary = m.equipped_gear
 		var col: Color = UnitVisuals.role_color(String(m.class_id))
 		_equip_tiles[i].text = String(gear.get("display_name", gear.get("base_gear_id", "—")))
-		# F-008 §3.7 검증 — 장착된 기어의 effective(굴린) identity + 옵션 roll을 마우스오버로 표시.
-		if not gear.is_empty():
-			var tip := "%s · %s\n정체성: %s" % [
-				String(gear.get("display_name", gear.get("base_gear_id", ""))),
-				Slice01Data.get_role_label(String(m.class_id)),
-				Slice01Data.get_identity_display(String(m.identity_skill_id))]
-			var gr: Dictionary = m.gear_rolls
-			if not gr.is_empty():
-				tip += "\n옵션: 피해 ×%.2f · 쿨 ×%.2f" % [float(gr.get("dmg_mult", 1.0)), float(gr.get("cd_mult", 1.0))]
-			_equip_tiles[i].tooltip_text = tip
-		else:
-			_equip_tiles[i].tooltip_text = "%s · 미장착" % Slice01Data.get_role_label(String(m.class_id))
+		# 툴팁은 slot(STOP, 실제 호버 대상)에 — tile은 MOUSE_FILTER_IGNORE라 안 보였음. BBCode 상세(우클릭=가방).
+		_equip_slots[i].tooltip_text = _gear_slot_tip(m)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(col.r, col.g, col.b, 0.30)
 		sb.border_color = col.lightened(0.35)
@@ -290,7 +282,7 @@ func _build_sub_column() -> void:
 		clabel.add_theme_font_size_override("font_size", 11)
 		crow.add_child(clabel)
 		for si in 3:
-			var slot := Panel.new()
+			var slot := RichTooltip.new()   # BBCode 툴팁(설명+affix 색구분)
 			slot.custom_minimum_size = Vector2(96, 44)
 			slot.mouse_filter = Control.MOUSE_FILTER_STOP
 			slot.gui_input.connect(_on_sub_slot_input.bind(_sub_slots.size()))
@@ -325,9 +317,11 @@ func _refresh_sub_slots() -> void:
 		var col: Color
 		if inst == null:
 			e.tile.text = "%s\n—" % key
+			e.panel.tooltip_text = "[color=#9aa4b2]보조 %s\n(빈 슬롯 — 스킬북 장착)[/color]" % key
 			col = Color(0.28, 0.31, 0.38)
 		else:
 			e.tile.text = "%s %s\n탄%d" % [key, _short(String(inst.display_name)), int(inst.charges)]
+			e.panel.tooltip_text = _sub_slot_tip(members[int(e.char)], inst, key)   # BBCode 상세(우클릭=가방)
 			col = Color(0.40, 0.55, 0.85)
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(col.r, col.g, col.b, 0.30)
@@ -339,6 +333,40 @@ func _refresh_sub_slots() -> void:
 
 func _short(s: String) -> String:
 	return s if s.length() <= 10 else s.substr(0, 9) + "…"
+
+
+## 장착 기어 슬롯 툴팁(BBCode) — 표시명 + 정체성 + 실제 스탯(roll 반영) + 옵션(색) + 회수 안내.
+func _gear_slot_tip(m: Node) -> String:
+	var role := Slice01Data.get_role_label(String(m.class_id))
+	var gear: Dictionary = m.equipped_gear
+	if gear.is_empty():
+		return "[color=#9aa4b2]%s · 미장착[/color]" % role
+	var lines: Array = [
+		"[b]%s[/b]  [color=#9aa4b2]· %s[/color]" % [String(gear.get("display_name", gear.get("base_gear_id", ""))), role],
+		"[color=#9aa4b2]정체성: %s[/color]" % Slice01Data.get_identity_display(String(m.identity_skill_id)),
+		"[color=#9aa4b2]HP %d · 평타 %d / %.1fs / %.1fm[/color]" % [int(m.max_hp), int(m.basic_damage), float(m.basic_interval_s), float(m.basic_range_m)],
+	]
+	var roll := SkillText.gear_roll_line(m.gear_rolls)
+	if not roll.is_empty():
+		lines.append(roll)
+	lines.append("[color=#9aa4b2]── 우클릭 → 가방[/color]")
+	return "\n".join(lines)
+
+
+## 장착 서브 스킬 슬롯 툴팁(BBCode) — 표시명 + 설명문 + 탄/쿨 + affix(색) + 비주력 패널티(색) + 회수 안내.
+func _sub_slot_tip(m: Node, inst: Dictionary, key: String) -> String:
+	var kind := String(inst.params.get("kind", ""))
+	var lines: Array = [
+		"[b]%s[/b]  [color=#9aa4b2]· 보조 %s[/color]" % [String(inst.display_name), key],
+		SkillText.describe(kind, inst.params),
+		"[color=#9aa4b2]탄 %d/%d · 쿨 %ss[/color]" % [int(inst.charges), int(inst.charges_max), str(inst.params.get("cooldown_s", "?"))],
+	]
+	lines.append_array(SkillText.affix_lines(inst.get("affix", {})))
+	var bp := SkillText.band_pct(String(inst.get("base_ability_id", "")), String(m.class_id))
+	if bp > 0:
+		lines.append(SkillText.band_line(bp))
+	lines.append("[color=#9aa4b2]── 우클릭 → 가방[/color]")
+	return "\n".join(lines)
 
 
 func sub_slot_under(mouse: Vector2) -> int:
@@ -477,8 +505,13 @@ func _on_gear_slot_input(event: InputEvent, char_index: int) -> void:
 	if not (event is InputEventMouseButton):
 		return
 	var mb := event as InputEventMouseButton
-	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and not _inv.is_dragging():
+	if not mb.pressed:
+		return
+	if mb.button_index == MOUSE_BUTTON_LEFT and not _inv.is_dragging():
 		_begin_gear_slot_drag(char_index)
+		accept_event()
+	elif mb.button_index == MOUSE_BUTTON_RIGHT and not _inv.is_dragging():
+		_unequip_gear_to_backpack(char_index)   # 우클릭 = 가방으로 회수
 		accept_event()
 
 
@@ -486,9 +519,60 @@ func _on_sub_slot_input(event: InputEvent, flat_index: int) -> void:
 	if not (event is InputEventMouseButton):
 		return
 	var mb := event as InputEventMouseButton
-	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed and not _inv.is_dragging():
+	if not mb.pressed:
+		return
+	if mb.button_index == MOUSE_BUTTON_LEFT and not _inv.is_dragging():
 		_begin_sub_slot_drag(flat_index)
 		accept_event()
+	elif mb.button_index == MOUSE_BUTTON_RIGHT and not _inv.is_dragging():
+		_unequip_sub_to_backpack(flat_index)   # 우클릭 = 가방으로 회수
+		accept_event()
+
+
+## 우클릭 회수 — 장착 기어를 가방(backpack)으로. 인스턴스(굴린 identity/rolls) 보존. 가방 가득 시 유지.
+func _unequip_gear_to_backpack(char_index: int) -> void:
+	var m: Node = _party.get_member(char_index) if _party != null else null
+	if m == null or (m.equipped_gear as Dictionary).is_empty():
+		return
+	if _combat != null and _combat.is_engaged():
+		msg("전투 중에는 장비 해제 불가 (F-008 §4.2)")
+		return
+	if float(m.identity_cooldown_s) > 0.0:
+		msg("Identity 스킬 쿨다운 중 — 장비 해제 불가")
+		return
+	var item := ItemFactory.gear_item(m.equipped_gear, true)   # rolled identity/rolls 캐리(G2) → At-Risk
+	if not _inv.backpack_grid().add_item_dict(item):
+		msg("가방이 가득 참 — 회수 불가")
+		return
+	m.unequip_gear()
+	_refresh_equip_slots()
+	msg("%s 장비 → 가방" % String(m.class_id))
+
+
+## 우클릭 회수 — 장착 서브 스킬북을 가방으로. affix·잔여 탄 보존. 가방 가득 시 유지.
+func _unequip_sub_to_backpack(flat_index: int) -> void:
+	if flat_index < 0 or flat_index >= _sub_slots.size():
+		return
+	var e = _sub_slots[flat_index]
+	var m: Node = _party.get_member(int(e.char)) if _party != null else null
+	if m == null:
+		return
+	var inst = m.get_skillbook(int(e.slot))
+	if inst == null:
+		return
+	if _combat != null and _combat.is_engaged():
+		msg("전투 중에는 스킬북 해제 불가 (F-009 §3.4)")
+		return
+	if float(inst.cooldown_s) > 0.0:
+		msg("스킬북 쿨다운 중 — 해제 불가")
+		return
+	var item := _skillbook_item_from_inst(inst)   # affix + 잔여 탄 캐리
+	if not _inv.backpack_grid().add_item_dict(item):
+		msg("가방이 가득 참 — 회수 불가")
+		return
+	m.set_skillbook(int(e.slot), null)
+	_refresh_sub_slots()
+	msg("%s %s 스킬북 → 가방" % [String(m.class_id), ["Q", "E", "R"][int(e.slot)]])
 
 
 func _begin_gear_slot_drag(char_index: int) -> void:
