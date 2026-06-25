@@ -324,6 +324,102 @@
       "basic_damage": 5,
       "basic_interval_s": 1.1,
       "basic_range_m": 2.0
+    },
+    {
+      "base_gear_id": "gear_ward_tank_iron_set",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Tank"
+      ],
+      "bundled_identity_skill_id": "tank_iron_beacon",
+      "basic_attack_profile_id": "ba_tank_kite_bash",
+      "range_band": "Melee",
+      "display_name": "Iron Bulwark Set (B)",
+      "unlock_state": "Purchasable",
+      "starter": false,
+      "basic_damage": 9,
+      "basic_interval_s": 1.0,
+      "basic_range_m": 3.0
+    },
+    {
+      "base_gear_id": "gear_ward_dps_weave_set",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "DPS"
+      ],
+      "bundled_identity_skill_id": "dps_arc_weave",
+      "basic_attack_profile_id": "ba_dps_weave_lance",
+      "range_band": "Long",
+      "display_name": "Weave Set (B)",
+      "unlock_state": "Purchasable",
+      "starter": false,
+      "basic_damage": 18,
+      "basic_interval_s": 0.7,
+      "basic_range_m": 11.0
+    },
+    {
+      "base_gear_id": "gear_ward_healer_ward_set",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Healer"
+      ],
+      "bundled_identity_skill_id": "healer_ward_pulse",
+      "basic_attack_profile_id": "gaux_healer_ward_echo",
+      "range_band": "Mid",
+      "display_name": "Ward Set (B)",
+      "unlock_state": "Purchasable",
+      "starter": false,
+      "basic_damage": 7,
+      "basic_interval_s": 1.1,
+      "basic_range_m": 7.0
+    },
+    {
+      "base_gear_id": "gear_ward_tank_march_set",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Tank"
+      ],
+      "bundled_identity_skill_id": "tank_bulwark_march",
+      "basic_attack_profile_id": "ba_tank_march_stomp",
+      "range_band": "Melee",
+      "display_name": "March Set (C)",
+      "unlock_state": "Purchasable",
+      "starter": false,
+      "basic_damage": 10,
+      "basic_interval_s": 1.0,
+      "basic_range_m": 3.0
+    },
+    {
+      "base_gear_id": "gear_ward_dps_guardbreak_set",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "DPS"
+      ],
+      "bundled_identity_skill_id": "dps_press_line",
+      "basic_attack_profile_id": "ba_dps_brand_sweep",
+      "range_band": "Mid",
+      "display_name": "Guardbreak Set (C)",
+      "unlock_state": "Purchasable",
+      "starter": false,
+      "basic_damage": 20,
+      "basic_interval_s": 0.65,
+      "basic_range_m": 10.0
+    },
+    {
+      "base_gear_id": "gear_ward_healer_beacon_set",
+      "gear_kind": "WardGear",
+      "equip_classes": [
+        "Healer"
+      ],
+      "bundled_identity_skill_id": "healer_mend_circle",
+      "basic_attack_profile_id": "gaux_healer_beacon_glimmer",
+      "range_band": "Long",
+      "display_name": "Beacon Set (C)",
+      "unlock_state": "Purchasable",
+      "starter": false,
+      "basic_damage": 8,
+      "basic_interval_s": 1.1,
+      "basic_range_m": 8.0
     }
   ]
 }
