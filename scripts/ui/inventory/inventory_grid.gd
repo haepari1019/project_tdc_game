@@ -152,13 +152,18 @@ func clear() -> void:
 
 
 ## Clean snapshot of held items (no live node refs) — for persisting a container.
+## 그리드 → 직렬화 items. 모든 영속 필드 보존(runtime grid node만 제외). 구버그: id/w/h/col/row/color만
+## 내보내 kind·base_gear_id·base_ability_id·affix·count 등이 증발 → 스태시 deploy 동기화 시 kind="" 매칭
+## 실패로 전체 삭제. (사용자: 에디터 열고 닫으면 스태시 증발.)
 func export_items() -> Array:
 	var out: Array = []
 	for item in items:
-		out.append({
-			"id": item.id, "w": int(item.w), "h": int(item.h),
-			"col": int(item.col), "row": int(item.row), "color": item.color,
-		})
+		var d: Dictionary = {}
+		for k in item:
+			if k == "node":
+				continue   # 살아있는 그리드 Panel — 직렬화 불가
+			d[k] = item[k]
+		out.append(d)
 	return out
 
 
