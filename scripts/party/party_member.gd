@@ -174,6 +174,8 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	# identity 쿨(ability_dispatch.try_identity가 cooldown_mult를 곱). ref: gear_roll_table.md.
 	basic_damage *= float(gear_rolls.get("dmg_mult", 1.0))
 	cooldown_mult = float(gear_rolls.get("cd_mult", 1.0))
+	_apply_chapel_passive()   # F-029 성소(chapel) T1 효과 실연동 — 역할별 passive(F-020-lite). bind마다 fresh.
+	hp = max_hp if reset_hp else minf(hp, max_hp)   # 패시브로 max_hp 변동 → hp 재클램프
 	# Identity + sub skill params are LINKED by id (abilities.json catalog).
 	identity_params = Slice01Data.get_ability(ability_id)
 	# Sub skills come from looted skillbooks (F-009 §3.1), NOT the identity/gear — the
@@ -234,6 +236,18 @@ func set_skillbook(sb_slot: int, inst):
 
 
 ## Equip a skillbook into a Q/E/R slot by base_ability_id (deployment loadout apply, F-010).
+## F-029 성소(chapel) T1 효과 실연동 — 역할별 passive 강화(F-020-lite). HubProfile 시설 Tier ≥1이면 적용.
+## _bind_gear에서 호출(bind마다 fresh 재계산 → 비누적). F-020 패시브 트리 미구현 → 역할별 단일 노드 데모 근사.
+func _apply_chapel_passive() -> void:
+	var hub := get_node_or_null("/root/HubProfile")
+	if hub == null or not hub.has_method("facility_tier") or int(hub.facility_tier("chapel")) < 1:
+		return
+	match class_id:
+		"Tank": max_hp *= 1.15        # 전선 내구
+		"Healer": max_hp *= 1.12      # 생존
+		"DPS", "Nuker": basic_damage *= 1.12   # 화력
+
+
 func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Dictionary = {}) -> void:
 	if sb_slot < 0 or sb_slot >= skillbook_slots.size() or base_ability_id == "":
 		return
