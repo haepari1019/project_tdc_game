@@ -113,7 +113,8 @@ func _refresh_analysis() -> void:
 		return
 	var counts: Dictionary = {}
 	for b in _stash.skillbooks:
-		counts[String(b)] = int(counts.get(String(b), 0)) + 1
+		var bid := String(b.get("base_ability_id", "")) if typeof(b) == TYPE_DICTIONARY else String(b)
+		counts[bid] = int(counts.get(bid, 0)) + 1
 	if counts.is_empty():
 		_lbl(_analysis_box, "  스태시에 분석할 스킬북 없음 — 던전에서 회수해 스태시에 보관.", DIM)
 		return

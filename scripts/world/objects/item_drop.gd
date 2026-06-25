@@ -39,9 +39,9 @@ func interact() -> void:
 	# At-Risk instance (Extraction Success → Owned; Run Failure → Loss Bundle candidate).
 	var ok: bool
 	if String(item.get("kind", "")) == "gear":
-		ok = _inv.add_gear_to_backpack(String(item.get("base_gear_id", "")), true)
+		ok = _inv.add_gear_to_backpack(String(item.get("base_gear_id", "")), true, item)   # def=인스턴스(rolled/rolls)
 	elif String(item.get("kind", "")) == "skillbook":
-		ok = _inv.add_skillbook_to_backpack(String(item.get("base_ability_id", "")), true)
+		ok = _inv.add_skillbook_to_backpack(String(item.get("base_ability_id", "")), true, item)   # def=인스턴스(affix)
 	elif String(item.get("kind", "")) == "haul":
 		ok = _inv.add_haul_to_backpack(String(item.get("haul_material_id", "")), true)
 	else:

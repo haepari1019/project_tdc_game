@@ -5,7 +5,7 @@ extends Node
 ## demo content on first load. ref: F-010 §3.2.
 
 var gear: Array = []               # owned gear 인스턴스 {base_gear_id, rolled_identity_skill_id?, rolls?} — F-008 §3.7. 레거시=문자열(로드 시 정규화).
-var skillbooks: Array = []         # owned base_ability_id strings (skillbooks)
+var skillbooks: Array = []         # owned 스킬북 인스턴스 {base_ability_id, affix?, charges?} — D-018 §7.3. 레거시=문자열(로드 시 정규화).
 var consumables: Dictionary = {}   # consumable_id -> count owned
 # 재료(haul)는 일반 스태시가 아니라 HubProfile 금고(vault)에 일원화 — 별도 store 두지 않음(혼란 방지).
 
@@ -38,6 +38,7 @@ func apply_dict(d: Dictionary) -> void:
 	gear = d.get("gear", [])
 	_normalize_gear()   # 레거시 세이브(문자열 gear) → 인스턴스 dict 마이그레이션
 	skillbooks = d.get("skillbooks", [])
+	_normalize_skillbooks()   # 레거시 세이브(문자열 skillbook) → 인스턴스 dict 마이그레이션
 	consumables = d.get("consumables", {})
 	_seeded = true
 
@@ -48,6 +49,14 @@ func _normalize_gear() -> void:
 	for i in gear.size():
 		if typeof(gear[i]) == TYPE_STRING:
 			gear[i] = {"base_gear_id": String(gear[i])}
+
+
+## skillbook 엔트리 정규화 — 시드/레거시 세이브의 문자열 base_ability_id → {base_ability_id}.
+## 인스턴스 = {base_ability_id, affix?, charges?} (D-018 §7.3 — 스태시도 affix·잔여탄 보존).
+func _normalize_skillbooks() -> void:
+	for i in skillbooks.size():
+		if typeof(skillbooks[i]) == TYPE_STRING:
+			skillbooks[i] = {"base_ability_id": String(skillbooks[i])}
 
 
 func _seed() -> void:
@@ -64,7 +73,8 @@ func _seed() -> void:
 	]
 	skillbooks = ["AB-002", "AB-010", "AB-011", "AB-037"]
 	consumables = {"con_revive_scroll": 8}
-	_normalize_gear()   # 시드 스페어는 문자열로 적고 인스턴스 {base_gear_id}로 정규화(roll 없음=bundled)
+	_normalize_gear()         # 시드는 문자열로 적고 인스턴스로 정규화(roll/affix 없음=base)
+	_normalize_skillbooks()
 
 
 ## 테스트/디버그 — 스태시를 데모 시드로 초기화.
@@ -107,19 +117,37 @@ func remove_gear(base_gear_id: String) -> bool:
 	return false
 
 
-## Add one owned skillbook to the stash (shop 구매 / 회수). F-009 상점 생본은 affix 없음(base만 보관).
-func add_skillbook(base_ability_id: String) -> void:
+## Add one owned skillbook to the stash (shop 구매 / 회수). 상점 생본=affix 없음; 회수 본은 affix/잔여탄 보존.
+func add_skillbook(base_ability_id: String, affix: Dictionary = {}, charges: int = -1) -> void:
 	if base_ability_id.is_empty():
 		return
-	skillbooks.append(base_ability_id)
+	var inst := {"base_ability_id": base_ability_id}
+	if not affix.is_empty():
+		inst["affix"] = affix          # D-018 §7.3 affix 보존
+	if charges >= 0:
+		inst["charges"] = charges      # 잔여 탄 보존
+	skillbooks.append(inst)
 	save_stash()
 
 
-## Permanently remove one owned skillbook from the stash (hub 버리기). True if it was present.
+## Permanently remove one owned skillbook (analysis/sink/버리기) by base id. affix본 보존을 위해 plain(무affix)
+## 사본을 우선 제거하고, 모두 affix면 첫 매칭을 제거. True if one was present.
 func remove_skillbook(base_ability_id: String) -> bool:
-	var i := skillbooks.find(base_ability_id)
-	if i < 0:
+	var first := -1
+	for i in skillbooks.size():
+		var s = skillbooks[i]
+		var bid := String(s.get("base_ability_id", "")) if typeof(s) == TYPE_DICTIONARY else String(s)
+		if bid != base_ability_id:
+			continue
+		if first < 0:
+			first = i
+		var has_affix := typeof(s) == TYPE_DICTIONARY and not (s.get("affix", {}) as Dictionary).is_empty()
+		if not has_affix:
+			skillbooks.remove_at(i)   # plain 사본 우선 소멸 → affix본 보존
+			save_stash()
+			return true
+	if first < 0:
 		return false
-	skillbooks.remove_at(i)
+	skillbooks.remove_at(first)
 	save_stash()
 	return true

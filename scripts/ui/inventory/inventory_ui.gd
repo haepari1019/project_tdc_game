@@ -225,10 +225,16 @@ func get_hotkey(slot: int) -> String:
 
 ## Add a looted Identity Gear instance to the backpack as an At-Risk run-inventory
 ## item (F-008 §3.3). Returns false if the backpack is full.
-func add_gear_to_backpack(base_gear_id: String, at_risk: bool) -> bool:
+## inst = 선택적 인스턴스 디스크립터 {rolled_identity_skill_id?, rolls?} — 굴린 정체성/옵션 보존(F-008 §3.7).
+func add_gear_to_backpack(base_gear_id: String, at_risk: bool, inst: Dictionary = {}) -> bool:
 	var m: Dictionary = Slice01Data.get_gear_master(base_gear_id)
 	if m.is_empty():
 		return false
+	var rid := String(inst.get("rolled_identity_skill_id", ""))
+	if rid != "":
+		m["rolled_identity_skill_id"] = rid     # gear_item이 캐리
+	if inst.has("rolls"):
+		m["rolls"] = inst["rolls"]
 	return _backpack.add_item_dict(ItemFactory.gear_item(m, at_risk))
 
 
@@ -236,11 +242,20 @@ func add_gear_to_backpack(base_gear_id: String, at_risk: bool) -> bool:
 
 ## Add a looted skillbook to the backpack as an At-Risk run-inventory item. Skillbooks
 ## stay At-Risk even when equipped (F-009 §3.7). Returns false if the backpack is full.
-func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool) -> bool:
+## inst = 선택적 인스턴스 디스크립터 {affix?, charges?} — affix·잔여탄 보존(D-018 §7.3).
+func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool, inst: Dictionary = {}) -> bool:
 	var m: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
 	if m.is_empty():
 		return false
-	return _backpack.add_item_dict(ItemFactory.skillbook_item(m, at_risk))
+	var item := ItemFactory.skillbook_item(m, at_risk)
+	var affix: Dictionary = inst.get("affix", {})
+	if not affix.is_empty():
+		item["affix"] = affix
+		item["charges_max"] = int(item.get("charges_max", 0)) + int(affix.get("charges", 0))   # §7.6 탄 보너스
+		item["charges"] = int(item["charges_max"])
+	if inst.has("charges"):
+		item["charges"] = int(inst["charges"])    # 저장된 잔여 탄
+	return _backpack.add_item_dict(item)
 
 
 ## Add a looted haul material to the backpack as At-Risk run inventory (D-029 §4). On Extraction
@@ -305,17 +320,9 @@ func _load_backpack_from_autoload() -> void:
 	for d in bp.get_loose():
 		match String(d.get("kind", "generic")):
 			"gear":
-				# F-008 §3.7 — 디스크립터의 rolled(identity/rolls)을 master에 병합해 인스턴스 보존(G2).
-				var gm: Dictionary = Slice01Data.get_gear_master(String(d.get("base_gear_id", "")))
-				if not gm.is_empty():
-					var rid := String(d.get("rolled_identity_skill_id", ""))
-					if rid != "":
-						gm["rolled_identity_skill_id"] = rid
-					if d.has("rolls"):
-						gm["rolls"] = d["rolls"]
-					_backpack.add_item_dict(ItemFactory.gear_item(gm, bool(d.get("at_risk", true))))
+				add_gear_to_backpack(String(d.get("base_gear_id", "")), bool(d.get("at_risk", true)), d)   # rolled 보존(G2)
 			"skillbook":
-				add_skillbook_to_backpack(String(d.get("base_ability_id", "")), bool(d.get("at_risk", true)))
+				add_skillbook_to_backpack(String(d.get("base_ability_id", "")), bool(d.get("at_risk", true)), d)   # affix·탄 보존
 			"haul":
 				add_haul_to_backpack(String(d.get("haul_material_id", "")), bool(d.get("at_risk", true)))
 			"consumable":
@@ -352,9 +359,22 @@ func make_gear_stash_item(inst) -> Dictionary:
 	return ItemFactory.gear_item(m, true)
 
 
-func make_skillbook_stash_item(base_ability_id: String) -> Dictionary:
-	var m := Slice01Data.get_skillbook_master(base_ability_id)
-	return ItemFactory.skillbook_item(m, true) if not m.is_empty() else {}
+## inst = stash 스킬북 인스턴스 {base_ability_id, affix?, charges?} (레거시=문자열). affix·잔여탄 캐리(D-018 §7.3).
+func make_skillbook_stash_item(inst) -> Dictionary:
+	var base := String(inst.get("base_ability_id", "")) if typeof(inst) == TYPE_DICTIONARY else String(inst)
+	var m := Slice01Data.get_skillbook_master(base)
+	if m.is_empty():
+		return {}
+	var it := ItemFactory.skillbook_item(m, true)
+	if typeof(inst) == TYPE_DICTIONARY:
+		var affix: Dictionary = (inst as Dictionary).get("affix", {})
+		if not affix.is_empty():
+			it["affix"] = affix
+			it["charges_max"] = int(it.get("charges_max", 0)) + int(affix.get("charges", 0))
+			it["charges"] = int(it["charges_max"])
+		if (inst as Dictionary).has("charges"):
+			it["charges"] = int((inst as Dictionary)["charges"])
+	return it
 
 
 func make_consumable_stash_item(consumable_id: String, count: int) -> Dictionary:

@@ -6,6 +6,16 @@
 
 ---
 
+### IMPL-DEC-20260625-029 — skillbook Stash 인스턴스화 + 루팅 인스턴스 보존 경로 보강
+- **결정(사용자 "보존으로 진행"):** 스킬북도 기어처럼 affix·잔여탄을 스태시·픽업·로드 전 경로에서 보존.
+- **발견한 latent gap:** affix(스킬북)·rolled(기어)가 **월드 픽업**(item_drop→add_*_to_backpack이 base만 전달)·**스킬북 loose-load**(inventory_ui base만)에서 유실되고 있었음 — G2/affix 스모크가 apply/capture 경로만 검증해 놓쳤던 구멍.
+- **구현:**
+  · `add_gear_to_backpack`/`add_skillbook_to_backpack`에 `inst` 인자 추가 → rolled/affix/charges 병합. item_drop 픽업·loose-load가 def(인스턴스) 전달. (기어 픽업 rolled 유실도 함께 수정.)
+  · `Stash.skillbooks` 문자열→인스턴스 `{base_ability_id, affix?, charges?}`. `_normalize_skillbooks`(시드/레거시 마이그레이션)·`add_skillbook(base, affix, charges)`·`remove_skillbook`=**plain(무affix) 우선 소멸→affix본 보존**.
+  · `make_skillbook_stash_item(inst)`·main `_build_stash_items`/`_sync_stash_from_source` 인스턴스 왕복·hub_economy_panel count loop 인스턴스 대응.
+- **검증:** party_pool_smoke(스킬북 정규화·affix 보존·remove plain 우선) + ci_smoke PASS.
+- **영향:** `inventory_ui.gd`·`item_drop.gd`·`stash.gd`·`main.gd`·`hub_economy_panel.gd`. **잔여:** multi-affix.
+
 ### IMPL-DEC-20260625-028 — 중복 스킬북 sink (D-018 §7.5, 분해/매각 → ward_scrap)
 - **결정(사용자 선택):** 스킬북 economy 루프의 sink — 중복 스킬북을 ward_scrap로 환원. **해금된 base = 분해(+8)**, **미해금 = 매각(+4, 분석 재료 대안)**. 인스턴스 1 소멸. 스펙 그대로(D-018 §7.5).
 - **구현:** `HubProfile.SINK_DISASSEMBLE/SINK_SELL` + `skillbook_sink_value(base)`(is_shop_unlocked→8/4). `hub_economy_panel` 분석 행마다 "분해(+8)"/"매각(+4)" 버튼 → `_on_sink`: 스태시에서 책 1권 제거(`remove_skillbook`) → `add_scrap`. buy_raw와 대칭(hub=통화, caller=인스턴스).

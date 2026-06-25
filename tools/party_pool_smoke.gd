@@ -199,6 +199,15 @@ func _initialize() -> void:
 	_chk("Stash round-trip rolled 유지", String((st2.gear[1] as Dictionary).get("rolled_identity_skill_id", "")) == "dps_arc_weave" and is_equal_approx(float((st2.gear[1] as Dictionary).get("rolls", {}).get("dmg_mult", 0.0)), 1.2))
 	st.free(); st2.free()
 
+	# 15b) Stash 스킬북 인스턴스화(D-018 §7.3) — 문자열 정규화 + affix 보존 + remove는 plain 우선(affix본 보존).
+	var st3 = StashScript.new()
+	st3.apply_dict({"gear": [], "skillbooks": ["AB-002", {"base_ability_id": "AB-002", "affix": {"ids": ["affix_eff_plus"], "tier": "T1", "coeff": 0.09, "charges": 0, "cd_trade": 0.0}}], "consumables": {}})
+	_chk("Stash 스킬북 문자열 정규화", typeof(st3.skillbooks[0]) == TYPE_DICTIONARY and String((st3.skillbooks[0] as Dictionary).get("base_ability_id", "")) == "AB-002")
+	_chk("Stash 스킬북 affix 보존", not ((st3.skillbooks[1] as Dictionary).get("affix", {}) as Dictionary).is_empty())
+	st3.remove_skillbook("AB-002")   # plain(0번) 우선 소멸 → affix본 잔존
+	_chk("Stash remove plain 우선(affix본 보존)", st3.skillbooks.size() == 1 and not ((st3.skillbooks[0] as Dictionary).get("affix", {}) as Dictionary).is_empty())
+	st3.free()
+
 	# 16) 스킬북 affix(D-018 §7.3/§7.6) — roll cap 준수 + charges 가산 + capture/apply 영속.
 	var AffixRoller = load("res://scripts/run/affix_roller.gd")
 	var any_affix := false

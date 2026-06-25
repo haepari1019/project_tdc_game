@@ -161,7 +161,7 @@ func _build_stash_items() -> Array:
 		it["row"] = gear_pos[i][1]
 		items.append(it)
 	for i in _stash.skillbooks.size():
-		var it: Dictionary = _inv.make_skillbook_stash_item(String(_stash.skillbooks[i]))
+		var it: Dictionary = _inv.make_skillbook_stash_item(_stash.skillbooks[i])   # 인스턴스(affix/탄 포함)
 		if it.is_empty() or i >= 4:
 			continue
 		it["col"] = 4
@@ -240,7 +240,14 @@ func _sync_stash_from_source() -> void:
 					gi["rolls"] = it["rolls"]
 				gear.append(gi)
 			"skillbook":
-				skillbooks.append(String(it.get("base_ability_id", "")))
+				# D-018 §7.3 인스턴스 — 스태시도 affix·잔여 탄 보존.
+				var si := {"base_ability_id": String(it.get("base_ability_id", ""))}
+				var af = it.get("affix", {})
+				if typeof(af) == TYPE_DICTIONARY and not (af as Dictionary).is_empty():
+					si["affix"] = af
+				if it.has("charges"):
+					si["charges"] = int(it["charges"])
+				skillbooks.append(si)
 			"consumable":
 				var cid := String(it.get("consumable_id", ""))
 				consumables[cid] = int(consumables.get(cid, 0)) + int(it.get("count", 1))
