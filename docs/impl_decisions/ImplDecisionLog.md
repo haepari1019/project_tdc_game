@@ -6,6 +6,12 @@
 
 ---
 
+### IMPL-DEC-20260626-034 — gear potencyMult 옵션 roll (S6b 잔여)
+- **F-008 §3.7 gear 옵션 roll에 potencyMult 추가:** 기존 {dmg_mult→평타, cd_mult→identity 쿨}에 **potency_mult→identity 위력** 합류. loot 굴림 range 0.92~1.10.
+- **배선:** `loot_service` 기어 드롭 rolls에 potency_mult 추가 → `party_member.identity_potency_mult`(bind마다 fresh, 비누적) → `ability_dispatch.try_identity`가 cast 직전 `p["_coeff"]`로 적용(identity_params는 get_ability deep-dup이라 멤버별·안전). 표시=`skill_text.gear_roll_line` "정체성 위력 ×N.NN".
+- **영향:** `loot_service.gd`·`party_member.gd`·`ability_dispatch.gd`·`skill_text.gd`. _coeff는 sb_* 이펙트 다수가 이미 소비(평타 스케일 dmg/heal/dot) → identity도 동일 경로.
+- **검증:** party_pool_smoke(potency_mult 1.1 → identity_potency_mult 1.1) + ci_smoke PASS. 잔여 S6b=multi-affix(post-Slice-01 churn)·대장간(Expansion).
+
 ### IMPL-DEC-20260626-033 — per-AB tier(스펙 abilityTier) 적재 + 상점 tier 천장 게이트 (S6b 잔여)
 - **per-AB tier:** skillbooks.json 61종에 `tier`(Basic/Advanced/Master) 부여 — **스펙 `AB-###.md` `abilityTier`에서 소싱**(91파일·67정의). 미정의 12종=Basic 기본(DRIFT-068). 분포 Basic31·Adv28·Master2.
 - **상점 배선:** `hub_economy_panel`이 SHOP_TIER 하드코딩 제거 → 책별 `m.tier`로 가격(`shop_price`) + scribe_shop Tier 천장(`TIER_RANK`>ceiling이면 잠금·"T2 필요" 표기). `buy_raw`는 기존 게이트 그대로. → **scribe_shop T2 효과 실연동**(Advanced 생본 구매 개방).

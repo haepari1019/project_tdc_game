@@ -206,7 +206,7 @@ func _make_gear_drop_def(base_gear_id: String) -> Dictionary:
 		"color": UnitVisuals.role_color(cid),
 		"kind": "gear",
 		"base_gear_id": base_gear_id,
-		"rolls": {"dmg_mult": snappedf(randf_range(0.90, 1.10), 0.01), "cd_mult": snappedf(randf_range(0.94, 1.06), 0.01)},
+		"rolls": {"dmg_mult": snappedf(randf_range(0.90, 1.10), 0.01), "cd_mult": snappedf(randf_range(0.94, 1.06), 0.01), "potency_mult": snappedf(randf_range(0.92, 1.10), 0.01)},
 	}
 	var rid := _roll_identity(base_gear_id)
 	if rid != "":

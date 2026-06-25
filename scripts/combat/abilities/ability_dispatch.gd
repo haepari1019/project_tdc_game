@@ -94,6 +94,8 @@ func try_identity(m: CharacterBody3D) -> bool:
 	var skill = _skills.get(String(p.get("kind", "")))
 	if skill == null:
 		return false
+	# F-008 §3.7 gear potency_mult 옵션 roll → identity 위력(per-cast _coeff). 직전 set이라 공유 dict 순차안전.
+	p["_coeff"] = float(m.identity_potency_mult) if "identity_potency_mult" in m else 1.0
 	if skill.cast(m, p, Vector3.ZERO, self):
 		# F-008 §3.7 gear cd_mult 옵션 roll → identity 쿨다운에 곱(낮을수록 빠름). 1.0 = none.
 		var cdm: float = float(m.cooldown_mult) if "cooldown_mult" in m else 1.0

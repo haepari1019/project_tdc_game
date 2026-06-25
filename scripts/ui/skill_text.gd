@@ -67,9 +67,11 @@ static func gear_roll_line(rolls) -> String:
 		return ""
 	var dm := float((rolls as Dictionary).get("dmg_mult", 1.0))
 	var cm := float((rolls as Dictionary).get("cd_mult", 1.0))
+	var pm := float((rolls as Dictionary).get("potency_mult", 1.0))
 	var parts: Array = []
 	parts.append("[color=#%s]피해 ×%.2f[/color]" % [(RT.POS if dm >= 1.0 else RT.NEG), dm])
 	parts.append("[color=#%s]쿨 ×%.2f[/color]" % [(RT.POS if cm <= 1.0 else RT.NEG), cm])   # 쿨은 낮을수록 좋음
+	parts.append("[color=#%s]정체성 위력 ×%.2f[/color]" % [(RT.POS if pm >= 1.0 else RT.NEG), pm])
 	return "옵션: " + "  ·  ".join(parts)
 
 

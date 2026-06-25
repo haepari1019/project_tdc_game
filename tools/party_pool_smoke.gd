@@ -181,10 +181,11 @@ func _initialize() -> void:
 	bpA.apply_to_party(_PartyStub.new([pmA]))
 	var d1 := float(pmA.basic_damage)
 	var pmB = PM.new(); pmB.class_id = "Tank"
-	var bpB = BP.new(); bpB.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "rolls": {"dmg_mult": 2.0, "cd_mult": 0.9}, "subs": [null, null, null]}}
+	var bpB = BP.new(); bpB.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "rolls": {"dmg_mult": 2.0, "cd_mult": 0.9, "potency_mult": 1.1}, "subs": [null, null, null]}}
 	bpB.apply_to_party(_PartyStub.new([pmB]))
 	_chk("G3 dmg_mult 스탯 적용(2x)", d1 > 0.0 and is_equal_approx(float(pmB.basic_damage), d1 * 2.0))
 	_chk("G3 cd_mult → cooldown_mult", is_equal_approx(float(pmB.cooldown_mult), 0.9))
+	_chk("S6b potency_mult → identity_potency_mult", is_equal_approx(float(pmB.identity_potency_mult), 1.1))
 	pmA.free(); pmB.free()
 
 	# 15) Stash 인스턴스화(F-008 §3.7) — 레거시 문자열 정규화 + 굴린 인스턴스 round-trip(apply_dict/to_dict).

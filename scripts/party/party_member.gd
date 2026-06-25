@@ -29,6 +29,8 @@ var equip_classes: Array = []
 var gear_rolls: Dictionary = {}
 ## cd_mult 적용분 — identity 스킬 쿨다운에 곱(ability_dispatch.try_identity). 1.0 = none.
 var cooldown_mult: float = 1.0
+## potency_mult 적용분 — identity 스킬 위력(_coeff)에 곱(ability_dispatch.try_identity). 1.0 = none. F-008 §3.7.
+var identity_potency_mult: float = 1.0
 
 # --- Identity (resolved from equipped_gear's bundled identity) ---
 var identity_skill_id: String = ""
@@ -174,6 +176,7 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	# identity 쿨(ability_dispatch.try_identity가 cooldown_mult를 곱). ref: gear_roll_table.md.
 	basic_damage *= float(gear_rolls.get("dmg_mult", 1.0))
 	cooldown_mult = float(gear_rolls.get("cd_mult", 1.0))
+	identity_potency_mult = float(gear_rolls.get("potency_mult", 1.0))   # F-008 §3.7 — identity 위력 굴림(비누적)
 	_apply_chapel_passive()   # F-029 성소(chapel) T1 효과 실연동 — 역할별 passive(F-020-lite). bind마다 fresh.
 	hp = max_hp if reset_hp else minf(hp, max_hp)   # 패시브로 max_hp 변동 → hp 재클램프
 	# Identity + sub skill params are LINKED by id (abilities.json catalog).
