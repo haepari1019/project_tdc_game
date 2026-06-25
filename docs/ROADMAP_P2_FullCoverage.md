@@ -106,8 +106,8 @@
 - ✅ **1b 완료 — 분석/상점 허브 UI:** `hub_economy_panel.gd`(풀스크린 오버레이) — 분석(스태시 책 의뢰→progress/해금, scriptorium 게이트) + 상점(해금 base ward_scrap 구매→스태시, scribe_shop 게이트) + ward_scrap 표시. `main.gd` "필기소·상점" 버튼. 부팅 스모크 PASS; 거동=F5.
 - ◐ **gear `identityRollTable` 이행 G1+G2 완료(DRIFT-061·IMPL-DEC-021/022):** G1=id 스펙 정렬+세이브 마이그레이션·파생 롤테이블·bind fwd-prep. G2=획득 롤(loot identity 가중+던전 band mult)+인스턴스(rolled identity/rolls) **loot→백팩 loose→장착→equipped 세이브 영속**(Stash 스페어=문자열·bundled 유지). 설계=`docs/design/gear_roll_table.md`. **G3 완료:** rolls 스탯 적용(dmg_mult→평타 위력·cd_mult→identity 쿨) + 상세 툴팁(굴린 identity·옵션·스킬 효과, 유저 표시명 레이어 display_names.json, 백엔드 ID 비노출).
 - ✅ **Stash 인스턴스화(IMPL-DEC-025):** `Stash.gear` 문자열→인스턴스 dict(`_normalize_gear` 마이그레이션·remove_gear base 매칭·_sync 왕복) → 스페어도 굴린 정체성·옵션 보존. + capture_from_party `m.get` 2-arg 버그픽스.
-- ✅ **스킬북 affix(D-018 §7.3/§7.6, IMPL-DEC-026):** 루팅 18% 굴림(`affix_roller.gd`, T1/T2/T3·eff_plus/eff_minus_trade/charges_small)·coeffMult(밴드와 독립 곱)·cd_trade·charges 가산·loot→장착→capture/apply 영속·툴팁. Slice-01=단일 affix. 설계=`docs/design/affix_design.md`.
-- **잔여:** multi-affix·§7.5 중복 sink·gear potencyMult·per-AB tier·대장간 리롤 — 단독 결정([[refactor-risk-preference]]).
+- ✅ **스킬북 affix(D-018 §7.3/§7.6, IMPL-DEC-026):** 루팅 18% 굴림(`affix_roller.gd`, T1/T2/T3·eff_plus/eff_minus_trade/charges_small)·coeffMult(밴드와 독립 곱)·cd_trade·charges 가산·loot→장착→capture/apply 영속·툴팁. 설계=`docs/design/affix_design.md`.
+- ✅ **S6b 잔여 완료(2026-06-26):** **per-AB tier**(스펙 abilityTier 적재·상점 tier 천장, IMPL-DEC-033·DRIFT-068) · **gear potencyMult**(옵션 roll→identity 위력, IMPL-DEC-034) · **multi-affix**(2nd 30% 병합·§7.3 합산캡 0.15·ids 리스트, IMPL-DEC-035) · §7.5 중복 sink(완료). **잔여=대장간 리롤(Expansion)뿐.**
 - ◐ **ally 획득 lite 선납(P2-S6a 패스)**: ally-only lootable 인-런 획득은 `dungeon_run` ally-cache 상자(RM-ADV-01)로 우선 충족. **본격(S6b)**: shop 매대·ENC 드롭표·affix·자동 분배 시 정식화.
 
 ### P2-S7 — 통합/QA

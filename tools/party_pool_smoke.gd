@@ -214,17 +214,22 @@ func _initialize() -> void:
 	var any_affix := false
 	var caps_ok := true
 	var ids_ok := true
-	for _i in 300:
-		var a: Dictionary = AffixRoller.roll()
+	var multi_seen := false
+	for _i in 600:
+		var a: Dictionary = AffixRoller.roll_forced()   # 보장 굴림(병합 확인 표본 확보)
 		if a.is_empty():
 			continue
 		any_affix = true
-		if float(a.get("coeff", 0.0)) > 0.1201 or int(a.get("charges", 0)) < 0 or int(a.get("charges", 0)) > 6:
-			caps_ok = false
-		if (a.get("ids", []) as Array).is_empty() or String(a.get("tier", "")).is_empty():
+		if float(a.get("coeff", 0.0)) > 0.1501 or int(a.get("charges", 0)) < 0 or int(a.get("charges", 0)) > 6:
+			caps_ok = false   # multi-affix: coeff 합산 ≤15%(§7.3), charges는 단일 charges종만 → 0..6 유지
+		var ids := a.get("ids", []) as Array
+		if ids.is_empty() or String(a.get("tier", "")).is_empty():
 			ids_ok = false
-	_chk("affix 발생(300샘플)", any_affix)
-	_chk("affix coeff≤12%·탄0..6", caps_ok)
+		if ids.size() >= 2:
+			multi_seen = true
+	_chk("affix 발생", any_affix)
+	_chk("affix coeff≤15%(합산캡)·탄0..6", caps_ok)
+	_chk("multi-affix 병합(2종 ids) 발생", multi_seen)
 	_chk("affix ids·tier 존재", ids_ok)
 	# charges 가산 + 인스턴스 저장
 	var base_cmax := int(sd.get_skillbook_master("AB-044").get("charges_max", 30))

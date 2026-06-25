@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260626-035 — multi-affix: 단일 dict 병합 인코딩 (S6b 잔여 — list 리셰이프 회피)
+- **목표:** 스킬북 인스턴스에 다종 affix(D-018 §7.3 합산캡 ≤15%가 본래 다중 전제). 기존 Slice-01=단일 affix.
+- **결정(저위험 선택):** `affix`를 list로 재구성(~15 쓰레딩 사이트)하지 않고, **단일 dict에 병합 인코딩** — affix dict가 이미 `ids: []`(종류 리스트) + 스칼라 합산필드(coeff/charges/cd_trade)를 쓰고 apply가 그 합산값을 읽으므로, 2nd affix를 **distinct 종류로 굴려 병합**(ids 누적·coeff 합산 §7.3캡 0.15·charges/cd_trade 가산·tier=더 희귀). 파이프라인(backpack/stash/dispatch/loot/equip/inventory) **무변경**.
+- **튜닝(게임측):** affix된 인스턴스의 2nd affix 확률 MULTI_CHANCE=0.30. coeff 합산캡 SUM_COEFF_CAP=0.15(§7.3).
+- **영향:** `affix_roller.gd`(_make_affix→_make_part/_merge_part/_weighted_type_excluding)·`skill_text.affix_lines`(ids 전체 라벨 " + " 조인). apply(ability_dispatch)는 기존 clampf(±0.15) 그대로 안전.
+- **대안 기각:** affix→list 재구성 — 15사이트 churn·apply 합산로직 신설. 병합 인코딩이 동일 기능·무리스크([[refactor-risk-preference]]).
+- **검증:** 병합표본(2-affix 0.297·동일종류중복 없음·max coeff 0.150) + party_pool_smoke(coeff≤15%·multi 병합 발생·영속) + ci_smoke PASS. → **S6b 잔여 완료**(대장간=Expansion만 남음).
+
 ### IMPL-DEC-20260626-034 — gear potencyMult 옵션 roll (S6b 잔여)
 - **F-008 §3.7 gear 옵션 roll에 potencyMult 추가:** 기존 {dmg_mult→평타, cd_mult→identity 쿨}에 **potency_mult→identity 위력** 합류. loot 굴림 range 0.92~1.10.
 - **배선:** `loot_service` 기어 드롭 rolls에 potency_mult 추가 → `party_member.identity_potency_mult`(bind마다 fresh, 비누적) → `ability_dispatch.try_identity`가 cast 직전 `p["_coeff"]`로 적용(identity_params는 get_ability deep-dup이라 멤버별·안전). 표시=`skill_text.gear_roll_line` "정체성 위력 ×N.NN".

@@ -38,7 +38,10 @@ static func affix_lines(affix) -> Array:
 		return []
 	var a: Dictionary = affix
 	var ids: Array = a.get("ids", [])
-	var nm := Slice01Data.get_affix_label(String(ids[0])) if not ids.is_empty() else "특수 옵션"
+	var names: Array = []
+	for id in ids:
+		names.append(Slice01Data.get_affix_label(String(id)))   # 다종 affix = 모든 라벨 표시
+	var nm := " + ".join(names) if not names.is_empty() else "특수 옵션"
 	var out: Array = ["[color=#%s]✦ %s · %s[/color]" % [RT.ACCENT, nm, String(a.get("tier", ""))]]
 	if float(a.get("coeff", 0.0)) > 0.0:
 		out.append("  [color=#%s]▲ 효과 +%d%%[/color]" % [RT.POS, roundi(float(a["coeff"]) * 100.0)])
