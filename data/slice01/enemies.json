@@ -1,82 +1,488 @@
 {
   "_stats_note": "DEMO PH tuning (F-025 §11 design examples). move_speed = near-party tempo (anti-kite, ×2/3). basic_attack = rom_* archetype (enemy_basics.json, EN-COR-000). abilities[] = SIGNATURE AB-### refs — fired on each AB's own cooldown_s (per-ability timer), NOT every-N-basics (IMPL-DEC-20260619-015). pattern_ref = PT-### (EN-AI-000 §1 / EN unit doc patternRef) → engaged positioning (patterns.json). EN-004 zone-holder reward: long attack_range (PT-004 plants + reaches).",
   "enemies": [
-    { "enemy_id": "EN-001", "role": "elite",  "display_name": "Aegis Bearer", "pattern_ref": "PT-001",
-      "stats": { "hp": 760, "move_speed": 5.5, "contact_damage": 18, "attack_range_m": 1.8, "attack_interval_s": 1.4 },
+    {
+      "enemy_id": "EN-001",
+      "role": "elite",
+      "display_name": "Aegis Bearer",
+      "pattern_ref": "PT-001",
+      "stats": {
+        "hp": 760,
+        "move_speed": 5.5,
+        "contact_damage": 18,
+        "attack_range_m": 1.8,
+        "attack_interval_s": 1.4
+      },
       "basic_attack": "rom_melee_kb_light",
-      "abilities": [ { "ref": "AB-099" }, { "ref": "AB-002" } ] },
-
-    { "enemy_id": "EN-002", "role": "nuker", "display_name": "Voltaic Acolyte", "pattern_ref": "PT-002",
-      "stats": { "hp": 300, "move_speed": 5.0, "contact_damage": 14, "attack_range_m": 9.0, "attack_interval_s": 1.8 },
+      "abilities": [
+        {
+          "ref": "AB-099"
+        },
+        {
+          "ref": "AB-002"
+        }
+      ],
+      "tags": {
+        "tier": "Elite",
+        "archetype": "ShieldElite",
+        "bucket": "Elite",
+        "axis": "shield",
+        "faction": "Monster",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
+      "enemy_id": "EN-002",
+      "role": "nuker",
+      "display_name": "Voltaic Acolyte",
+      "pattern_ref": "PT-002",
+      "stats": {
+        "hp": 300,
+        "move_speed": 5.0,
+        "contact_damage": 14,
+        "attack_range_m": 9.0,
+        "attack_interval_s": 1.8
+      },
       "basic_attack": "rom_elite_voltaic_double",
-      "abilities": [ { "ref": "AB-004" } ] },
-    { "enemy_id": "EN-003", "role": "elite", "display_name": "Skirting Raptor", "pattern_ref": "PT-003",
-      "stats": { "hp": 340, "move_speed": 6.3, "contact_damage": 13, "attack_range_m": 1.6, "attack_interval_s": 1.1 },
+      "abilities": [
+        {
+          "ref": "AB-004"
+        }
+      ],
+      "tags": {
+        "tier": "Elite",
+        "archetype": "NukerElite",
+        "bucket": "Elite",
+        "axis": "nuker",
+        "faction": "Monster",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
+      "enemy_id": "EN-003",
+      "role": "elite",
+      "display_name": "Skirting Raptor",
+      "pattern_ref": "PT-003",
+      "stats": {
+        "hp": 340,
+        "move_speed": 6.3,
+        "contact_damage": 13,
+        "attack_range_m": 1.6,
+        "attack_interval_s": 1.1
+      },
       "basic_attack": "rom_elite_melee_flurry",
-      "abilities": [ { "ref": "AB-006" } ] },
-    { "enemy_id": "EN-004", "role": "elite", "display_name": "Slag Siphon", "pattern_ref": "PT-004",
-      "stats": { "hp": 420, "move_speed": 4.8, "contact_damage": 13, "attack_range_m": 9.0, "attack_interval_s": 1.8 },
+      "abilities": [
+        {
+          "ref": "AB-006"
+        }
+      ],
+      "tags": {
+        "tier": "Elite",
+        "archetype": "MobileElite",
+        "bucket": "Elite",
+        "axis": "mobile",
+        "faction": "Monster",
+        "placement_affinity": "Patrol"
+      }
+    },
+    {
+      "enemy_id": "EN-004",
+      "role": "elite",
+      "display_name": "Slag Siphon",
+      "pattern_ref": "PT-004",
+      "stats": {
+        "hp": 420,
+        "move_speed": 4.8,
+        "contact_damage": 13,
+        "attack_range_m": 9.0,
+        "attack_interval_s": 1.8
+      },
       "basic_attack": "rom_elite_slag_toss",
-      "abilities": [ { "ref": "AB-008" }, { "ref": "AB-009" }, { "ref": "AB-042" } ] },
-
-    { "enemy_id": "EN-005", "role": "nuker", "display_name": "Gutter Spitter", "pattern_ref": "PT-005",
-      "stats": { "hp": 165, "move_speed": 5.3, "contact_damage": 9, "attack_range_m": 8.5, "attack_interval_s": 1.5 },
+      "abilities": [
+        {
+          "ref": "AB-008"
+        },
+        {
+          "ref": "AB-009"
+        },
+        {
+          "ref": "AB-042"
+        }
+      ],
+      "tags": {
+        "tier": "Elite",
+        "archetype": "EnvironmentElite",
+        "bucket": "Elite",
+        "axis": "zone",
+        "faction": "Monster",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
+      "enemy_id": "EN-005",
+      "role": "nuker",
+      "display_name": "Gutter Spitter",
+      "pattern_ref": "PT-005",
+      "stats": {
+        "hp": 165,
+        "move_speed": 5.3,
+        "contact_damage": 9,
+        "attack_range_m": 8.5,
+        "attack_interval_s": 1.5
+      },
       "basic_attack": "rom_trash_spit_poke",
-      "abilities": [ { "ref": "AB-010" }, { "ref": "AB-039" } ] },
-    { "enemy_id": "EN-006", "role": "cc", "display_name": "Bell Ringer", "pattern_ref": "PT-006",
-      "stats": { "hp": 330, "move_speed": 5.5, "contact_damage": 10, "attack_range_m": 1.9, "attack_interval_s": 1.3 },
+      "abilities": [
+        {
+          "ref": "AB-010"
+        },
+        {
+          "ref": "AB-039"
+        }
+      ],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "NukerTrash",
+        "bucket": "Specialist",
+        "axis": "nuker",
+        "faction": "Monster",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
+      "enemy_id": "EN-006",
+      "role": "cc",
+      "display_name": "Bell Ringer",
+      "pattern_ref": "PT-006",
+      "stats": {
+        "hp": 330,
+        "move_speed": 5.5,
+        "contact_damage": 10,
+        "attack_range_m": 1.9,
+        "attack_interval_s": 1.3
+      },
       "basic_attack": "rom_trash_bell_tap",
-      "abilities": [ { "ref": "AB-011" } ] },
-    { "enemy_id": "EN-007", "role": "nuker", "display_name": "Mire Hexer", "pattern_ref": "PT-007",
-      "stats": { "hp": 220, "move_speed": 5.2, "contact_damage": 8, "attack_range_m": 8.0, "attack_interval_s": 1.7 },
+      "abilities": [
+        {
+          "ref": "AB-011"
+        }
+      ],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "CCTrash",
+        "bucket": "Specialist",
+        "axis": "cc",
+        "faction": "Monster",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
+      "enemy_id": "EN-007",
+      "role": "nuker",
+      "display_name": "Mire Hexer",
+      "pattern_ref": "PT-007",
+      "stats": {
+        "hp": 220,
+        "move_speed": 5.2,
+        "contact_damage": 8,
+        "attack_range_m": 8.0,
+        "attack_interval_s": 1.7
+      },
       "basic_attack": "rom_trash_hex_bolt",
-      "abilities": [ { "ref": "AB-012" }, { "ref": "AB-036" }, { "ref": "AB-040" }, { "ref": "AB-043" }, { "ref": "AB-041" } ] },
-    { "enemy_id": "EN-008", "role": "fodder", "display_name": "Corner Knife", "pattern_ref": "PT-008",
-      "stats": { "hp": 240, "move_speed": 6.0, "contact_damage": 12, "attack_range_m": 1.5, "attack_interval_s": 1.0 },
+      "abilities": [
+        {
+          "ref": "AB-012"
+        },
+        {
+          "ref": "AB-036"
+        },
+        {
+          "ref": "AB-040"
+        },
+        {
+          "ref": "AB-043"
+        },
+        {
+          "ref": "AB-041"
+        }
+      ],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "DebuffTrash",
+        "bucket": "Specialist",
+        "axis": "debuff",
+        "faction": "Monster",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
+      "enemy_id": "EN-008",
+      "role": "fodder",
+      "display_name": "Corner Knife",
+      "pattern_ref": "PT-008",
+      "stats": {
+        "hp": 240,
+        "move_speed": 6.0,
+        "contact_damage": 12,
+        "attack_range_m": 1.5,
+        "attack_interval_s": 1.0
+      },
       "basic_attack": "rom_trash_flank_stab",
-      "abilities": [ { "ref": "AB-013" } ] },
-    { "enemy_id": "EN-009", "role": "fodder", "display_name": "Rustling Swarm", "pattern_ref": "PT-009",
-      "stats": { "hp": 90, "move_speed": 6.2, "contact_damage": 6, "attack_range_m": 1.4, "attack_interval_s": 0.9 },
+      "abilities": [
+        {
+          "ref": "AB-013"
+        }
+      ],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "FlankTrash",
+        "bucket": "Specialist",
+        "axis": "flank",
+        "faction": "Monster",
+        "placement_affinity": "AmbushHold"
+      }
+    },
+    {
+      "enemy_id": "EN-009",
+      "role": "fodder",
+      "display_name": "Rustling Swarm",
+      "pattern_ref": "PT-009",
+      "stats": {
+        "hp": 90,
+        "move_speed": 6.2,
+        "contact_damage": 6,
+        "attack_range_m": 1.4,
+        "attack_interval_s": 0.9
+      },
       "basic_attack": "rom_swarm_nip",
-      "abilities": [] },
-
-    { "enemy_id": "EN-010", "role": "fodder", "display_name": "Front Rush Grunt", "pattern_ref": "PT-012",
-      "stats": { "hp": 230, "move_speed": 6.0, "contact_damage": 11, "attack_range_m": 1.6, "attack_interval_s": 1.4 },
+      "abilities": [],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "SwarmTrash",
+        "bucket": "Fodder",
+        "axis": "swarm",
+        "faction": "Monster",
+        "placement_affinity": "Patrol"
+      }
+    },
+    {
+      "enemy_id": "EN-010",
+      "role": "fodder",
+      "display_name": "Front Rush Grunt",
+      "pattern_ref": "PT-012",
+      "stats": {
+        "hp": 230,
+        "move_speed": 6.0,
+        "contact_damage": 11,
+        "attack_range_m": 1.6,
+        "attack_interval_s": 1.4
+      },
       "basic_attack": "rom_fodder_melee_tap",
-      "abilities": [] },
-    { "enemy_id": "EN-011", "role": "fodder", "display_name": "Back Pester Grunt", "pattern_ref": "PT-013",
-      "stats": { "hp": 185, "move_speed": 5.3, "contact_damage": 9, "attack_range_m": 7.5, "attack_interval_s": 2.0 },
+      "abilities": [],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "FodderTrash",
+        "bucket": "Fodder",
+        "axis": "",
+        "faction": "Monster",
+        "placement_affinity": "Patrol",
+        "fodder_variant": "FrontRush"
+      }
+    },
+    {
+      "enemy_id": "EN-011",
+      "role": "fodder",
+      "display_name": "Back Pester Grunt",
+      "pattern_ref": "PT-013",
+      "stats": {
+        "hp": 185,
+        "move_speed": 5.3,
+        "contact_damage": 9,
+        "attack_range_m": 7.5,
+        "attack_interval_s": 2.0
+      },
       "basic_attack": "rom_fodder_pebble_toss",
-      "abilities": [] },
-    { "enemy_id": "EN-012", "role": "fodder", "display_name": "Slow Bulk Grunt", "pattern_ref": "PT-014",
-      "stats": { "hp": 500, "move_speed": 5.0, "contact_damage": 16, "attack_range_m": 1.8, "attack_interval_s": 1.4 },
+      "abilities": [],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "FodderTrash",
+        "bucket": "Fodder",
+        "axis": "",
+        "faction": "Monster",
+        "placement_affinity": "Fixed",
+        "fodder_variant": "BackPester"
+      }
+    },
+    {
+      "enemy_id": "EN-012",
+      "role": "fodder",
+      "display_name": "Slow Bulk Grunt",
+      "pattern_ref": "PT-014",
+      "stats": {
+        "hp": 500,
+        "move_speed": 5.0,
+        "contact_damage": 16,
+        "attack_range_m": 1.8,
+        "attack_interval_s": 1.4
+      },
       "basic_attack": "rom_fodder_melee_tap",
-      "abilities": [] },
-    { "enemy_id": "EN-013", "role": "fodder", "display_name": "Skitter Grunt", "pattern_ref": "PT-015",
-      "stats": { "hp": 155, "move_speed": 6.3, "contact_damage": 8, "attack_range_m": 1.4, "attack_interval_s": 1.4 },
+      "abilities": [],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "FodderTrash",
+        "bucket": "Fodder",
+        "axis": "",
+        "faction": "Monster",
+        "placement_affinity": "Fixed",
+        "fodder_variant": "SlowBulk"
+      }
+    },
+    {
+      "enemy_id": "EN-013",
+      "role": "fodder",
+      "display_name": "Skitter Grunt",
+      "pattern_ref": "PT-015",
+      "stats": {
+        "hp": 155,
+        "move_speed": 6.3,
+        "contact_damage": 8,
+        "attack_range_m": 1.4,
+        "attack_interval_s": 1.4
+      },
       "basic_attack": "rom_fodder_melee_tap",
-      "abilities": [] },
-
-    { "enemy_id": "EN-014", "role": "support", "display_name": "Gutter Chanter", "pattern_ref": "PT-016",
-      "stats": { "hp": 280, "move_speed": 5.2, "contact_damage": 7, "attack_range_m": 1.7, "attack_interval_s": 1.5 },
+      "abilities": [],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "FodderTrash",
+        "bucket": "Fodder",
+        "axis": "",
+        "faction": "Monster",
+        "placement_affinity": "Patrol",
+        "fodder_variant": "Skitter"
+      }
+    },
+    {
+      "enemy_id": "EN-014",
+      "role": "support",
+      "display_name": "Gutter Chanter",
+      "pattern_ref": "PT-016",
+      "stats": {
+        "hp": 280,
+        "move_speed": 5.2,
+        "contact_damage": 7,
+        "attack_range_m": 1.7,
+        "attack_interval_s": 1.5
+      },
       "basic_attack": "rom_trash_sustain_tap",
       "_role_note": "SustainTrash (EN-AI-000 PT-016). worldInteractProfile: none (torch carry is ENC-bound, demo home ENC-PAT-003=P2-S3 — NOT a unit property).",
-      "abilities": [ { "ref": "AB-098" } ] },
-
-    { "enemy_id": "EN-3RD-01", "role": "elite", "display_name": "Stalker", "pattern_ref": "PT-023",
-      "stats": { "hp": 230, "move_speed": 6.5, "contact_damage": 16, "attack_range_m": 1.8, "attack_interval_s": 0.9 },
+      "abilities": [
+        {
+          "ref": "AB-098"
+        }
+      ],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "SustainTrash",
+        "bucket": "Specialist",
+        "axis": "sustain",
+        "faction": "Monster",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
+      "enemy_id": "EN-3RD-01",
+      "role": "elite",
+      "display_name": "Stalker",
+      "pattern_ref": "PT-023",
+      "stats": {
+        "hp": 230,
+        "move_speed": 6.5,
+        "contact_damage": 16,
+        "attack_range_m": 1.8,
+        "attack_interval_s": 0.9
+      },
       "basic_attack": "rom_stalker_rip",
       "_role_note": "제3세력 추적자 — 포식 타겟팅(weakest)·Scent 마크·Pounce 도약+Pin. faction=Third(ENC).",
-      "abilities": [ { "ref": "AB-100" }, { "ref": "AB-101" } ] },
-    { "enemy_id": "EN-3RD-02", "role": "nuker", "display_name": "Snarer", "pattern_ref": "PT-024",
-      "stats": { "hp": 240, "move_speed": 5.2, "contact_damage": 12, "attack_range_m": 9.0, "attack_interval_s": 1.6 },
+      "abilities": [
+        {
+          "ref": "AB-100"
+        },
+        {
+          "ref": "AB-101"
+        }
+      ],
+      "tags": {
+        "tier": "Elite",
+        "archetype": "MobileElite",
+        "bucket": "Elite",
+        "axis": "mobile",
+        "faction": "ThirdFaction",
+        "placement_affinity": "AmbushHold"
+      }
+    },
+    {
+      "enemy_id": "EN-3RD-02",
+      "role": "nuker",
+      "display_name": "Snarer",
+      "pattern_ref": "PT-024",
+      "stats": {
+        "hp": 240,
+        "move_speed": 5.2,
+        "contact_damage": 12,
+        "attack_range_m": 9.0,
+        "attack_interval_s": 1.6
+      },
       "basic_attack": "rom_snarer_dart",
       "_role_note": "제3세력 포획꾼 — 원거리 kite, Scented 먹이에 Snare(Root)/Tether 셋업.",
-      "abilities": [ { "ref": "AB-102" }, { "ref": "AB-103" } ] },
-    { "enemy_id": "EN-3RD-03", "role": "elite", "display_name": "Reaver", "pattern_ref": "PT-025",
-      "stats": { "hp": 640, "move_speed": 4.8, "contact_damage": 22, "attack_range_m": 2.0, "attack_interval_s": 1.8 },
+      "abilities": [
+        {
+          "ref": "AB-102"
+        },
+        {
+          "ref": "AB-103"
+        }
+      ],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "CCTrash",
+        "bucket": "Specialist",
+        "axis": "control",
+        "faction": "ThirdFaction",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
+      "enemy_id": "EN-3RD-03",
+      "role": "elite",
+      "display_name": "Reaver",
+      "pattern_ref": "PT-025",
+      "stats": {
+        "hp": 640,
+        "move_speed": 4.8,
+        "contact_damage": 22,
+        "attack_range_m": 2.0,
+        "attack_interval_s": 1.8
+      },
       "basic_attack": "rom_reaver_cleave",
       "_role_note": "제3세력 학살자 — 돌진(Rampage)·HP<50% Bloodlust 격화·저HP Devour 처형(처치 시 회복).",
-      "abilities": [ { "ref": "AB-104" }, { "ref": "AB-105" }, { "ref": "AB-106" } ] }
+      "abilities": [
+        {
+          "ref": "AB-104"
+        },
+        {
+          "ref": "AB-105"
+        },
+        {
+          "ref": "AB-106"
+        }
+      ],
+      "tags": {
+        "tier": "Elite",
+        "archetype": "NukerElite",
+        "bucket": "Elite",
+        "axis": "melee",
+        "faction": "ThirdFaction",
+        "placement_affinity": "Patrol"
+      }
+    }
   ]
 }

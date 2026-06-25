@@ -215,6 +215,12 @@ const _DEFAULT_ENEMY_STATS := {
 
 
 ## Returns the enemy row with a fully-populated `stats` block (defaults merged).
+## EN-* 생성기 태그(S5b Encounter Variety) — {tier, archetype, bucket(Elite/Specialist/Fodder),
+## axis(specialist 종류 키), faction, placement_affinity, fodder_variant?}. 조합 제너레이터 연료(ENC-000 §1/§2).
+func get_enemy_tags(enemy_id: String) -> Dictionary:
+	return (_enemies.get(enemy_id, {}) as Dictionary).get("tags", {})
+
+
 func get_enemy_row(enemy_id: String) -> Dictionary:
 	if not _enemies.has(enemy_id):
 		return {}

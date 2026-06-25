@@ -289,6 +289,17 @@ func _initialize() -> void:
 	_chk("킬 재화 누적(스킬 미드롭)", int(ls3.run_scrap) == 2 * int(ls3.KILL_SCRAP))
 	ls3.free()
 
+	# 19) S5b EN-* 생성기 태그 — tier/archetype/bucket/axis/faction/placement + fodder_variant.
+	var t1: Dictionary = sd.get_enemy_tags("EN-001")
+	_chk("EN-001 태그 Elite/ShieldElite", String(t1.get("tier", "")) == "Elite" and String(t1.get("bucket", "")) == "Elite")
+	_chk("EN-010 fodder_variant", String(sd.get_enemy_tags("EN-010").get("fodder_variant", "")) == "FrontRush")
+	_chk("EN-3RD-01 faction", String(sd.get_enemy_tags("EN-3RD-01").get("faction", "")) == "ThirdFaction")
+	var all_tagged := true
+	for eid in sd.get_enemy_ids():
+		if (sd.get_enemy_tags(String(eid)) as Dictionary).is_empty():
+			all_tagged = false
+	_chk("모든 EN 태그 보유", all_tagged)
+
 	# 17) 스킬 설명문 + 색구분 툴팁 빌더 (display_names.skill_desc / SkillText).
 	_chk("skill_desc(silence) 존재", not sd.get_skill_desc("skillbook_silence").is_empty())
 	var ST = load("res://scripts/ui/skill_text.gd")
