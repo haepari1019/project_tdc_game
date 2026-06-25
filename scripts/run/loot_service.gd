@@ -11,8 +11,8 @@ const AffixRoller := preload("res://scripts/run/affix_roller.gd")   # D-018 §7.
 ## PH gear-loot pool — dungeon-dropped Identity Gear (F-008 §3.3 / DEC-20260611-001; looted =
 ## At Risk). Same-role (Tank) equippable + cross-role (Healer) to show the equipClasses reject.
 const GEAR_LOOT: Array = ["gear_ward_tank_anchor_bulwark", "gear_ward_healer_mend_lantern"]
-const GEAR_DROP_CHANCE := 0.08          # gear is RARE (per-kill, after the skillbook roll). (tuning)
-const SKILLBOOK_DROP_CHANCE := 0.85     # high so lootable-AB enemies almost always drop. (tuning)
+const GEAR_DROP_CHANCE := 0.04          # gear is RARE (per-kill, after the skillbook roll). (tuning)
+const SKILLBOOK_DROP_CHANCE := 0.15     # 스펙 §7.4 대역(Normal 8% / Hard 15%) — 탄약수↑(50~80)에 맞춰 빈도↓(피로 완화). (tuning)
 # haulMaterial(F-029/D-029)은 per-kill가 아니라 ENC(분대) 클리어 시 HUB-COR-000 §3 표로 드롭
 # (on_squad_cleared). combat.squad_cleared → 여기 연결.
 

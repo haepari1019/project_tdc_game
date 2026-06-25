@@ -483,3 +483,10 @@
 - **바운드/파생:** **Slice-01 = 인스턴스당 단일 affix**(§7.3 합산 ≤15% 자명 만족; multi=후속). `TIER_SCALE`(희귀 tier coeff 소폭↑)=게임측 파생(스펙 외, cap 클램프, 튜닝). 절대 수치=데모(런타임 SSOT F-025 §11). **이연:** §7.5 중복 sink·affixTier 5단·대장간 리롤.
 - **분류\전파:** impl. 메커니즘 spec(D-018/F-009) 그대로 → 규칙 드리프트 없음. 설계 = `docs/design/affix_design.md`.
 - **검증:** party_pool_smoke §16(roll cap·charges 가산·capture/apply 영속) + ci_smoke PASS. 전투 적용·툴팁 = F5.
+
+### DRIFT-063 — 스킬북 탄약수↑ + 드롭률↓ (스펙 §7.2/§7.4 대역으로 수렴) 🔶 tuning
+- **현실(2026-06-25, 사용자 "스킬북 너무 많이 떨어져 피로 → 탄약↑·드롭↓"):** 기존 게임값(charges_max 4~12, skillbook 드롭 flat 0.85)이 스펙과 크게 괴리 → 스펙 대역으로 수렴.
+- **변경:** `skillbooks.json` charges_max **×10 클램프[50,80]**(§7.2 50~80 대역; 결과 50/60/80 중심, n=61) · `loot_service.SKILLBOOK_DROP_CHANCE 0.85→0.15`(§7.4 Normal 8%/Hard 15% 대역) · `GEAR_DROP_CHANCE 0.08→0.04`(스킬북 롤↓로 gear 롤 도달↑ 상쇄 + 전반 클러터↓).
+- **효과:** 스킬북 드롭/런 ~27→~5(피로 완화), 탄약 ~10x → 적게 줍고 오래 쓰는 형태. 순 전력예산 유사~약간↑.
+- **분류\전파:** **tuning만**(로깅, 전파 없음). 메커니즘·규칙 무변경. 절대 수치=데모(런타임 SSOT F-025 §11). per-AB abilityTier 차등 charges(§7.2 Basic56/Adv60/Master72)·난이도별 드롭(8%/15%)=후속(데이터 미보유). 클래스 소프트-피티(IMPL-DEC-030)와 곱연산으로 동작.
+- **검증:** ci_smoke PASS(JSON 검증·부팅). 체감=F5.
