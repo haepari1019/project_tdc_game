@@ -6,12 +6,12 @@
 
 ---
 
-### IMPL-DEC-20260626-032 — force_overrides 난이도별 핀(Hard ENC-HARD-001 도달) — 무기고 개방 차단 해소
-- **문제:** spawn_table force_override가 P-ADV-01을 난이도 무관 ENC-NORM-001로 고정 → Hard에서도 ENC-HARD-001 미등장 → Q-HUB-020(armory 승급) 불가. (사용자: "하드 들어갔더니 적이없어".)
-- **결정:** `force_overrides[pool]` 값을 문자열(전 난이도 강제, back-compat) 또는 `{difficulty: enc}`(난이도별)로 허용. 데이터=P-ADV-01={Normal:NORM-001, Hard:HARD-001}. Normal QA핀 유지 + Hard 도달.
-- **대안 기각:** override 완전 제거(Normal 단일후보라 동작은 동일하나 propagated QA핀 의도 소실) → 난이도별 핀이 의도 보존 + Hard 추가.
-- **영향:** `slice01_data.gd`(get_encounter_for_pool·_parse_spawn_table·enc 커버리지)·`data/slice01/spawn_table.json`. 스키마 확장 divergence=DRIFT-067.
-- **부수 확인:** EncounterGenerator SCALE에 Hard 존재(2~5 fodder)·difficulty 미스→Normal fallback → "적 0"은 generator 아님(force핀+4~5전투 budget이 원인). P-ENTRY/P-DEEP은 Hard 행 없음(콘텐츠 갭, 비차단).
+### IMPL-DEC-20260626-032 — Q-HUB-020(무기고)을 특정 ENC에서 분리: "임의 Hard 클리어" (절차생성 정합)
+- **문제:** Q-HUB-020 완료조건이 특정 `ENC-HARD-001 clear once`인데, S5b로 ENC는 절차생성(units=generate, 프레임=spawn_table resolve)으로 전환됨. force_override가 P-ADV-01을 난이도 무관 NORM-001로 고정해 Hard에서도 HARD-001 미등장 → 무기고 영구 차단. (사용자 "하드 들어갔더니 적이없어".)
+- **결정(사용자 "ENC도 절차적으로 뽑기로 한 거 아니냐" → 퀘스트 일반화 선택):** Q-HUB-020을 **특정 ENC 비의존**으로 — "임의 **Hard 인카운터 1회 클리어**". `HubProfile.hard_cleared` 플래그(영속) + `record_enc_cleared(enc, difficulty)`가 Hard면 set. force-pin은 **Hard 제거·Normal QA핀만 유지**(`{P-ADV-01:{Normal:NORM-001}}`).
+- **대안 기각:** ①Hard도 핀(1차안) — 특정 ENC 의존 유지·절차철학 위배. ②"Hard 추출 성공" — 게이트 과도(런 완주 요구), armory T1엔 과함 → "임의 Hard 클리어"가 접근성·의미 균형.
+- **영향:** `hub_profile.gd`(hard_cleared·record_enc_cleared 시그니처·evaluate_quests·persist/reset)·`dungeon_run.gd`(difficulty 전달)·`quests.json`(completion)·`spawn_table.json`(Hard 핀 제거). force_overrides 난이도별 스키마(string|dict)는 유지(Normal 핀에 사용). divergence=DRIFT-067.
+- **부수 확인:** _should_generate = BOSS/3RD만 authored → HARD-001 units도 절차생성(세트피스 아님). EncounterGenerator Hard SCALE 정상 → "적 0"은 force핀(가림)+4~5전투 budget.
 
 ### IMPL-DEC-20260625-031 — 루트 경제 재구성: 절차적 티어 상자 + 몬스터=스킬/재화 + 재료=상자
 - **결정(사용자):** ① 루트 상자를 맵 구석구석 **절차적 배치**(퀘스트 Key 상자만 고정) ② 상자 **티어**(일반/희귀, 희귀는 덜 배치·affix 확률↑) ③ **재료는 상자 주공급** ④ **몬스터 킬 = 자기 스킬 OR At-Risk 소량 재화**(재료·기어 미드롭).

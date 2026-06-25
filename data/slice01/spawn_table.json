@@ -2,55 +2,433 @@
   "spawn_table_id": "LDG-SPAWN-DEMO-001",
   "_ref": "spec docs/level-design/spawn-tables/LDG-SPAWN-DEMO-001.md §2. Resolve key: (pool_slot, difficulty, world_layer) -> weighted candidate set; run_seed picks one (DEC-20260620-002). force_overrides win (DBP-DEMO-001 §5.1). `placement` mirrors each ENC's placement_behavior. P-ADV-06..09 = DungeonScale 확장(게임).",
   "force_overrides": {
-    "P-ADV-01": { "Normal": "ENC-NORM-001", "Hard": "ENC-HARD-001" }
+    "P-ADV-01": {
+      "Normal": "ENC-NORM-001"
+    }
   },
   "rows": [
-    { "pool_slot": "P-ENTRY-01",     "run_phase": "Entry",             "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-NORM-002", "placement": "Fixed",      "weight": 3 },
-    { "pool_slot": "P-ENTRY-01",     "run_phase": "Entry",             "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-001",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-01",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-NORM-001", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-01",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-001", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-02",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-NORM-003", "placement": "Fixed",      "weight": 2 },
-    { "pool_slot": "P-ADV-02",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-003",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-02",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-001",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-ADV-02",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-006", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-02",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-010", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-03",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-NORM-003", "placement": "Fixed",      "weight": 2 },
-    { "pool_slot": "P-ADV-03",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-002",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-03",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-002",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-ADV-03",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-010", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-03",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-002", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-04",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-001",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-04",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-003",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-04",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-001",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-ADV-04",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-011", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-04",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-003", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-05",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-002",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-05",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-002",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-ADV-05",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-012", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-05",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-004", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-06",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-003",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-06",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-001",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-ADV-06",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-NORM-003", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-06",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-002", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-06",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-005", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-07",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-001",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-07",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-002",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-ADV-07",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-003", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-07",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-006", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-08",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-002",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-08",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-001",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-ADV-08",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-004", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-08",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-011", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-09",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-PAT-003",  "placement": "Patrol",     "weight": 1 },
-    { "pool_slot": "P-ADV-09",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-002",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-ADV-09",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-005", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-ADV-09",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-012", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-MID-01",       "run_phase": "Advance",           "world_layer": "Mid",   "difficulty": "Normal", "encounter_ref": "ENC-MID-001",  "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-MID-01",       "run_phase": "Advance",           "world_layer": "Mid",   "difficulty": "Hard",   "encounter_ref": "ENC-HARD-008", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-DEEP-01",      "run_phase": "AdvanceExtraction", "world_layer": "Deep",  "difficulty": "Normal", "encounter_ref": "ENC-DEEP-001", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-BOSS-01",      "run_phase": "Objective",         "world_layer": "Mid",   "difficulty": "Hard",   "encounter_ref": "ENC-BOSS-001", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-EXT-ROUTE-01", "run_phase": "AdvanceExtraction", "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-AMB-001",  "placement": "AmbushHold", "weight": 1 },
-    { "pool_slot": "P-EXT-ROUTE-01", "run_phase": "AdvanceExtraction", "world_layer": "Upper", "difficulty": "Hard",   "encounter_ref": "ENC-HARD-009", "placement": "Fixed",      "weight": 1 },
-    { "pool_slot": "P-3RD-01",       "run_phase": "Advance",           "world_layer": "Upper", "difficulty": "Normal", "encounter_ref": "ENC-3RD-001",  "placement": "Fixed",      "weight": 1 }
+    {
+      "pool_slot": "P-ENTRY-01",
+      "run_phase": "Entry",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-NORM-002",
+      "placement": "Fixed",
+      "weight": 3
+    },
+    {
+      "pool_slot": "P-ENTRY-01",
+      "run_phase": "Entry",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-001",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-01",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-NORM-001",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-01",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-001",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-02",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-NORM-003",
+      "placement": "Fixed",
+      "weight": 2
+    },
+    {
+      "pool_slot": "P-ADV-02",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-003",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-02",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-001",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-02",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-006",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-02",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-010",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-03",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-NORM-003",
+      "placement": "Fixed",
+      "weight": 2
+    },
+    {
+      "pool_slot": "P-ADV-03",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-002",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-03",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-002",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-03",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-010",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-03",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-002",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-04",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-001",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-04",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-003",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-04",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-001",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-04",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-011",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-04",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-003",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-05",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-002",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-05",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-002",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-05",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-012",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-05",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-004",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-06",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-003",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-06",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-001",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-06",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-NORM-003",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-06",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-002",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-06",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-005",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-07",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-001",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-07",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-002",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-07",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-003",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-07",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-006",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-08",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-002",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-08",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-001",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-08",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-004",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-08",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-011",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-09",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-PAT-003",
+      "placement": "Patrol",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-09",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-002",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-09",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-005",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-09",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-012",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-MID-01",
+      "run_phase": "Advance",
+      "world_layer": "Mid",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-MID-001",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-MID-01",
+      "run_phase": "Advance",
+      "world_layer": "Mid",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-008",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-DEEP-01",
+      "run_phase": "AdvanceExtraction",
+      "world_layer": "Deep",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-DEEP-001",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-BOSS-01",
+      "run_phase": "Objective",
+      "world_layer": "Mid",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-BOSS-001",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-EXT-ROUTE-01",
+      "run_phase": "AdvanceExtraction",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-AMB-001",
+      "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-EXT-ROUTE-01",
+      "run_phase": "AdvanceExtraction",
+      "world_layer": "Upper",
+      "difficulty": "Hard",
+      "encounter_ref": "ENC-HARD-009",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-3RD-01",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-3RD-001",
+      "placement": "Fixed",
+      "weight": 1
+    }
   ]
 }

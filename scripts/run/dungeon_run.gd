@@ -292,7 +292,7 @@ func _process(_delta: float) -> void:
 func _on_squad_cleared_quest(encounter_id: String, _pos: Vector3) -> void:
 	var hub: Node = get_node_or_null("/root/HubProfile")
 	if hub != null:
-		hub.record_enc_cleared(encounter_id)
+		hub.record_enc_cleared(encounter_id, RunLoadout.get_difficulty())   # Hard면 Q-HUB-020 게이트(무기고)
 
 
 ## Shift+우클릭 버리기 (백팩) → 컨트롤 멤버 발치에 재획득 가능한 ItemDrop 생성.

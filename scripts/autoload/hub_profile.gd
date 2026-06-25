@@ -22,6 +22,7 @@ var facilities: Dictionary = {}        # facilityId -> facilityTier (int, ≥0)
 var hub_haul_vault: Dictionary = {}    # haulMaterialId -> qty (Safe only)
 var quest_completed: Dictionary = {}   # questId -> bool
 var enc_cleared: Dictionary = {}       # encounterId -> true (런 이벤트 퀘스트 판정용, B4)
+var hard_cleared: bool = false         # Hard 난이도 인카운터 1회+ 클리어 (Q-HUB-020 무기고 게이트 — 절차생성과 정합)
 var extraction_success: int = 0        # 누적 추출 성공 횟수 (데모 이벤트 퀘스트: 군수 1·창고T2 2 대용)
 var party_wiped: int = 0               # 누적 전멸 횟수 (데모 이벤트 퀘스트: 성소 복구 대용)
 var analysis_progress: Dictionary = {} # baseAbilityId -> 분석 의뢰 누적 횟수 (Safe meta, F-009 §3.5)
@@ -53,6 +54,7 @@ func to_dict() -> Dictionary:
 		"hub_haul_vault": hub_haul_vault,
 		"quest_completed": quest_completed,
 		"enc_cleared": enc_cleared,
+		"hard_cleared": hard_cleared,
 		"analysis_progress": analysis_progress,
 		"shop_listing_unlocked": shop_listing_unlocked,
 		"ward_scrap": ward_scrap,
@@ -76,6 +78,7 @@ func apply_dict(d: Dictionary) -> void:
 	hub_haul_vault = d.get("hub_haul_vault", {})
 	quest_completed = d.get("quest_completed", {})
 	enc_cleared = d.get("enc_cleared", {})
+	hard_cleared = bool(d.get("hard_cleared", false))
 	analysis_progress = d.get("analysis_progress", {})
 	shop_listing_unlocked = d.get("shop_listing_unlocked", {})
 	ward_scrap = int(d.get("ward_scrap", 0))
@@ -89,6 +92,7 @@ func reset_to_seed() -> void:
 	hub_haul_vault = {}
 	quest_completed = {}
 	enc_cleared = {}
+	hard_cleared = false
 	analysis_progress = {}
 	shop_listing_unlocked = {}
 	ward_scrap = 0
@@ -103,11 +107,19 @@ func reset_to_seed() -> void:
 
 
 ## 런에서 ENC(분대) 클리어 기록 (B4 런 이벤트 퀘스트 판정용). squad_cleared → dungeon_run → 여기.
-func record_enc_cleared(encounter_id: String) -> void:
-	if encounter_id.is_empty() or bool(enc_cleared.get(encounter_id, false)):
-		return
-	enc_cleared[encounter_id] = true
-	save_profile()
+## difficulty="Hard"면 hard_cleared 플래그 — Q-HUB-020(무기고)을 특정 ENC가 아니라 "Hard 클리어"로 판정
+## (절차생성 ENC와 정합: 어느 Hard ENC를 잡든 게이트 충족). enc_cleared도 계속 기록(다른 판정용).
+func record_enc_cleared(encounter_id: String, difficulty: String = "") -> void:
+	var changed := false
+	if difficulty == "Hard" and not hard_cleared:
+		hard_cleared = true
+		changed = true
+	if not encounter_id.is_empty() and not bool(enc_cleared.get(encounter_id, false)):
+		enc_cleared[encounter_id] = true
+		changed = true
+	if changed:
+		evaluate_quests()   # Hard 클리어 즉시 Q-HUB-020 반영(record_extraction_success와 동형)
+		save_profile()
 
 
 ## 런 결과 기록 (데모 이벤트 퀘스트용) — run_end_controller에서 호출. 추출 성공 / 전멸.
@@ -173,7 +185,7 @@ func evaluate_quests() -> void:
 	_q_if("Q-HUB-011", vault_count("haul_arc_ink") >= 2)         # 필기소 T2 — 아크 잉크
 	_q_if("Q-HUB-012", facility_tier("scriptorium") >= 1)        # 상점 개장 — 필기소 선행
 	_q_if("Q-HUB-013", facility_tier("scribe_shop") >= 1)        # 상점 T2
-	_q_if("Q-HUB-020", bool(enc_cleared.get("ENC-HARD-001", false)))  # 무기고 T1 — ENC-HARD-001 클리어(B4)
+	_q_if("Q-HUB-020", hard_cleared)                            # 무기고 T1 — Hard 인카운터 1회 클리어(절차생성 정합, DRIFT-067)
 	_q_if("Q-HUB-021", facility_tier("armory") >= 1)             # 무기고 T2
 	_q_if("Q-HUB-030", vault_count("haul_forge_coal") >= 3)      # 대장간 건립 — 연료
 	_q_if("Q-HUB-031", facility_tier("smithy") >= 1)             # 대장간 T2

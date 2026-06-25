@@ -36,10 +36,9 @@ func _init() -> void:
 	# prereq 게이트 — scribe_shop T1은 scriptorium≥1 선행
 	_expect(String(hp.upgrade_check("scribe_shop").get("reason", "")) == "prereq", "scribe_shop 선행 차단")
 
-	# B4 — ENC-HARD-001 클리어 기록 → Q-HUB-020(armory T1 퀘스트) 완료
-	hp.record_enc_cleared("ENC-HARD-001")
-	hp.evaluate_quests()
-	_expect(hp.is_quest_done("Q-HUB-020"), "B4 Q-HUB-020 (ENC-HARD-001 클리어)")
+	# B4 — enc_cleared 기록 자체는 유지(다른 판정용). Q-HUB-020 판정은 아래 "무기고" 블록(절차생성 정합)에서.
+	hp.record_enc_cleared("ENC-HARD-001", "Normal")
+	_expect(bool(hp.enc_cleared.get("ENC-HARD-001", false)), "B4 enc_cleared 기록")
 
 	# HUB-COR-000 — ENC별 haul 드롭표 (스펙 정확값 + 커버리지)
 	_expect(sd.get_haul_drops("ENC-NORM-001").size() == 2, "haul_drops NORM-001 = 2행")
@@ -80,6 +79,14 @@ func _init() -> void:
 	_expect(not hp.is_quest_done("Q-HUB-040"), "성소 — 전멸 전 미해금")
 	hp.record_party_wipe()
 	_expect(hp.is_quest_done("Q-HUB-040"), "성소 — 전멸 1회로 해금")
+
+	# Q-HUB-020(무기고 개방) — 절차생성 정합: 특정 ENC가 아니라 임의 Hard 인카운터 클리어로 판정.
+	hp.hard_cleared = false
+	hp.quest_completed.erase("Q-HUB-020")
+	hp.record_enc_cleared("ENC-NORM-001", "Normal")
+	_expect(not hp.is_quest_done("Q-HUB-020"), "무기고 — Normal 클리어론 미해금")
+	hp.record_enc_cleared("ENC-HARD-007", "Hard")   # 어느 Hard ENC든 게이트 충족
+	_expect(hp.is_quest_done("Q-HUB-020"), "무기고 — 임의 Hard 인카운터 클리어로 해금")
 
 	# F-029 무기고 기어 상점 — armory Tier 게이트 + ward_scrap 차감.
 	hp.facilities["armory"] = 0

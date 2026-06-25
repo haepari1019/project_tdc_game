@@ -515,11 +515,13 @@
 - **분류\전파:** impl/design — **전파 후보**(S5b 빌드 직전 ENC-000/F-006/LDG-SPAWN OPS_30 예약, 설계 §6). 현재 게임측 검증 우선·미전파. 절대 수치(SCALE·SCATTER_FRAC)=데모.
 - **검증:** party_pool_smoke(태그 + 제너레이터 3난이도×149시드 가드레일) + dungeon_run 부팅 prespawn 생성 + ci_smoke PASS. **잔여=P3 제3세력 창발 모디파이어·P4 런 내 비복원.** 체감=F5.
 
-### DRIFT-067 — force_overrides 난이도별 핀 스키마 + P-ADV-01 Hard=ENC-HARD-001 🔶 impl (전파 후보)
-- **현실(2026-06-26, 사용자 "하드 들어갔더니 적이없어" / 무기고 개방용 ENC-HARD-001 필요):** spawn_table `force_overrides`가 P-ADV-01을 **모든 난이도에서** ENC-NORM-001로 강제 → Hard에서도 ENC-HARD-001이 등장 불가 → Q-HUB-020(armory 승급) 달성 불가였음.
-  - **수정:** `force_overrides[pool]` 값이 **문자열(전 난이도 강제, back-compat)** 또는 **{difficulty: enc}(난이도별 핀)** 둘 다 허용하도록 `get_encounter_for_pool`·`_parse_spawn_table`·enc 커버리지 확장. 데이터=`{"P-ADV-01": {"Normal":"ENC-NORM-001","Hard":"ENC-HARD-001"}}`.
-  - **결과:** Normal P-ADV-01=NORM-001(QA핀 유지)·Hard=HARD-001(도달). budget(4~5전투)+ADV-01 weight 1.8로 대부분 런에서 등장.
-- **스펙과의 차이:** LDG-SPAWN-DEMO-001 forceEncounter 스키마가 단일 enc → 난이도별 map 허용으로 확장(하위호환). Hard HARD-001 핀은 게임측 콘텐츠 결정.
-- **분류\전파:** impl — **전파 후보**(LDG-SPAWN forceEncounter 스키마 OPS_30). 하위호환이라 비파괴. 미전파.
-- **검증:** 난이도별 resolve 확인(P-ADV-01 Normal→NORM-001·Hard→HARD-001) + ci_smoke PASS. 체감=Hard F5 → ENC-HARD-001 클리어 → 무기고 개방.
-- **참고:** P-ENTRY-01·P-DEEP-01은 Hard 행이 없어 Hard에서 ∅(콘텐츠 갭, 비차단). budget상 대부분 ADV/MID/BOSS가 채움. EncounterGenerator는 Hard SCALE(2~5 fodder) 정상 → "적 0"의 원인은 generator가 아니라 force핀+budget이었음.
+### DRIFT-067 — Q-HUB-020(무기고) 절차생성 정합: 특정 ENC 의존 제거 + force_overrides 난이도별 스키마 🔶 impl (전파 후보)
+- **현실(2026-06-26):** spawn_table `force_overrides`가 P-ADV-01을 **모든 난이도에서** ENC-NORM-001로 강제 → Hard에서도 ENC-HARD-001 미등장 → Q-HUB-020(armory) 달성 불가였음. (사용자 "하드 들어갔더니 적이없어".)
+- **결정 진화:** ① 1차 — force_override를 `{difficulty: enc}`로 확장해 Hard=ENC-HARD-001 핀(도달). → ② **사용자 재지정("ENC도 절차적으로 뽑기로 한 거 아니냐")**으로 **퀘스트를 특정 ENC에서 분리**: Q-HUB-020 = "임의 **Hard 인카운터 1회 클리어**"(절차생성과 정합). Hard 핀 제거 — Hard P-ADV-01은 일반 weighted resolve(현 풀 단일후보=HARD-001이나 핀 아님).
+- **구현(최종):**
+  - `force_overrides[pool]` 값이 **문자열(전 난이도 강제, back-compat)** 또는 **{difficulty: enc}** 모두 허용(`get_encounter_for_pool`·`_parse_spawn_table`·enc 커버리지). 데이터=`{"P-ADV-01": {"Normal":"ENC-NORM-001"}}` — **Normal QA핀만 유지**(QA-031 그대로), Hard 미핀.
+  - `HubProfile.hard_cleared`(영속) + `record_enc_cleared(enc, difficulty)`가 difficulty=="Hard"면 set + evaluate. `evaluate_quests`의 Q-HUB-020 = `hard_cleared`. quests.json completion="Hard encounter clear once (any)". `dungeon_run`이 `RunLoadout.get_difficulty()` 전달.
+- **스펙과의 차이:** ① LDG-SPAWN forceEncounter 스키마 단일 enc → 난이도별 map 확장(하위호환). ② Q-HUB-020 완료조건 "ENC-HARD-001 clear once" → "임의 Hard 클리어"(F-029 §3.3.1 — 절차생성 ENC와 정합).
+- **분류\전파:** impl — **전파 후보**(LDG-SPAWN 스키마 + Q-HUB-020 조건 OPS_30). 하위호환·게이트 완화라 비파괴. 미전파.
+- **검증:** hub_smoke(Normal 클리어 미해금·임의 Hard 클리어 해금) + 난이도별 resolve + ci_smoke PASS. 체감=Hard F5 → 아무 Hard 전투 클리어 → 무기고 개방.
+- **참고:** P-ENTRY-01·P-DEEP-01은 Hard 행 없음(∅, 콘텐츠 갭·비차단). EncounterGenerator Hard SCALE(2~5 fodder) 정상 → "적 0" 체감은 generator 아닌 force핀(가림) + 4~5전투 budget(방 대부분 비전투).
