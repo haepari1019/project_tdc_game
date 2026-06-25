@@ -62,6 +62,13 @@ func _init() -> void:
 	_expect(bool(buy.get("ok", false)) and hp.scrap() == 18, "Basic 구매 -12 scrap (30→18)")
 	_expect(String(hp.buy_raw("AB-099").get("reason", "")) == "locked", "미해금 base 구매 차단")
 
+	# D-018 §7.5 중복 sink — 해금된 base=분해(8), 미해금=매각(4) + add_scrap 반영.
+	_expect(hp.skillbook_sink_value("AB-037") == hp.SINK_DISASSEMBLE, "sink — 해금 base 분해값 8")
+	_expect(hp.skillbook_sink_value("AB-099") == hp.SINK_SELL, "sink — 미해금 base 매각값 4")
+	var scrap_before: int = hp.scrap()
+	hp.add_scrap(hp.skillbook_sink_value("AB-037"))
+	_expect(hp.scrap() == scrap_before + 8, "sink — 분해 시 ward_scrap +8")
+
 	hp.free()
 	if _ok:
 		print("HUB SMOKE PASSED")

@@ -10,6 +10,8 @@ const FACILITY_IDS := ["barracks", "stash", "scriptorium", "scribe_shop", "armor
 const ANALYSIS_REQUIRED := 3
 const SHOP_PRICE := {"Basic": 12, "Advanced": 30, "Master": 60}   # ward_scrap, D-018 §7.1
 const TIER_RANK := {"Basic": 1, "Advanced": 2, "Master": 3}       # vs shop_tier_ceiling (scribe_shop Tier)
+const SINK_DISASSEMBLE := 8   # D-018 §7.5 — 해금 후 중복 스킬북 분해
+const SINK_SELL := 4          # D-018 §7.5 — 미해금 중복 스킬북 허브 매각(분석 재료 대안)
 
 signal facilities_changed()
 signal vault_changed()
@@ -273,6 +275,12 @@ func add_scrap(n: int) -> void:
 
 func shop_price(tier: String) -> int:
 	return int(SHOP_PRICE.get(tier, 999))
+
+
+## D-018 §7.5 중복 스킬북 sink 값 — 해금된 base = 분해(8), 미해금 = 매각(4). 둘 다 인스턴스 1 소멸.
+## CALLER가 스태시에서 책을 제거하고 add_scrap(이 값)을 호출(buy_raw와 대칭: hub=통화, caller=인스턴스).
+func skillbook_sink_value(base_id: String) -> int:
+	return SINK_DISASSEMBLE if is_shop_unlocked(base_id) else SINK_SELL
 
 
 ## Buy a Raw (affix-less) skillbook of `base_id` (default Basic). Gated by unlock + scribe_shop Tier

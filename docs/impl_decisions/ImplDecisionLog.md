@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260625-028 — 중복 스킬북 sink (D-018 §7.5, 분해/매각 → ward_scrap)
+- **결정(사용자 선택):** 스킬북 economy 루프의 sink — 중복 스킬북을 ward_scrap로 환원. **해금된 base = 분해(+8)**, **미해금 = 매각(+4, 분석 재료 대안)**. 인스턴스 1 소멸. 스펙 그대로(D-018 §7.5).
+- **구현:** `HubProfile.SINK_DISASSEMBLE/SINK_SELL` + `skillbook_sink_value(base)`(is_shop_unlocked→8/4). `hub_economy_panel` 분석 행마다 "분해(+8)"/"매각(+4)" 버튼 → `_on_sink`: 스태시에서 책 1권 제거(`remove_skillbook`) → `add_scrap`. buy_raw와 대칭(hub=통화, caller=인스턴스).
+- **위치 결정:** sink는 스태시 보유 스킬북 대상(분석 패널과 동일 소스). 스태시 스킬북 = base id 문자열(미인스턴스화)이라 affix 없는 base만 sink — 루팅 affix본은 백팩/장착에 있고 스태시行시 base화(기어 Stash 인스턴스화와 평행한 한계, 후속).
+- **검증:** hub_smoke(해금 base 8·미해금 4·add_scrap +8) + ci_smoke PASS.
+- **영향:** `hub_profile.gd`·`hub_economy_panel.gd`·`hub_smoke.gd`. ward_scrap source가 추출보상 외 중복 sink로 확장 → 경제 루프 닫힘.
+
 ### IMPL-DEC-20260623-027 — 스킬 슬롯 상세 설명 + 색구분 affix 툴팁 (커스텀 BBCode)
 - **결정(사용자):** ① 스킬 슬롯(액션바) 호버 설명이 너무 간략 → 롤급 설명문. ② affix는 색으로 한눈에(긍정 초록/부정 빨강). 두 요구가 합쳐짐.
 - **핵심 제약:** Godot `tooltip_text`는 평문 → 색 불가. **커스텀 툴팁**(`Control._make_custom_tooltip` → RichTextLabel BBCode)으로 해결. `scripts/ui/rich_tooltip.gd`(Panel 서브클래스 + static make + 색 consts POS/NEG/ACCENT) — RadialCooldown(액션바)·인벤 그리드 셀이 공유.

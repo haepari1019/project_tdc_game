@@ -64,7 +64,7 @@ func _ready() -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(col)
 
-	_header(col, "── 분석 (의뢰 제출 → N=3 해금) ──")
+	_header(col, "── 분석 / 중복 처리 (의뢰 N=3 → 해금 · 분해/매각 → ward_scrap) ──")
 	_analysis_box = VBoxContainer.new()
 	_analysis_box.add_theme_constant_override("separation", 2)
 	col.add_child(_analysis_box)
@@ -121,16 +121,22 @@ func _refresh_analysis() -> void:
 		var m: Dictionary = Slice01Data.get_skillbook_master(String(base))
 		var disp: String = String(m.get("display_name", base))
 		var row := HBoxContainer.new()
-		if _hub.is_shop_unlocked(String(base)):
+		var b: String = String(base)
+		if _hub.is_shop_unlocked(b):
 			_lbl(row, "%s — 보유 %d · 해금됨 ✓" % [disp, int(counts[base])], OK)
 		else:
-			var p: int = _hub.analysis_count(String(base))
+			var p: int = _hub.analysis_count(b)
 			_lbl(row, "%s — 보유 %d · 분석 %d/%d" % [disp, int(counts[base]), p, int(_hub.ANALYSIS_REQUIRED)], DIM)
 			var btn := Button.new()
 			btn.text = "분석 의뢰 (책 1권 소멸)"
-			var b: String = String(base)
 			btn.pressed.connect(func() -> void: _on_analyze(b))
 			row.add_child(btn)
+		# D-018 §7.5 중복 sink — 해금됨=분해(+8), 미해금=매각(+4, 분석 재료 대안). 책 1권 소멸 → ward_scrap.
+		var sink_val: int = int(_hub.skillbook_sink_value(b))
+		var sink := Button.new()
+		sink.text = "%s (+%d)" % [("분해" if _hub.is_shop_unlocked(b) else "매각"), sink_val]
+		sink.pressed.connect(func() -> void: _on_sink(b))
+		row.add_child(sink)
 		_analysis_box.add_child(row)
 
 
@@ -174,6 +180,16 @@ func _on_buy(base: String) -> void:
 	var r: Dictionary = _hub.buy_raw(base, SHOP_TIER)
 	if bool(r.get("ok", false)) and _stash != null:
 		_stash.add_skillbook(base)      # 생본(affix 없음) → 스태시
+	_refresh()
+
+
+## D-018 §7.5 — 중복 스킬북 분해/매각: 스태시에서 1권 제거 → ward_scrap 획득(해금됨 8 / 미해금 4).
+func _on_sink(base: String) -> void:
+	if _stash == null:
+		return
+	var val: int = int(_hub.skillbook_sink_value(base))
+	if _stash.remove_skillbook(base):   # 인스턴스 1 소멸 (있을 때만)
+		_hub.add_scrap(val)
 	_refresh()
 
 
