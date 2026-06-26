@@ -318,7 +318,6 @@ func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
 		var axis: Vector3 = foe.global_position - m.global_position
 		axis.y = 0.0
 		if axis.length() > 0.01:
-			var far_along: float = axis.length()   # 첫 대상 거리(정규화 전) = VFX 기본 끝
 			axis = axis.normalized()
 			for e in _enemies_in_radius(m.global_position, pierce):
 				if e == foe or not is_instance_valid(e):
@@ -330,8 +329,7 @@ func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
 					continue  # 캐스터 뒤 → 관통선 밖
 				if (rel - axis * along).length() <= PIERCE_HALF_WIDTH:
 					_deal_damage(e, m, m.basic_damage * BASIC_PIERCE_FALLOFF)
-					far_along = maxf(far_along, along)   # VFX를 가장 먼 관통 대상까지 연장
-			vfx_to = m.global_position + axis * far_along
+			vfx_to = m.global_position + axis * pierce   # 항상 최대 사거리까지 빔(적 없어도 보임 → 조준 직관)
 	if pierce > 0.0:
 		SkillVfx.basic_pierce_beam(m.basic_attack_profile_id, self, m.global_position, vfx_to)   # 관통 전용 또렷한 빔
 	SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, vfx_to, foe)
