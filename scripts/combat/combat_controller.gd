@@ -302,6 +302,7 @@ func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
 	if foe == null or not is_instance_valid(foe):
 		return
 	_deal_damage(foe, m, m.basic_damage)
+	var vfx_to: Vector3 = foe.global_position   # pierce면 관통 끝점까지 VFX 연장
 	var cleave: float = float(m.basic_cleave_m) if "basic_cleave_m" in m else 0.0
 	var kb: float = float(m.basic_knockback_m) if "basic_knockback_m" in m else 0.0
 	if cleave > 0.0:
@@ -317,6 +318,7 @@ func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
 		var axis: Vector3 = foe.global_position - m.global_position
 		axis.y = 0.0
 		if axis.length() > 0.01:
+			var far_along: float = axis.length()   # 첫 대상 거리(정규화 전) = VFX 기본 끝
 			axis = axis.normalized()
 			for e in _enemies_in_radius(m.global_position, pierce):
 				if e == foe or not is_instance_valid(e):
@@ -328,7 +330,9 @@ func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
 					continue  # 캐스터 뒤 → 관통선 밖
 				if (rel - axis * along).length() <= PIERCE_HALF_WIDTH:
 					_deal_damage(e, m, m.basic_damage * BASIC_PIERCE_FALLOFF)
-	SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, foe.global_position, foe)
+					far_along = maxf(far_along, along)   # VFX를 가장 먼 관통 대상까지 연장
+			vfx_to = m.global_position + axis * far_along
+	SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, vfx_to, foe)
 
 
 func _knockback_from(e: CharacterBody3D, m: CharacterBody3D, dist: float) -> void:
