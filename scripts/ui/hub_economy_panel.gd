@@ -6,12 +6,16 @@ extends Control
 const OK := Color(0.62, 1.0, 0.62)
 const BAD := Color(1.0, 0.6, 0.55)
 const DIM := Color(0.75, 0.75, 0.78)
+const ACCENT := Color(1.0, 0.81, 0.42)
+
+signal closed   # 패널 닫힘 → 호스트(main.gd)가 stash 에디터 소스를 재빌드(구매 반영·덮어쓰기 방지)
 
 var _scrap_lbl: Label
 var _analysis_box: VBoxContainer
 var _shop_box: VBoxContainer
 var _armory_box: VBoxContainer
 var _consum_box: VBoxContainer
+var _stash_box: VBoxContainer   # 타르코프식 — 상점 옆에 현재 창고 내용 표시(구매가 들어오는 게 보이게)
 # Runtime path (parse-time global 회피 — 새 autoload 미등록 에디터에서도 컴파일). main.gd 패턴.
 @onready var _hub: Node = get_node_or_null("/root/HubProfile")
 @onready var _stash: Node = get_node_or_null("/root/Stash")
@@ -31,7 +35,7 @@ func _ready() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 	var win := PanelContainer.new()
-	win.custom_minimum_size = Vector2(760, 560)
+	win.custom_minimum_size = Vector2(940, 560)
 	center.add_child(win)
 	var margin := MarginContainer.new()
 	for s in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -56,10 +60,16 @@ func _ready() -> void:
 	close.pressed.connect(close_panel)
 	titlebar.add_child(close)
 
+	# 2단: 왼쪽 = 상점/분석/무기고/보급, 오른쪽 = 현재 창고(타르코프식 — 구매가 들어오는 게 보임).
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 12)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(body)
+
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(scroll)
+	body.add_child(scroll)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 4)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -82,6 +92,20 @@ func _ready() -> void:
 	_consum_box.add_theme_constant_override("separation", 2)
 	col.add_child(_consum_box)
 
+	# 오른쪽 — 현재 창고 내용(구매 시 즉시 반영). 실제 격자 편집은 배치/스태시 창에서.
+	var stash_scroll := ScrollContainer.new()
+	stash_scroll.custom_minimum_size = Vector2(250, 0)
+	stash_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_child(stash_scroll)
+	var stash_col := VBoxContainer.new()
+	stash_col.add_theme_constant_override("separation", 1)
+	stash_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stash_scroll.add_child(stash_col)
+	_header(stash_col, "── 창고 (현재 보유) ──")
+	_stash_box = VBoxContainer.new()
+	_stash_box.add_theme_constant_override("separation", 1)
+	stash_col.add_child(_stash_box)
+
 	if _hub != null and _hub.has_signal("economy_changed"):
 		_hub.economy_changed.connect(_refresh)
 
@@ -93,6 +117,7 @@ func open_panel() -> void:
 
 func close_panel() -> void:
 	visible = false
+	closed.emit()   # 호스트가 stash 에디터 소스 재빌드(구매 반영·deploy 덮어쓰기 방지)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -110,6 +135,29 @@ func _refresh() -> void:
 	_refresh_shop()
 	_refresh_armory()
 	_refresh_consumables()
+	_refresh_stash()
+
+
+## 현재 창고 내용 — 구매 시 즉시 반영(타르코프식 옆 패널). 격자 편집은 배치/스태시 창에서.
+func _refresh_stash() -> void:
+	for c in _stash_box.get_children():
+		c.queue_free()
+	if _stash == null:
+		return
+	var cap: int = int(_hub.stash_capacity()) if _hub != null else 0
+	var n: int = int(_stash.item_count())
+	_lbl(_stash_box, "용량 %d / %d" % [n, cap], BAD if (cap > 0 and n >= cap) else ACCENT)
+	for g in _stash.gear:
+		var bid := String((g as Dictionary).get("base_gear_id", "")) if typeof(g) == TYPE_DICTIONARY else String(g)
+		var m: Dictionary = Slice01Data.get_gear_master(bid)
+		_lbl(_stash_box, "  ◈ %s" % String(m.get("display_name", bid)), DIM)
+	for s in _stash.skillbooks:
+		var sid := String((s as Dictionary).get("base_ability_id", "")) if typeof(s) == TYPE_DICTIONARY else String(s)
+		var sm: Dictionary = Slice01Data.get_skillbook_master(sid)
+		_lbl(_stash_box, "  ✦ %s" % String(sm.get("display_name", sid)), DIM)
+	for cid in _stash.consumables:
+		var cm: Dictionary = Slice01Data.get_consumable_master(String(cid))
+		_lbl(_stash_box, "  ▣ %s ×%d" % [String(cm.get("display_name", cid)), int(_stash.consumables[cid])], DIM)
 
 
 ## Owned (stash) skillbooks → 의뢰 버튼. 게이트: scriptorium T1. 해금된 base는 '해금됨' 표시(거부).

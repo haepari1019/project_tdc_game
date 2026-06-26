@@ -84,6 +84,9 @@ func _setup_hub() -> void:
 	var economy_btn := Button.new()
 	economy_btn.text = "필기소 · 상점 (분석/구매)"
 	economy_btn.pressed.connect(economy_panel.open_panel)
+	# 상점에서 산 기어/스킬북/소비는 Stash에 바로 들어가므로, 패널을 닫으면 에디터 소스를 재빌드해
+	# 동기화한다(안 그러면 deploy 시 _sync_stash_from_source가 옛 스냅샷으로 구매를 덮어써 유실).
+	economy_panel.closed.connect(func() -> void: _stash_src.items = _build_stash_items())
 	$Panel/Margin/VBox.add_child(economy_btn)
 	$Panel/Margin/VBox.move_child(economy_btn, _loadout.get_index())
 	# F-029 §3.3 퀘스트 로그 — 승급 의뢰 전체 + 완료 조건 확인. 풀스크린 오버레이.
@@ -148,13 +151,16 @@ func _build_formation_editor() -> void:
 func _open_loadout_editor() -> void:
 	if _inv.is_open():
 		_inv.toggle()
+		_sync_stash_from_source()                 # 닫기 = 에디터 상태를 Stash에 반영(상점과 단일 SoT)
 	else:
+		_stash_src.items = _build_stash_items()   # 열기 = 최신 Stash(상점 구매 포함) 반영
 		_inv.open_loot(_stash_src)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and _inv != null and _inv.is_open():
 		_inv.toggle()
+		_sync_stash_from_source()   # ESC 닫기도 Stash에 반영(open 시 재빌드와 짝)
 
 
 ## Build the stash container items (gear 2×2, skillbooks 1×1, consumables 1×1) with grid
