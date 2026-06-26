@@ -415,6 +415,9 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# Dash signature (AB-006/013): close the gap on the current target (backline for flankers).
 	if not enemy.winding and not enemy.dashing:
 		_try_cast_dash(enemy, target, dist, has_los)
+	# Retreat hop (AB-007): HP≤50% + 위협 거리면 적 반대로 후퇴 도약(disengage).
+	if not enemy.winding and not enemy.dashing:
+		_try_cast_retreat(enemy, target, dist, has_los)
 	# Provoke signature (AB-099): aims the FRONT fan at the engaged target (so it's directional,
 	# not stale-facing) and only fires when a party actor is actually in that fan. Needs target.
 	if not enemy.winding and not enemy.dashing and has_los:
@@ -1201,6 +1204,8 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 		var eff: Dictionary = Slice01Data.get_ability(ref)
 		if String(eff.get("kind", "")) != "enemy_dash":
 			continue
+		if bool(eff.get("away", false)):
+			continue  # away dash(AB-007 후퇴)는 _try_cast_retreat 소관
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue  # AB still on cooldown
 		# Backstab (hit_on_arrival): STRIKE only from the FLANK — perpendicular to the party spine.
@@ -1227,6 +1232,37 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 	return false
 
 
+const RETREAT_TRIGGER_M := 5.0   # 후퇴(AB-007) 발동 위협 거리(공격사거리+이만큼 안이면 후퇴)
+
+## AB-007 RetreatHop — HP≤hp_below + 위협 거리(근접)면 적 반대로 후퇴 도약(enemy_dash away).
+## gap-close 대시(_try_cast_dash, away 아님)와 분리: 게이팅이 반대(가까울 때·HP 낮을 때).
+func _try_cast_retreat(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool) -> bool:
+	if not has_los or enemy.is_silenced():
+		return false
+	for ab in enemy.abilities:
+		if typeof(ab) != TYPE_DICTIONARY:
+			continue
+		var ref := String(ab.get("ref", ""))
+		var eff: Dictionary = Slice01Data.get_ability(ref)
+		if String(eff.get("kind", "")) != "enemy_dash" or not bool(eff.get("away", false)):
+			continue
+		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
+			continue
+		if enemy.hp > enemy.max_hp * float(eff.get("hp_below", 0.5)):
+			continue  # HP 충분 → 후퇴 안 함
+		if dist > enemy.attack_range_m + RETREAT_TRIGGER_M:
+			continue  # 위협 거리 아님 → 후퇴 불필요
+		enemy.winding = true
+		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.2))
+		enemy.windup_eff = eff
+		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
+		enemy.windup_target = target
+		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 7.0))
+		SkillVfx.telegraph(self, enemy.global_position, _dash_color(eff))
+		return true
+	return false
+
+
 ## Start the lunge after a dash telegraph: compute the destination (AB-006 = just inside melee;
 ## AB-013 = the target's flank), set a clamped velocity over DASH_TIME. The hit (AB-013) lands
 ## in _resolve_dash_hit when the timer elapses. Movement is driven by tick()'s dash takeover.
@@ -1238,7 +1274,10 @@ func _begin_dash(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary, ta
 		return
 	var dir := to / d
 	var dest: Vector3
-	if bool(eff.get("line", false)):
+	if bool(eff.get("away", false)):
+		# AB-007 RetreatHop: 적 반대 방향 후퇴 도약(disengage, hit 없음).
+		dest = enemy.global_position - dir * float(eff.get("dash_range_m", 6.0))
+	elif bool(eff.get("line", false)):
 		# AB-104 Rampage: charge THROUGH the target (overshoot) — a line-cleave, not stop-at-target.
 		dest = target.global_position + dir * maxf(1.5, enemy.attack_range_m)
 	elif bool(eff.get("flank", false)):

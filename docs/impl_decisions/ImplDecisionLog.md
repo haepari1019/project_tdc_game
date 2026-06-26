@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260626-037 — AB-003/005/007 적측 캐스트 (이연 조각 — 적 kit 13/13)
+- **갭:** AB-003 ArcBoltVolley·AB-005 MeleeFlurry·AB-007 RetreatHop은 스펙 `usable_by_enemy:true`인데 abilities.json(적 카탈로그)에 없어 적이 못 씀(파티 skillbook 버전만 존재).
+- **구현:** abilities.json에 enemy 호환 kind로 추가 — AB-003=`enemy_charge`(원거리 볼리, tele0.7·mult1.3)·AB-005=`enemy_melee`(연타, tele0.4·mult1.8)·AB-007=`enemy_dash`+`away`+`hp_below`(후퇴 도약). enemies.json 배정: AB-003→EN-011(원거리 fodder)·AB-005→EN-010(근접 fodder)·AB-007→EN-005(nuker).
+- **AI(AB-007 후퇴):** `enemy_ai._try_cast_retreat` 패스(HP≤hp_below + dist≤attack_range+RETREAT_TRIGGER_M(5)면 후퇴) + `_begin_dash` away 분기(적 반대 hit없는 도약) + `_try_cast_dash`가 away는 스킵(gap-close와 분리). enemy_charge/enemy_melee는 기존 게이트가 그대로 처리(코드 무변경).
+- **튜닝:** telegraph/mult/cooldown/hp_below/RETREAT_TRIGGER_M = 데모. 배정도 게임 결정(스펙은 ability만 정의).
+- **검증:** ci_smoke PASS(ability 검증 + 적 참조 + 컴파일). 거동=F5. 잔여 AB=pierce 등 근사.
+
 ### IMPL-DEC-20260626-036 — gear 평타 특수거동(cleave/knockback) — ba 아키타입 소관 (이연 조각)
 - **F-008 §3.7 / D-019:** 평타 특수거동(pierce/cone/knockback/threat)은 ba 아키타입 소관인데 "single-target for now"로 스텁이었음. **cleave(splash)+knockback** 구현.
 - **데이터:** `party_member.BASIC_BEHAVIOR` = ba profile id → {cleave_m, kb_m}(아키타입이 거동 소유, 개별 gear 비편집). march_stomp(cleave3+kb1.5)·line_jab(cleave2.5)·aegis_ram(kb2.5)·hook_tug(kb1.5)·brand_sweep(cleave3)·ripple_pulse(cleave2.5). `_apply_basic_behavior()`가 bind마다 적재(_bind_gear+debug_set).

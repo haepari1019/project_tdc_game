@@ -12,7 +12,7 @@
 | 축 | 현재 | 비고 |
 |----|------|------|
 | **적 전투행동 (EN-001~014)** | ✅ 완료 | 기본타 rom_* 12/12 · 포지셔닝 7프로필 · 마퀴 시그니처 · Provoked · 채널 interrupt |
-| **AB-### (전체)** | **~72/84** | 적 kit 10/13(비-zone) · 적 zone 7/7 · 제3세력 7 · 정체성 6 · **파티 풀 lootable sub 44 완료**(B1+B2+bespoke·밴드 패널티·ally-cache). 잔여=적 kit 3(AB-003/005/007 적측)·근사 후속 |
+| **AB-### (전체)** | **~75/84** | 적 kit 13/13(비-zone, **AB-003/005/007 적측 완료** IMPL-DEC-037) · 적 zone 7/7 · 제3세력 7 · 정체성 6 · **파티 풀 lootable sub 44 완료**(B1+B2+bespoke·밴드 패널티·ally-cache). 잔여=근사 후속(pierce 등) |
 | **PT-### (적 패턴)** | ✅ 14/14 | 갭 없음 (PT-010/011/020~022는 플레이어/미사용) |
 | **ENC-### (인카운터)** | **23/24** | NORM 3/3 · HARD 11/12(007=Extreme deferred) · MID/DEEP 1/1 · BOSS 1/1 · PAT 3/3 · AMB 2/2 · **3RD 1/1 ✅(S5a)** |
 | **배치/resolve (F-006/LDG-SPAWN)** | ✅ 확률화 | placement Patrol/AmbushHold·dual-anchor 순차·torch lead · **가중 다중후보+runSeed resolve · 스폰 위치 산포**(DEC-20260620-002). 조합 제너레이터·창발 모디파이어 = S5 |

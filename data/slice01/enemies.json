@@ -137,6 +137,9 @@
         },
         {
           "ref": "AB-039"
+        },
+        {
+          "ref": "AB-007"
         }
       ],
       "tags": {
@@ -277,7 +280,11 @@
         "attack_interval_s": 1.4
       },
       "basic_attack": "rom_fodder_melee_tap",
-      "abilities": [],
+      "abilities": [
+        {
+          "ref": "AB-005"
+        }
+      ],
       "tags": {
         "tier": "Trash",
         "archetype": "FodderTrash",
@@ -301,7 +308,11 @@
         "attack_interval_s": 2.0
       },
       "basic_attack": "rom_fodder_pebble_toss",
-      "abilities": [],
+      "abilities": [
+        {
+          "ref": "AB-003"
+        }
+      ],
       "tags": {
         "tier": "Trash",
         "archetype": "FodderTrash",

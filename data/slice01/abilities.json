@@ -1,44 +1,340 @@
 {
   "_note": "Unified ability catalog (spec D-016 model). Party Identity (AB-020/024/025/026) + enemy SIGNATURE / lootable-shared (AB-002/004/008/010/011/012/098). Enemy BASIC attacks are rom_* (enemy_basics.json, EN-COR-000) — NOT here. AB-001/014/015/016 removed (spec→rom_*). AB-S01~04 removed (non-spec demo subs; subs are skillbooks F-009). effect numbers = DEMO PH (spec AB-### Draft 'design examples'). channel:true = winding 중 제자리(EN-AI-000 §2 interruptible channel). Shock/Hex = party slow (이동 감소); HEX 피해감소 half = 후속.",
   "abilities": {
-    "AB-002": { "kind": "enemy_melee",  "cooldown_s": 3.0, "damage_mult": 2.2, "knockback_m": 2.6, "vfx": "shield_bash" },
-    "AB-004": { "kind": "enemy_charge", "telegraph_s": 1.0, "channel": true, "cooldown_s": 5.0, "damage_mult": 2.0, "shock_slow": 0.5, "shock_dur_s": 2.0, "vfx": "shot_lightning" },
-    "AB-006": { "kind": "enemy_dash", "telegraph_s": 0.35, "channel": true, "cooldown_s": 4.0, "dash_range_m": 10.0, "hit_on_arrival": false },
-    "AB-008": { "kind": "enemy_splash", "telegraph_s": 0.4, "cooldown_s": 2.5, "damage_mult": 0.8, "splash_radius_m": 1.5, "splash_frac": 0.6, "vfx": "shot_slag" },
-    "AB-010": { "kind": "enemy_poison", "telegraph_s": 0.4, "cooldown_s": 2.0, "damage_mult": 0.5, "poison_dur_s": 4, "poison_dps": 8, "vfx": "shot_venom" },
-    "AB-011": { "kind": "enemy_stun",   "telegraph_s": 0.5, "channel": true, "cooldown_s": 5.0, "damage_mult": 0.6, "stun_s": 1.4, "vfx": "shield_bash" },
-    "AB-012": { "kind": "enemy_hex",    "telegraph_s": 0.45, "channel": true, "cooldown_s": 4.0, "damage_mult": 0.4, "hex_slow": 0.6, "hex_dur_s": 4.0, "vfx": "shot_hex" },
-    "AB-013": { "kind": "enemy_dash", "telegraph_s": 0.3, "channel": true, "cooldown_s": 5.0, "dash_range_m": 10.0, "flank": true, "hit_on_arrival": true, "damage_mult": 1.5, "knockback_m": 1.0, "vfx": "strike" },
-
-    "AB-009": { "kind": "spawn_zone", "medium": "Oil",        "telegraph_s": 0.55, "channel": true, "cooldown_s": 8.0,  "radius_m": 2.0, "ttl_s": 8.0 },
-    "AB-036": { "kind": "spawn_zone", "medium": "Water",      "telegraph_s": 0.5,  "channel": true, "cooldown_s": 8.0,  "radius_m": 2.0, "ttl_s": 8.0 },
-    "AB-039": { "kind": "spawn_zone", "medium": "ToxicGas",   "telegraph_s": 0.5,  "channel": true, "cooldown_s": 9.0,  "radius_m": 2.0, "ttl_s": 9.0, "dps": 8.0 },
-    "AB-040": { "kind": "spawn_zone", "medium": "Ice",        "telegraph_s": 0.5,  "channel": true, "cooldown_s": 9.0,  "radius_m": 2.0, "ttl_s": 9.0 },
-    "AB-042": { "kind": "spawn_zone", "medium": "Wind",       "telegraph_s": 0.4,  "channel": true, "cooldown_s": 10.0, "radius_m": 2.0, "ttl_s": 8.0 },
-    "AB-043": { "kind": "spawn_zone", "medium": "Vegetation", "telegraph_s": 0.5,  "channel": true, "cooldown_s": 9.0,  "radius_m": 2.0, "ttl_s": 9.0 },
-    "AB-041": { "kind": "enemy_cold", "telegraph_s": 0.4, "cooldown_s": 5.5, "damage_mult": 1.2, "chill_dur_s": 3.0, "range_m": 10.0, "vfx": "shot_frost" },
-
-    "AB-098": { "kind": "enemy_heal",   "telegraph_s": 0.55, "channel": true, "cooldown_s": 8.0, "radius_m": 3.0, "heal_pct": 0.08, "ally_threshold_pct": 0.90 },
-    "AB-099": { "kind": "enemy_provoke", "telegraph_s": 0.85, "channel": true, "cooldown_s": 14.0, "zone_deg": 60, "zone_radius_m": 4.0, "provoke_dur_s": 2.0 },
-
-    "AB-020": { "kind": "shield_pulse", "cooldown_s": 8, "radius_m": 5, "shield_base": 120, "shield_per_enemy": 30, "shield_cap": 280, "shield_duration_s": 5, "threat_pulse": 60 },
-    "AB-024": { "kind": "cone_sweep",   "cooldown_s": 7, "range_m": 5, "cone_deg": 60, "hits": 3, "hit_interval_s": 0.25, "hit_damage_mult": 1.0 },
-    "AB-025": { "kind": "mark_burst",   "cooldown_s": 9, "range_m": 8, "mark_time_s": 0.5, "ruin_damage_mult": 12.0 },
-    "AB-026": { "kind": "radius_heal",  "cooldown_s": 6, "radius_m": 5, "heal_pct": 0.10, "ally_threshold_pct": 0.90, "tank_threshold_pct": 0.95 },
-
-    "AB-100": { "kind": "enemy_dash",    "telegraph_s": 0.25, "channel": true, "cooldown_s": 6.0,  "dash_range_m": 9.0, "hit_on_arrival": true, "damage_mult": 1.2, "pin_s": 0.6, "vfx": "strike" },
-    "AB-101": { "kind": "enemy_mark",    "telegraph_s": 0.4,  "channel": true, "cooldown_s": 10.0, "range_m": 14.0, "scent_s": 6.0, "vfx": "shot_hex" },
-    "AB-102": { "kind": "enemy_root",    "telegraph_s": 0.5,                   "cooldown_s": 9.0,  "range_m": 11.0, "root_s": 2.0, "damage_mult": 0.2, "vfx": "shot_hex" },
-    "AB-103": { "kind": "enemy_tether",  "telegraph_s": 0.35,                  "cooldown_s": 8.0,  "range_m": 12.0, "tether_s": 4.0, "vfx": "shot_hex" },
-    "AB-104": { "kind": "enemy_dash",    "telegraph_s": 0.45, "channel": true, "cooldown_s": 7.0,  "dash_range_m": 9.0, "hit_on_arrival": true, "line": true, "damage_mult": 1.1, "knockback_m": 0.9, "splash_radius_m": 2.0, "splash_frac": 0.6, "vfx": "strike" },
-    "AB-105": { "kind": "enemy_frenzy",                                        "cooldown_s": 20.0, "hp_threshold": 0.5, "atk_speed_mult": 1.5, "damage_mult": 1.3, "bloodlust_dur_s": 999.0, "vfx": "shield_bash" },
-    "AB-106": { "kind": "enemy_execute", "telegraph_s": 0.5,  "channel": true, "cooldown_s": 8.0,  "damage_mult": 1.0, "execute_under": 0.3, "execute_mult": 2.0, "on_kill_heal_pct": 0.2, "vfx": "strike" },
-
-    "AB-021": { "kind": "beacon_threat", "cooldown_s": 8,  "radius_m": 3.5, "shield_base": 40, "shield_per_enemy": 10, "shield_cap": 90, "shield_duration_s": 4, "threat_pulse": 90, "threat_floor": 80 },
-    "AB-022": { "kind": "march_advance", "cooldown_s": 7,  "advance_m": 1.5, "knockback": 3.0, "radius_m": 2.6, "damage_mult": 0.6 },
-    "AB-052": { "kind": "sentinel_form", "cooldown_s": 10, "duration_s": 4.0, "damage_reduction": 0.6, "reflect": 0.4 },
-    "AB-027": { "kind": "arc_line",      "cooldown_s": 5,  "range_m": 14.0, "cone_deg": 12.0, "damage_mult": 0.7, "max_hits": 4 },
-    "AB-029": { "kind": "flank_dash",    "cooldown_s": 9,  "dash_m": 6.0, "damage_mult": 1.6, "hits": 2 },
-    "AB-031": { "kind": "ward_shield",   "cooldown_s": 8,  "shield_base": 90, "shield_duration_s": 5.0, "cleanse": 1, "range_m": 12.0 }
+    "AB-002": {
+      "kind": "enemy_melee",
+      "cooldown_s": 3.0,
+      "damage_mult": 2.2,
+      "knockback_m": 2.6,
+      "vfx": "shield_bash"
+    },
+    "AB-004": {
+      "kind": "enemy_charge",
+      "telegraph_s": 1.0,
+      "channel": true,
+      "cooldown_s": 5.0,
+      "damage_mult": 2.0,
+      "shock_slow": 0.5,
+      "shock_dur_s": 2.0,
+      "vfx": "shot_lightning"
+    },
+    "AB-006": {
+      "kind": "enemy_dash",
+      "telegraph_s": 0.35,
+      "channel": true,
+      "cooldown_s": 4.0,
+      "dash_range_m": 10.0,
+      "hit_on_arrival": false
+    },
+    "AB-008": {
+      "kind": "enemy_splash",
+      "telegraph_s": 0.4,
+      "cooldown_s": 2.5,
+      "damage_mult": 0.8,
+      "splash_radius_m": 1.5,
+      "splash_frac": 0.6,
+      "vfx": "shot_slag"
+    },
+    "AB-010": {
+      "kind": "enemy_poison",
+      "telegraph_s": 0.4,
+      "cooldown_s": 2.0,
+      "damage_mult": 0.5,
+      "poison_dur_s": 4,
+      "poison_dps": 8,
+      "vfx": "shot_venom"
+    },
+    "AB-011": {
+      "kind": "enemy_stun",
+      "telegraph_s": 0.5,
+      "channel": true,
+      "cooldown_s": 5.0,
+      "damage_mult": 0.6,
+      "stun_s": 1.4,
+      "vfx": "shield_bash"
+    },
+    "AB-012": {
+      "kind": "enemy_hex",
+      "telegraph_s": 0.45,
+      "channel": true,
+      "cooldown_s": 4.0,
+      "damage_mult": 0.4,
+      "hex_slow": 0.6,
+      "hex_dur_s": 4.0,
+      "vfx": "shot_hex"
+    },
+    "AB-013": {
+      "kind": "enemy_dash",
+      "telegraph_s": 0.3,
+      "channel": true,
+      "cooldown_s": 5.0,
+      "dash_range_m": 10.0,
+      "flank": true,
+      "hit_on_arrival": true,
+      "damage_mult": 1.5,
+      "knockback_m": 1.0,
+      "vfx": "strike"
+    },
+    "AB-009": {
+      "kind": "spawn_zone",
+      "medium": "Oil",
+      "telegraph_s": 0.55,
+      "channel": true,
+      "cooldown_s": 8.0,
+      "radius_m": 2.0,
+      "ttl_s": 8.0
+    },
+    "AB-036": {
+      "kind": "spawn_zone",
+      "medium": "Water",
+      "telegraph_s": 0.5,
+      "channel": true,
+      "cooldown_s": 8.0,
+      "radius_m": 2.0,
+      "ttl_s": 8.0
+    },
+    "AB-039": {
+      "kind": "spawn_zone",
+      "medium": "ToxicGas",
+      "telegraph_s": 0.5,
+      "channel": true,
+      "cooldown_s": 9.0,
+      "radius_m": 2.0,
+      "ttl_s": 9.0,
+      "dps": 8.0
+    },
+    "AB-040": {
+      "kind": "spawn_zone",
+      "medium": "Ice",
+      "telegraph_s": 0.5,
+      "channel": true,
+      "cooldown_s": 9.0,
+      "radius_m": 2.0,
+      "ttl_s": 9.0
+    },
+    "AB-042": {
+      "kind": "spawn_zone",
+      "medium": "Wind",
+      "telegraph_s": 0.4,
+      "channel": true,
+      "cooldown_s": 10.0,
+      "radius_m": 2.0,
+      "ttl_s": 8.0
+    },
+    "AB-043": {
+      "kind": "spawn_zone",
+      "medium": "Vegetation",
+      "telegraph_s": 0.5,
+      "channel": true,
+      "cooldown_s": 9.0,
+      "radius_m": 2.0,
+      "ttl_s": 9.0
+    },
+    "AB-041": {
+      "kind": "enemy_cold",
+      "telegraph_s": 0.4,
+      "cooldown_s": 5.5,
+      "damage_mult": 1.2,
+      "chill_dur_s": 3.0,
+      "range_m": 10.0,
+      "vfx": "shot_frost"
+    },
+    "AB-098": {
+      "kind": "enemy_heal",
+      "telegraph_s": 0.55,
+      "channel": true,
+      "cooldown_s": 8.0,
+      "radius_m": 3.0,
+      "heal_pct": 0.08,
+      "ally_threshold_pct": 0.9
+    },
+    "AB-099": {
+      "kind": "enemy_provoke",
+      "telegraph_s": 0.85,
+      "channel": true,
+      "cooldown_s": 14.0,
+      "zone_deg": 60,
+      "zone_radius_m": 4.0,
+      "provoke_dur_s": 2.0
+    },
+    "AB-020": {
+      "kind": "shield_pulse",
+      "cooldown_s": 8,
+      "radius_m": 5,
+      "shield_base": 120,
+      "shield_per_enemy": 30,
+      "shield_cap": 280,
+      "shield_duration_s": 5,
+      "threat_pulse": 60
+    },
+    "AB-024": {
+      "kind": "cone_sweep",
+      "cooldown_s": 7,
+      "range_m": 5,
+      "cone_deg": 60,
+      "hits": 3,
+      "hit_interval_s": 0.25,
+      "hit_damage_mult": 1.0
+    },
+    "AB-025": {
+      "kind": "mark_burst",
+      "cooldown_s": 9,
+      "range_m": 8,
+      "mark_time_s": 0.5,
+      "ruin_damage_mult": 12.0
+    },
+    "AB-026": {
+      "kind": "radius_heal",
+      "cooldown_s": 6,
+      "radius_m": 5,
+      "heal_pct": 0.1,
+      "ally_threshold_pct": 0.9,
+      "tank_threshold_pct": 0.95
+    },
+    "AB-100": {
+      "kind": "enemy_dash",
+      "telegraph_s": 0.25,
+      "channel": true,
+      "cooldown_s": 6.0,
+      "dash_range_m": 9.0,
+      "hit_on_arrival": true,
+      "damage_mult": 1.2,
+      "pin_s": 0.6,
+      "vfx": "strike"
+    },
+    "AB-101": {
+      "kind": "enemy_mark",
+      "telegraph_s": 0.4,
+      "channel": true,
+      "cooldown_s": 10.0,
+      "range_m": 14.0,
+      "scent_s": 6.0,
+      "vfx": "shot_hex"
+    },
+    "AB-102": {
+      "kind": "enemy_root",
+      "telegraph_s": 0.5,
+      "cooldown_s": 9.0,
+      "range_m": 11.0,
+      "root_s": 2.0,
+      "damage_mult": 0.2,
+      "vfx": "shot_hex"
+    },
+    "AB-103": {
+      "kind": "enemy_tether",
+      "telegraph_s": 0.35,
+      "cooldown_s": 8.0,
+      "range_m": 12.0,
+      "tether_s": 4.0,
+      "vfx": "shot_hex"
+    },
+    "AB-104": {
+      "kind": "enemy_dash",
+      "telegraph_s": 0.45,
+      "channel": true,
+      "cooldown_s": 7.0,
+      "dash_range_m": 9.0,
+      "hit_on_arrival": true,
+      "line": true,
+      "damage_mult": 1.1,
+      "knockback_m": 0.9,
+      "splash_radius_m": 2.0,
+      "splash_frac": 0.6,
+      "vfx": "strike"
+    },
+    "AB-105": {
+      "kind": "enemy_frenzy",
+      "cooldown_s": 20.0,
+      "hp_threshold": 0.5,
+      "atk_speed_mult": 1.5,
+      "damage_mult": 1.3,
+      "bloodlust_dur_s": 999.0,
+      "vfx": "shield_bash"
+    },
+    "AB-106": {
+      "kind": "enemy_execute",
+      "telegraph_s": 0.5,
+      "channel": true,
+      "cooldown_s": 8.0,
+      "damage_mult": 1.0,
+      "execute_under": 0.3,
+      "execute_mult": 2.0,
+      "on_kill_heal_pct": 0.2,
+      "vfx": "strike"
+    },
+    "AB-021": {
+      "kind": "beacon_threat",
+      "cooldown_s": 8,
+      "radius_m": 3.5,
+      "shield_base": 40,
+      "shield_per_enemy": 10,
+      "shield_cap": 90,
+      "shield_duration_s": 4,
+      "threat_pulse": 90,
+      "threat_floor": 80
+    },
+    "AB-022": {
+      "kind": "march_advance",
+      "cooldown_s": 7,
+      "advance_m": 1.5,
+      "knockback": 3.0,
+      "radius_m": 2.6,
+      "damage_mult": 0.6
+    },
+    "AB-052": {
+      "kind": "sentinel_form",
+      "cooldown_s": 10,
+      "duration_s": 4.0,
+      "damage_reduction": 0.6,
+      "reflect": 0.4
+    },
+    "AB-027": {
+      "kind": "arc_line",
+      "cooldown_s": 5,
+      "range_m": 14.0,
+      "cone_deg": 12.0,
+      "damage_mult": 0.7,
+      "max_hits": 4
+    },
+    "AB-029": {
+      "kind": "flank_dash",
+      "cooldown_s": 9,
+      "dash_m": 6.0,
+      "damage_mult": 1.6,
+      "hits": 2
+    },
+    "AB-031": {
+      "kind": "ward_shield",
+      "cooldown_s": 8,
+      "shield_base": 90,
+      "shield_duration_s": 5.0,
+      "cleanse": 1,
+      "range_m": 12.0
+    },
+    "AB-003": {
+      "kind": "enemy_charge",
+      "telegraph_s": 0.7,
+      "channel": true,
+      "cooldown_s": 6.0,
+      "damage_mult": 1.3,
+      "vfx": "shot_lightning"
+    },
+    "AB-005": {
+      "kind": "enemy_melee",
+      "telegraph_s": 0.4,
+      "cooldown_s": 5.0,
+      "damage_mult": 1.8,
+      "vfx": "strike"
+    },
+    "AB-007": {
+      "kind": "enemy_dash",
+      "telegraph_s": 0.2,
+      "channel": true,
+      "cooldown_s": 7.0,
+      "dash_range_m": 6.0,
+      "away": true,
+      "hp_below": 0.5,
+      "hit_on_arrival": false
+    }
   }
 }
