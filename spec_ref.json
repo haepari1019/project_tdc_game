@@ -1,7 +1,7 @@
 {
   "spec_repository": "https://github.com/haepari1019/project_tdc",
   "spec_remote": "origin",
-  "spec_branch": "main",
+  "spec_branch": "staging",
   "spec_commit": "f16c262ef63b9c1847fd3ac4f4c892852dce6102",
   "spec_commit_short": "f16c262",
   "pinned_at": "2026-06-26",
