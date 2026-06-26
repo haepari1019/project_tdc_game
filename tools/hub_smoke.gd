@@ -114,6 +114,18 @@ func _init() -> void:
 	hp.facilities["scribe_shop"] = 2
 	_expect(bool(hp.buy_raw("AB-004", "Advanced").get("ok", false)), "Adv 생본 — scribe_shop T2서 구매")
 
+	# S7/QA-029 — capacity 게터 per tier (이번 세션 강제 축: 군수 런 운반 + 창고 영속).
+	hp.facilities["quartermaster"] = 0
+	_expect(hp.run_inventory_capacity() == 12, "군수 capacity T0=12")
+	hp.facilities["quartermaster"] = 1
+	_expect(hp.run_inventory_capacity() == 14, "군수 capacity T1=14")
+	hp.facilities["quartermaster"] = 2
+	_expect(hp.run_inventory_capacity() == 16, "군수 capacity T2=16")
+	hp.facilities["stash"] = 0
+	_expect(hp.stash_capacity() == 20, "창고 capacity T0=20")
+	hp.facilities["stash"] = 2
+	_expect(hp.stash_capacity() == 36, "창고 capacity T2=36")
+
 	hp.free()
 	if _ok:
 		print("HUB SMOKE PASSED")

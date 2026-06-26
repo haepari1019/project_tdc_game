@@ -215,6 +215,11 @@ func _initialize() -> void:
 	st2.apply_dict(st.to_dict())
 	_chk("Stash round-trip rolled 유지", String((st2.gear[1] as Dictionary).get("rolled_identity_skill_id", "")) == "dps_arc_weave" and is_equal_approx(float((st2.gear[1] as Dictionary).get("rolls", {}).get("dmg_mult", 0.0)), 1.2))
 	st.free(); st2.free()
+	# S7 — 시드 stash가 창고 T0 capacity(20) 안에 들어오는지(15기어+4스킬북=19). item_count=기어+스킬북.
+	var stseed = StashScript.new()
+	stseed.reset_to_seed()
+	_chk("stash 시드 item_count 19 ≤ T0 20", stseed.item_count() == 19)
+	stseed.free()
 
 	# 15b) Stash 스킬북 인스턴스화(D-018 §7.3) — 문자열 정규화 + affix 보존 + remove는 plain 우선(affix본 보존).
 	var st3 = StashScript.new()

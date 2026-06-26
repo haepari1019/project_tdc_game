@@ -110,8 +110,9 @@
 - ✅ **S6b 잔여 완료(2026-06-26):** **per-AB tier**(스펙 abilityTier 적재·상점 tier 천장, IMPL-DEC-033·DRIFT-068) · **gear potencyMult**(옵션 roll→identity 위력, IMPL-DEC-034) · **multi-affix**(2nd 30% 병합·§7.3 합산캡 0.15·ids 리스트, IMPL-DEC-035) · §7.5 중복 sink(완료). **잔여=대장간 리롤(Expansion)뿐.**
 - ◐ **ally 획득 lite 선납(P2-S6a 패스)**: ally-only lootable 인-런 획득은 `dungeon_run` ally-cache 상자(RM-ADV-01)로 우선 충족. **본격(S6b)**: shop 매대·ENC 드롭표·affix·자동 분배 시 정식화.
 
-### P2-S7 — 통합/QA
+### P2-S7 — 통합/QA (착수 2026-06-26)
 - QA-005 13+케이스 · QA-021 19 interaction · QA-029 hub · 헤드리스→F5 자동화 · QA-031 마감 · 역전파 배치.
+- ◐ **시작:** QA-029 capacity 게터 헤드리스 커버(hub_smoke 군수 12/14/16·창고 20/28/36) + stash 시드 item_count(party_pool_smoke) + **F5 수동 체크리스트** `docs/qa/F5_checklist_p2.md`(허브효과·capacity·평타거동·적kit·퀘스트 — 헤드리스 불가 거동). **잔여:** QA-021 연쇄 19 케이스화(최대 갭)·QA-005 역할 거동·QA-031 통합 마감·역전파(OPS_30, 스펙 레포·승인 필요).
 
 ---
 
