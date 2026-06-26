@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260626-036 — gear 평타 특수거동(cleave/knockback) — ba 아키타입 소관 (이연 조각)
+- **F-008 §3.7 / D-019:** 평타 특수거동(pierce/cone/knockback/threat)은 ba 아키타입 소관인데 "single-target for now"로 스텁이었음. **cleave(splash)+knockback** 구현.
+- **데이터:** `party_member.BASIC_BEHAVIOR` = ba profile id → {cleave_m, kb_m}(아키타입이 거동 소유, 개별 gear 비편집). march_stomp(cleave3+kb1.5)·line_jab(cleave2.5)·aegis_ram(kb2.5)·hook_tug(kb1.5)·brand_sweep(cleave3)·ripple_pulse(cleave2.5). `_apply_basic_behavior()`가 bind마다 적재(_bind_gear+debug_set).
+- **적용:** `combat_controller._resolve_basic(m, foe)` — 1차 피해 + cleave 시 `_enemies_in_radius`(2차=BASIC_CLEAVE_FALLOFF 0.6) + knockback(`_knockback_from`→enemy.apply_knockback) + VFX 1회. provoked·일반 평타 공용(중복 제거). 단일타 gear(cleave/kb=0)는 기존과 동일.
+- **이연:** pierce(라인 관통)·threat-on-basic은 후속(member.threat_mult는 이미 존재). 거동 수치=데모 튜닝.
+- **검증:** party_pool_smoke(march_plate→cleave3/kb1.5·단일타 gear→0) + ci_smoke PASS.
+
 ### IMPL-DEC-20260626-035 — multi-affix: 단일 dict 병합 인코딩 (S6b 잔여 — list 리셰이프 회피)
 - **목표:** 스킬북 인스턴스에 다종 affix(D-018 §7.3 합산캡 ≤15%가 본래 다중 전제). 기존 Slice-01=단일 affix.
 - **결정(저위험 선택):** `affix`를 list로 재구성(~15 쓰레딩 사이트)하지 않고, **단일 dict에 병합 인코딩** — affix dict가 이미 `ids: []`(종류 리스트) + 스칼라 합산필드(coeff/charges/cd_trade)를 쓰고 apply가 그 합산값을 읽으므로, 2nd affix를 **distinct 종류로 굴려 병합**(ids 누적·coeff 합산 §7.3캡 0.15·charges/cd_trade 가산·tier=더 희귀). 파이프라인(backpack/stash/dispatch/loot/equip/inventory) **무변경**.

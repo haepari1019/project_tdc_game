@@ -188,6 +188,17 @@ func _initialize() -> void:
 	_chk("S6b potency_mult → identity_potency_mult", is_equal_approx(float(pmB.identity_potency_mult), 1.1))
 	pmA.free(); pmB.free()
 
+	# 이연 — 평타 특수거동(ba 아키타입): march_plate(ba_tank_march_stomp)=cleave+kb, 단일타 gear=0.
+	var pmC = PM.new(); pmC.class_id = "Tank"
+	var bpC = BP.new(); bpC.equipped = {"Tank": {"gear": "gear_ward_tank_march_plate", "subs": [null, null, null]}}
+	bpC.apply_to_party(_PartyStub.new([pmC]))
+	_chk("평타 cleave/kb(march_stomp)", is_equal_approx(float(pmC.basic_cleave_m), 3.0) and is_equal_approx(float(pmC.basic_knockback_m), 1.5))
+	var pmD = PM.new(); pmD.class_id = "Tank"
+	var bpD = BP.new(); bpD.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "subs": [null, null, null]}}
+	bpD.apply_to_party(_PartyStub.new([pmD]))
+	_chk("평타 단일타 gear=cleave 0", is_equal_approx(float(pmD.basic_cleave_m), 0.0))
+	pmC.free(); pmD.free()
+
 	# 15) Stash 인스턴스화(F-008 §3.7) — 레거시 문자열 정규화 + 굴린 인스턴스 round-trip(apply_dict/to_dict).
 	#     add_child 안 함(autoload 없는 --script에서 _ready/save_stash의 get_node 절대경로 회피).
 	var StashScript = load("res://scripts/autoload/stash.gd")

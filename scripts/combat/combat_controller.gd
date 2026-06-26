@@ -266,8 +266,7 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 				var to_src: Vector3 = src.global_position - m.global_position
 				to_src.y = 0.0
 				if to_src.length() <= m.basic_range_m and m.basic_enabled:
-					_deal_damage(src, m, m.basic_damage)
-					SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, src.global_position, src)
+					_resolve_basic(m, src)
 					m.attack_cooldown_s = m.attack_interval()   # Haste(AB-069)-aware
 			continue
 		if tank_alive and not _tank_engaged and not m.is_controlled():
@@ -285,13 +284,42 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 		var foe := _nearest_enemy_in_range(m.global_position, m.basic_range_m)
 		if foe == null:
 			continue
-		_deal_damage(foe, m, m.basic_damage)  # basic 평타 → no camera shake
-		SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, foe.global_position, foe)
+		_resolve_basic(m, foe)
 		m.attack_cooldown_s = m.attack_interval()   # Haste(AB-069)-aware
 
 
 func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
 	_ability_dispatch.cast_skillbook(member, slot_index, target_pos)
+
+
+const BASIC_CLEAVE_FALLOFF := 0.6   # 평타 cleave 2차 대상 피해 비율 (ba 아키타입 splash)
+
+## 평타 1회 해소 — 1차 대상 피해 + (cleave 시) 주변 splash + (knockback 시) 넉백 + VFX 1회.
+## 단일타 gear는 cleave_m/kb_m=0이라 1차 대상만 → 기존과 동일. provoked·일반 평타 공용(F-008 §3.7).
+func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
+	if foe == null or not is_instance_valid(foe):
+		return
+	_deal_damage(foe, m, m.basic_damage)
+	var cleave: float = float(m.basic_cleave_m) if "basic_cleave_m" in m else 0.0
+	var kb: float = float(m.basic_knockback_m) if "basic_knockback_m" in m else 0.0
+	if cleave > 0.0:
+		for e in _enemies_in_radius(foe.global_position, cleave):
+			if e != foe and is_instance_valid(e):
+				_deal_damage(e, m, m.basic_damage * BASIC_CLEAVE_FALLOFF)
+				if kb > 0.0:
+					_knockback_from(e, m, kb)
+	if kb > 0.0:
+		_knockback_from(foe, m, kb)
+	SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, foe.global_position, foe)
+
+
+func _knockback_from(e: CharacterBody3D, m: CharacterBody3D, dist: float) -> void:
+	if e == null or not is_instance_valid(e) or not e.has_method("apply_knockback"):
+		return
+	var dir: Vector3 = e.global_position - m.global_position
+	dir.y = 0.0
+	if dir.length() > 0.01:
+		e.apply_knockback(dir.normalized(), dist)
 
 
 ## FireDamageHit at a point (F-027 ENT-TORCH) — torch landing / oil contact. ref: F-021.

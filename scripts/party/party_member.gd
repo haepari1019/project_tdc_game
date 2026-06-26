@@ -24,6 +24,18 @@ var equipped_gear: Dictionary = {}
 var base_gear_id: String = ""
 var gear_kind: String = ""
 var basic_attack_profile_id: String = ""
+## F-008 §3.7 / D-019 — 평타 특수거동은 ba 아키타입(basic_attack_profile_id) 소관. profile id → {cleave_m, kb_m}.
+## cleave_m = 1차 대상 주변 splash 반경(2차=BASIC_CLEAVE_FALLOFF 피해), kb_m = 피격 적 넉백 거리. 없으면 단일타.
+const BASIC_BEHAVIOR := {
+	"ba_tank_march_stomp": {"cleave_m": 3.0, "kb_m": 1.5},
+	"ba_tank_line_jab": {"cleave_m": 2.5},
+	"ba_tank_aegis_ram": {"kb_m": 2.5},
+	"ba_tank_hook_tug": {"kb_m": 1.5},
+	"ba_dps_brand_sweep": {"cleave_m": 3.0},
+	"ba_dps_ripple_pulse": {"cleave_m": 2.5},
+}
+var basic_cleave_m: float = 0.0       # >0 = 평타 splash 반경(ba 아키타입 파생)
+var basic_knockback_m: float = 0.0    # >0 = 평타 피격 넉백 거리(ba 아키타입 파생)
 var equip_classes: Array = []
 ## F-008 §3.7 rolled 서브옵션(dmg_mult/cd_mult 등) — 인스턴스 굴림 저장 + 스탯 적용(G3). ref: gear_roll_table.md.
 var gear_rolls: Dictionary = {}
@@ -153,6 +165,7 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	base_gear_id = String(gear.get("base_gear_id", ""))
 	gear_kind = String(gear.get("gear_kind", ""))
 	basic_attack_profile_id = String(gear.get("basic_attack_profile_id", ""))
+	_apply_basic_behavior()   # F-008 §3.7 ba 아키타입 평타 특수거동(cleave/knockback)
 	equip_classes = gear.get("equip_classes", [])
 	# F-008 §3.7 — effective Identity = 인스턴스의 rolled_identity_skill_id(있으면) > 아키타입 bundled
 	# (스타터 핀·폴백). master 행엔 rolled 없음 → bundled. ref: gear_roll_table.md.
@@ -166,8 +179,8 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	hp = max_hp if reset_hp else minf(hp, max_hp)
 	# F-008 / D-019 §4.4: the basic attack is GEAR-bound (the gear's ba_* archetype owns
 	# damage/CD/range), NOT the identity. Read from the gear; fall back to the identity's combat
-	# block when the gear doesn't specify it (starter gears = identity default). Special behaviors
-	# (pierce/cone/knockback/threat) = follow-up (basic attack is single-target for now).
+	# block when the gear doesn't specify it (starter gears = identity default). 특수거동(cleave/
+	# knockback)은 ba 아키타입 소관 → _apply_basic_behavior(BASIC_BEHAVIOR). pierce(라인관통)=후속.
 	basic_damage = float(gear.get("basic_damage", combat.get("basic_damage", 8.0)))
 	basic_range_m = float(gear.get("basic_range_m", combat.get("basic_range_m", 2.0)))
 	basic_interval_s = float(gear.get("basic_interval_s", combat.get("basic_interval_s", 1.0)))
@@ -338,7 +351,15 @@ func debug_set_basic_from_gear(gear: Dictionary) -> void:
 	basic_range_m = float(gear.get("basic_range_m", combat.get("basic_range_m", 2.0)))
 	basic_interval_s = float(gear.get("basic_interval_s", combat.get("basic_interval_s", 1.0)))
 	basic_attack_profile_id = String(gear.get("basic_attack_profile_id", ""))
+	_apply_basic_behavior()
 	basic_enabled = true
+
+
+## ba 아키타입(basic_attack_profile_id) → 평타 특수거동(cleave/knockback) 적재. bind마다 fresh.
+func _apply_basic_behavior() -> void:
+	var b: Dictionary = BASIC_BEHAVIOR.get(basic_attack_profile_id, {})
+	basic_cleave_m = float(b.get("cleave_m", 0.0))
+	basic_knockback_m = float(b.get("kb_m", 0.0))
 
 
 func set_controlled(active: bool) -> void:
