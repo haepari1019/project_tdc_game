@@ -332,6 +332,8 @@ func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
 					_deal_damage(e, m, m.basic_damage * BASIC_PIERCE_FALLOFF)
 					far_along = maxf(far_along, along)   # VFX를 가장 먼 관통 대상까지 연장
 			vfx_to = m.global_position + axis * far_along
+	if pierce > 0.0:
+		SkillVfx.basic_pierce_beam(m.basic_attack_profile_id, self, m.global_position, vfx_to)   # 관통 전용 또렷한 빔
 	SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, vfx_to, foe)
 
 

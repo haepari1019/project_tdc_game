@@ -222,6 +222,30 @@ static func basic_archetype(profile_id: String) -> Array:
 	return _BA_VFX.get(profile_id, [])
 
 
+## pierce beam — 관통 평타 전용. base shape(lance/bolt)과 무관하게 캐스터→관통 끝점까지 굵고 또렷한
+## 빔을 그려 "관통"을 명확히 보여줌(bolt는 첫 대상 homing이라 끝점 표현이 안 됨). profile tint 사용.
+static func basic_pierce_beam(profile_id: String, parent: Node3D, from: Vector3, to: Vector3) -> void:
+	var entry = _BA_VFX.get(profile_id, null)
+	var c: Color = _BA_TINT.get(String(entry[1]) if entry != null else "physical", _BA_TINT["physical"])
+	var a := from + Vector3(0, 0.85, 0)
+	var b := to + Vector3(0, 0.85, 0)
+	var seg := a.distance_to(b)
+	if seg < 0.3:
+		return
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.16, 0.16, seg)   # lance보다 굵게
+	mi.mesh = box
+	var mat := _mat(Color(c.r, c.g, c.b, 0.95))
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = (a + b) * 0.5
+	mi.look_at(b, Vector3.UP)
+	var tw := mi.create_tween()
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.28)   # lance(0.14)보다 오래
+	tw.tween_callback(mi.queue_free)
+
+
 ## bolt — small dim sphere flying attacker→target (homes to live pos), tiny impact tap.
 static func _basic_tracer(parent: Node3D, from: Vector3, to: Vector3, color: Color, target: Node3D) -> void:
 	var mi := MeshInstance3D.new()
