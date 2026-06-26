@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260626-038 — 군수(quartermaster) 런 운반 한도 강제 (이연 조각 — capacity, 성장 압력 축)
+- **재평가(사용자 반박):** capacity는 버그가 아니라 **의도된 성장 압력 축**(제약→확장 동기)이고, 그리드가 커서 압력이 사라진 게 문제. 이전 "유실 위험·보류"는 *stash(cells 해석)*에만 해당 — **런 carry는 At-Risk(Stash와 분리)라 캐핑이 비파괴**(신규 픽업만 게이트, Safe 미오염).
+- **구현:** `HubProfile.run_inventory_capacity()`(12/14/16, 이미 존재·미사용)을 `inventory_ui` 픽업 경로에서 강제 — `_run_carry_full()`(=`_backpack.items.size() >= cap`) 가드를 `add_to/gear/skillbook/haul_to_backpack`에 추가. haul은 기존 스택 채움은 허용, 새 타일만 게이트. 만석 시 `item_drop.interact`가 드롭 유지(기존 false 처리) + 콘솔 노트.
+- **유실 방지(핵심):** `_load_backpack_from_autoload`가 동일 add_*로 영속 carry를 로드 → `_loading_carry` 플래그로 **로드 중 한도 면제**(기존 carry 전부 적재, 신규 픽업만 캡). 비파괴.
+- **이연:** stash 영속 capacity(20/28/36)·hub 반입(loadout) 캡·온스크린 토스트 = 후속. capacity=**아이템 수**(슬롯) 해석(작은 12~36 + 2×2 기어 → cells면 과밀).
+- **검증:** ci_smoke PASS(로드·픽업·컴파일). 압력 체감=F5(carry 채운 뒤 루팅 거부, 군수 승급 시 확장).
+
 ### IMPL-DEC-20260626-037 — AB-003/005/007 적측 캐스트 (이연 조각 — 적 kit 13/13)
 - **갭:** AB-003 ArcBoltVolley·AB-005 MeleeFlurry·AB-007 RetreatHop은 스펙 `usable_by_enemy:true`인데 abilities.json(적 카탈로그)에 없어 적이 못 씀(파티 skillbook 버전만 존재).
 - **구현:** abilities.json에 enemy 호환 kind로 추가 — AB-003=`enemy_charge`(원거리 볼리, tele0.7·mult1.3)·AB-005=`enemy_melee`(연타, tele0.4·mult1.8)·AB-007=`enemy_dash`+`away`+`hp_below`(후퇴 도약). enemies.json 배정: AB-003→EN-011(원거리 fodder)·AB-005→EN-010(근접 fodder)·AB-007→EN-005(nuker).

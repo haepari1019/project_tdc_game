@@ -24,6 +24,7 @@ var _window: PanelContainer
 var _grids: Array = []           # all grids; drag routes among the VISIBLE ones
 var _backpack: InventoryGrid
 var _loot: InventoryGrid
+var _loading_carry: bool = false  # 영속 carry 로드 중엔 운반 한도 면제(비파괴 — 기존 carry는 전부 적재)
 var _loot_box: VBoxContainer     # loot column wrapper (shown only while looting)
 var _loot_label: Label
 var _chest: Node = null          # currently looted chest (null = none)
@@ -109,7 +110,20 @@ func is_open() -> bool:
 
 ## Add an item to the player backpack (from a world pickup). False if there is no room.
 func add_to_backpack(id: String, w: int, h: int, color: Color) -> bool:
+	if _run_carry_full():
+		return false
 	return _backpack.add_item(id, w, h, color)
+
+
+## F-029 군수(quartermaster) 런 운반 한도 — 현재 런 인벤 아이템 수 ≥ capacity면 새 슬롯 거부(스택 픽업은 허용).
+## quartermaster Tier↑로 한도 확장 = 의도된 성장 압력(추출/승급 동기). 비파괴: 기존 아이템 유지, 신규 추가만 게이트.
+func _run_carry_full() -> bool:
+	if _loading_carry:
+		return false   # 기존 carry 로드 중 — 한도 면제(비파괴)
+	var hub := get_node_or_null("/root/HubProfile")
+	if hub == null or not hub.has_method("run_inventory_capacity"):
+		return false
+	return _backpack.items.size() >= int(hub.run_inventory_capacity())
 
 
 ## How many backpack items have this id (drives quest counts, e.g. Cell n/6).
@@ -235,6 +249,8 @@ func add_gear_to_backpack(base_gear_id: String, at_risk: bool, inst: Dictionary 
 		m["rolled_identity_skill_id"] = rid     # gear_item이 캐리
 	if inst.has("rolls"):
 		m["rolls"] = inst["rolls"]
+	if _run_carry_full():
+		return false
 	return _backpack.add_item_dict(ItemFactory.gear_item(m, at_risk))
 
 
@@ -255,6 +271,8 @@ func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool, inst: Dic
 		item["charges"] = int(item["charges_max"])
 	if inst.has("charges"):
 		item["charges"] = int(inst["charges"])    # 저장된 잔여 탄
+	if _run_carry_full():
+		return false
 	return _backpack.add_item_dict(item)
 
 
@@ -277,6 +295,8 @@ func add_haul_to_backpack(haul_material_id: String, at_risk: bool, count: int = 
 				remaining -= add
 				_backpack.refresh_item_label(it)
 	while remaining > 0:
+		if _run_carry_full():
+			break   # 새 재료 타일은 운반 한도 적용(기존 스택 채움은 위에서 이미 허용)
 		var n := mini(max_stack, remaining)
 		if not _backpack.add_item_dict(ItemFactory.haul_item(haul_material_id, display, at_risk, n)):
 			break
@@ -335,6 +355,7 @@ func _load_backpack_from_autoload() -> void:
 	var bp := get_node_or_null("/root/Backpack")
 	if bp == null:
 		return
+	_loading_carry = true   # 기존 carry는 한도 무관 전부 적재(유실 방지) — 신규 픽업만 게이트
 	for d in bp.get_loose():
 		match String(d.get("kind", "generic")):
 			"gear":
@@ -347,6 +368,7 @@ func _load_backpack_from_autoload() -> void:
 				add_consumable_to_backpack(String(d.get("consumable_id", "")), int(d.get("count", 1)))
 			_:
 				add_to_backpack(String(d.get("id", "?")), int(d.get("w", 1)), int(d.get("h", 1)), Color(0.5, 0.5, 0.55))
+	_loading_carry = false
 
 
 ## B-model — commit the loose backpack grid back to the persistent Backpack autoload (extract = keep,

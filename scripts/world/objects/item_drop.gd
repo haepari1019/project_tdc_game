@@ -48,7 +48,9 @@ func interact() -> void:
 		ok = _inv.add_to_backpack(String(item.id), int(item.w), int(item.h), item.color)
 	if ok:
 		queue_free()  # picked up — remove from the world
-	# else: backpack full — leave the drop so the player can free space first
+	else:
+		# 운반 한도(군수 capacity) 또는 그리드 만석 → 픽업 거부, 드롭 유지(추출/버리기 후 재시도). F-029 성장 압력.
+		print("[CARRY] 운반 한도 — 추출하거나 버린 뒤 다시(군수 승급 시 확장)")
 
 
 func _build() -> void:
