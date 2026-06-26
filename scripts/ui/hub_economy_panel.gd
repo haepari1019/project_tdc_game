@@ -7,6 +7,8 @@ const OK := Color(0.62, 1.0, 0.62)
 const BAD := Color(1.0, 0.6, 0.55)
 const DIM := Color(0.75, 0.75, 0.78)
 const ACCENT := Color(1.0, 0.81, 0.42)
+const InventoryGrid := preload("res://scripts/ui/inventory/inventory_grid.gd")
+const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
 
 signal closed   # 패널 닫힘 → 호스트(main.gd)가 stash 에디터 소스를 재빌드(구매 반영·덮어쓰기 방지)
 
@@ -15,7 +17,8 @@ var _analysis_box: VBoxContainer
 var _shop_box: VBoxContainer
 var _armory_box: VBoxContainer
 var _consum_box: VBoxContainer
-var _stash_box: VBoxContainer   # 타르코프식 — 상점 옆에 현재 창고 내용 표시(구매가 들어오는 게 보이게)
+var _stash_cap_lbl: Label
+var _stash_grid: InventoryGrid   # 타르코프식 — 상점 옆 실제 그리드(현재 창고). 표시 전용(드래그 없음).
 # Runtime path (parse-time global 회피 — 새 autoload 미등록 에디터에서도 컴파일). main.gd 패턴.
 @onready var _hub: Node = get_node_or_null("/root/HubProfile")
 @onready var _stash: Node = get_node_or_null("/root/Stash")
@@ -102,9 +105,12 @@ func _ready() -> void:
 	stash_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stash_scroll.add_child(stash_col)
 	_header(stash_col, "── 창고 (현재 보유) ──")
-	_stash_box = VBoxContainer.new()
-	_stash_box.add_theme_constant_override("separation", 1)
-	stash_col.add_child(_stash_box)
+	_stash_cap_lbl = Label.new()
+	_stash_cap_lbl.add_theme_font_size_override("font_size", 12)
+	stash_col.add_child(_stash_cap_lbl)
+	_stash_grid = InventoryGrid.new()
+	_stash_grid.setup(self, 6, 18, 36, 2)   # 표시 전용 그리드(드래그 없음 — _on_item_pressed=no-op). 6×18, cell 36.
+	stash_col.add_child(_stash_grid)
 
 	if _hub != null and _hub.has_signal("economy_changed"):
 		_hub.economy_changed.connect(_refresh)
@@ -138,26 +144,46 @@ func _refresh() -> void:
 	_refresh_stash()
 
 
-## 현재 창고 내용 — 구매 시 즉시 반영(타르코프식 옆 패널). 격자 편집은 배치/스태시 창에서.
+## 현재 창고 내용 — 실제 그리드로 표시(구매 시 즉시 반영). 격자 편집은 배치/스태시 창에서.
 func _refresh_stash() -> void:
-	for c in _stash_box.get_children():
-		c.queue_free()
-	if _stash == null:
+	if _stash == null or _stash_grid == null:
 		return
+	_stash_grid.clear()
 	var cap: int = int(_hub.stash_capacity()) if _hub != null else 0
 	var n: int = int(_stash.item_count())
-	_lbl(_stash_box, "용량 %d / %d" % [n, cap], BAD if (cap > 0 and n >= cap) else ACCENT)
+	_stash_cap_lbl.text = "용량 %d / %d" % [n, cap]
+	_stash_cap_lbl.modulate = BAD if (cap > 0 and n >= cap) else ACCENT
 	for g in _stash.gear:
-		var bid := String((g as Dictionary).get("base_gear_id", "")) if typeof(g) == TYPE_DICTIONARY else String(g)
-		var m: Dictionary = Slice01Data.get_gear_master(bid)
-		_lbl(_stash_box, "  ◈ %s" % String(m.get("display_name", bid)), DIM)
+		var inst: Dictionary = g if typeof(g) == TYPE_DICTIONARY else {"base_gear_id": String(g)}
+		var m: Dictionary = Slice01Data.get_gear_master(String(inst.get("base_gear_id", "")))
+		if m.is_empty():
+			continue
+		var gm := m.duplicate(true)
+		if inst.has("rolled_identity_skill_id"):
+			gm["rolled_identity_skill_id"] = inst["rolled_identity_skill_id"]   # 툴팁용 인스턴스 정보
+		if inst.has("rolls"):
+			gm["rolls"] = inst["rolls"]
+		_stash_grid.add_item_dict(ItemFactory.gear_item(gm, false))
 	for s in _stash.skillbooks:
-		var sid := String((s as Dictionary).get("base_ability_id", "")) if typeof(s) == TYPE_DICTIONARY else String(s)
-		var sm: Dictionary = Slice01Data.get_skillbook_master(sid)
-		_lbl(_stash_box, "  ✦ %s" % String(sm.get("display_name", sid)), DIM)
+		var sinst: Dictionary = s if typeof(s) == TYPE_DICTIONARY else {"base_ability_id": String(s)}
+		var sm: Dictionary = Slice01Data.get_skillbook_master(String(sinst.get("base_ability_id", "")))
+		if sm.is_empty():
+			continue
+		var sit := ItemFactory.skillbook_item(sm, false)
+		if not (sinst.get("affix", {}) as Dictionary).is_empty():
+			sit["affix"] = sinst["affix"]
+		_stash_grid.add_item_dict(sit)
 	for cid in _stash.consumables:
 		var cm: Dictionary = Slice01Data.get_consumable_master(String(cid))
-		_lbl(_stash_box, "  ▣ %s ×%d" % [String(cm.get("display_name", cid)), int(_stash.consumables[cid])], DIM)
+		if cm.is_empty():
+			continue
+		_stash_grid.add_item_dict(ItemFactory.consumable_item(cm, int(_stash.consumables[cid])))
+
+
+## 표시 전용 그리드의 클릭 핸들러(InventoryGrid.place가 gui_input을 _coord._on_item_pressed로 연결).
+## 경제 패널 창고 그리드는 드래그/이동 없음 → no-op(마우스오버 툴팁은 노드 자체가 처리).
+func _on_item_pressed(_event: InputEvent, _grid: Node, _item: Dictionary) -> void:
+	pass
 
 
 ## Owned (stash) skillbooks → 의뢰 버튼. 게이트: scriptorium T1. 해금된 base는 '해금됨' 표시(거부).
