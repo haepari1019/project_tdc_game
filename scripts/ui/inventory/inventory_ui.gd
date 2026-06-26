@@ -126,6 +126,18 @@ func _run_carry_full() -> bool:
 	return _backpack.items.size() >= int(hub.run_inventory_capacity())
 
 
+## 창고(stash) 한도 — 편집 중 stash 그리드(_loot)의 기어·스킬북 타일 수 ≥ stash_capacity면 입금 거부(비파괴).
+func _stash_at_cap() -> bool:
+	var hub := get_node_or_null("/root/HubProfile")
+	if hub == null or not hub.has_method("stash_capacity") or not _loot_is_stash:
+		return false
+	var n := 0
+	for it in _loot.items:
+		if String(it.get("kind", "")) in ["gear", "skillbook"]:
+			n += 1
+	return n >= int(hub.stash_capacity())
+
+
 ## How many backpack items have this id (drives quest counts, e.g. Cell n/6).
 func count_item(id: String) -> int:
 	var n := 0
@@ -874,6 +886,10 @@ func _drop() -> void:
 				_revert_drag()
 				placed = true   # 원위치 복귀 후 아래 공통 정리로 폴백 — 조기 return을 하면 드래그 상태/비주얼이
 				# 남아 다음 클릭에 한 번 더 놓여 '복제'되던 버그. placed=true는 재배치만 건너뜀.
+			if target == _loot and _loot_is_stash and not rearrange_in_stash and String(_drag.get("kind", "")) in ["gear", "skillbook"] and _stash_at_cap():
+				_msg("창고 한도 초과 — 창고를 승급하거나 비워야 함")
+				_revert_drag()
+				placed = true   # 입금 거부(비파괴) — 기존 창고 아이템 유지
 			# consumable merge: dropping onto a same-id stack combines (≤ max_stack).
 			if String(_drag.get("kind", "")) == "consumable":
 				var dest: Dictionary = target.item_at(int(c.x), int(c.y))

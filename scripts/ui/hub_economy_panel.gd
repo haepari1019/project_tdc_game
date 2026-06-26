@@ -177,7 +177,7 @@ func _refresh_shop() -> void:
 		_lbl(row, "%s — %s 생본 · %d scrap%s" % [disp, tier, price, note], BAD if locked else DIM)
 		var btn := Button.new()
 		btn.text = "구매"
-		btn.disabled = locked or int(_hub.scrap()) < price
+		btn.disabled = locked or int(_hub.scrap()) < price or _stash_full()
 		var b: String = String(base)
 		var t: String = tier
 		btn.pressed.connect(func() -> void: _on_buy(b, t))
@@ -194,7 +194,14 @@ func _on_analyze(base: String) -> void:
 	_refresh()
 
 
+## 창고(stash) 한도 — 구매 시 생본/기어가 스태시로 들어가므로 stash_capacity 초과면 구매 차단(scrap 미소진).
+func _stash_full() -> bool:
+	return _stash != null and _hub != null and int(_stash.item_count()) >= int(_hub.stash_capacity())
+
+
 func _on_buy(base: String, tier: String = "Basic") -> void:
+	if _stash_full():
+		return
 	var r: Dictionary = _hub.buy_raw(base, tier)
 	if bool(r.get("ok", false)) and _stash != null:
 		_stash.add_skillbook(base)      # 생본(affix 없음) → 스태시
@@ -222,7 +229,7 @@ func _refresh_armory() -> void:
 			_lbl(row, "%s (%s) · %d scrap" % [String(m.get("display_name", gid)), Slice01Data.get_role_label(String(role)), price], DIM)
 			var btn := Button.new()
 			btn.text = "구매"
-			btn.disabled = int(_hub.scrap()) < price
+			btn.disabled = int(_hub.scrap()) < price or _stash_full()
 			var g: String = gid
 			var ct: int = t
 			btn.pressed.connect(func() -> void: _on_buy_gear(g, ct))
@@ -231,6 +238,8 @@ func _refresh_armory() -> void:
 
 
 func _on_buy_gear(base_gear_id: String, catalog_tier: int) -> void:
+	if _stash_full():
+		return
 	var r: Dictionary = _hub.buy_gear(base_gear_id, catalog_tier)
 	if bool(r.get("ok", false)) and _stash != null:
 		_stash.add_gear(base_gear_id)   # 확정 세트(굴림 없음) → 스태시

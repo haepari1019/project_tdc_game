@@ -65,10 +65,11 @@ func _seed() -> void:
 	_seeded = true
 	# Demo stash — SPARE Identity Gear: the full GEAR catalog (17 alternatives to swap to; worn
 	# starters live in Backpack.equipped, not here — F-008 ownership). Looted-AB skillbooks, revives.
+	# 15 spare gear + 4 skillbooks = 19 ≤ stash T0 capacity 20 (F-029 — 시작부터 1슬롯 여유, 이후 창고 승급 압력).
 	gear = [
 		"gear_ward_tank_kite_shield", "gear_ward_tank_beacon_hook", "gear_ward_tank_march_plate", "gear_ward_tank_rampart_wall", "gear_ward_tank_sentinel_aegis",
-		"gear_ward_dps_weave_staff", "gear_ward_dps_rift_needle", "gear_ward_dps_ember_wand", "gear_ward_dps_brand_foci", "gear_ward_dps_tide_censer",
-		"gear_ward_nuker_scout_frame", "gear_ward_nuker_flank_knife", "gear_ward_nuker_hex_scope", "gear_mag_nuker_coil_rifle", "gear_mag_nuker_volt_lance",
+		"gear_ward_dps_weave_staff", "gear_ward_dps_rift_needle", "gear_ward_dps_ember_wand", "gear_ward_dps_brand_foci",
+		"gear_ward_nuker_scout_frame", "gear_ward_nuker_flank_knife", "gear_mag_nuker_coil_rifle", "gear_mag_nuker_volt_lance",
 		"gear_ward_healer_ward_sigil", "gear_ward_healer_beacon_lantern",
 	]
 	skillbooks = ["AB-002", "AB-010", "AB-011", "AB-037"]
@@ -115,6 +116,11 @@ func remove_gear(base_gear_id: String) -> bool:
 			save_stash()
 			return true
 	return false
+
+
+## 창고 capacity 판정용 아이템 수 — 기어 + 스킬북 타일(소비는 스택·소량이라 제외). F-029 stash_capacity 비교용.
+func item_count() -> int:
+	return gear.size() + skillbooks.size()
 
 
 ## Add one owned gear to the stash (무기고 구매 / 회수). 상점 기어 = bundled identity(굴림 없음, 확정 세트).

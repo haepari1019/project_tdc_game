@@ -6,6 +6,15 @@
 
 ---
 
+### IMPL-DEC-20260626-039 — 창고(stash) 영속 capacity 강제 + 시드 축소 (이연 조각 — capacity 2축 완료)
+- **결정(사용자: 강제 + 시드 T0에 맞게 축소):** stash_capacity(20/28/36, 이미 존재·미사용) 강제 + 스타터 시드를 T0 캡 안으로.
+- **시드 축소:** stash 시드 기어 17→15(dps tide_censer·nuker hex_scope 제거) → 15기어+4스킬북=**19 ≤ T0 20**(시작 1슬롯 여유, 이후 승급 압력). **기존 세이브 미영향**(시드는 최초 로드만; 캡은 비파괴라 over-cap 세이브도 유지·추가만 차단).
+- **capacity 단위 = 아이템 수**(기어+스킬북 타일; 소비품 제외=스택 머지 엣지 회피). `Stash.item_count()` 추가.
+- **강제 지점:**
+  - 허브 에디터 입금 — `inventory_ui._drop`에 `_stash_at_cap()` 가드(기어/스킬북 입금, 재배치 제외) → `_msg` + revert(비파괴).
+  - 상점 — `hub_economy_panel` 생본/기어 구매 버튼 `disabled |= _stash_full()` + `_on_buy/_on_buy_gear` 가드(scrap 미소진).
+- **검증:** ci_smoke PASS. 체감=F5(창고 가득 시 입금/구매 차단, 창고 승급 시 확장). → **capacity 2축(군수 런 + 창고 영속) 완료.**
+
 ### IMPL-DEC-20260626-038 — 군수(quartermaster) 런 운반 한도 강제 (이연 조각 — capacity, 성장 압력 축)
 - **재평가(사용자 반박):** capacity는 버그가 아니라 **의도된 성장 압력 축**(제약→확장 동기)이고, 그리드가 커서 압력이 사라진 게 문제. 이전 "유실 위험·보류"는 *stash(cells 해석)*에만 해당 — **런 carry는 At-Risk(Stash와 분리)라 캐핑이 비파괴**(신규 픽업만 게이트, Safe 미오염).
 - **구현:** `HubProfile.run_inventory_capacity()`(12/14/16, 이미 존재·미사용)을 `inventory_ui` 픽업 경로에서 강제 — `_run_carry_full()`(=`_backpack.items.size() >= cap`) 가드를 `add_to/gear/skillbook/haul_to_backpack`에 추가. haul은 기존 스택 채움은 허용, 새 타일만 게이트. 만석 시 `item_drop.interact`가 드롭 유지(기존 false 처리) + 콘솔 노트.
