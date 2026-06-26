@@ -112,7 +112,7 @@
 
 ### P2-S7 — 통합/QA (착수 2026-06-26)
 - QA-005 13+케이스 · QA-021 19 interaction · QA-029 hub · 헤드리스→F5 자동화 · QA-031 마감 · 역전파 배치.
-- ◐ **시작:** ① QA-029 capacity 게터 헤드리스 커버(hub_smoke 군수 12/14/16·창고 20/28/36) + stash 시드 item_count(party_pool_smoke). ② **F5 수동 체크리스트** `docs/qa/F5_checklist_p2.md`(허브효과·capacity·평타거동·적kit·퀘스트). ③ **QA-021 결정코어 헤드리스**(`tools/reaction_smoke.gd`, ci_smoke 편입) — primaryMedium 우선순위 resolver(EVENT-CORE §3) + RX 매트릭스 4축(Fire/Cold/Lightning/Physical, 17 assert). **잔여:** QA-021 연쇄 *실거동*(VFX·ENC클리어=F5)·QA-005 역할 거동·QA-031 통합 마감·역전파(OPS_30, 스펙 레포·승인 필요).
+- ◐ **시작:** ① QA-029 capacity 게터 헤드리스 커버(hub_smoke 군수 12/14/16·창고 20/28/36) + stash 시드 item_count(party_pool_smoke). ② **F5 수동 체크리스트** `docs/qa/F5_checklist_p2.md`(허브효과·capacity·평타거동·적kit·퀘스트). ③ **QA-021 결정코어 헤드리스**(`tools/reaction_smoke.gd`, ci_smoke 편입) — primaryMedium 우선순위 resolver(EVENT-CORE §3) + RX 매트릭스 4축(Fire/Cold/Lightning/Physical, 17 assert). ④ **QA-005/031 수용 체크리스트** `docs/qa/F5_playable_contract.md` — NC 역할거동(identity/폴백/leash/healer-no-chase)·통합루프(스킬북·전멸=실패·Hard·로드아웃·ENC-NORM-001 게이트). **FAIL-tier 계약(NC 서브 자동안함·PartyWipe=Failure)은 by-construction 코드검증**(combat_controller·run_end_controller). ⑤ **F5 수동 패스 완료** — 세션 거동 5항목 ✅(실버그 잡음: pierce VFX·상점 stash 유실·창고 그리드). **잔여:** 역전파(OPS_30, 스펙 레포·승인 필요)뿐 — QA 검증부는 헤드리스+체크리스트로 마감.
 
 ---
 
