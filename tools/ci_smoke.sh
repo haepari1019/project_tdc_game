@@ -52,6 +52,16 @@ if [ "$tcode" -ne 0 ] || ! grep -qF "THIRD SMOKE PASSED" "$thirdlog"; then
   echo "  FAIL: third smoke (exit=$tcode) —"; grep -nE "FAIL|$ERRPAT" "$thirdlog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# Reaction decision-core (QA-021): primaryMedium priority resolver (EVENT-CORE §3) + RX matrix 4축
+# (Fire/Cold/Lightning/Physical, F-027). 연쇄 실거동·VFX는 F5 체크리스트(docs/qa/F5_checklist_p2.md).
+echo "== reaction smoke (QA-021) =="
+rxlog="/tmp/ci_reaction_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/reaction_smoke.gd >"$rxlog" 2>&1
+rxcode=$?
+if [ "$rxcode" -ne 0 ] || ! grep -qF "REACTION SMOKE PASSED" "$rxlog"; then
+  echo "  FAIL: reaction smoke (exit=$rxcode) —"; grep -nE "FAIL|$ERRPAT" "$rxlog" | head -8; fail=1
+else echo "  PASS"; fi
+
 # Party ability pool (P2-S6a, DRIFT-057): every skillbook cast.kind has a drop-in effect, band
 # penalty (D-016/D-012 §2.4) resolves, B1 ally-only ABs (034/044/054/062/070/075) + Veiled/Silenced/
 # Purge statuses behave.
