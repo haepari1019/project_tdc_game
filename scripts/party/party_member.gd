@@ -33,9 +33,15 @@ const BASIC_BEHAVIOR := {
 	"ba_tank_hook_tug": {"kb_m": 1.5},
 	"ba_dps_brand_sweep": {"cleave_m": 3.0},
 	"ba_dps_ripple_pulse": {"cleave_m": 2.5},
+	"ba_dps_weave_lance": {"pierce_m": 9.0},     # 원거리 관통(lance/needle/shard/coil)
+	"ba_dps_needle_prick": {"pierce_m": 8.0},
+	"ba_nuker_shard_shot": {"pierce_m": 8.0},
+	"ba_mag_coil_snap": {"pierce_m": 9.0},
+	"ba_mag_volt_needle": {"pierce_m": 8.0},
 }
 var basic_cleave_m: float = 0.0       # >0 = 평타 splash 반경(ba 아키타입 파생)
 var basic_knockback_m: float = 0.0    # >0 = 평타 피격 넉백 거리(ba 아키타입 파생)
+var basic_pierce_m: float = 0.0       # >0 = 평타 라인 관통 길이(ba 아키타입, 원거리)
 var equip_classes: Array = []
 ## F-008 §3.7 rolled 서브옵션(dmg_mult/cd_mult 등) — 인스턴스 굴림 저장 + 스탯 적용(G3). ref: gear_roll_table.md.
 var gear_rolls: Dictionary = {}
@@ -360,6 +366,7 @@ func _apply_basic_behavior() -> void:
 	var b: Dictionary = BASIC_BEHAVIOR.get(basic_attack_profile_id, {})
 	basic_cleave_m = float(b.get("cleave_m", 0.0))
 	basic_knockback_m = float(b.get("kb_m", 0.0))
+	basic_pierce_m = float(b.get("pierce_m", 0.0))
 
 
 func set_controlled(active: bool) -> void:

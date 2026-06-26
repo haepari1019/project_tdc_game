@@ -197,7 +197,12 @@ func _initialize() -> void:
 	var bpD = BP.new(); bpD.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "subs": [null, null, null]}}
 	bpD.apply_to_party(_PartyStub.new([pmD]))
 	_chk("평타 단일타 gear=cleave 0", is_equal_approx(float(pmD.basic_cleave_m), 0.0))
-	pmC.free(); pmD.free()
+	# pierce — 원거리 ba 아키타입(weave_lance)=관통, cleave는 0.
+	var pmE = PM.new(); pmE.class_id = "DPS"
+	var bpE = BP.new(); bpE.equipped = {"DPS": {"gear": "gear_ward_dps_weave_staff", "subs": [null, null, null]}}
+	bpE.apply_to_party(_PartyStub.new([pmE]))
+	_chk("평타 pierce(weave_lance)=9·cleave 0", is_equal_approx(float(pmE.basic_pierce_m), 9.0) and is_equal_approx(float(pmE.basic_cleave_m), 0.0))
+	pmC.free(); pmD.free(); pmE.free()
 
 	# 15) Stash 인스턴스화(F-008 §3.7) — 레거시 문자열 정규화 + 굴린 인스턴스 round-trip(apply_dict/to_dict).
 	#     add_child 안 함(autoload 없는 --script에서 _ready/save_stash의 get_node 절대경로 회피).

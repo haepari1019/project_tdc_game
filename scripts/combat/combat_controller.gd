@@ -293,6 +293,8 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 
 
 const BASIC_CLEAVE_FALLOFF := 0.6   # 평타 cleave 2차 대상 피해 비율 (ba 아키타입 splash)
+const BASIC_PIERCE_FALLOFF := 0.7   # 평타 pierce 관통 대상 피해 비율
+const PIERCE_HALF_WIDTH := 0.9      # 관통선 반폭(m) — 이 안의 적이 관통 피격
 
 ## 평타 1회 해소 — 1차 대상 피해 + (cleave 시) 주변 splash + (knockback 시) 넉백 + VFX 1회.
 ## 단일타 gear는 cleave_m/kb_m=0이라 1차 대상만 → 기존과 동일. provoked·일반 평타 공용(F-008 §3.7).
@@ -310,6 +312,22 @@ func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
 					_knockback_from(e, m, kb)
 	if kb > 0.0:
 		_knockback_from(foe, m, kb)
+	var pierce: float = float(m.basic_pierce_m) if "basic_pierce_m" in m else 0.0
+	if pierce > 0.0:
+		var axis: Vector3 = foe.global_position - m.global_position
+		axis.y = 0.0
+		if axis.length() > 0.01:
+			axis = axis.normalized()
+			for e in _enemies_in_radius(m.global_position, pierce):
+				if e == foe or not is_instance_valid(e):
+					continue
+				var rel: Vector3 = e.global_position - m.global_position
+				rel.y = 0.0
+				var along: float = rel.dot(axis)
+				if along <= 0.0:
+					continue  # 캐스터 뒤 → 관통선 밖
+				if (rel - axis * along).length() <= PIERCE_HALF_WIDTH:
+					_deal_damage(e, m, m.basic_damage * BASIC_PIERCE_FALLOFF)
 	SkillVfx.party_basic(m.basic_attack_profile_id, self, m.global_position, foe.global_position, foe)
 
 
