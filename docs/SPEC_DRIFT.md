@@ -3,6 +3,8 @@
 > **무엇:** 구현이 spec(SSOT)과 달라진 지점의 **단일 추적 대장**. 발견 즉시 `DRIFT-###`로 기록하고, 분류·결정·상태를 유지한다.
 > **규칙:** [AGENTS.md](../AGENTS.md) §Spec drift & propagation. 튜닝수치=로깅만 / 아이디어=`OPS_08·I-002` / 규칙변경=spec repo `OPS_30` 전파 후 `spec_ref.json` 재핀.
 > **최종 갱신:** 2026-06-26 — **역전파 배치(스펙 `origin/staging` 누적·푸시됨, `spec_ref` 재핀 `staging@f16c262`; `origin/main`은 사용자 promotion 대상이라 미변경 — 스펙 AGENTS.md):** DRIFT-058(AB-070+Bloodlust)·067(forceEncounter 난이도 스키마+Q-HUB-020 일반화)·064(루트 출처 모델)·066/046(런타임 인카운터 제너레이터+증원)·028/030/032/065/068(데모 콘텐츠/데이터) **→ DEC-20260626-001~005 OPS_30 전파**. 027(인-런 부활)·018/019(perception·분대AI)·037/038(fog·see-through)는 **이미 전파됨**(D-020+F-007 §3.6.1·F-011 DEC-20260609/610/618-001) — 재전파 불필요. **PENDING-PROP 없음.** · **이전 스펙 핀:** `bc22c38` (DEC-20260621-001 제3세력 Stalker Pack · DRIFT-055; `ef9c0c7`=DEC-20260620-002·DRIFT-054, `d62df49`=DRIFT-050 AB-011 channel·DEC-20260620-001). 이전: (**Phase 2 Full Spec Coverage 채택** — 데모 스코프 상한 해제, `ImplementationPhase_FullSpecCoverage.md` · DRIFT-037 F-011 fog·DRIFT-038 F-012 see-through 전파 `daa1114`/DEC-20260618-001 머지+재핀). **PENDING-PROP 없음.** 이전 핀: 4422e50=Phase2 채택·DRIFT-037/038, 0edf55c=DRIFT-035/036(F-004 §3.5·F-012 §3.1.2), b84e975=DEC-20260611-003~006, c795fee=DEC-001/002, f7739a1=DRIFT-021.
+> **2026-07-04 갱신 (T1 백로그 배치):** DRIFT-069 신설 — 잔여 종결 6(HEX-WEAK·거리leash+복귀·난이도 드롭률·fog 문 occluder·적 stun VFX+오프스크린 지표·PIP §7.8) **구현**, 전 헤드리스 PASS. **신규 콘텐츠 2 = `PENDING-PROP`(OPS_30 승인 대기):** F3 환경 RX 3종·B7 zone spread. ⚠️ 상단 "PENDING-PROP 없음"은 2026-06-26 기준 — 현재 DRIFT-069 F3/B7 대기. 상세=DRIFT-069·`ImplDecisionLog` IMPL-DEC-20260704-001.
+> **2026-07-04 갱신 ② (스펙 내부 erratum 전파):** DRIFT-070/071/072 신설 — `DEC-20260704-001`(서브 경제 Skillbook→Gear/마석 전환)이 **impact_scope에서 `D-011`을 누락** → 서브 로드아웃 정본 필드가 D-011(구 `subEquippedSkillbooks`) ↔ D-019/D-018(`equippedSlotAbilities`) 상충. 감독 결정: **D-019 정본**. + `BIND-ROADMAP-008` slotIndex Q→E(071) + Healer 스타터 프리모딩 정합(072). **`DEC-20260704-002` OPS_30 전파 진행** + `spec_ref` 재핀 예정(f16c262→e328aaa 계열).
 > **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조 검증).
 
 ## 범례
@@ -531,3 +533,37 @@
 - **스펙과의 차이:** 해당 sub 정식 tier 미정(스펙 갭). 게임은 가장 보수적(저가·scribe_shop T1 접근) Basic으로 채움. 분포=Basic31·Adv28·Master2.
 - **분류\전파:** impl — **재싱크 후보**(스펙이 12종 abilityTier 정의 시 동기화). 비파괴(상점 가격/천장만 영향).
 - **검증:** ci_smoke + hub_smoke(AB-002 Basic·AB-004 Advanced·Adv 생본 T1차단/T2구매) PASS.
+
+### DRIFT-069 — T1 백로그 배치: 잔여 종결 6 + 신규 콘텐츠 2 (2026-07-04) 🔶 impl/tuning + 일부 PENDING-PROP
+- **현실(2026-07-04, 사용자 "T1 진행"):** `BACKLOG_open_items.md` §T1(지금 바로 가능) 배치 구현. 전 헤드리스 ci_smoke 6/6 PASS.
+- **잔여 종결(기존 spec 구현 — 전파 불필요):**
+  - **HEX-WEAK 피해감소 절반(DRIFT-041):** `party_member.apply_hex_weak/hex_weak_mult` + `_deal_damage` 소비 훅 + AB-012 `hex_weak 0.5`. 이동 slow에 더해 나가는 피해 −50%.
+  - **거리-leash + 스폰복귀(DRIFT-048/040/019):** `combat_controller.DISENGAGE_LEASH_M 28`(EN-AI-000 §3) 이탈 → `enemy.returning` → `enemy_ai._tick_dormant` 스폰 앵커 복귀(Phase D). 수치=tuning.
+  - **난이도 드롭률(DRIFT-063 일부):** `loot_service.SKILLBOOK_DROP_BY_DIFF` Normal 8%/Hard 15%(§7.4). tier별 충전수=밸런스 결정 보류(61 저작값 일괄 변경 회피).
+  - **fog 문 occluder(DRIFT-037 잔여):** `vision_fog`/`enemy_vision_overlay.add_box_occluder` — 닫힌 문=시야 그림자(기존: 그림자 전무 버그)·열림=제거(UPDATE_ALWAYS로 다음 프레임 반영).
+  - **적 stun VFX + 오프스크린 아군 지표(DRIFT-044/022):** `enemy_unit._stun_label`(✦, 지속) + `party_hit` 시그널에 member 추가 → 오프스크린 피격 아군은 앰버 엣지 글로우(자기피격 red와 구분).
+  - **PIP §7.8 우선순위 정렬(DRIFT-030 잔여):** `mia_controller` PIP 리스트 최저 HP순 정렬(가장 위험한 아군 먼저).
+- **신규 콘텐츠 — `PENDING-PROP`(OPS_30 승인 대기, 이 레포 spec md 미편집):**
+  - **F3 환경 RX 3종:** `RX-FIRE-ICE-001`(Ice→Water melt)·`RX-COLD-FIRE-001`(Fire→quench Steam)·`RX-COLD-STEAM-001`(Steam→Water). `reaction_system` RX_FIRE/COLD_MATRIX 확장. **새 RX 룰 → 전파 후보.**
+  - **B7 zone spread(S3e):** `reaction_system` Wind 구동 유계 spread(`_physics_process` 2s·per-gust 2·global cap 6·children 비재확산). room-cap=전역 프록시. **spread 룰 → 전파 후보 + F5 튜닝.**
+- **분류\전파:** impl + tuning(로깅만). 종결 6은 기존 spec 구현. **F3/B7 = 새 규칙 → PENDING-PROP**(승인 후 OPS_30). AB-052 reflect 키 불일치(`reflect_frac`→`reflect` 폴백)·party_member:510·combat_sandbox:74 stale 주석 수정 포함(비-드리프트).
+- **이연:** C2 §7.5/§7.2(PIP 아이콘/관통가림)·저위험 부채(DEBT-DUP-*)·E3 tier-충전수(밸런스). ref: `ImplDecisionLog` IMPL-DEC-20260704-001.
+
+### DRIFT-070 — 서브 로드아웃 정본 필드: D-011 미갱신(`subEquippedSkillbooks`) vs D-019/D-018(`equippedSlotAbilities`) 🔷 spec-내부 모순 (전파 진행)
+- **발견(2026-07-04, P4a/P4b 플래닝):** `DEC-20260704-001`(서브 경제 Skillbook→Gear/마석 전환)이 `D-018`(§9 Frozen)·`D-019`(§3 `equippedSlotAbilities[3]`)·`F-020`(§3.2.3)에는 전파됐으나 **`D-011`을 impact_scope에서 누락** → D-011 ssot_note가 여전히 `canonical=subEquippedSkillbooks` → 서브 로드아웃 정본 필드가 문서 간 상충.
+- **충돌 위치:** `D-011`:8(ssot_note)·§2:25·§4:39/42/51 = `subEquippedSkillbooks` canonical ↔ `D-019` §3.1:82 "Deprecated P4b"·§9:272 마이그·`D-018` §9:318 "Frozen → `equippedSlotAbilities[]`". D-011에 `equippedSlotAbilities` 등장 0회.
+- **결정(감독 2026-07-04): D-019 쪽이 정본.** 서브 SSOT=`D-019.equippedSlotAbilities[3]`(gear 인스턴스 귀속), `subEquippedSkillbooks`=1회 read-only 마이그 import로 강등. + 부수 오기: D-011:26 passive 트리 링크 `F-009 §10`→`F-020 §3.10`/`F-029 §3.6`.
+- **분류\전파:** rule(spec-내부 erratum) — **OPS_30 전파**(DEC-20260704-002). D-011 ssot_note/§1/§2/§4/§6 P4b 정합 편집 + depends_on에 D-019 추가.
+- **상태:** 🔷 전파 (D-011, DEC-20260704-002, spec staging). **게임 영향:** Stage 2(P4b 이관)에서 `equippedSlotAbilities`로 재시드 — 첫 스프린트(Stage 0+1) 무관.
+
+### DRIFT-071 — `BIND-ROADMAP-008` 본문 slotIndex Q ↔ INDEX 표 E 🔷 spec-내부 오기 (전파 진행)
+- **발견(2026-07-04):** `BIND-ROADMAP-008_MarkSpore.md`:21 본문 `slotIndex 0 (Q)` ↔ `BIND-ROADMAP-INDEX.md`:33 = 008=slot **E**. 슬롯풀(INDEX:27 `AB-030` Q·`AB-039` E·`AB-085` R)·형제 011(`AB-039`@E) 대조 시 **E(1)가 정답**, 본문 오기.
+- **결정(감독): 인덱스 표 기준(E / slotIndex 1).** 본문 slotIndex Q→E 정정(파일명 "…E"·제목 "Mark × Spore E"도 이미 E 함의).
+- **분류\전파:** rule(비정본 스텁 오기) — `docs/combat/bindings/`는 CombatContentMap 미등록이나 "모두 전파" 결정으로 본문 즉시 정정(OPS_30, DEC-20260704-002).
+- **상태:** 🔷 전파 (BIND-ROADMAP-008 본문, spec staging). **게임 영향:** 없음(Nuker 로드맵 Stage 3 이전 무관).
+
+### DRIFT-072 — Healer 스타터 서브 2종(F-009 §3.1.1 레거시) vs 1종(F-008 §3.10.2 프리모딩) 🔷 spec 설계 갭 (전파 진행)
+- **발견(2026-07-04):** `F-009` §3.1.1:72 Healer 스타터=`AB-044`+`AB-045`(레거시 StarterGrant, §3.9.4:255에서 프리모딩으로 대체 명시) ↔ `F-008` §3.10.2:217 프리모딩=`AB-044`(Q)만. P4b 시작 슬롯 1개라 클래스당 1종이 내부 일관이나 Healer 2번째 스타터 `AB-045`(Lifeline) 향방 불명.
+- **결정(감독): 권고대로 — 프리모딩(`AB-044`) 정본.** `AB-045`는 **트리 T1 E-슬롯 해금 후 재획득**. "스킬 장비는 구현 후 다듬음." `F-008` §3.10.2에 Healer 특례 주석 + `F-009` §3.1.1에 P4b 대체 포인터.
+- **분류\전파:** rule(설계 의도 확정) — OPS_30 전파(DEC-20260704-002).
+- **상태:** 🔷 전파 (F-008 §3.10.2·F-009 §3.1.1, spec staging). **게임 영향:** Stage 2 첫런 그랜트만.
