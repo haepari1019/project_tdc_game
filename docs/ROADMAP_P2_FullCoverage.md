@@ -93,7 +93,7 @@
 - ✅ **획득 경로(S6b-lite)**: ally-only lootable은 적 드롭 안 됨 → `dungeon_run` **ally-cache 상자**(RM-ADV-01, `ALLY_CACHE_POOL` 2종 랜덤·At-Risk). shop/드롭표·gear roll-table은 **S6b 본격**.
 - ✅ **B2 데미지 sub 19종(2026-06-23 패스)**: 신규 `skillbook_bolt`(targeted 원거리, 옵션 lightning→LightningHit RX+Shock) = AB-003/004/008/055/056/058/059/073 + 재사용 = AB-005 strike·013 charge·006 blink·007 blink(`away` 후퇴)·030 stun(interrupt 근사)·012 vulnerable·048/074 dr·033 shield·060 execute·066 hot. 누적 sub **39종**·신규 effect kind 13. `party_pool_smoke.gd`+ci_smoke PASS. **이연(bespoke 5)**: AB-032 reveal·035 taunt·045 ally-relocate·050 slow-cone·051 pull(신규 시스템/타겟팅 필요).
 - ✅ **B2 잔여 bespoke 5종(2026-06-23 패스 — lootable 풀 완료)**: `skillbook_taunt`(AB-035 Challenge Mark→`enemy.add_threat`/`set_threat_floor` 어그로 강제)·`skillbook_pull`(AB-051 Shield Throw→`apply_knockback` 당김)·`skillbook_slow`(AB-050 Warding Shout→cone `apply_slow`)·`skillbook_relocate_ally`(AB-045 Lifeline→최저 HP 아군 자동선택 이동)·`skillbook_reveal`(AB-032 Beacon Sight→`EnemyVisibility._reveal_timer` 강제 set_seen). 신규 ctx `reveal_enemies` 1. 누적 sub **44**·신규 kind **18**. 타겟팅/threat은 기존 메서드·자동선택으로 해결(신규 시스템 회피). 근사: taunt floor·reveal=3D 포그.
-- ✅ **6 Identity 후보**(AB-021/022/052·027·029·031) — 기어 카탈로그(DRIFT-056)에서 완료.
+- ✅ **6 Identity 후보**(IDA-021/022/052·027·029·031) — 기어 카탈로그(DRIFT-056)에서 완료.
 
 ### P2-S5 — 3세력 (F-028) + Encounter Variety 엔진 (M–L) — ✅ 완료 (S5b: 제너레이터 P1~P3b·창발 주입·런 내 비복원·킬 귀속)
 - **3세력:** faction-tagged 적대(player+monster 양쪽) · offscreen `active_and_adjacent` 시뮬 · ENC-3RD-001. (스펙 stub — EN/OBJ-3RD 확정 후.)

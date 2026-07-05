@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-052 Sentinel Form (kind=sentinel_form) — turtle stance: heavy damage reduction + move-lock +
+## IDA-052 Sentinel Form (kind=sentinel_form) — turtle stance: heavy damage reduction + move-lock +
 ## reflect a fraction of incoming hits back to the attacker (reflect_frac, 40% draft) while foes are
 ## near. DEC-20260617-006. Drop-in identity effect. ref: GEAR-016 · DEC(gear catalog) · DRIFT-056.
 

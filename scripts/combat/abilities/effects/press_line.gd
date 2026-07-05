@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-024 Press the Line (kind=cone_sweep) — forward cone, 3-hit sweep AoE (v1: total at once).
+## IDA-024 Press the Line (kind=cone_sweep) — forward cone, 3-hit sweep AoE (v1: total at once).
 ## Drop-in skill effect (ability_dispatch ctx facade).
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")

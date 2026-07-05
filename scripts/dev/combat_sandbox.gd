@@ -655,7 +655,7 @@ func _on_bind_fixture(which: String) -> void:
 	if tank == null:
 		_status.text = "결속: 장착 가능한 Tank 멤버 없음"
 		return
-	tank.equip_gear(master)   # → bundled identity (AB-020 anchor / AB-021 beacon) + stats
+	tank.equip_gear(master)   # → bundled identity (IDA-020 anchor / IDA-021 beacon) + stats
 	tank.equip_skillbook_by_id(0, "AB-033")   # Q Intercept
 	tank.equip_skillbook_by_id(1, "AB-034")   # E Rampart
 	tank.equip_skillbook_by_id(2, "AB-035")   # R Challenge Mark

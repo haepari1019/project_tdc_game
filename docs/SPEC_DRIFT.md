@@ -38,10 +38,10 @@
 | 004 | P-ADV-01 → ENC-HARD-001 (NORM-001 도달불가) | scope | **둘 다 살림**: P-ADV-01→NORM-001, P-ADV-02→HARD-001 | RESOLVED (P3) |
 | 005 | 1b 메커닉이 전투에(EN-005/006·증원·상태이상) | rule | 유지=1b, spec 승격(QA-031) | ✅ MERGED (staging d70ed48) |
 | 006 | abilities.json id 검증 누락 + 미등록 ID | code-bug | 등록(14 AB) + `require_id` + sub_ability_id 검증 | RESOLVED (P3) |
-| 007 | AB-020 Anchor Guard 수치 | tuning | 로깅만, 재산출 | LOGGED |
-| 008 | AB-024 Press the Line 수치 + 3타 붕괴 | tuning/polish | 로깅; 3타 순차는 1b 폴리시 | LOGGED/BACKLOG |
-| 009 | AB-025 Mark & Ruin 수치 + 텔레그래프/환급 없음 | tuning/polish | 로깅; 텔레그래프는 1b | LOGGED/BACKLOG |
-| 010 | AB-026 Mend Circle 수치 | tuning | 로깅, 임계 재정렬 | LOGGED |
+| 007 | IDA-020 Anchor Guard 수치 | tuning | 로깅만, 재산출 | LOGGED |
+| 008 | IDA-024 Press the Line 수치 + 3타 붕괴 | tuning/polish | 로깅; 3타 순차는 1b 폴리시 | LOGGED/BACKLOG |
+| 009 | IDA-025 Mark & Ruin 수치 + 텔레그래프/환급 없음 | tuning/polish | 로깅; 텔레그래프는 1b | LOGGED/BACKLOG |
+| 010 | IDA-026 Mend Circle 수치 | tuning | 로깅, 임계 재정렬 | LOGGED |
 | 011 | 적 HP/접촉뎀/**이속** 튜닝 | tuning | 로깅, ENC-NORM-001 기준 재산출 | LOGGED |
 | 012 | DIFFICULTY_OPTIONS EN-013 문서 오타 | code-bug(doc) | 재현 안 됨(파일에 EN-013 없음) | DROPPED |
 | 013 | 아군간 물리충돌 제거(MASK_PARTY) | (비위반) | 로깅만 | LOGGED |
@@ -104,11 +104,11 @@
 - **상태:** ✅ **MERGED** (staging d70ed48 — `QA-031`이 EN-005/006/013·`ENC-HARD-001`·증원 wave·`F-021` 상태이상 depth 1을 1b In-scope로 승격, DEC-20260608-001).
 
 ### DRIFT-006 — abilities.json 검증 누락 (코드 가드 버그) ✅ RESOLVED (P3)
-- `slice01_data._parse_abilities()`가 `require_id` 미수행. `id_registry.ability_ids`엔 AB-020/024/025/026만 → AB-001/002/010/011/015/016·AB-S0x가 "미등록 ID→abort" 우회. `sub_ability_id`도 미검증이었음.
+- `slice01_data._parse_abilities()`가 `require_id` 미수행. `id_registry.ability_ids`엔 IDA-020/024/025/026만 → AB-001/002/010/011/015/016·AB-S0x가 "미등록 ID→abort" 우회. `sub_ability_id`도 미검증이었음.
 - **처리(P3):** ① `id_registry.ability_ids`에 사용중 14개 AB-### 등록(`_note`로 AB-S0x 비-spec 표기) ② `_parse_abilities`에 `require_id` 루프 ③ `_parse_identities`에 `sub_ability_id` 검증 추가. 헤드리스 로드 검증 통과(등록 누락 시 abort했을 것).
 
 ### DRIFT-007~011 — 수치 드리프트 (tuning, 로깅만)
-- AB-020(cd6→8·base80→120·cap160→280·dur4→5·pulse90→60), AB-024(cd4→7·perhit0.35→1.0·3타 단발붕괴), AB-025(cd5→9·mult7→12·텔레그래프/환급 없음), AB-026(cd7→6·r4→5·heal12%→10%·임계 85/90→90/95), 적HP 인플레(EN-001 760 등).
+- IDA-020(cd6→8·base80→120·cap160→280·dur4→5·pulse90→60), IDA-024(cd4→7·perhit0.35→1.0·3타 단발붕괴), IDA-025(cd5→9·mult7→12·텔레그래프/환급 없음), IDA-026(cd7→6·r4→5·heal12%→10%·임계 85/90→90/95), 적HP 인플레(EN-001 760 등).
 - **적 이속(2026-06-08):** 2.0~5.0 → **7.5~9.5** (조작 9.0 대비 near-equal). 이유: 적이 느려 무시·도망 전략이 통함 → 카이팅 차단. 아키타입 유지. spec 무관(F-025 §11 tuning).
 - **템포 ×2/3 + 감속(2026-06-08):** 전 이동체 이속 ×2/3 — 파티 조작 9→6·추종 13→8.7·근접 9.5→6.3, 적 7.5~9.5→**5.0~6.3** (비율유지 → 카이팅방지 유지). 조작캐 감속 45→**200**(빙판느낌 제거; 가속 25 유지). `formation.json`·`enemies.json`, spec 무관 tuning.
 - **팔로워 catch-up 재조정(2026-06-09):** 반응성을 최고속도 대신 가속도로 — 추종 far 8.7→**6.6**(조작 6.0 근처 마진만), `follower_accel` 50→**70**. 조작캐 이동 방향별 속도(W 1.0/A·D 0.75/S 0.65) 추가.
@@ -116,7 +116,7 @@
 - **로깅 사유:** 수치 인플레가 *과강한 자작 서브/Identity 보정*에서 비롯됨(PHASE5 §60/63). DRIFT-001/004 정리 후 ENC-NORM-001 기준으로 **재산출**할 것.
 
 ### DRIFT-008/009 폴리시 갭 (BACKLOG)
-- AB-024 3타 순차 sweep·"적 전멸 시 잔여타 취소", AB-025 0.5s 표식 텔레그래프·실패시 쿨 50% 환급 — 게임 자체 CP4 미완 항목. 1b 폴리시로 구현.
+- IDA-024 3타 순차 sweep·"적 전멸 시 잔여타 취소", IDA-025 0.5s 표식 텔레그래프·실패시 쿨 50% 환급 — 게임 자체 CP4 미완 항목. 1b 폴리시로 구현.
 
 ### DRIFT-012 — 문서 오타 (SCHEDULED P4)
 - `DIFFICULTY_OPTIONS.md`가 ENC-NORM-001 구성에 EN-013 포함이라 기술(실제는 EN-012). 문구만 수정.
@@ -342,7 +342,7 @@
 ### DRIFT-043 — P2-S2c(3) AB-099 Iron Mockery / Provoked 🔸 IMPLEMENTED
 - **구현(2026-06-19, IMPL-DEC-20260619-003):** EN-001 전방 60°/4m 부채꼴 도발(`enemy_provoke`, channel 0.85s, 쿨 14s) → 신규 party-side `Provoked` 상태(이동·스킬 잠금 + 시전자 강제 평타, 2s, 멤버 귀속·스왑 허용, Stunned 우선). 게이트 4곳(combat_controller·player_controller·party_controller·dungeon_run sub-key).
 - **분류/전파:** **impl(구조는 spec) + tuning.** AB-099 수치(telegraph/cd/zone/dur)·스왑허용·Stunned우선 = spec `AB-099` Draft 그대로. `enemy_provoke` kind·강제 접근 이동·존 facing(resolve 시점, 채널-freeze라 cast-start≈동일) = 게임 인코딩.
-- **미구현(정직):** ① ~~interrupt-on-channel~~ → **DRIFT-044에서 구현**(Toll Stun으로 Mockery 채널 끊기 성립). ② **AB-031 Ward Pulse 클렌즈** 데모 무. ③ 존 anchor = cast-start facing 고정(spec) 대신 resolve facing(채널 freeze로 근사). ④ aim 모달 활성 중 provoke 진입 시 confirm 캐스트가 게이트 우회(희소).
+- **미구현(정직):** ① ~~interrupt-on-channel~~ → **DRIFT-044에서 구현**(Toll Stun으로 Mockery 채널 끊기 성립). ② **IDA-031 Ward Pulse 클렌즈** 데모 무. ③ 존 anchor = cast-start facing 고정(spec) 대신 resolve facing(채널 freeze로 근사). ④ aim 모달 활성 중 provoke 진입 시 confirm 캐스트가 게이트 우회(희소).
 - **잔여:** ~~interrupt/channel 정책(§2)~~ → **DRIFT-044에서 종결**. **존 도발 체감 F5 잔여**.
 
 ### DRIFT-044 — P2-S2c(4) 채널 interrupt + 적 stun primitive (EN-AI-000 §2) 🔸 IMPLEMENTED
@@ -418,9 +418,9 @@
 - **잔여:** Tether leash-DoT(거리추적 트래커 필요)·ccTenacity 적용 = 후속. (**Bloodlust HP-스케일 해결**.) 체감 F6(샌드박스 "ENC 추가"로 Third vs Dungeon 진영전 — Scent→Snare(Root)→Devour 킬체인 관찰).
 
 ### DRIFT-056 — Identity Gear 카탈로그 고도화: 17 신규 기어 + 6 정체성 + 6 ability 구현 🔶 tuning/impl
-- **현실(2026-06-22, 사용자: "기어를 스펙에 맞게 고도화 + 장착가능한 기어 + 스왑테스트"):** 게임이 역할당 스타터 1개(4기어)만 구현했음 — 스펙(`bc22c38`)은 GEAR-011~016/021~026/031~036/041~043 풀 카탈로그를 정의. 비스타터 기어·정체성(7)·ability(AB-021/022/027/029/030/031/032/052)·확장 ba 전부 게임 미구현(id_registry note "armory 카탈로그 GEAR-COR-000 후속" 명시).
+- **현실(2026-06-22, 사용자: "기어를 스펙에 맞게 고도화 + 장착가능한 기어 + 스왑테스트"):** 게임이 역할당 스타터 1개(4기어)만 구현했음 — 스펙(`bc22c38`)은 GEAR-011~016/021~026/031~036/041~043 풀 카탈로그를 정의. 비스타터 기어·정체성(7)·ability(IDA-021/022/027/029/030/031/032/052)·확장 ba 전부 게임 미구현(id_registry note "armory 카탈로그 GEAR-COR-000 후속" 명시).
 - **구현(impl):** ① **I4 기어 소유·영속** — 장착 Identity Gear를 `Backpack.equipped[class].gear`로(런 적용·런간 유지·사망 시 Safe, F-009). 스타터=착용(equipped), 스태시=스페어. deploy 스태시 동기화에 gear 포함. ② **17 신규 기어**(gear.json) — GEAR-012~016/022~026/032~036/042~043. 다수는 기존 스타터 정체성 재사용(rampart/ember/brand/scout/hex/coil); volt_lance/beacon_lantern은 스펙상 "Identity 부적합" 정체성 핀 → suitable 폴백(mark_ruin/mend_circle). ③ **6 신규 정체성**(iron_beacon·bulwark_march·sentinel_form·arc_weave·flank_collapse·ward_pulse). ④ **6 ability effect 드롭인**(beacon_threat·march_advance·sentinel_form·arc_line·flank_dash·ward_shield) + member DR(`damage_taken_mult`)·`cleanse_one` + outcome `remove`/`cleanse_one`.
-- **튜닝(로깅만):** 새 정체성 combat 스탯(hp/dmg/range/interval/threat — 예: sentinel hp205, arc_weave r14, flank r2.2 dmg20) + 6 ability params(cooldown/radius/dr/dash/cleanse 등) + **17 기어 평타 수치**(basic_damage/interval/range) = **DEMO PH**(의도 반영). 스펙 AB-021/022/027/029/031/052 문서는 **PT-pending stub**(런타임 수치 미정) → 효과는 **설계 의도대로 구현**(스펙 규칙 위반 아님; 수치=드리프트 로깅).
+- **튜닝(로깅만):** 새 정체성 combat 스탯(hp/dmg/range/interval/threat — 예: sentinel hp205, arc_weave r14, flank r2.2 dmg20) + 6 ability params(cooldown/radius/dr/dash/cleanse 등) + **17 기어 평타 수치**(basic_damage/interval/range) = **DEMO PH**(의도 반영). 스펙 IDA-021/022/027/029/031/052 문서는 **PT-pending stub**(런타임 수치 미정) → 효과는 **설계 의도대로 구현**(스펙 규칙 위반 아님; 수치=드리프트 로깅).
 - **의도적 근사:** ① ✅ **Sentinel Form 40% 반사 해결(2026-06-23)** — `take_damage(amount, attacker)` 시그니처 확장 + `_apply_enemy_hit` attacker 전달 → 스탠스 중 reflect_frac(0.4 draft) 반사. DR(damage_taken_mult)+move-lock(Rooted) 유지. ② **march/flank dash** = `global_position` 직접 이동(nav 경합 없는 짧은 리포지션) — i-frame 미구현. ③ 새 정체성 pattern_id = **역할 스타터 패턴 재사용**(PT-010/020/021/022). ④ **기어귀속 평타(D-019 §4.4)** = 17 신규 기어에 `basic_damage/interval/range` 주입 — 평타는 **기어 ba 아키타입이 SSOT**(`_bind_gear` gear-first, 정체성 combat는 스타터 폴백). 같은 정체성 재사용 기어가 평타로 구분(kite_bash 6/0.8/2.2 vs hook_tug 7/1.0/3.5; ember_wand vs brand_foci). ba 프로필 id(`ba_*`)는 등록만 — 수치는 그 아키타입의 데모 근사. 특수거동(pierce/cone/knockback/threat)은 평타 후속(현재 단일타겟).
 - **분류\전파:** **tuning(로깅만) + impl.** 기어/정체성/ability/ba ID는 전부 spec(bc22c38)에 이미 존재 → **구현일 뿐, 규칙 드리프트 없음**(스펙 무편집). nuker_voltaic_interrupt/healer_beacon_sight는 "Identity 부적합"(D-012)이라 정체성 미추가(lootable 서브 전용 유지) — 해당 기어는 suitable 폴백.
 - **검증:** 부팅 id 1:1·swap chain(기어→정체성→스탯 변경: anchor hp180↔sentinel hp205, press r10↔weave r14, ruin r2.4↔flank r2.2 등)·ci_smoke. 커밋 38d7df7(I4)·357decf(데이터)·(effect).
@@ -436,7 +436,7 @@
 - **밴드 패널티 구현(D-016 §3.2 / D-012 §2.4):** `SUB_CLASS_COEFF 0.9 단일` → **밴드 차등**. skillbooks.json에 `sub_bands {classId: band}` 추가(미기재 클래스=main B0). `ability_dispatch.BAND_COEFF {B0:1.0,B1:0.9,B2:0.75,B3:0.55}` + `_band_coeff`. **equip_classes는 그대로 Role Equip Gate(=main∪sub)** → 기존 ~10 readers 무변경(저위험 가산). coeff 수치 = **tuning**(스펙: 수치 TBD·band 라벨만 SSOT — 로깅만). 규칙(−10단일→밴드)은 spec(`bc22c38`)에 이미 결정(DEC-20260617-002) → 전파 불필요.
 - **ally 획득 경로(S6b-lite):** ally-only lootable(usable_by_enemy=false: 034/044/054/062/070/075 등)은 `on_enemy_defeated`(적 kit 롤)로 안 떨어짐 → `dungeon_run`에 **ally-cache 상자**(RM-ADV-01, `ALLY_CACHE_POOL`에서 2종 랜덤, At-Risk) 배치(`ItemFactory.skillbook_item`). shop/드롭표는 S6b 본격 시.
 - **의도적 근사/이연(B1 잔여):** ① **Rampart 투사체 1회 흡수 → DRIFT-059 Phase 1에서 부분 해소**(projectile-delivery 어빌리티가 Rampart에 맞으면 흡수; 현재 AB-056만 projectile). threat-on-hit은 후속. navmesh 미리베이크라 NC 추격은 벽 우회 안 함(물리 차단만, 4s 한시). ② Beam = cone 근사(라인 판정 대신 좁은 cone half_deg). ③ Smoke Veil = 적 타겟만 드롭(인플라이트 locked hit는 명중). ④ Purge 제거 대상 = Bloodlust 외 [Fortified/Hasted/Shielded/Warded/Regenerating]는 현재 적이 안 가짐(전방호환 no-op) → DRIFT-058.
-- **✅ 능력 디테일 해결(2026-06-23 패스, IMPL-DEC-20260623-017):** ④ **Shadowstep(AB-061) "next hit +20%"** — `party_member._next_hit_bonus`(grant/consume) + `combat_controller._deal_damage` 훅(basic·sub 공통, 1회 소모). ⑤ **Beam Channeling** — `begin_channel`/`is_channeling` busy 플래그가 채널 동안 다른 서브 캐스트 차단(dungeon_run·sandbox 게이트), Rooted move-lock 병행. ⑥ **Sentinel Form(AB-052) 40% 반사** — `take_damage(amount, attacker)`로 시그니처 확장, `_apply_enemy_hit`가 attacker 전달 → 스탠스 중 피격분의 reflect_frac을 공격자에 반사(DRIFT-056 반사 해결).
+- **✅ 능력 디테일 해결(2026-06-23 패스, IMPL-DEC-20260623-017):** ④ **Shadowstep(AB-061) "next hit +20%"** — `party_member._next_hit_bonus`(grant/consume) + `combat_controller._deal_damage` 훅(basic·sub 공통, 1회 소모). ⑤ **Beam Channeling** — `begin_channel`/`is_channeling` busy 플래그가 채널 동안 다른 서브 캐스트 차단(dungeon_run·sandbox 게이트), Rooted move-lock 병행. ⑥ **Sentinel Form(IDA-052) 40% 반사** — `take_damage(amount, attacker)`로 시그니처 확장, `_apply_enemy_hit`가 attacker 전달 → 스탠스 중 피격분의 reflect_frac을 공격자에 반사(DRIFT-056 반사 해결).
 - **분류\전파:** **impl + tuning(로깅만).** AB-### ID·status(Veiled/Silenced)·effect 토큰·밴드 라벨은 spec(`bc22c38`) 그대로 → 규칙 드리프트 없음(스펙 무편집). 수치/근사는 design example PH.
 - **구현(B2 데미지 sub — 2026-06-23 패스, 19/24, 신규 kind 1 + 재사용):** 남은 lootable 24종 중 **19종**을 추가 — 신규 **`skillbook_bolt`**(targeted 원거리 데미지, 옵션 `lightning`→`LightningHit` RX + Shock outcome) = AB-003 Arc Bolt·AB-004 Charged Voltaic·AB-008 Slag(physical)·AB-055 Scatter·AB-056 Longshot·AB-058 Arc Detonation·AB-059 Void Lance·AB-073 Overcharge. 재사용: AB-005→strike·AB-013→charge·AB-006→blink·**AB-007→blink(`away` 플래그 신설=후퇴 hop)**·AB-030→stun(채널 interrupt 근사)·AB-012→vulnerable(HEX-WEAK 근사)·AB-048/074→dr(reflect/redirect 근사)·AB-033→shield(intercept-soak 근사)·AB-060→execute·AB-066→hot(heal-zone 근사). 멀티히트/포크/차지 shape는 단일 damage_mult로 합산 근사. params=design example PH. **이연(bespoke 5종)**: AB-032 reveal(시야)·AB-035 taunt(threat API 필요)·AB-045 ally-relocate(아군 타겟팅)·AB-050 slow-cone·AB-051 pull — 신규 시스템/타겟팅 필요라 데미지 sub 범위 밖, 후속.
 - **구현(B2 잔여 bespoke 5종 — 2026-06-23 패스, 파티 lootable 풀 완료):** ① `skillbook_taunt`(AB-035 Challenge Mark — `enemy.add_threat`+`set_threat_floor`로 Tank 어그로 강제, 무피해; +threat 스파이크 감쇠=시간제한 근사) ② `skillbook_pull`(AB-051 Shield Throw — `enemy.apply_knockback(caster−enemy)` 당김 + threat) ③ `skillbook_slow`(AB-050 Warding Shout — 전방 cone `enemy.apply_slow` + threat) ④ `skillbook_relocate_ally`(AB-045 Lifeline — 반경 내 **최저 HP 아군 자동선택** → 시전자 쪽 이동, 아군 타겟팅 시스템 불요) ⑤ `skillbook_reveal`(AB-032 Beacon Sight — `EnemyVisibility._reveal_timer`가 reveal_s 동안 전 적 `set_seen(true)` 강제, 미니맵 텔레그래프=3D 포그 리빌 근사). 신규 ctx `reveal_enemies` 1개. 누적 lootable sub **44종**·신규 effect kind **18종** — **파티 풀 lootable 사실상 완료**.
@@ -546,7 +546,7 @@
 - **신규 콘텐츠 — `PENDING-PROP`(OPS_30 승인 대기, 이 레포 spec md 미편집):**
   - **F3 환경 RX 3종:** `RX-FIRE-ICE-001`(Ice→Water melt)·`RX-COLD-FIRE-001`(Fire→quench Steam)·`RX-COLD-STEAM-001`(Steam→Water). `reaction_system` RX_FIRE/COLD_MATRIX 확장. **새 RX 룰 → 전파 후보.**
   - **B7 zone spread(S3e):** `reaction_system` Wind 구동 유계 spread(`_physics_process` 2s·per-gust 2·global cap 6·children 비재확산). room-cap=전역 프록시. **spread 룰 → 전파 후보 + F5 튜닝.**
-- **분류\전파:** impl + tuning(로깅만). 종결 6은 기존 spec 구현. **F3/B7 = 새 규칙 → PENDING-PROP**(승인 후 OPS_30). AB-052 reflect 키 불일치(`reflect_frac`→`reflect` 폴백)·party_member:510·combat_sandbox:74 stale 주석 수정 포함(비-드리프트).
+- **분류\전파:** impl + tuning(로깅만). 종결 6은 기존 spec 구현. **F3/B7 = 새 규칙 → PENDING-PROP**(승인 후 OPS_30). IDA-052 reflect 키 불일치(`reflect_frac`→`reflect` 폴백)·party_member:510·combat_sandbox:74 stale 주석 수정 포함(비-드리프트).
 - **이연:** C2 §7.5/§7.2(PIP 아이콘/관통가림)·저위험 부채(DEBT-DUP-*)·E3 tier-충전수(밸런스). ref: `ImplDecisionLog` IMPL-DEC-20260704-001.
 
 ### DRIFT-070 — 서브 로드아웃 정본 필드: D-011 미갱신(`subEquippedSkillbooks`) vs D-019/D-018(`equippedSlotAbilities`) 🔷 spec-내부 모순 (전파 진행)

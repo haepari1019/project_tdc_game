@@ -15,7 +15,7 @@ var _party: Node
 var _portrait: ColorRect
 var _name_lbl: Label
 var _hp_fill: ColorRect
-var _shield_fill: ColorRect  # AB-020 shield overlay (white, over HP)
+var _shield_fill: ColorRect  # IDA-020 shield overlay (white, over HP)
 var _slots: Array = []  # {radial, kind}  kind: "identity" | "sub0" | "empty"
 
 

@@ -893,7 +893,7 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	# Devour (AB-106 enemy_execute): bonus damage vs low-HP prey. ref: DEC-20260621-001.
 	if kind == "enemy_execute" and float(eff.get("execute_under", 0.0)) > 0.0 and is_instance_valid(target) and target.hp <= target.max_hp * float(eff.get("execute_under", 0.0)):
 		dmg *= float(eff.get("execute_mult", 1.0))
-	target.take_damage(dmg, enemy)   # pass attacker → Sentinel Form (AB-052) reflect
+	target.take_damage(dmg, enemy)   # pass attacker → Sentinel Form (IDA-052) reflect
 	# Devour kill-feed: a kill restores HP + refunds the cooldown (chain into the next prey).
 	if float(eff.get("on_kill_heal_pct", 0.0)) > 0.0 and (not target.has_method("is_alive") or not target.is_alive()):
 		enemy.heal(enemy.max_hp * float(eff.get("on_kill_heal_pct", 0.0)))

@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-031 Ward Pulse (kind=ward_shield) — shield the most-hurt nearby ally + cleanse one debuff
+## IDA-031 Ward Pulse (kind=ward_shield) — shield the most-hurt nearby ally + cleanse one debuff
 ## (CC recovery trade vs Mend Circle's raw HPS). Fires in combat as a proactive ward.
 ## Drop-in identity effect. ref: GEAR-042 · DEC(gear catalog).
 

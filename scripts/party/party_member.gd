@@ -78,7 +78,7 @@ var _hexweak_mult: float = 1.0    # AB-012 HEX-WEAK: outgoing-damage multiplier 
 var _hexweak_timer_s: float = 0.0
 var _hexweak_dur: float = 0.0
 
-# --- Identity skill (from `identity` block) + shield (AB-020) ---
+# --- Identity skill (from `identity` block) + shield (IDA-020) ---
 var identity_params: Dictionary = {}
 var identity_cooldown_s: float = 0.0
 ## DEBUG (combat sandbox): independent on/off for this member's basic attack + Identity skill, so
@@ -94,7 +94,7 @@ var sub_cooldown_s: float = 0.0
 ## Sub skillbook slots Q/E/R (F-009 §3.1 / DEC-20260611-002). Each = null or an instance:
 ## {base_ability_id, display_name, params, charges, charges_max, cooldown_s, equip_classes, color}.
 var skillbook_slots: Array = [null, null, null]
-## Damage-absorbing shield (consumed before HP). AB-020 Shield Policy.
+## Damage-absorbing shield (consumed before HP). IDA-020 Shield Policy.
 var shield: float = 0.0
 var shield_timer_s: float = 0.0
 # --- Status effects (F-021): stun (can't act) + poison (DoT, bypasses shield) ---
@@ -105,10 +105,10 @@ var _poison_accum: float = 0.0
 var _stun_dur: float = 1.0
 var _poison_dur: float = 1.0
 var _shield_dur: float = 1.0
-# F-008 Sentinel Form (AB-052) — temporary turtle-stance damage reduction (1.0 = none) + timer.
+# F-008 Sentinel Form (IDA-052) — temporary turtle-stance damage reduction (1.0 = none) + timer.
 var damage_taken_mult: float = 1.0
 var _sentinel_timer_s: float = 0.0
-var _sentinel_reflect: float = 0.0   # AB-052 reflect fraction of incoming hits while the stance holds
+var _sentinel_reflect: float = 0.0   # IDA-052 reflect fraction of incoming hits while the stance holds
 # F-009 HoT (Renewing Tide AB-065) — regen % of maxHP per second over a timer.
 var _regen_pct_s: float = 0.0
 var _regen_timer_s: float = 0.0
@@ -406,7 +406,7 @@ func _show_bulwark(text: String, col: Color) -> void:
 	_bulwark_label.visible = true
 
 
-## BIND-PILOT-003 — self shield (never lowers an existing larger shield). Uses the AB-020 shield channel.
+## BIND-PILOT-003 — self shield (never lowers an existing larger shield). Uses the IDA-020 shield channel.
 func binding_self_shield(amount: float, dur: float) -> void:
 	if shield_timer_s <= 0.0:
 		popup_status("보호막", Color(0.4, 0.9, 1.0))
@@ -623,13 +623,13 @@ func _apply_controlled_visual(active: bool) -> void:
 func take_damage(amount: float, attacker: Node = null) -> void:
 	if not _alive:
 		return
-	# F-008 Sentinel Form (AB-052) — reflect a fraction of the incoming hit back to the attacker
+	# F-008 Sentinel Form (IDA-052) — reflect a fraction of the incoming hit back to the attacker
 	# (melee 근사: any direct attacker-sourced hit while the stance holds; pre-mitigation amount).
 	if _sentinel_reflect > 0.0 and _sentinel_timer_s > 0.0 and attacker != null \
 			and is_instance_valid(attacker) and attacker.has_method("take_damage"):
 		attacker.take_damage(amount * _sentinel_reflect)
-	amount *= damage_taken_mult   # F-008 Sentinel Form stance DR (AB-052; 1.0 = none)
-	# Shield absorbs first (AB-020).
+	amount *= damage_taken_mult   # F-008 Sentinel Form stance DR (IDA-052; 1.0 = none)
+	# Shield absorbs first (IDA-020).
 	if shield > 0.0:
 		var absorbed: float = minf(shield, amount)
 		shield -= absorbed
@@ -658,7 +658,7 @@ func heal(amount: float) -> float:
 	return hp - before
 
 
-## AB-020 Shield Policy: keep the higher value; refresh duration only when new >= old.
+## IDA-020 Shield Policy: keep the higher value; refresh duration only when new >= old.
 ## Floating combat text — 이 멤버 위에 버프/디버프 이름을 잠깐 띄우고 위로 페이드아웃(MMO식). ref: float_text.gd.
 ## preload로 참조(global class-cache 미갱신 시 "not declared" 회피).
 const _FloatText := preload("res://scripts/ui/float_text.gd")
@@ -674,13 +674,13 @@ func add_shield(value: float, duration: float) -> void:
 		_shield_dur = duration
 
 
-## F-008 Sentinel Form (AB-052) — enter the turtle stance: reduce incoming damage by `dr` (0..1)
+## F-008 Sentinel Form (IDA-052) — enter the turtle stance: reduce incoming damage by `dr` (0..1)
 ## and move-lock for `dur` seconds. Reflects `reflect` of each incoming hit back at the attacker.
 func enter_sentinel(dr: float, dur: float, reflect: float = 0.0) -> void:
 	popup_status("태세", Color(0.7, 0.82, 1.0))
 	damage_taken_mult = clampf(1.0 - dr, 0.0, 1.0)
 	_sentinel_timer_s = dur
-	_sentinel_reflect = clampf(reflect, 0.0, 1.0)   # AB-052 reflect (40% draft)
+	_sentinel_reflect = clampf(reflect, 0.0, 1.0)   # IDA-052 reflect (40% draft)
 	_outcome.apply("Rooted", dur)   # move-lock (MOVE_MULT 0.0) — self-root, 팝업은 "태세"로 대체
 
 
@@ -761,7 +761,7 @@ func is_channeling() -> bool:
 	return _alive and _channel_timer_s > 0.0
 
 
-## F-009/F-008 Ward Pulse (AB-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
+## F-009/F-008 Ward Pulse (IDA-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
 func cleanse_one() -> String:
 	return _outcome.cleanse_one() if _outcome != null else ""
 

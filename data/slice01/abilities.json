@@ -1,5 +1,5 @@
 {
-  "_note": "Unified ability catalog (spec D-016 model). Party Identity (AB-020/024/025/026) + enemy SIGNATURE / lootable-shared (AB-002/004/008/010/011/012/098). Enemy BASIC attacks are rom_* (enemy_basics.json, EN-COR-000) — NOT here. AB-001/014/015/016 removed (spec→rom_*). AB-S01~04 removed (non-spec demo subs; subs are skillbooks F-009). effect numbers = DEMO PH (spec AB-### Draft 'design examples'). channel:true = winding 중 제자리(EN-AI-000 §2 interruptible channel). Shock = party slow(이동 감소); HEX = 이동 감소 + 나가는 피해 감소(half, hex_weak).",
+  "_note": "Unified ability catalog (spec D-016 model). Party Identity (IDA-020/024/025/026) + enemy SIGNATURE / lootable-shared (AB-002/004/008/010/011/012/098). Enemy BASIC attacks are rom_* (enemy_basics.json, EN-COR-000) — NOT here. AB-001/014/015/016 removed (spec→rom_*). AB-S01~04 removed (non-spec demo subs; subs are skillbooks F-009). effect numbers = DEMO PH (spec AB-### Draft 'design examples'). channel:true = winding 중 제자리(EN-AI-000 §2 interruptible channel). Shock = party slow(이동 감소); HEX = 이동 감소 + 나가는 피해 감소(half, hex_weak).",
   "abilities": {
     "AB-002": {
       "kind": "enemy_melee",
@@ -158,7 +158,7 @@
       "zone_radius_m": 4.0,
       "provoke_dur_s": 2.0
     },
-    "AB-020": {
+    "IDA-020": {
       "kind": "shield_pulse",
       "cooldown_s": 8,
       "radius_m": 5,
@@ -168,7 +168,7 @@
       "shield_duration_s": 5,
       "threat_pulse": 60
     },
-    "AB-024": {
+    "IDA-024": {
       "kind": "cone_sweep",
       "cooldown_s": 7,
       "range_m": 5,
@@ -177,14 +177,14 @@
       "hit_interval_s": 0.25,
       "hit_damage_mult": 1.0
     },
-    "AB-025": {
+    "IDA-025": {
       "kind": "mark_burst",
       "cooldown_s": 9,
       "range_m": 8,
       "mark_time_s": 0.5,
       "ruin_damage_mult": 12.0
     },
-    "AB-026": {
+    "IDA-026": {
       "kind": "radius_heal",
       "cooldown_s": 6,
       "radius_m": 5,
@@ -263,7 +263,7 @@
       "on_kill_heal_pct": 0.2,
       "vfx": "strike"
     },
-    "AB-021": {
+    "IDA-021": {
       "kind": "beacon_threat",
       "cooldown_s": 8,
       "radius_m": 3.5,
@@ -274,7 +274,7 @@
       "threat_pulse": 90,
       "threat_floor": 80
     },
-    "AB-022": {
+    "IDA-022": {
       "kind": "march_advance",
       "cooldown_s": 7,
       "advance_m": 1.5,
@@ -282,14 +282,14 @@
       "radius_m": 2.6,
       "damage_mult": 0.6
     },
-    "AB-052": {
+    "IDA-052": {
       "kind": "sentinel_form",
       "cooldown_s": 10,
       "duration_s": 4.0,
       "damage_reduction": 0.6,
       "reflect": 0.4
     },
-    "AB-027": {
+    "IDA-027": {
       "kind": "arc_line",
       "cooldown_s": 5,
       "range_m": 14.0,
@@ -297,14 +297,14 @@
       "damage_mult": 0.7,
       "max_hits": 4
     },
-    "AB-029": {
+    "IDA-029": {
       "kind": "flank_dash",
       "cooldown_s": 9,
       "dash_m": 6.0,
       "damage_mult": 1.6,
       "hits": 2
     },
-    "AB-031": {
+    "IDA-031": {
       "kind": "ward_shield",
       "cooldown_s": 8,
       "shield_base": 90,

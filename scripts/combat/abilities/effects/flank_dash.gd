@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-029 Flank Collapse (kind=flank_dash) — dash to the nearest foe + a multi-hit burst finisher.
+## IDA-029 Flank Collapse (kind=flank_dash) — dash to the nearest foe + a multi-hit burst finisher.
 ## DEC-20260617-005 (Burst); high per-hit to offset melee exposure.
 ## Drop-in identity effect. ref: GEAR-033 · DEC(gear catalog).
 

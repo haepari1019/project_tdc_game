@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-025 Mark & Ruin (kind=mark_burst) — single high-burst on lowest-HP enemy in range.
+## IDA-025 Mark & Ruin (kind=mark_burst) — single high-burst on lowest-HP enemy in range.
 ## Drop-in skill effect (ability_dispatch ctx facade).
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")

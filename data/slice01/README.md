@@ -30,4 +30,4 @@ Spec sources (local):
 - `docs/qa/QA-030_Slice01_PlayableContract.md`
 - `docs/level-design/blueprints/DBP-DEMO-001.md`
 - `docs/combat/encounters/ENC-NORM-001.md`, `ENC-NORM-002.md`
-- `docs/combat/abilities/AB-020`, `AB-024`, `AB-025`, `AB-026`
+- `docs/combat/abilities/IDA-020`, `IDA-024`, `IDA-025`, `IDA-026`

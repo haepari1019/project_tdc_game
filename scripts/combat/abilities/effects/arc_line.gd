@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-027 Arc Weave (kind=arc_line) — a long, narrow piercing line toward the nearest foe; multi-hit
+## IDA-027 Arc Weave (kind=arc_line) — a long, narrow piercing line toward the nearest foe; multi-hit
 ## with lower per-hit damage (range/spread over single-target). DEC-20260617-004.
 ## Drop-in identity effect. ref: GEAR-022/023/026 · DEC(gear catalog).
 

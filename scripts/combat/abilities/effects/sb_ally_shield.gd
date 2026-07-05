@@ -1,7 +1,7 @@
 extends RefCounted
 ## AB-067 Aegis Blessing (kind=skillbook_shield) — grant a damage-absorbing shield to allies in
 ## radius (caster included). shield = shield_pct × target maxHP + flat, × coeff. Single-target spec
-## approximated as a radius pulse. Drop-in skillbook effect. ref: F-009 · AB-020 Shield Policy · DRIFT-057.
+## approximated as a radius pulse. Drop-in skillbook effect. ref: F-009 · IDA-020 Shield Policy · DRIFT-057.
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 

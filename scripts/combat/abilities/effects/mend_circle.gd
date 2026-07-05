@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-026 Mend Circle (kind=radius_heal) — radius heal when any ally below threshold.
+## IDA-026 Mend Circle (kind=radius_heal) — radius heal when any ally below threshold.
 ## Drop-in skill effect (ability_dispatch ctx facade).
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")

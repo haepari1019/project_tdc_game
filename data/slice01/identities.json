@@ -4,7 +4,7 @@
     {
       "identity_skill_id": "tank_anchor_guard",
       "class_id": "Tank",
-      "ability_id": "AB-020",
+      "ability_id": "IDA-020",
       "pattern_id": "PT-010",
       "combat": {
         "hp": 180,
@@ -17,7 +17,7 @@
     {
       "identity_skill_id": "dps_press_line",
       "class_id": "DPS",
-      "ability_id": "AB-024",
+      "ability_id": "IDA-024",
       "pattern_id": "PT-020",
       "combat": {
         "hp": 110,
@@ -29,7 +29,7 @@
     {
       "identity_skill_id": "nuker_mark_ruin",
       "class_id": "Nuker",
-      "ability_id": "AB-025",
+      "ability_id": "IDA-025",
       "pattern_id": "PT-021",
       "combat": {
         "hp": 90,
@@ -41,7 +41,7 @@
     {
       "identity_skill_id": "healer_mend_circle",
       "class_id": "Healer",
-      "ability_id": "AB-026",
+      "ability_id": "IDA-026",
       "pattern_id": "PT-022",
       "combat": {
         "hp": 100,
@@ -53,7 +53,7 @@
     {
       "identity_skill_id": "tank_iron_beacon",
       "class_id": "Tank",
-      "ability_id": "AB-021",
+      "ability_id": "IDA-021",
       "pattern_id": "PT-010",
       "combat": {
         "hp": 170,
@@ -66,7 +66,7 @@
     {
       "identity_skill_id": "tank_bulwark_march",
       "class_id": "Tank",
-      "ability_id": "AB-022",
+      "ability_id": "IDA-022",
       "pattern_id": "PT-010",
       "combat": {
         "hp": 175,
@@ -79,7 +79,7 @@
     {
       "identity_skill_id": "tank_sentinel_form",
       "class_id": "Tank",
-      "ability_id": "AB-052",
+      "ability_id": "IDA-052",
       "pattern_id": "PT-010",
       "combat": {
         "hp": 205,
@@ -92,7 +92,7 @@
     {
       "identity_skill_id": "dps_arc_weave",
       "class_id": "DPS",
-      "ability_id": "AB-027",
+      "ability_id": "IDA-027",
       "pattern_id": "PT-020",
       "combat": {
         "hp": 100,
@@ -104,7 +104,7 @@
     {
       "identity_skill_id": "nuker_flank_collapse",
       "class_id": "Nuker",
-      "ability_id": "AB-029",
+      "ability_id": "IDA-029",
       "pattern_id": "PT-021",
       "combat": {
         "hp": 85,
@@ -116,7 +116,7 @@
     {
       "identity_skill_id": "healer_ward_pulse",
       "class_id": "Healer",
-      "ability_id": "AB-031",
+      "ability_id": "IDA-031",
       "pattern_id": "PT-022",
       "combat": {
         "hp": 105,

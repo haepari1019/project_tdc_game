@@ -18,11 +18,11 @@ static var enabled: bool = true
 
 ## 정체성 규약 — identity 툴팁에 자기완결적으로 표시(상태 생성·의미·활용을 한 문단). {name, covenant}.
 const SIGNATURE := {
-	"AB-020": {
+	"IDA-020": {
 		"name": "방벽 충전",
 		"covenant": "전선을 지키는 스킬을 쓸 때마다 방벽이 한 겹 쌓인다. 세 겹이 되면 방벽을 터뜨려 눈앞의 적을 기절시킨다.",
 	},
-	"AB-021": {
+	"IDA-021": {
 		"name": "표식",
 		"covenant": "위협을 건 대상은 표식을 얻는다. 표식이 있는 적에게는 링크된 스킬이 추가 위협을 부여하며, 표식을 유지한 채 처치하면 링크된 모든 스킬의 재사용을 일부 돌려받는다.",
 	},
@@ -36,32 +36,32 @@ const MARK := {"window_s": 8.0, "cd_reduce": 0.40, "radius_m": 8.0, "threat": 45
 const OVERLAYS := [
 	{
 		"id": "BIND-PILOT-001", "gear": "gear_ward_tank_anchor_bulwark",
-		"identity_ab": "AB-020", "slot_ab": "AB-033", "slot_index": 0, "theme": "bulwark", "delta": "bulwark_charge",
+		"identity_ab": "IDA-020", "slot_ab": "AB-033", "slot_index": 0, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Intercept → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
 		"id": "BIND-PILOT-002", "gear": "gear_ward_tank_anchor_bulwark",
-		"identity_ab": "AB-020", "slot_ab": "AB-034", "slot_index": 1, "theme": "bulwark", "delta": "bulwark_charge",
+		"identity_ab": "IDA-020", "slot_ab": "AB-034", "slot_index": 1, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Barrier → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
 		"id": "BIND-PILOT-003", "gear": "gear_ward_tank_anchor_bulwark",
-		"identity_ab": "AB-020", "slot_ab": "AB-035", "slot_index": 2, "theme": "bulwark", "delta": "bulwark_charge",
+		"identity_ab": "IDA-020", "slot_ab": "AB-035", "slot_index": 2, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Mark → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
 		"id": "BIND-PILOT-004", "gear": "gear_ward_tank_kite_shield",
-		"identity_ab": "AB-021", "slot_ab": "AB-033", "slot_index": 0, "theme": "mark", "delta": "beacon_mark",
+		"identity_ab": "IDA-021", "slot_ab": "AB-033", "slot_index": 0, "theme": "mark", "delta": "beacon_mark",
 		"payoff": "Intercept → +threat vs marked", "desc_ko": "표식 대상에게 추가 위협 효과를 부여한다.",
 	},
 	{
 		"id": "BIND-PILOT-005", "gear": "gear_ward_tank_kite_shield",
-		"identity_ab": "AB-021", "slot_ab": "AB-034", "slot_index": 1, "theme": "mark", "delta": "beacon_mark",
+		"identity_ab": "IDA-021", "slot_ab": "AB-034", "slot_index": 1, "theme": "mark", "delta": "beacon_mark",
 		"payoff": "Barrier → +threat vs marked", "desc_ko": "표식 대상에게 추가 위협 효과를 부여한다.",
 	},
 	{
 		"id": "BIND-PILOT-006", "gear": "gear_ward_tank_kite_shield",
-		"identity_ab": "AB-021", "slot_ab": "AB-035", "slot_index": 2, "theme": "mark", "delta": "beacon_mark_refresh",
+		"identity_ab": "IDA-021", "slot_ab": "AB-035", "slot_index": 2, "theme": "mark", "delta": "beacon_mark_refresh",
 		"payoff": "Challenge → +threat vs marked + 표식 갱신", "desc_ko": "표식 대상에게 추가 위협을 주고, 표식의 유지 시간을 갱신한다.",
 	},
 ]

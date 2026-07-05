@@ -33,12 +33,12 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_execute.gd"), # AB-106 Devour (Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_scent.gd"),   # AB-101 Scent of Blood (Healer)
 	# Gear-catalog Identity skills (non-starter identities; spec PT-pending → intent impl, params drift).
-	preload("res://scripts/combat/abilities/effects/beacon_threat.gd"),  # AB-021 Iron Beacon (Tank)
-	preload("res://scripts/combat/abilities/effects/march_advance.gd"),  # AB-022 Bulwark March (Tank)
-	preload("res://scripts/combat/abilities/effects/sentinel_form.gd"),  # AB-052 Sentinel Form (Tank)
-	preload("res://scripts/combat/abilities/effects/arc_line.gd"),       # AB-027 Arc Weave (DPS)
-	preload("res://scripts/combat/abilities/effects/flank_dash.gd"),     # AB-029 Flank Collapse (Nuker)
-	preload("res://scripts/combat/abilities/effects/ward_shield.gd"),    # AB-031 Ward Pulse (Healer)
+	preload("res://scripts/combat/abilities/effects/beacon_threat.gd"),  # IDA-021 Iron Beacon (Tank)
+	preload("res://scripts/combat/abilities/effects/march_advance.gd"),  # IDA-022 Bulwark March (Tank)
+	preload("res://scripts/combat/abilities/effects/sentinel_form.gd"),  # IDA-052 Sentinel Form (Tank)
+	preload("res://scripts/combat/abilities/effects/arc_line.gd"),       # IDA-027 Arc Weave (DPS)
+	preload("res://scripts/combat/abilities/effects/flank_dash.gd"),     # IDA-029 Flank Collapse (Nuker)
+	preload("res://scripts/combat/abilities/effects/ward_shield.gd"),    # IDA-031 Ward Pulse (Healer)
 	# P2-S6a B1 — party lootable sub effect kinds (new, beyond reused strike/fire/stun/cold/zone).
 	preload("res://scripts/combat/abilities/effects/sb_heal.gd"),        # AB-064 Quick Mend (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_dr.gd"),          # AB-046/047/068 Shield Wall·Aegis·Warding (Tank/Healer)

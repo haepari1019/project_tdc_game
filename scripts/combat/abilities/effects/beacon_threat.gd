@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-021 Iron Beacon (kind=beacon_threat) — narrow, threat-heavy guard: a small shield + a strong
+## IDA-021 Iron Beacon (kind=beacon_threat) — narrow, threat-heavy guard: a small shield + a strong
 ## single-target threat floor on nearby foes. Trades Anchor Guard's fodder pulse for elite hold (F-022).
 ## Drop-in identity effect (ability_dispatch ctx facade). ref: GEAR-012/013 · DEC(gear catalog).
 

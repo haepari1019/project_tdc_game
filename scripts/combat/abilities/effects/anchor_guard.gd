@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-020 Anchor Guard (kind=shield_pulse) — self shield + threat pulse when foes in radius.
+## IDA-020 Anchor Guard (kind=shield_pulse) — self shield + threat pulse when foes in radius.
 ## Drop-in skill effect (ability_dispatch ctx facade). ref: F-022 §3.10.
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")

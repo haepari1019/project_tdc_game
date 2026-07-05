@@ -1,5 +1,5 @@
 extends RefCounted
-## AB-022 Bulwark March (kind=march_advance) — a short forward advance toward the nearest foe with
+## IDA-022 Bulwark March (kind=march_advance) — a short forward advance toward the nearest foe with
 ## knockback + light damage to frontal enemies (corridor control). DEC-20260617-005.
 ## Drop-in identity effect. ref: GEAR-014 · DEC(gear catalog).
 

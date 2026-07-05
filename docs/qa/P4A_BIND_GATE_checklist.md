@@ -14,10 +14,10 @@
 ## 관찰할 오버레이 (ON일 때만)
 | 픽스처 | 슬롯 | 오버레이 | PAYOFF (base 대비 추가분) |
 |--------|------|----------|---------------------------|
-| ANCHOR (GEAR-011·AB-020) | Q AB-033 | BIND-PILOT-001 | Intercept 3회 누적 → 0.8s **Stun** (8s ICD) |
+| ANCHOR (GEAR-011·IDA-020) | Q AB-033 | BIND-PILOT-001 | Intercept 3회 누적 → 0.8s **Stun** (8s ICD) |
 | | E AB-034 | BIND-PILOT-002 | Barrier → **threat pulse +50 + threat floor +25** 2s |
 | | R AB-035 | BIND-PILOT-003 | Mark → 시전자 **Shield 60 / 5s** |
-| BEACON (GEAR-012·AB-021) | Q AB-033 | BIND-PILOT-004 | Intercept → **threat floor +15%** 2s |
+| BEACON (GEAR-012·IDA-021) | Q AB-033 | BIND-PILOT-004 | Intercept → **threat floor +15%** 2s |
 | | E AB-034 | BIND-PILOT-005 | wall stagger **knockback +25%** |
 | | R AB-035 | BIND-PILOT-006 | Mark 대상 8s 내 처치 → **AB-035 쿨 −40%** |
 | BASE | — | (없음) | base AB만 — 회귀 기준선 |

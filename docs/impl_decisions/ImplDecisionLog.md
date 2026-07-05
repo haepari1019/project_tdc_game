@@ -203,7 +203,7 @@
 - **영향:** `projectile.gd`(신규) · `ability_dispatch.gd`(spawn_projectile·_projectile_mask·preload) · `effects/sb_bolt.gd`(cast/resolve_at) · `rampart_barrier.gd`(absorb_projectile) · `skillbooks.json`(AB-056 delivery) · `party_pool_smoke.gd`.
 
 ### IMPL-DEC-20260623-017 — 이연 능력 디테일 4종 (Shadowstep+20% · Sentinel 반사 · Beam Channeling · Bloodlust HP-scale)
-- **결정:** 능력 근사로 미뤄둔 디테일 중 **아키텍처상 구현 가능한 4종**을 처리. ① **Shadowstep(AB-061) next-hit +20%** — `party_member._next_hit_bonus`(grant/consume 1회) + 중앙 `combat_controller._deal_damage` 훅(basic·sub 모두 이 경로 → 한 곳에서 적용). ② **Sentinel Form(AB-052) 40% 반사** — `take_damage(amount, attacker=null)`로 시그니처 확장(양 take_damage 동일), `_apply_enemy_hit`가 `enemy`를 attacker로 전달 → 스탠스 중 reflect_frac 반사. ③ **Beam(AB-054) Channeling** — `begin_channel`/`is_channeling` busy 플래그(채널 동안 다른 서브 캐스트 차단; dungeon_run·sandbox 게이트), 기존 Rooted move-lock 병행. ④ **Bloodlust(AB-105) HP-scale** — `attack_interval_now`/`contact_damage_mult`가 `_missing_hp_frac`로 rage 램프(저장 mult=0HP 최대). 
+- **결정:** 능력 근사로 미뤄둔 디테일 중 **아키텍처상 구현 가능한 4종**을 처리. ① **Shadowstep(AB-061) next-hit +20%** — `party_member._next_hit_bonus`(grant/consume 1회) + 중앙 `combat_controller._deal_damage` 훅(basic·sub 모두 이 경로 → 한 곳에서 적용). ② **Sentinel Form(IDA-052) 40% 반사** — `take_damage(amount, attacker=null)`로 시그니처 확장(양 take_damage 동일), `_apply_enemy_hit`가 `enemy`를 attacker로 전달 → 스탠스 중 reflect_frac 반사. ③ **Beam(AB-054) Channeling** — `begin_channel`/`is_channeling` busy 플래그(채널 동안 다른 서브 캐스트 차단; dungeon_run·sandbox 게이트), 기존 Rooted move-lock 병행. ④ **Bloodlust(AB-105) HP-scale** — `attack_interval_now`/`contact_damage_mult`가 `_missing_hp_frac`로 rage 램프(저장 mult=0HP 최대). 
 - **이유:** 전부 기존 단일 경로/시그니처 확장으로 해결(새 시스템 0). next-hit는 `_deal_damage` 단일 chokepoint, 반사는 attacker 인자 1개 추가(기본 null → 기존 호출 무손).
 - **BLOCKED(여전히 이연):** **Rampart(AB-034) 투사체 1회 흡수·threat-on-hit** — 전투가 target-locked/즉발이라 벽에 부딪힐 투사체 엔티티도, 벽으로 라우팅되는 공격도 없음 → **투사체 엔티티 시스템 선행 필요**(노력 아닌 의존성). **Tether(AB-103) leash-DoT** — 거리추적 트래커(beam_channel류 ticking 노드) 필요, 후속. dash i-frame·ccTenacity = 밸런스 후속.
 - **검증:** party_pool_smoke §7/§8(next-hit 소모·channel 플래그·Sentinel 40% 반사 end-to-end·Bloodlust missing-HP 램프) + ci_smoke PASS.
@@ -258,7 +258,7 @@
 - **영향:** `scripts/combat/abilities/effects/sb_{root,pin,tether,charge,execute,scent}.gd`(신규) · `ability_dispatch.gd` · `data/slice01/skillbooks.json` · `tools/third_smoke.gd`.
 
 ### IMPL-DEC-20260622-010 — P2-S5a-3: 제3세력 전용 적 3종(Stalker Pack) + 전용 능력 7종 구현
-- **결정(사용자):** ENC-3RD-001 placeholder(EN-001/EN-010) → **전용 무리**로 교체. 핵심: 기존 파티 풀(AB-020~099)과 **메커니즘 중복 회피** — execute/vulnerable/cone/slow/blink/haste는 이미 존재하므로 단순 복제 대신 **distinct 변주**로 재설계.
+- **결정(사용자):** ENC-3RD-001 placeholder(EN-001/EN-010) → **전용 무리**로 교체. 핵심: 기존 파티 풀(IDA-020~099)과 **메커니즘 중복 회피** — execute/vulnerable/cone/slow/blink/haste는 이미 존재하므로 단순 복제 대신 **distinct 변주**로 재설계.
 - **스펙 선행(전파됨, `bc22c38` 재핀):** EN-3RD-01 추적자/02 포획꾼/03 학살자 + AB-100 Pounce·101 Scent·102 Snare Net·103 Tether·104 Rampage·105 Bloodlust·106 Devour + PT-023/024/025 + 신규 status(Rooted·Pinned·Scented·Tethered·Bloodlust) + effect 7토큰. DEC-20260621-001.
 - **차별화 = 거동 + 신규 메커니즘**(능력 팔레트가 아니라): movement은 기존 orbit/kite/advance 재사용. 신규는 **predatory targeting**(`target_pref` weakest=Stalker·scented=Snarer/Reaver, threat-blind) + 6 effect kind.
 - **effect kind 6종(enemy_ai):** `enemy_mark`(Scent→Scented+팩 공유)·`enemy_root`(Snare→Rooted 이동봉쇄)·`enemy_tether`(Tethered)·`enemy_frenzy`(Bloodlust 자가 rage, HP<50% 자동, 공속·뎀↑)·`enemy_execute`(Devour 저HP 처형+**처치 시 회복·쿨 환급** 연쇄). Pounce/Rampage는 `enemy_dash` 확장(`pin_s`→Pinned·`line`→관통 overshoot+splash). 캐스트 패스 `_try_cast_frenzy`/`_try_cast_third` 추가.
@@ -635,7 +635,7 @@
   - **스왑 허용(F-001)**: provoke는 **멤버 귀속** — 스왑해도 해제 X. 도발된 캐릭은 NC 경로로 시전자 강제 평타 지속, 플레이어는 다른 슬롯으로 계속 플레이. try_swap_to는 상태 비게이트라 자동 충족.
 - **1:1 근거:** AB-099·telegraph 0.85·쿨 14·존 60°/4m·dur 2.0·스왑허용·Stunned우선 = spec `AB-099` Draft 그대로. `enemy_provoke` kind·강제이동 구현·존 facing(cast-start 대신 resolve, 채널 freeze라 ≈동일) = 게임 인코딩 → DRIFT-043.
 - **검증:** `ci_smoke.sh` PASS(AB-099 등록·catalog·EN-001 ref 정합; party_member/party_controller/player_controller/combat_controller/enemy_ai 전부 컴파일·부트 무오류). **존 도발→조작상실→강제평타→스왑 회피는 F5 잔여**(교전+입력 필요).
-- **미구현(정직):** ① **interrupt-on-channel**(채널 중 stun→시전 실패+쿨 전액 소모, AB-099/§2) — 현재 채널이 stun 무관 완주. ② **AB-031 Ward Pulse 클렌즈** 미구현(데모 무). ③ aim 모달 활성 중 provoke 진입 시 confirm 캐스트가 게이트 우회(희소 엣지).
+- **미구현(정직):** ① **interrupt-on-channel**(채널 중 stun→시전 실패+쿨 전액 소모, AB-099/§2) — 현재 채널이 stun 무관 완주. ② **IDA-031 Ward Pulse 클렌즈** 미구현(데모 무). ③ aim 모달 활성 중 provoke 진입 시 confirm 캐스트가 게이트 우회(희소 엣지).
 - **P2-S2 완료:** S2a(ID 1:1)·S2b(포지셔닝)·S2c-1(캐스트)·S2c-2(대시)·S2c-3(Provoked). EN-001~014 전원 spec kit 반영(시그니처 AB + 패턴 + 기본타).
 - **영향:** `data/slice01/{id_registry·abilities·enemies}`, `scripts/{party/party_member·party/party_controller·run/controllers/player_controller·combat/combat_controller·combat/enemy_ai·run/dungeon_run}`.
 
@@ -793,10 +793,10 @@
 - **영향:** `minimap.gd`(신규), `map_demo_layout.gd`(`get_room_rects` 게터), `dungeon_run.gd`(생성).
 - **F5:** 우상단 미니맵에 던전 룸 배치 + 탈출(녹)·상자/문(노랑) 마커 + 플레이어 점이 이동에 따라 움직임.
 
-### IMPL-DEC-20260611-019 — 보호막(AB-020) HP바 시각화 (흰색 오버레이)
+### IMPL-DEC-20260611-019 — 보호막(IDA-020) HP바 시각화 (흰색 오버레이)
 - **결정:** 보호막은 데미지 흡수·시간제로 **이미 동작**했으나 HP바엔 미표시(party_sheet 버프 pip만)였음 → **흰색 오버레이** 추가: ① **게임 내 머리 위 HP바**(`health_bar.gd` — fill 위 z=0.02 흰색 quad, 좌측정렬, 너비=shield/maxHP, `set_shield_ratio`) ② **컨트롤 시트 HP바**(`controlled_sheet.gd` — HP fill 위 흰색 ColorRect, anchor_right=shield/maxHP). `party_member._physics_process`가 매 프레임 `set_shield_ratio` 전달(적은 보호막 없어 미표시). 사용자 지적으로 발견: 툴팁에 보호막을 적었는데 바엔 안 보였음.
 - **이유:** "보호막이 HP 위에 흰색으로 오버레이되는" 표준 표기 요청.
-- **잔여:** party_sheet 로스터 HP바는 기존 버프 pip 유지(오버레이 미추가). 색/스타일·shield>maxHP 처리(현재 clamp 1.0)는 tuning. ref: AB-020 / UI-003.
+- **잔여:** party_sheet 로스터 HP바는 기존 버프 pip 유지(오버레이 미추가). 색/스타일·shield>maxHP 처리(현재 clamp 1.0)는 tuning. ref: IDA-020 / UI-003.
 - **영향:** `health_bar.gd`(shield quad), `party_member.gd`(set_shield_ratio 호출), `controlled_sheet.gd`(shield ColorRect).
 - **F5:** 탱커 조작 + 전투/Q → HP바(머리 위 + 하단)에 흰색 보호막, 피격/만료 시 흰색 감소.
 
@@ -877,7 +877,7 @@
 - **결정:** combat_controller의 파티 스킬 디스패치(`_build_ability_handlers` + `try_identity` + Identity 4 `_cast_*` + `cast_sub` + Sub 4 `_sub_*` + `_sub_hit_shake`, ~185줄)를 **`scripts/combat/ability_dispatch.gd`(197줄)** 자식 노드로 추출. 전용 상수(TANK_PULSE_FLOOR·SUB_SHAKE_MULT_REF·HIT_SHAKE_CAP) 동반 이동. `_tick_party_attacks`는 `_ability_dispatch.try_identity(m)` 위임, `cast_sub`는 얇은 래퍼로 유지(dungeon_run 무수정).
 - **이유:** DEBT-GOD2 분해 계속(EnemyAI 다음, 사용자 추천 승인). combat_controller **581→408줄**(854에서 -446 누적). "스킬이 무엇을 하는가"를 전투 루프/스폰/threat에서 분리.
 - **결합 처리:** 공유 시스템(공간쿼리 `_enemies_in_*`/`_nearest_*`, `_deal_damage`/`_heal_threat`, `camera_shake` 시그널)은 컨트롤러 단일소유 유지 → AbilityDispatch가 `_combat.*` 콜백. AbilityDispatch는 Node3D 자식이라 VFX 부모(`self`) 자체 보유. EnemyAI와 동일 패턴(순환 preload 회피 위해 `_combat`=Node3D).
-- **동작 보존:** 순수 리팩토링 — Identity 자동(AB-020/024/025/026)·Sub 4(taunt/lunge/nova/sanctuary)·SUB 캐스트당 1회 셰이크 로직/상수 그대로.
+- **동작 보존:** 순수 리팩토링 — Identity 자동(IDA-020/024/025/026)·Sub 4(taunt/lunge/nova/sanctuary)·SUB 캐스트당 1회 셰이크 로직/상수 그대로.
 - **영향:** `scripts/combat/ability_dispatch.gd`(신규), `scripts/combat/combat_controller.gd`, `docs/ARCHITECTURE.md`(DEBT-GOD2).
 - **F5 검증:** Identity 자동 발동(역할별)·Sub 4종(Q+지면조준)·SUB 타격감 셰이크가 이전과 동일한지.
 

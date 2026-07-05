@@ -15,7 +15,7 @@
 | 적 kit (비-zone) | 10/13 | AB-003·005·007 (대체평타·연타후속·후퇴hop) |
 | 적 zone/원소 | ✅ 7/7 | AB-009/036/039/040/041/042/043 — F-027 ZONE (P2-S3) |
 | 제3세력 (AB-100~106) | ✅ 7/7 | 적측+lootable 아군 6종 (S5a·S6a Phase1) |
-| 정체성 ability effect | ✅ 6/6 | AB-021/022/052·027·029/031 (기어 카탈로그, DRIFT-056) |
+| 정체성 ability effect | ✅ 6/6 | IDA-021/022/052·027·029/031 (기어 카탈로그, DRIFT-056) |
 | 파티 능력 풀 (기타 lootable) | ✅ ~49/~49 | 완료 — B1 신규 kind 12 + B2 19(skillbook_bolt 8 + 재사용) + **bespoke 5**(taunt/pull/slow/relocate_ally/reveal). 밴드 패널티(sub_bands)·ally-cache 적용. **능력 디테일 해결**: Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale. 잔여 BLOCKED: Rampart 투사체흡수·Tether leash-DoT |
 | 적 기본타 rom_* (별도) | 15/15 | rom_stalker/snarer/reaver 포함 |
 | PT-### 적 패턴 (별도) | ✅ 17/17 | PT-023~025(제3세력) 포함 |
@@ -99,5 +99,5 @@
 | 040 | P2-S2b per-enemy 포지셔닝 — PT-### `engage` 파생·이동 PH 튜닝. 교전 체감 F5 잔여 |
 | 041 | P2-S2c-1 시그니처 캐스트 — AB-004/008/012/098 + channel-freeze. HEX 피해감소·interrupt·zone = 후속. F5 잔여 |
 | 042 | P2-S2c-2 대시 mobility — AB-006/013. 벽 라우팅·AB-005 flurry·AB-007 hop = 후속. F5 잔여 |
-| 043 | P2-S2c-3 AB-099 Provoked — EN-001 존 도발 + party 상태. AB-031 클렌즈 = 후속. F5 잔여 |
+| 043 | P2-S2c-3 AB-099 Provoked — EN-001 존 도발 + party 상태. IDA-031 클렌즈 = 후속. F5 잔여 |
 | 044 | P2-S2c-4 채널 interrupt + 적 stun — Toll Stun으로 채널 끊기. 적 stun VFX = 후속. F5 잔여 |
