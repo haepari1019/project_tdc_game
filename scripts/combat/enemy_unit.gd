@@ -107,6 +107,7 @@ var _scan_mult: float = 1.0   # per-enemy scan speed → desync the idle sweep s
 var home_pos: Vector3 = Vector3.INF   # captured on first dormant tick
 var roaming: bool = false
 var roam_target: Vector3 = Vector3.ZERO
+var returning: bool = false   # B6: disengaged by leash/grace → walking back to home_pos
 var roam_timer_s: float = 0.0
 ## Perception memory: where this enemy last perceived the party. While investigating
 ## it walks here even after losing sight, then gives up. (Distinct from last_seen_pos,
@@ -132,6 +133,7 @@ var _cone_combat_r := 0.0
 var _cone_fov_half := 0.0
 var _alert_label: Label3D
 var _alert_level: int = -1
+var _stun_label: Label3D   # C3: overhead stun mark (DRIFT-044 잔여 — 적 stun 가독성)
 
 var _body_material: StandardMaterial3D
 var _base_albedo: Color = Color.WHITE
@@ -189,6 +191,10 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 	if attacker != null and is_instance_valid(attacker):
 		killed_by_party = attacker.is_in_group("party_member")
 	amount *= 1.0 + _outcome.mag("Vulnerable")   # AB-057 Focus Fire — Vulnerable: 받는 피해 증폭
+	if training_dummy:
+		accumulated_damage += amount   # 허수아비: 누적딜만 집계, HP 미소모(불사)
+		_flash()
+		return
 	hp = maxf(0.0, hp - amount)
 	if _hp_bar:
 		_hp_bar.set_ratio(hp / max_hp)
@@ -204,6 +210,111 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 
 func is_alive() -> bool:
 	return hp > 0.0
+
+
+# ============================================================================
+# Sandbox training dummy (허수아비) — 스킬샷 테스트 대상. combat_controller가 AI tick을 스킵해 정지·비공격.
+# ============================================================================
+
+## 이 적을 허수아비로 전환: 불사·정지·거대 HP, 옆에 누적딜/어그로 라벨 생성.
+func mark_as_dummy() -> void:
+	training_dummy = true
+	engaged = true            # 아군이 교전 대상으로 삼도록
+	move_speed = 0.0
+	max_hp = 999999.0
+	hp = max_hp
+	if _hp_bar:
+		_hp_bar.set_ratio(1.0)
+	_build_dummy_labels()
+
+
+func reset_accumulated_damage() -> void:
+	accumulated_damage = 0.0
+
+
+func reset_threat() -> void:
+	threat.clear()
+	floor_of.clear()
+	last_gainer = null
+	current_target = null
+	imminent_target = null
+
+
+func _build_dummy_labels() -> void:
+	_dummy_dmg_label = Label3D.new()
+	_dummy_dmg_label.font_size = 40
+	_dummy_dmg_label.fixed_size = true       # 카메라 거리와 무관하게 화면상 일정 크기
+	_dummy_dmg_label.pixel_size = 0.0005
+	_dummy_dmg_label.position = Vector3(1.7, 2.5, 0)
+	_dummy_dmg_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_dummy_dmg_label.no_depth_test = true
+	_dummy_dmg_label.modulate = Color(1.0, 0.55, 0.45)
+	add_child(_dummy_dmg_label)
+	_dummy_threat_label = Label3D.new()
+	_dummy_threat_label.font_size = 30
+	_dummy_threat_label.fixed_size = true
+	_dummy_threat_label.pixel_size = 0.0005
+	_dummy_threat_label.position = Vector3(1.7, 1.85, 0)
+	_dummy_threat_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_dummy_threat_label.no_depth_test = true
+	_dummy_threat_label.modulate = Color(1.0, 0.82, 0.4)
+	add_child(_dummy_threat_label)
+
+
+func _physics_process(delta: float) -> void:
+	if _mark_timer_display > 0.0:              # Beacon 표식 표시 자기 만료
+		_mark_timer_display -= delta
+		if _mark_timer_display <= 0.0 and _mark_label:
+			_mark_label.visible = false
+	if not training_dummy:
+		return   # 일반 적은 이동을 EnemyAI가 구동 — 이하 허수아비 전용.
+	# 허수아비는 AI tick을 스킵하므로 여기서 상태 타이머를 직접 감소 → 디버프가 만료되고 재적용/재팝업 가능.
+	tick_stun(delta)
+	tick_silence(delta)
+	tick_slow(delta)
+	tick_outcome(delta)
+	if _dummy_dmg_label:
+		_dummy_dmg_label.text = "누적딜 %d" % int(round(accumulated_damage))
+	if _dummy_threat_label:
+		_dummy_threat_label.text = _threat_readout()
+
+
+## Beacon 「표식」 시각 표시 — 결속 정체성이 표식을 걸/갱신할 때 호출. `dur`s 후 자동으로 사라짐.
+func show_mark(dur: float) -> void:
+	if _mark_label == null:
+		_mark_label = Label3D.new()
+		_mark_label.text = "◈ 표식"
+		_mark_label.font_size = 34
+		_mark_label.fixed_size = true
+		_mark_label.pixel_size = 0.0005
+		_mark_label.position = Vector3(0, _box_size.y + 1.2, 0)
+		_mark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_mark_label.no_depth_test = true
+		_mark_label.modulate = Color(1.0, 0.72, 0.25)
+		add_child(_mark_label)
+	_mark_label.visible = true
+	_mark_timer_display = dur
+
+
+func hide_mark() -> void:
+	_mark_timer_display = 0.0
+	if _mark_label:
+		_mark_label.visible = false
+
+
+## 어그로 미터 — 파티원별 threat를 내림차순으로. floor(고정) 표기는 생략(현재 값만).
+func _threat_readout() -> String:
+	var rows: Array = []
+	for m in threat.keys():
+		if is_instance_valid(m):
+			rows.append({"n": String(m.get("class_id")), "v": float(threat[m])})
+	if rows.is_empty():
+		return "어그로 —"
+	rows.sort_custom(func(a, b): return a["v"] > b["v"])
+	var parts: Array = []
+	for r in rows:
+		parts.append("%s %d" % [r["n"], int(round(r["v"]))])
+	return "어그로 ▸ " + " / ".join(parts)
 
 
 ## Restore HP (AB-098 Mire Mend Pulse — EN-014 sustain heals its squad). Clamped to max,
@@ -256,6 +367,16 @@ var current_target: CharacterBody3D = null
 var imminent_target: CharacterBody3D = null  # §5.2 next-target (switch imminent)
 var last_gainer: CharacterBody3D = null
 var first_hit: bool = false  # §3.4 first-attack bonus applied?
+
+# --- Sandbox training dummy (허수아비) — 스킬샷 테스트용. 불사·정지(combat_controller가 AI tick 스킵)
+# ·가해 누적딜 집계. 옆에 누적딜/어그로 Label3D 표시. ---
+var training_dummy: bool = false
+var accumulated_damage: float = 0.0
+var _dummy_dmg_label: Label3D
+var _dummy_threat_label: Label3D
+# Beacon 「표식」 시각 표시 — 결속 정체성이 표식을 걸면 이 적 위에 "◈ 표식"(자기 만료).
+var _mark_label: Label3D
+var _mark_timer_display: float = 0.0
 var floor_of: Dictionary = {}  # member -> threat floor (§3.5)
 const DEFAULT_FLOOR := 10.0
 const IMMINENT_RATIO := 0.85  # §3.2 2nd >= 1st * this → imminent switch UI
@@ -283,7 +404,16 @@ var kb_vel: Vector3 = Vector3.ZERO
 var kb_timer: float = 0.0
 
 
+## Floating combat text — 대상 위에 상태 이름을 잠깐 띄우고 위로 페이드아웃(MMO식). ref: float_text.gd.
+## preload로 참조(global class-cache 미갱신 시 "not declared" 회피).
+const _FloatText := preload("res://scripts/ui/float_text.gd")
+func popup_status(txt: String, color: Color) -> void:
+	_FloatText.popup(self, txt, color, _box_size.y + 1.6)
+
+
 func apply_slow(factor: float, duration: float) -> void:
+	if slow_timer_s <= 0.0:
+		popup_status("둔화", Color(0.5, 0.75, 1.0))
 	slow_factor = factor
 	slow_timer_s = maxf(slow_timer_s, duration)
 
@@ -306,6 +436,8 @@ func tick_outcome(delta: float) -> void:
 func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if hp <= 0.0:
 		return
+	if not _outcome.has(id) and _FloatText.OUTCOME_KO.has(id):
+		popup_status(_FloatText.OUTCOME_KO[id], Color(0.75, 0.9, 1.0))
 	_outcome.apply(id, dur, mag)
 
 
@@ -363,7 +495,11 @@ func is_slippery() -> bool:
 func apply_stun(duration: float) -> void:
 	if hp <= 0.0 or duration <= 0.0:
 		return
+	if stun_timer_s <= 0.0:
+		popup_status("기절", Color(1.0, 0.9, 0.3))
 	stun_timer_s = maxf(stun_timer_s, duration / maxf(cc_tenacity, 0.01))  # ccTenacity shortens CC
+	if _stun_label:
+		_stun_label.visible = true    # C3: overhead stun mark for the duration
 
 
 func is_stunned() -> bool:
@@ -373,6 +509,8 @@ func is_stunned() -> bool:
 func tick_stun(delta: float) -> void:
 	if stun_timer_s > 0.0:
 		stun_timer_s = maxf(0.0, stun_timer_s - delta)
+		if stun_timer_s <= 0.0 and _stun_label:
+			_stun_label.visible = false
 
 
 ## Silence (AB-044 Hush Ward) — block active ability casts for `duration` (ccTenacity shortens).
@@ -380,6 +518,8 @@ func tick_stun(delta: float) -> void:
 func apply_silence(duration: float) -> void:
 	if hp <= 0.0 or duration <= 0.0:
 		return
+	if silence_timer_s <= 0.0:
+		popup_status("침묵", Color(0.8, 0.5, 1.0))
 	silence_timer_s = maxf(silence_timer_s, duration / maxf(cc_tenacity, 0.01))
 
 
@@ -495,12 +635,25 @@ func _build_alert_mark(box_size: Vector3) -> void:
 	_alert_label = Label3D.new()
 	_alert_label.text = "?"
 	_alert_label.font_size = 48
+	_alert_label.fixed_size = true
+	_alert_label.pixel_size = 0.0005
 	_alert_label.position = Vector3(0, box_size.y + 1.15, 0)
 	_alert_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_alert_label.no_depth_test = true
 	_alert_label.modulate = Color(1.0, 0.85, 0.2)
 	_alert_label.visible = false
 	add_child(_alert_label)
+	_stun_label = Label3D.new()                # C3: shown while stunned (over the alert mark)
+	_stun_label.text = "✦"
+	_stun_label.font_size = 44
+	_stun_label.fixed_size = true
+	_stun_label.pixel_size = 0.0005
+	_stun_label.position = Vector3(0, box_size.y + 1.9, 0)
+	_stun_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_stun_label.no_depth_test = true
+	_stun_label.modulate = Color(1.0, 0.95, 0.35)
+	_stun_label.visible = false
+	add_child(_stun_label)
 
 
 ## Dev VFX: vision cone (player would unlock this with a consumable; forced on for now).

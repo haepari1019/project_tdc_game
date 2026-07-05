@@ -124,7 +124,7 @@ func _begin_throw() -> void:
 	if _carried == null:
 		return
 	_throwing = true
-	_aim.show_at(2.4, Color(1.0, 0.5, 0.15, 0.35))   # Torch.IGNITE_RADIUS
+	_aim.show_ground(2.4, Color(1.0, 0.5, 0.15, 0.35))   # Torch.IGNITE_RADIUS (지면 AoE)
 	_prompt.text = "횃불 투척: 지면 클릭 · 우클릭/Esc 취소"
 	_prompt.visible = true
 

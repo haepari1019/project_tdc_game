@@ -172,7 +172,7 @@ scripts/
 - `consumables.json` (**소모품 마스터**: `consumable_id` → `effect`·`max_stack`·`usable_in_combat`; F-010 / D-020) — 인벤 스택 아이템(`kind:"consumable"`) + **Z/X/C 핫키**(`ui/consumable_bar.gd`, 6시 시트 위); 부활 스크롤=다운 아군 부활(휴식중, `party_member.revive`). 인-런 부활=SPEC_DRIFT-027(전파 후보).
 - 캐릭터/유닛은 **ID로 어빌리티를 링크**한다(인라인 정의 금지). "한 번 정의 → 어디서나 할당".
 
-> ⚠️ `abilities.json`은 현재 `id_registry`와 대조 **검증되지 않는다**(§6 DEBT-DM1). 다른 도메인(enemies 등)은 `require_id`로 검증됨.
+> ⚠️ `abilities.json`은 현재 `id_registry`와 대조 **검증된다**(`_parse_abilities`가 `require_id` 수행 — DRIFT-006; 과거 DEBT-DM1 해소)(§6 DEBT-DM1). 다른 도메인(enemies 등)은 `require_id`로 검증됨.
 
 ---
 
@@ -212,7 +212,7 @@ scripts/
 ### 결합 / 데이터모델 / 중복
 | ID | 항목 | 위치 | risk |
 |----|------|------|------|
-| DEBT-DM1 | `abilities.json` 로드 시 `require_id` 미수행 → "미등록 ID→abort"가 어빌리티만 무력화(코드 가드 버그) | slice01_data.gd | med |
+| ~~DEBT-DM1~~ ✅RESOLVED(DRIFT-006) | `abilities.json` 로드 시 `require_id` 미수행 → "미등록 ID→abort"가 어빌리티만 무력화(코드 가드 버그) | slice01_data.gd | med |
 | DEBT-DM3 | 룸 **기하**(center/size)가 아직 ROOM_SPECS 상수(placeholder, Blender 실맵 대체 예정). lighting/맵 인터페이스는 rooms.json SSOT화 완료 | map_demo_layout.gd, rooms.json | med |
 | DEBT-CPL-DUCK | CombatController가 party_member 필드 다수를 가드 없이 덕타이핑 | combat_controller.gd | med |
 | DEBT-CPL-HUD | dungeon_run이 HUD 라벨 노드경로를 하드코딩·직접 set → RunInfoPanel 분리 여지 | dungeon_run.gd | med |

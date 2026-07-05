@@ -17,7 +17,7 @@ signal camera_shake(trauma: float, kick_world: Vector3)
 ## from_dir_world = world XZ toward the attacker; severity 0..1; is_controlled gates the
 ## (controlled-only) edge UI. Emitted for ALL hits above a chip threshold (incl. basic).
 @warning_ignore("unused_signal")  # emitted cross-class (enemy_ai) → connected in dungeon_run
-signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool)
+signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool, member: Node)
 ## An enemy was defeated at world_pos — drives world item drops (loot). ref: F-010 loot.
 signal enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool)
 ## A squad's last enemy fell — drives ENC-bound haul drops (HUB-COR-000 §3). Fires once per squad.
@@ -34,6 +34,9 @@ const ReactionSystem := preload("res://scripts/combat/abilities/reaction_system.
 ## D-010 §4.2 combat_exit_grace_s — an engaged enemy with no combat event and no
 ## line of sight to the party for this long disengages (전투중 → dormant). Tuning.
 const COMBAT_EXIT_GRACE_S := 6.0
+## EN-AI-000 §3 distance-leash (leash_m 28): an engaged enemy dragged this far from its spawn
+## anchor gives up the chase (arena-boundary kite prevention) and returns to post (B6). Tuning.
+const DISENGAGE_LEASH_M := 28.0
 ## Squad cohesion: a newly-engaged enemy wakes squad-mates within this radius. A
 ## strayed member (off investigating) is outside it, so killing it alone does NOT
 ## wake the distant squad. Tuning.
@@ -141,6 +144,7 @@ func _engage_enemy(e: CharacterBody3D, target_member: CharacterBody3D = null) ->
 	var has_target: bool = target_member != null and is_instance_valid(target_member)
 	var was: bool = e.engaged
 	e.engaged = true
+	e.returning = false   # re-engaging cancels any return-to-spawn walk (B6)
 	e.engage_grace_s = COMBAT_EXIT_GRACE_S
 	if has_target:
 		e.add_threat(target_member, PERCEIVE_THREAT)  # target who we saw/were hit by
@@ -162,6 +166,7 @@ func _engage_enemy(e: CharacterBody3D, target_member: CharacterBody3D = null) ->
 			continue
 		if Spatial.h_dist2(o.global_position, e.global_position) <= r2:
 			o.engaged = true
+			o.returning = false
 			o.engage_grace_s = COMBAT_EXIT_GRACE_S
 			if String(o.placement_mode) == "AmbushHold":
 				SkillVfx.ambush_spring(self, o.global_position)  # squadmate springs too
@@ -188,13 +193,18 @@ func _physics_process(delta: float) -> void:
 	# Per-enemy disengage grace (D-010 §4.2): an engaged enemy reverts to dormant
 	# after the grace lapses (grace is refreshed by combat events + active LOS).
 	for enemy in _enemies:
-		if is_instance_valid(enemy) and enemy.engaged:
+		if is_instance_valid(enemy) and enemy.engaged and not enemy.training_dummy:
 			enemy.engage_grace_s -= delta
-			if enemy.engage_grace_s <= 0.0:
+			# Distance-leash (B5): dragged too far from the spawn anchor → give up (kite prevention).
+			var leashed: bool = enemy.home_pos != Vector3.INF \
+				and Spatial.h_dist2(enemy.global_position, enemy.home_pos) > DISENGAGE_LEASH_M * DISENGAGE_LEASH_M
+			if enemy.engage_grace_s <= 0.0 or leashed:
 				enemy.engaged = false
+				enemy.returning = true    # B6: path back to the spawn anchor
 	# Tick every enemy: dormant ones perceive/idle, engaged ones fight (EnemyAI).
+	# 허수아비(training_dummy)는 AI 미구동 → 정지·비공격(스킬샷 표적).
 	for enemy in _enemies:
-		if is_instance_valid(enemy):
+		if is_instance_valid(enemy) and not enemy.training_dummy:
 			_enemy_ai.tick(enemy, targets, delta)
 	# Party auto-attack runs always — attacking a foe is what commits the party. (party원만 actor)
 	_tick_party_attacks(party, delta)
@@ -434,6 +444,10 @@ func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float)
 	# below reflects the boosted damage). No-op for members without a pending bonus.
 	if attacker != null and attacker.has_method("consume_next_hit_bonus"):
 		dmg *= 1.0 + attacker.consume_next_hit_bonus()
+	# AB-012 HEX-WEAK — a hexed attacker deals reduced outgoing damage (basic OR sub; the threat
+	# below reflects the reduced dmg). No-op (×1.0) when not hexed.
+	if attacker != null and attacker.has_method("hex_weak_mult"):
+		dmg *= attacker.hex_weak_mult()
 	# D-010 §4.1: damaging a foe engages it and wakes its squad (cohesion radius);
 	# group-pull threat below stays within the same squad so distant squads sleep.
 	# (Camera hit-feel is emitted ONCE per SUB cast — see AbilityDispatch._sub_hit_shake

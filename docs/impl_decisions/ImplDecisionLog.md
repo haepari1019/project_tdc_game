@@ -6,6 +6,36 @@
 
 ---
 
+### IMPL-DEC-20260705-001 — P2-S8a 게이트 PASS + 파일럿 폴리시 (결속 규약·시각화·조준 UX)
+- **결정:** `QA-005 §2.12` Tank 결속 게이트 **감독 PASS**(2026-07-05). Stage 2/3 개방. 게이트 전 다수 개선:
+  - **규약(covenant) 재설계:** identity가 시그니처 상태를 **선언·생성** → 서브는 그 상태 **조건부**로 버프 → 상태 소모 시 캡스톤. Anchor=방벽 스택(모든 서브 +1, 3겹→기절), Beacon=표식(identity가 부여, 서브는 표식 대상에 추가 위협, 표식 처치→링크 전 슬롯 쿨 감소). `SIGNATURE`/`BULWARK`/`MARK` 데이터화. **방벽 스택 5초 만료**(누적 오발 방지) + `binding_reset()`.
+  - **시각화:** 방벽 pips(🛡◆◇+⚡STUN)·표식 ◈(적 위)·버프/디버프 **floatText**(`float_text.gd`, MMO식 상승+페이드, preload 참조로 class-cache 회피)·Label3D **fixed_size**(줌 무관 가독).
+  - **정체성 이름/설명 정비:** 툴팁 이름 소스 통일(display_names, 스타터가 SKILL_INFO로 다른 이름 뜨던 버그 수정) + 10종 이름 재작명(기능 기반, 사물 비유 배제) + kind별 skill_desc 채움(정체성·barrier 스태거 등).
+  - **허수아비**(스킬샷 테스트: 불사·정지·누적딜/어그로 표시+초기화, AI tick 스킵+상태 자가 tick)·**조준 UX**(단일=사거리 링만+커서 십자 / AoE=+원판, 커서색 아군초록/적빨강, **사거리 밖=걸어가서 시전** move-to-cast via `order_move_to`).
+- **이유:** 게이트가 "재미/명료성"을 사람 판정 → 상태 가시성·툴팁 명확성·조준 피드백이 필수. 규약 재설계는 유저 지적(서브가 시그니처와 무관하게 라벨만 붙던 문제) 수용.
+- **영향:** binding_fixtures·ability_dispatch·party_member·enemy_unit·combat_controller·aim_marker·aim_controller·controlled_sheet·float_text(신규)·combat_sandbox·display_names.json·skillbooks.json·P4A_BIND_GATE_checklist(PASS). 관련: [[identity-kit-binding-plan]].
+
+### IMPL-DEC-20260704-002 — P2-S8a: Identity Kit Binding P4a Tank 파일럿 + castTier 스키마 스캐폴딩
+- **결정:** 스펙 `77d9532`(P4a/P4b changeset) 채택 후 **첫 스프린트 = Stage 0+1**(감독 결정 2026-07-04: Stage0+1·완전 리셋·gear-roll 폐기는 Stage 2).
+  - **결속 = 런타임 오버레이.** `binding_fixtures.gd`(신규, **비정본**·`id_registry` 미등록·**AB 파일 복제 없음**). `resolveEffectiveAbility` **triple-match**(gear 슬러그 + identity `AB` + slot `AB` + `slotIndex`)를 `ability_dispatch.cast_skillbook`의 **ally 경로에만** 훅 → NC 자동 배제(`try_identity` 미변경). 6 BIND-PILOT 델타(stun/threat/floor/shield/kb/cd)를 **기존 프리미티브**(enemy `apply_stun`/`add_threat`/`set_threat_floor`/`apply_knockback` · member `shield`)로 구현. 트랜지언트 상태(bulwark stacks/ICD·recycle window)는 `party_member`에 배치·`_tick_binding`.
+  - **castTier B/C = 이연.** D1 스코핑에서 **ally 서브 wind-up 시스템 부재** 확인 → castTier는 **스키마만**(parse+validate `A|B|C` + `params` 노출). wind-up/root/캐스트바(UI-003) 머신은 후속(신규 머신, 파일럿=전부 A라 비선결). AB-028/045는 spec `D-016 §3.6.2`대로 `castTier:B`/`rootDuringCast:true` 시드(동작 미소비, 데이터만).
+  - **의도적 근사:** BIND-005 knockback=전방 콘 push(배리어 stagger 델타 대신) · BIND-001 ICD=멤버 단위(spec=per-enemy 8s) · BIND-004 floor=현재 threat의 +15%. 픽스처 키=게임 **슬러그**(`gear_ward_tank_*`), spec `GEAR-011/012` 약칭 아님.
+- **이유:** `QA-005 §2.12` 게이트를 **사람이 판정**하려면 파일럿이 플레이 가능해야 함. 게이트 전 전면 DB 스키마 이관 불필요(비정본 픽스처). 결속=베이스 교체 아님(오버레이 델타).
+- **대안:** (a) castTier 풀 wind-up 이번 스프린트 — 신규 머신·파일럿 비선결 → 이연. (b) AB 파일 이원화(복제) — 스펙 금지(`F-020 §3.7`). (c) binding 정본 DB 스키마 선반영 — 게이트 전 위험 → 픽스처로.
+- **검증:** `ci_smoke` **7/7 PASS**(신규 `binding_smoke.gd`: triple-match + `enabled` 게이트 + 6 오버레이 assert). 오버레이 **체감 = 감독 게이트**([docs/qa/P4A_BIND_GATE_checklist.md](docs/qa/P4A_BIND_GATE_checklist.md)).
+- **영향:** `binding_fixtures.gd`(신규)·`ability_dispatch.gd`·`party_member.gd`·`slice01_data.gd`·`skillbooks.json`·`combat_sandbox.gd`·`spec_ref.json`(핀 `77d9532`)·`ci_smoke.sh`·`binding_smoke.gd`(신규)·`P4A_BIND_GATE_checklist.md`(신규). 관련: [[identity-kit-binding-plan]].
+
+### IMPL-DEC-20260704-001 — T1 백로그 배치 구현 결정 (BACKLOG_open_items §T1)
+- **결정:** 잔여 종결 6 + 신규 2 구현(상세 `SPEC_DRIFT` DRIFT-069). 핵심 설계 판단:
+  - **HEX-WEAK:** 파티 outgoing-damage 훅을 `_deal_damage` 단일 choke에 배치(basic+ability 공통, Shadowstep 소비 직후 → threat도 감소분 반영). 지속형 `_hexweak_mult`(minf=강한 hex 우선), slow와 동일 감쇠.
+  - **거리-leash:** enemy_ai kite용 `ENGAGE_LEASH_M 18`과 분리해 `combat_controller.DISENGAGE_LEASH_M 28`(스펙값) 신설 — 목적 상이(kite 클램프 vs disengage). `returning`은 re-engage 시 해제.
+  - **B7 spread:** 안전 우선 — Wind zone 존재 시에만 발동(희소), 전역 cap 6, children 비재확산으로 runaway 차단. room-cap은 map 의존 회피 위해 전역 프록시. **F5 튜닝 전제.**
+  - **F3 RX:** 물리 직관 3종(멜트/quench/응결)만, 기존 zone-convert 패턴 재사용. **F3/B7 새 룰 → PENDING-PROP(전파 승인 대기).**
+  - **stun VFX/지표:** material 상태 충돌 회피 위해 전용 `Label3D`(stun) + `damage_indicator`에 색상 인자 추가(아군=앰버, 자기=red 구분·direction별 merge도 색 분리).
+  - **이미-done 검증:** A1a(orphan 삭제)·DEBT-DM1(require_id 가드)·B10(Tank threat_mult 2.0~2.6)은 코드에 이미 반영 — BACKLOG가 stale 노트 물려받음 → 문서만 정정(ARCHITECTURE DEBT-DM1 포함).
+- **이유:** 사용자 "T1 진행". 밸런스 변경 성격(E3 tier-충전수·저위험 부채 churn)은 [[refactor-risk-preference]]대로 보류.
+- **영향:** party_member·combat_controller·enemy_ai·enemy_unit·loot_service·reaction_system·vision_fog·enemy_vision_overlay·door·dungeon_run·damage_indicator·mia_controller·abilities.json·sentinel_form·combat_sandbox.
+
 ### IMPL-DEC-20260626-039 — 창고(stash) 영속 capacity 강제 + 시드 축소 (이연 조각 — capacity 2축 완료)
 - **결정(사용자: 강제 + 시드 T0에 맞게 축소):** stash_capacity(20/28/36, 이미 존재·미사용) 강제 + 스타터 시드를 T0 캡 안으로.
 - **시드 축소:** stash 시드 기어 17→15(dps tide_censer·nuker hex_scope 제거) → 15기어+4스킬북=**19 ≤ T0 20**(시작 1슬롯 여유, 이후 승급 압력). **기존 세이브 미영향**(시드는 최초 로드만; 캡은 비파괴라 over-cap 세이브도 유지·추가만 차단).

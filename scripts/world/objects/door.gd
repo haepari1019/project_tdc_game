@@ -10,11 +10,18 @@ var _run: Node = null     # RunController (objective)
 var _opened := false
 var _body: StaticBody3D = null
 var _mesh: MeshInstance3D = null
+var _occluders: Array = []   # F2: fog/cone occluders (closed door) — freed on open
 
 
 func setup(inv: Node, run: Node) -> void:
 	_inv = inv
 	_run = run
+
+
+## F2: dynamic fog/cone occluders for the closed door (registered by dungeon_run). The closed door
+## now casts a vision shadow; opening frees them so light/cones pass through (fog updates next frame).
+func set_occluders(occ: Array) -> void:
+	_occluders = occ
 
 
 func _ready() -> void:
@@ -45,6 +52,9 @@ func interact() -> void:
 		_body.queue_free()                    # clear the barrier — path open
 	if _mesh:
 		_mesh.visible = false
+	for o in _occluders:                      # F2: door open → vision (fog + cones) passes through
+		if is_instance_valid(o):
+			o.queue_free()
 	if _run and _run.has_method("complete_objective"):
 		_run.complete_objective()             # objective = door opened
 	print("[TDC] Door opened with key — extraction path clear")

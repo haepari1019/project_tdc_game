@@ -422,6 +422,8 @@ func _build_room(room_ref: String) -> void:
 	label.text = "%s\n%s" % [room_ref, room_label]
 	label.position = center + Vector3(0, 3.2, 0)
 	label.font_size = 36
+	label.fixed_size = true       # 카메라 거리와 무관하게 화면상 일정 크기
+	label.pixel_size = 0.0005
 	label.modulate = Color(1, 1, 1, 0.65)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

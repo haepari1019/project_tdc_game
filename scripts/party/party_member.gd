@@ -74,6 +74,9 @@ var _mia_marker: Label3D = null
 var _slow_factor: float = 1.0
 var _slow_timer: float = 0.0
 var _slow_dur: float = 0.0
+var _hexweak_mult: float = 1.0    # AB-012 HEX-WEAK: outgoing-damage multiplier (1.0 = none)
+var _hexweak_timer_s: float = 0.0
+var _hexweak_dur: float = 0.0
 
 # --- Identity skill (from `identity` block) + shield (AB-020) ---
 var identity_params: Dictionary = {}
@@ -130,6 +133,18 @@ var _outcome = preload("res://scripts/combat/outcome_status.gd").new()
 var provoked_timer_s: float = 0.0
 var _provoke_dur: float = 1.0
 var provoke_source: Node = null
+# P4a Kit Binding (결속) — transient overlay runtime state (BIND-PILOT-*). Controlled-ally only
+# (NC never casts subs, F-020 §3.3). Applied by AbilityDispatch after a base sub cast; ticked here.
+# ref: F-020 §3.7 · binding_fixtures.gd. All cleared on debug_reset.
+const BULWARK_STACK_WINDOW := 5.0  # 이 시간 안에 다음 스택을 안 쌓으면 방벽 스택 리셋(누적 방지)
+var bulwark_stacks: int = 0        # BIND-PILOT-001 — Intercept accrues; 3-stack consume → stun + reset
+var _bulwark_icd_s: float = 0.0    # ICD after a consume (pilot: member-wide; spec = per-enemy 8s)
+var _bulwark_stack_timer: float = 0.0  # 스택 만료 타이머(마지막 스택 이후 경과)
+var _bulwark_label: Label3D = null # overhead pip readout so the 누적 is legible (QA gate feedback)
+var _bulwark_flash_s: float = 0.0  # brief "⚡ STUN" flash on a 3-stack consume
+var _marked_enemy = null           # Beacon 「표식」 — identity가 남긴 표식 대상 (untyped: may hold a freed ref)
+var _mark_timer_s: float = 0.0
+var _mark_cd_reduce: float = 0.0
 var _status_orb: MeshInstance3D
 var _flash_heal_tw: Tween
 
@@ -291,6 +306,150 @@ func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Diction
 	})
 
 
+# ============================================================================
+# P4a Kit Binding (결속) — runtime overlay state helpers. Driven by AbilityDispatch._apply_binding
+# after a base sub cast (which owns ctx / enemy queries); this side holds + ticks the per-member
+# transient state. NON-CANONICAL pilot. ref: F-020 §3.7 · binding_fixtures.gd.
+# ============================================================================
+
+func _tick_binding(delta: float) -> void:
+	if _bulwark_icd_s > 0.0:
+		_bulwark_icd_s -= delta
+	if _bulwark_stack_timer > 0.0:                 # 스택 만료: 창 안에 안 쌓이면 리셋(오발 방지)
+		_bulwark_stack_timer -= delta
+		if _bulwark_stack_timer <= 0.0 and bulwark_stacks > 0:
+			bulwark_stacks = 0
+			if _bulwark_label != null:
+				_bulwark_label.visible = false
+	if _bulwark_flash_s > 0.0:
+		_bulwark_flash_s -= delta
+		if _bulwark_flash_s <= 0.0 and _bulwark_label != null and bulwark_stacks == 0:
+			_bulwark_label.visible = false
+	if _mark_timer_s > 0.0:
+		_mark_timer_s -= delta
+		if _binding_mark_dead():
+			_binding_mark_refund()   # 표식 대상 처치 → 링크된 모든 슬롯 스킬 쿨 동시 감소
+		elif _mark_timer_s <= 0.0:
+			_binding_mark_clear()
+
+
+## Read the watched enemy internally (untyped) — a freed instance passed as a typed arg throws
+## "previously freed" before the body runs, so we never pass it across a typed boundary.
+func _binding_mark_dead() -> bool:
+	var e = _marked_enemy
+	if not is_instance_valid(e):
+		return true
+	if e.has_method("is_alive"):
+		return not e.is_alive()
+	return float(e.get("hp")) <= 0.0 if ("hp" in e) else false
+
+
+## 표식 대상 처치 → 링크된 모든 슬롯 스킬(Q/E/R)의 쿨다운을 동시에 감소.
+func _binding_mark_refund() -> void:
+	for s in skillbook_slots:
+		if s != null and float(s.cooldown_s) > 0.0:
+			s.cooldown_s = float(s.cooldown_s) * (1.0 - _mark_cd_reduce)
+	_binding_mark_clear()
+
+
+func _binding_mark_clear() -> void:
+	if is_instance_valid(_marked_enemy) and _marked_enemy.has_method("hide_mark"):
+		_marked_enemy.hide_mark()
+	_marked_enemy = null
+	_mark_timer_s = 0.0
+	_mark_cd_reduce = 0.0
+
+
+## BIND-PILOT-001 — add a BulwarkCharge; returns true when a full-stack consume fires (caller stuns).
+## Drives an overhead pip readout so the 누적 is visible (QA-005 §2.12 gate feedback).
+func binding_bulwark_add(needed: int, icd_s: float) -> bool:
+	if _bulwark_icd_s > 0.0:
+		return false
+	bulwark_stacks += 1
+	if bulwark_stacks >= needed:
+		bulwark_stacks = 0
+		_bulwark_stack_timer = 0.0
+		_bulwark_icd_s = icd_s
+		_show_bulwark("⚡ STUN", Color(1.0, 0.9, 0.3))   # consume flash
+		_bulwark_flash_s = 0.7
+		return true
+	# pips: filled = current stacks, hollow = remaining toward the consume.
+	_bulwark_stack_timer = BULWARK_STACK_WINDOW   # 창 안에 다음 스택 안 쌓이면 리셋
+	_show_bulwark("🛡 " + "◆".repeat(bulwark_stacks) + "◇".repeat(maxi(0, needed - bulwark_stacks)), Color(0.55, 0.8, 1.0))
+	return false
+
+
+## 픽스처 적용/재시작 시 결속 트랜지언트 상태 초기화(잔여 스택으로 인한 오발 방지).
+func binding_reset() -> void:
+	bulwark_stacks = 0
+	_bulwark_icd_s = 0.0
+	_bulwark_stack_timer = 0.0
+	_bulwark_flash_s = 0.0
+	if _bulwark_label != null:
+		_bulwark_label.visible = false
+	_binding_mark_clear()
+
+
+## Build (lazy) + show the overhead BulwarkCharge readout. Hidden when stacks reset (see _tick_binding).
+func _show_bulwark(text: String, col: Color) -> void:
+	if _bulwark_label == null:
+		_bulwark_label = Label3D.new()
+		_bulwark_label.font_size = 40
+		_bulwark_label.fixed_size = true       # 카메라 거리와 무관하게 화면상 일정 크기
+		_bulwark_label.pixel_size = 0.0005
+		_bulwark_label.position = Vector3(0, 2.4, 0)
+		_bulwark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_bulwark_label.no_depth_test = true
+		add_child(_bulwark_label)
+	_bulwark_label.text = text
+	_bulwark_label.modulate = col
+	_bulwark_label.visible = true
+
+
+## BIND-PILOT-003 — self shield (never lowers an existing larger shield). Uses the AB-020 shield channel.
+func binding_self_shield(amount: float, dur: float) -> void:
+	if shield_timer_s <= 0.0:
+		popup_status("보호막", Color(0.4, 0.9, 1.0))
+	shield = maxf(shield, amount)
+	shield_timer_s = maxf(shield_timer_s, dur)
+	_shield_dur = maxf(_shield_dur, dur)
+
+
+## Beacon 「표식」 — identity가 `enemy`에 표식을 남긴다. window 안에 그 적이 죽으면 링크된 모든 슬롯
+## 쿨을 frac만큼 동시 감소(F-020 §3.7 identity-source binding). 새 표식은 이전 것을 대체.
+func binding_mark(enemy, window: float, frac: float) -> void:
+	# 표식 이동: 이전 대상의 표식 표시를 끈다.
+	if _marked_enemy != enemy and is_instance_valid(_marked_enemy) and _marked_enemy.has_method("hide_mark"):
+		_marked_enemy.hide_mark()
+	_marked_enemy = enemy
+	_mark_timer_s = window
+	_mark_cd_reduce = frac
+	if enemy != null and enemy.has_method("show_mark"):
+		enemy.show_mark(window)   # 적 위에 "◈ 표식" 표시(발동 순간 가시화)
+
+
+## R Challenge Mark — 표식 갱신: 활성 표식이 있을 때만 대상(있으면 교체)·유지 시간을 리셋.
+func binding_remark(enemy, window: float) -> void:
+	if _mark_timer_s <= 0.0:
+		return
+	if enemy != null and _marked_enemy != enemy:
+		if is_instance_valid(_marked_enemy) and _marked_enemy.has_method("hide_mark"):
+			_marked_enemy.hide_mark()
+		_marked_enemy = enemy
+	_mark_timer_s = maxf(_mark_timer_s, window)
+	if is_instance_valid(_marked_enemy) and _marked_enemy.has_method("show_mark"):
+		_marked_enemy.show_mark(_mark_timer_s)
+
+
+## 현재 유효한 표식 대상(표식 유지 중 + 살아있음) 또는 null — 서브의 표식-조건부 추가효과 게이트.
+func get_marked_enemy():
+	if _mark_timer_s <= 0.0 or not is_instance_valid(_marked_enemy):
+		return null
+	if _marked_enemy.has_method("is_alive") and not _marked_enemy.is_alive():
+		return null
+	return _marked_enemy
+
+
 ## DEBUG (combat sandbox): full reset to re-run an experiment — alive, full HP, all statuses +
 ## cooldowns cleared, sub charges refilled, downed members revived.
 func debug_reset() -> void:
@@ -314,6 +473,7 @@ func debug_reset() -> void:
 	identity_cooldown_s = 0.0
 	sub_cooldown_s = 0.0
 	attack_cooldown_s = 0.0
+	binding_reset()   # P4a Kit Binding transient state (스택/ICD/만료타이머/표식)
 	for s in skillbook_slots:
 		if s != null:
 			s.charges = int(s.charges_max)
@@ -499,20 +659,29 @@ func heal(amount: float) -> float:
 
 
 ## AB-020 Shield Policy: keep the higher value; refresh duration only when new >= old.
+## Floating combat text — 이 멤버 위에 버프/디버프 이름을 잠깐 띄우고 위로 페이드아웃(MMO식). ref: float_text.gd.
+## preload로 참조(global class-cache 미갱신 시 "not declared" 회피).
+const _FloatText := preload("res://scripts/ui/float_text.gd")
+func popup_status(txt: String, color: Color) -> void:
+	_FloatText.popup(self, txt, color, 2.6)
+
+
 func add_shield(value: float, duration: float) -> void:
 	if value >= shield:
+		popup_status("보호막", Color(0.4, 0.9, 1.0))
 		shield = value
 		shield_timer_s = duration
 		_shield_dur = duration
 
 
 ## F-008 Sentinel Form (AB-052) — enter the turtle stance: reduce incoming damage by `dr` (0..1)
-## and move-lock for `dur` seconds. (Reflect deferred — take_damage has no attacker source.)
+## and move-lock for `dur` seconds. Reflects `reflect` of each incoming hit back at the attacker.
 func enter_sentinel(dr: float, dur: float, reflect: float = 0.0) -> void:
+	popup_status("태세", Color(0.7, 0.82, 1.0))
 	damage_taken_mult = clampf(1.0 - dr, 0.0, 1.0)
 	_sentinel_timer_s = dur
 	_sentinel_reflect = clampf(reflect, 0.0, 1.0)   # AB-052 reflect (40% draft)
-	apply_outcome("Rooted", dur)   # move-lock (MOVE_MULT 0.0), can still act
+	_outcome.apply("Rooted", dur)   # move-lock (MOVE_MULT 0.0) — self-root, 팝업은 "태세"로 대체
 
 
 ## F-009 temporary damage reduction (Shield Wall AB-046 / Aegis Pulse AB-047 subs) — DR WITHOUT the
@@ -521,6 +690,7 @@ func enter_sentinel(dr: float, dur: float, reflect: float = 0.0) -> void:
 func apply_damage_reduction(dr: float, dur: float) -> void:
 	if not _alive:
 		return
+	popup_status("피해 감소", Color(0.6, 0.8, 1.0))
 	damage_taken_mult = minf(damage_taken_mult, clampf(1.0 - dr, 0.0, 1.0))
 	_sentinel_timer_s = maxf(_sentinel_timer_s, dur)
 
@@ -529,6 +699,8 @@ func apply_damage_reduction(dr: float, dur: float) -> void:
 func apply_regen(pct_per_s: float, dur: float) -> void:
 	if not _alive:
 		return
+	if _regen_timer_s <= 0.0:
+		popup_status("재생", Color(0.5, 1.0, 0.5))
 	_regen_pct_s = maxf(_regen_pct_s, pct_per_s)
 	_regen_timer_s = maxf(_regen_timer_s, dur)
 
@@ -537,6 +709,8 @@ func apply_regen(pct_per_s: float, dur: float) -> void:
 func apply_haste(pct: float, dur: float) -> void:
 	if not _alive:
 		return
+	if _haste_timer_s <= 0.0:
+		popup_status("가속", Color(0.9, 1.0, 0.4))
 	_haste_mult = maxf(_haste_mult, 1.0 + pct)
 	_haste_timer_s = maxf(_haste_timer_s, dur)
 
@@ -552,6 +726,8 @@ func attack_interval() -> float:
 func apply_veil(dur: float) -> void:
 	if not _alive:
 		return
+	if _veil_timer_s <= 0.0:
+		popup_status("은신", Color(0.72, 0.72, 0.78))
 	_veil_timer_s = maxf(_veil_timer_s, dur)
 	_veil_dur = maxf(_veil_dur, _veil_timer_s)
 	if _body_material:
@@ -617,6 +793,8 @@ func set_mia(on: bool) -> void:
 		_mia_marker = Label3D.new()
 		_mia_marker.text = "⚠ MIA"
 		_mia_marker.font_size = 44
+		_mia_marker.fixed_size = true
+		_mia_marker.pixel_size = 0.0005
 		_mia_marker.modulate = Color(1.0, 0.5, 0.15)
 		_mia_marker.position = Vector3(0, 2.7, 0)
 		_mia_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -666,6 +844,7 @@ func _physics_process(delta: float) -> void:
 	for s in skillbook_slots:
 		if s != null and float(s.cooldown_s) > 0.0:
 			s.cooldown_s = float(s.cooldown_s) - delta
+	_tick_binding(delta)   # P4a Kit Binding — bulwark ICD + BIND-006 recycle window
 	if shield_timer_s > 0.0:
 		shield_timer_s -= delta
 		if shield_timer_s <= 0.0:
@@ -701,6 +880,10 @@ func _physics_process(delta: float) -> void:
 		_slow_timer -= delta
 		if _slow_timer <= 0.0:
 			_slow_factor = 1.0
+	if _hexweak_timer_s > 0.0:         # AB-012 HEX-WEAK expiry → outgoing damage back to normal
+		_hexweak_timer_s -= delta
+		if _hexweak_timer_s <= 0.0:
+			_hexweak_mult = 1.0
 	if _hp_bar:
 		_hp_bar.set_shield_ratio(shield / maxf(max_hp, 1.0))  # white overlay on the HP bar
 	_tick_status(delta)
@@ -714,6 +897,8 @@ func _physics_process(delta: float) -> void:
 func apply_stun(duration: float) -> void:
 	if not _alive:
 		return
+	if stun_timer_s <= 0.0:
+		popup_status("기절", Color(1.0, 0.9, 0.3))
 	stun_timer_s = maxf(stun_timer_s, duration)
 	_stun_dur = maxf(_stun_dur, stun_timer_s)
 	_update_status_orb()
@@ -722,6 +907,8 @@ func apply_stun(duration: float) -> void:
 func apply_poison(duration: float, dps: float) -> void:
 	if not _alive:
 		return
+	if poison_timer_s <= 0.0:
+		popup_status("중독", Color(0.6, 0.9, 0.35))
 	poison_timer_s = maxf(poison_timer_s, duration)
 	_poison_dur = maxf(_poison_dur, poison_timer_s)
 	poison_dps = maxf(poison_dps, dps)
@@ -732,15 +919,36 @@ func apply_poison(duration: float, dps: float) -> void:
 func apply_slow(factor: float, duration: float) -> void:
 	if not _alive:
 		return
+	if _slow_timer <= 0.0:
+		popup_status("둔화", Color(0.5, 0.75, 1.0))
 	_slow_factor = factor
 	_slow_timer = maxf(_slow_timer, duration)
 	_slow_dur = maxf(_slow_dur, _slow_timer)
+
+
+## HEX-WEAK (AB-012 Hex Bolt) — reduce this member's OUTGOING damage by `factor` (0..1) for `dur`s.
+## Consumed in CombatController._deal_damage (the party→enemy damage choke). Strongest hex wins (minf).
+func apply_hex_weak(factor: float, duration: float) -> void:
+	if not _alive:
+		return
+	if _hexweak_timer_s <= 0.0:
+		popup_status("약화", Color(1.0, 0.5, 0.5))
+	_hexweak_mult = minf(_hexweak_mult, clampf(1.0 - factor, 0.0, 1.0))
+	_hexweak_timer_s = maxf(_hexweak_timer_s, duration)
+	_hexweak_dur = maxf(_hexweak_dur, _hexweak_timer_s)
+
+
+## Current outgoing-damage multiplier from HEX-WEAK (1.0 when not hexed / expired).
+func hex_weak_mult() -> float:
+	return _hexweak_mult if _hexweak_timer_s > 0.0 else 1.0
 
 
 ## Provoke (AB-099): force this member to basic-attack `source`; movement/skills lock.
 func apply_provoke(source: Node, duration: float) -> void:
 	if not _alive:
 		return
+	if provoked_timer_s <= 0.0:
+		popup_status("도발", Color(1.0, 0.6, 0.3))
 	provoke_source = source
 	provoked_timer_s = maxf(provoked_timer_s, duration)
 	_provoke_dur = maxf(_provoke_dur, provoked_timer_s)
@@ -771,6 +979,8 @@ func move_speed_mult() -> float:
 func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if not _alive:
 		return
+	if not _outcome.has(id) and _FloatText.OUTCOME_KO.has(id):
+		popup_status(_FloatText.OUTCOME_KO[id], Color(1.0, 0.7, 0.55))
 	_outcome.apply(id, dur, mag)
 	_update_status_orb()
 
@@ -816,6 +1026,12 @@ func get_status_list() -> Array:
 		out.append({
 			"color": Color(0.40, 0.78, 1.0),
 			"ratio": 1.0 - clampf(_slow_timer / maxf(_slow_dur, 0.01), 0.0, 1.0),
+			"buff": false,
+		})
+	if _hexweak_timer_s > 0.0:  # debuff (Hex-Weak — reduced outgoing damage, AB-012)
+		out.append({
+			"color": Color(0.6, 0.35, 0.85),
+			"ratio": 1.0 - clampf(_hexweak_timer_s / maxf(_hexweak_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
 	if provoked_timer_s > 0.0:  # debuff (Provoked — forced taunt, AB-099)

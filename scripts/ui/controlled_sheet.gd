@@ -11,17 +11,6 @@ const SLOT := 42
 const HP_W := 230
 
 ## Readable name + blurb per ability kind, for the hover tooltip (data has no prose).
-const SKILL_INFO := {
-	"shield_pulse":  {"name": "보호 파동", "desc": "자기 보호막 + 주변 적 위협 끌기"},
-	"cone_sweep":    {"name": "전방 휩쓸기", "desc": "전방 부채꼴을 연속 타격"},
-	"mark_burst":    {"name": "표식·파열", "desc": "대상에 표식 후 큰 폭발 피해"},
-	"radius_heal":   {"name": "치유 진영", "desc": "주변 아군 HP를 회복"},
-	"sub_taunt":     {"name": "도발 강타", "desc": "넉백 + 도발 + 자기 보호막"},
-	"sub_lunge":     {"name": "돌진 베기", "desc": "대상으로 돌진해 강타 (지정)"},
-	"sub_nova":      {"name": "노바 폭발", "desc": "지정 지점 광역 폭발 + 둔화"},
-	"sub_sanctuary": {"name": "성역", "desc": "주변 아군 회복 + 보호막"},
-}
-
 var _party: Node
 var _portrait: ColorRect
 var _name_lbl: Label
@@ -119,7 +108,7 @@ func _process(_delta: float) -> void:
 			s.radial.set_icon_color(rc)
 			var t: float = float(m.identity_params.get("cooldown_s", 0.0))
 			s.radial.set_cd(m.identity_cooldown_s / t if t > 0.0 else 0.0)
-			s.radial.tooltip_text = _skill_tip(m.identity_skill_id, m.identity_params, "주 스킬 (자동)")
+			s.radial.tooltip_text = _skill_tip(m, "주 스킬 (자동)")
 		elif k.begins_with("sub"):
 			var idx := int(k.substr(3))
 			var inst = m.get_skillbook(idx)
@@ -139,7 +128,7 @@ func _process(_delta: float) -> void:
 				var _pen: bool = not _classes.is_empty() and String(m.class_id) != String(_classes[0])
 				s.key.add_theme_color_override("font_color", Color(1.0, 0.5, 0.25) if _pen else Color(0.92, 0.92, 0.92))
 				s.key.text = "%s·%d%s" % [key, int(inst.charges), ("▼" if _pen else "")]
-				s.radial.tooltip_text = _sub_tip(m, inst, key, cdmax)
+				s.radial.tooltip_text = _sub_tip(m, inst, key, cdmax, idx)
 
 
 func _hp_color(r: float) -> Color:
@@ -147,24 +136,32 @@ func _hp_color(r: float) -> Color:
 
 
 ## Identity(주 스킬) 슬롯 툴팁 — 표시명 + 설명문 + 쿨. BBCode(RadialCooldown custom tooltip가 렌더).
-func _skill_tip(skill_id: String, params: Dictionary, header: String) -> String:
+func _skill_tip(m, header: String) -> String:
+	var params: Dictionary = m.identity_params
 	if params.is_empty():
 		return "[color=#9aa4b2]%s[/color]\n(미장착)" % header
 	var kind := String(params.get("kind", ""))
-	var info: Dictionary = SKILL_INFO.get(kind, {})
-	var nm := String(info.get("name", Slice01Data.get_identity_display(skill_id)))
+	# 이름·설명 SSOT = display_names.json (정체성 표시명 + kind별 skill_desc). 파티 시트와 일관.
+	var nm := Slice01Data.get_identity_display(String(m.identity_skill_id))
 	var lines: Array = ["[color=#9aa4b2]%s[/color]" % header, "[b]%s[/b]" % nm]
-	var desc := String(info.get("desc", Slice01Data.get_skill_desc(kind)))
+	var desc := Slice01Data.get_skill_desc(kind)
 	if not desc.is_empty():
 		lines.append(desc)
 	var cd := float(params.get("cooldown_s", 0.0))
 	if cd > 0.0:
 		lines.append("[color=#9aa4b2]쿨다운 %ss[/color]" % _num(cd))
+	# 결속 규약 — 이 정체성이 결속 킷이면 시그니처 규약을 자기완결적으로 표기(라벨 회색 · 규약 금색).
+	# 상태 생성·의미·활용을 한 문단으로. 서브는 이 규약이 base를 조건부로 버프하는 것으로 읽힌다.
+	var sig: Dictionary = BindingFixtures.signature_for(String(m.base_gear_id), String(m.ability_id))
+	if not sig.is_empty():
+		lines.append("[color=#9aa4b2]✦ 결속 · %s[/color]" % String(sig.get("name", "")))
+		lines.append("[color=#f0b64a]%s[/color]" % String(sig.get("covenant", "")))
 	return "\n".join(lines)
 
 
-## 보조(Q/E/R) 스킬북 슬롯 툴팁 — 표시명 + 설명문 + 탄/쿨 + affix(색) + 비주력 패널티(색). BBCode.
-func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float) -> String:
+## 보조(Q/E/R) 스킬북 슬롯 툴팁 — 표시명 + 설명문 + 탄/쿨 + affix(색) + 비주력 패널티(색) +
+## 결속 오버레이(다른 색: identity 연동으로 추가된 효과). BBCode. ref: F-020 §3.7 · binding_fixtures.gd.
+func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) -> String:
 	var kind := String(inst.params.get("kind", ""))
 	var lines: Array = [
 		"[b]%s[/b]  [color=#9aa4b2]· 보조 %s[/color]" % [String(inst.display_name), key],
@@ -175,6 +172,18 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float) -> String:
 	var bp := SkillText.band_pct(String(inst.get("base_ability_id", "")), String(m.class_id))
 	if bp > 0:
 		lines.append(SkillText.band_line(bp))
+	# 결속(Kit Binding) — 장착 gear + identity + 이 슬롯 AB가 triple-match면 identity 연동으로 추가되는
+	# 효과(오버레이)를 base와 구분되는 색으로 표기. 결속 OFF(BASE)면 resolve()={} → 표시 없음(base only).
+	var ov: Dictionary = BindingFixtures.resolve(
+		String(m.base_gear_id), String(m.ability_id), String(inst.get("base_ability_id", "")), idx)
+	if not ov.is_empty():
+		var idnm := Slice01Data.get_identity_display(String(m.identity_skill_id))
+		var sig: Dictionary = BindingFixtures.SIGNATURE.get(String(m.ability_id), {})
+		var signm := String(sig.get("name", "결속"))
+		# 라벨(정체성 · 시그니처)은 base와 같은 회색으로 일관되게, 결속으로 추가되는 효과만 황금색.
+		# 한 정체성의 모든 슬롯 스킬이 같은 시그니처(방벽 충전 / 표식)로 읽힌다.
+		lines.append("[color=#9aa4b2]✦ %s 결속 · %s[/color]" % [idnm, signm])
+		lines.append("[color=#f0b64a]%s[/color]" % String(ov.get("desc_ko", ov.get("payoff", ""))))
 	return "\n".join(lines)
 
 

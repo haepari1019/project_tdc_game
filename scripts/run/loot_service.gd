@@ -9,7 +9,9 @@ const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const AffixRoller := preload("res://scripts/run/affix_roller.gd")   # D-018 §7.6 스킬북 affix roll
 const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")   # 상자 소모품 item dict
 
-const SKILLBOOK_DROP_CHANCE := 0.15     # 스펙 §7.4 대역(Normal 8% / Hard 15%) — 탄약수↑(50~80)에 맞춰 빈도↓(피로 완화). (tuning)
+# 스펙 §7.4 대역 — 난이도별 스킬북 드롭률(탄약수↑(50~80)에 맞춰 빈도↓, 피로 완화). RunLoadout.get_difficulty() 기준. (tuning)
+const SKILLBOOK_DROP_BY_DIFF := {"Normal": 0.08, "Hard": 0.15}
+const SKILLBOOK_DROP_DEFAULT := 0.15    # 미지정 난이도 폴백
 # 몬스터 킬 = 자기 스킬 OR 소량 재화(사용자 요청). 스킬 미드롭 시 ward_scrap 소량 → At-Risk 런 누적(추출 성공 시
 # 지급, 실패 시 소실). 기어·재료는 킬에서 안 나옴(→ 상자). gear는 상자(build_chest_items)에서만 드롭.
 const KILL_SCRAP := 1                    # 스킬 미드롭 킬당 재화(소량, At-Risk). (tuning)
@@ -70,7 +72,7 @@ func on_enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool =
 	if not lootable.is_empty():
 		var base := String(lootable[randi() % lootable.size()])
 		var eq: Array = Slice01Data.get_skillbook_master(base).get("equip_classes", [])
-		if randf() < SKILLBOOK_DROP_CHANCE * _class_balance_factor(eq):
+		if randf() < _skillbook_drop_chance() * _class_balance_factor(eq):
 			_record_class_drop(eq)
 			var drop := ItemDrop.new()
 			drop.setup(_inv, _make_skillbook_drop_def(base))
@@ -78,6 +80,11 @@ func on_enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool =
 			add_child(drop)
 			return
 	run_scrap += KILL_SCRAP   # 스킬 미드롭 → 소량 재화(추출 시 지급)
+
+
+## 난이도별 스킬북 드롭률(스펙 §7.4: Normal 8% / Hard 15%). RunLoadout(허브 선택 or manifest 폴백) 기준.
+func _skillbook_drop_chance() -> float:
+	return float(SKILLBOOK_DROP_BY_DIFF.get(String(RunLoadout.get_difficulty()), SKILLBOOK_DROP_DEFAULT))
 
 
 ## 이 스킬북이 '봉사할' 가장 덜 나온 eligible 클래스 기준 드롭확률 배수. 그 클래스가 평균 이하면 1.0(통과),

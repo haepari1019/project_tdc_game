@@ -206,6 +206,13 @@ func _ready() -> void:
 	door.setup(_inventory_ui, _run)
 	door.position = Vector3(27.0, 0.0, 77.25)
 	add_child(door)
+	# F2: the closed door casts a vision shadow (fog + enemy cones); opening frees these occluders.
+	var _door_half := Vector2(Door.SIZE.x * 0.5, Door.SIZE.z * 0.5)
+	var _door_xz := Vector2(door.position.x, door.position.z)
+	door.set_occluders([
+		_vision_fog.add_box_occluder(_door_xz, _door_half),
+		_enemy_vision.add_box_occluder(_door_xz, _door_half),
+	])
 	# Corridor trap (RM-ROUTE-01 chokepoint, 6m wide): the controlled member crossing the
 	# plate spawns a fatal zone behind them → followers cut off (split). Far lever clears it.
 	var trap := Trap.new()
@@ -573,23 +580,39 @@ func _make_interact_prompt() -> Label:
 	return l
 
 
-## CombatController.party_hit → screen-edge damage glow for the CONTROLLED char only.
+## CombatController.party_hit → screen-edge damage glow: red toward the attacker (controlled), dim amber toward an off-screen ally (C3).
 ## Projects a point toward the attacker to screen space (exact under any camera yaw/
 ## pitch), so the glow points at the source regardless of orbit. ref: F-011 info-war HUD.
-func _on_party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool) -> void:
-	if not is_controlled:
-		return
-	var ctrl: CharacterBody3D = _party.get_controlled()
+func _on_party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool, member: Node) -> void:
 	var cam := get_viewport().get_camera_3d()
-	if ctrl == null or cam == null:
+	if cam == null:
 		return
-	var toward := from_dir_world
-	toward.y = 0.0
-	if toward.length() < 0.01:
+	if is_controlled:
+		var ctrl: CharacterBody3D = _party.get_controlled()
+		if ctrl == null:
+			return
+		var toward := from_dir_world
+		toward.y = 0.0
+		if toward.length() < 0.01:
+			return
+		var src_world: Vector3 = ctrl.global_position + toward.normalized() * 4.0
+		var screen_dir: Vector2 = cam.unproject_position(src_world) - cam.unproject_position(ctrl.global_position)
+		_damage_indicator.flash(screen_dir, severity)
 		return
-	var src_world: Vector3 = ctrl.global_position + toward.normalized() * 4.0
-	var screen_dir: Vector2 = cam.unproject_position(src_world) - cam.unproject_position(ctrl.global_position)
-	_damage_indicator.flash(screen_dir, severity)
+	# C3: a non-controlled ally is under fire OFF-SCREEN → dim amber glow toward them (awareness,
+	# F-003 §3.9). On-screen ally hits show on their own HP bar, so no edge glow is needed there.
+	if member == null or not is_instance_valid(member):
+		return
+	var mp: Vector3 = (member as Node3D).global_position
+	var behind: bool = cam.is_position_behind(mp)
+	var sp: Vector2 = cam.unproject_position(mp)
+	var sz: Vector2 = get_viewport().get_visible_rect().size
+	if not behind and sp.x >= 0.0 and sp.x <= sz.x and sp.y >= 0.0 and sp.y <= sz.y:
+		return  # ally is on-screen
+	var dir: Vector2 = sp - sz * 0.5
+	if behind:
+		dir = -dir   # behind the camera → unproject mirrors; flip to point the right way
+	_damage_indicator.flash(dir, severity * 0.5, Color(1.0, 0.62, 0.1))   # dim amber = ally, not you
 
 
 ## run_ended is just the result string; run_settled → SettlementPanel.show_settlement

@@ -73,5 +73,16 @@ if [ "$pcode" -ne 0 ] || ! grep -qF "PARTY POOL SMOKE PASSED" "$pplog"; then
   echo "  FAIL: party-pool smoke (exit=$pcode) —"; grep -nE "FAIL|$ERRPAT" "$pplog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# P4a Kit Binding pilot (P2-S8a): resolveEffectiveAbility triple-match (gear+identity+slot) + the
+# enabled-gate (TANK-P4A-BASE regression, F-020 §3.7 step 5). Pure resolve() logic — overlay feel is
+# the QA-005 §2.12 human gate (docs/qa/P4A_BIND_GATE_checklist.md).
+echo "== binding pilot smoke (P2-S8a / QA-005 §2.12) =="
+bindlog="/tmp/ci_binding_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/binding_smoke.gd >"$bindlog" 2>&1
+bcode=$?
+if [ "$bcode" -ne 0 ] || ! grep -qF "BINDING SMOKE PASSED" "$bindlog"; then
+  echo "  FAIL: binding smoke (exit=$bcode) —"; grep -nE "FAIL|\[BIND\]|$ERRPAT" "$bindlog" | head -8; fail=1
+else echo "  PASS"; fi
+
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi

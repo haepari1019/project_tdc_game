@@ -548,6 +548,12 @@ func _parse_skillbooks(doc: Dictionary, errors: Array[String]) -> void:
 		var cast = row.get("cast", {})
 		if typeof(cast) != TYPE_DICTIONARY or String(cast.get("kind", "")).is_empty():
 			errors.append("skillbooks.json %s: cast.kind required" % aid)
+		# Stage 0 (P4a/P4b castTier — D-016 §3.6): optional castTier A/B/C (default A, inferred) +
+		# rootDuringCast (B/C commit). Schema scaffolding only — carried into instance params
+		# (equip_skillbook_by_id sets params = cast). Wind-up / cast-bar machinery is DEFERRED
+		# (no ally wind-up system yet, DRIFT/IMPL note); the field is validated + available now.
+		elif cast.has("castTier") and not ["A", "B", "C"].has(String(cast.get("castTier"))):
+			errors.append("skillbooks.json %s: castTier must be A|B|C" % aid)
 		_skillbooks.append(row)
 		_skillbook_by_ability[aid] = row
 

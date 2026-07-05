@@ -91,7 +91,16 @@ func open_loot(chest: Node) -> void:
 	var r: int = int(chest.rows) if "rows" in chest else 5   # (stash >> backpack; chest defaults 5x5)
 	_loot.resize(c, r)
 	for it in chest.items:
-		_loot.place((it as Dictionary).duplicate(), int(it.col), int(it.row))
+		var d: Dictionary = (it as Dictionary).duplicate()
+		var col := int(d.get("col", 0))
+		var row := int(d.get("row", 0))
+		# Trust the stored (col,row) only when it actually fits + is free (stash layout). A chest's
+		# naive col=idx%COLS ignores item width, so a 2×2 gear at the right edge would overflow →
+		# _mark writes _occ[y][cols] out of range (crash). Fall back to auto-placement in that case.
+		if _loot.can_place(int(d.get("w", 1)), int(d.get("h", 1)), col, row):
+			_loot.place(d, col, row)
+		elif not _loot.add_item_dict(d):
+			push_warning("open_loot: no room for %s in container" % String(d.get("id", "?")))
 	_loot_box.visible = true
 	# 금고(재료) 섹션 — 스태시 편집일 때만 stash 아래에 함께 표시. 월드 상자엔 숨김.
 	_vault_label.visible = _loot_is_stash

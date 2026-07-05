@@ -18,16 +18,27 @@ const MAX_CHAIN_DEPTH := 2
 const EXPLOSION_SHAKE := 0.6   # an explosion always shakes at the per-cast cap
 const STEAM_TTL := 5.0         # RX-FIRE-WATER → Steam
 const GAS_FLASH_DMG := 22.0    # RX-TOXICGAS-FIRE flash
+## B7 WindGust spread (S3e) — a Wind zone blows overlapping media downwind as small child zones.
+## Bounded: ≤SPREAD_PER_GUST children per wind zone per tick, ≤SPREAD_CAP live spread zones total
+## (per-room cap proxy). Spread children don't re-spread. First pass — needs F5 tuning. ref F-021 §3.2.
+const SPREAD_CADENCE_S := 2.0
+const SPREAD_PER_GUST := 2
+const SPREAD_CAP := 6
+const SPREAD_STEP_M := 1.6
+const SPREAD_TTL := 4.0
+const SPREADABLE_MEDIA := ["Oil", "Water", "Fire", "Ice", "Vegetation", "ToxicGas"]
 ## EVENT-CORE §3 primaryMedium priority (high→low) — resolver picks ONE combo RX per Hit tile.
 const RX_PRIORITY := ["Oil", "ToxicGas", "Water", "Fire", "Steam", "Smoke", "Ice", "Vegetation", "Wind"]
 ## Live FireDamageHit combo matrix (primaryMedium → RX). Lightning/Cold/Physical RX activate when
 ## their emitter ABs land (S3f); Fire/Smoke/Ice/Wind primary = no combo (skill damage only).
 const RX_FIRE_MATRIX := {
 	"Oil": "oil_fire", "Water": "fire_water", "Vegetation": "fire_vegetation", "ToxicGas": "toxicgas_fire",
+	"Ice": "fire_ice",   # F3: Ice melts → Water (RX-FIRE-ICE-001)
 }
 ## ColdDamageHit combo matrix (AB-041 Glacial Bolt). Water→Ice (freeze), Vegetation→Slowed (frostbite).
 const RX_COLD_MATRIX := {
 	"Water": "cold_water", "Vegetation": "vegetation_cold",
+	"Fire": "cold_fire", "Steam": "cold_steam",   # F3: quench fire → Steam · condense steam → Water
 }
 ## LightningHit (AB-004 charge): Water→Shock (conductive), Steam→Shock (weak).
 const RX_LIGHTNING_MATRIX := { "Water": "lightning_water", "Steam": "steam_lightning" }
@@ -40,6 +51,46 @@ var _combat: Node3D  # CombatController — camera shake owner
 func setup(combat: Node3D) -> void:
 	_combat = combat
 	add_to_group("event_bus")  # zones/skills emit via call_group("event_bus", "emit_event", …)
+
+
+var _spread_accum: float = 0.0
+
+## B7: WindGust spread tick (S3e). Every SPREAD_CADENCE_S an active Wind zone blows overlapping
+## spreadable media one step downwind (small child zone), bounded by per-gust + global caps.
+func _physics_process(delta: float) -> void:
+	_spread_accum += delta
+	if _spread_accum < SPREAD_CADENCE_S:
+		return
+	_spread_accum = 0.0
+	_spread_tick()
+
+
+func _spread_tick() -> void:
+	var winds: Array = []
+	for z in get_tree().get_nodes_in_group("ground_zone"):
+		if z.is_active() and String(z.status) == "Wind":
+			winds.append(z)
+	if winds.is_empty():
+		return  # spread only exists downwind of a Wind zone (rare → contained)
+	for w in winds:
+		if get_tree().get_nodes_in_group("spread_zone").size() >= SPREAD_CAP:
+			return  # global cap (per-room proxy) reached
+		var wc: Vector3 = w.global_position
+		var seeded := 0
+		for z in _zones_overlapping(wc, float(w.radius)):
+			if seeded >= SPREAD_PER_GUST:
+				break
+			var med := String(z.status)
+			if not SPREADABLE_MEDIA.has(med) or z.is_in_group("spread_zone"):
+				continue  # only real media spread; spread children don't re-spread (no runaway)
+			var dir := Vector3(z.global_position.x - wc.x, 0.0, z.global_position.z - wc.z)
+			dir = dir.normalized() if dir.length() > 0.01 else Vector3(1.0, 0.0, 0.0)
+			var child := HazardZone.new()
+			child.setup(maxf(float(z.radius) * 0.7, 1.0), float(z.dps), 0.0, med, false, SPREAD_TTL)
+			add_child(child)
+			child.global_position = z.global_position + dir * SPREAD_STEP_M
+			child.add_to_group("spread_zone")
+			seeded += 1
 
 
 ## Central event bus (EVENT-CORE). Skills/zones/entities emit; RX handlers dispatch here. For now
@@ -56,7 +107,7 @@ func emit_event(event_id: String, payload: Dictionary) -> void:
 		"PhysicalImpact":
 			_on_physical_impact(payload)
 		_:
-			pass  # EnterZone/ExitZone aura = per-tick; WindGust spread = S3e
+			pass  # EnterZone/ExitZone aura = per-tick; WindGust spread = _physics_process (B7)
 
 
 ## AoE breaks barrels / destructibles (ENT-BARREL) in range. Returns true if any hit.
@@ -99,6 +150,8 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 			_rx_fire_vegetation(zones, source)
 		"toxicgas_fire":
 			_rx_toxicgas_fire(zones, source)
+		"fire_ice":
+			_rx_fire_ice(zones, source)
 
 
 ## Active ground zones overlapping a hit point (within radius + zone radius).
@@ -191,6 +244,10 @@ func _on_cold_damage_hit(p: Dictionary) -> void:
 			_rx_cold_water(zones, p.get("source"))
 		"vegetation_cold":
 			_rx_vegetation_cold(zones)
+		"cold_fire":
+			_rx_cold_fire(zones, p.get("source"))
+		"cold_steam":
+			_rx_cold_steam(zones, p.get("source"))
 
 
 ## RX-COLD-WATER-001 — Water freezes → Ice (consume Water, spawn Ice). out: Ice (ENV).
@@ -328,3 +385,48 @@ func ignite_at(center: Vector3, radius: float, source: Node = null) -> void:
 		fire.set_source(source)
 	fire_hit(center, radius, 0, source)
 	SkillVfx.telegraph(self, center, Color(1.0, 0.5, 0.12))
+
+
+## RX-FIRE-ICE-001 (F3) — Ice melts → Water (consume Ice, spawn Water). out: Water (ENV).
+func _rx_fire_ice(zones: Array, source: Node) -> void:
+	var done := false
+	for z in zones:
+		if String(z.status) == "Ice":
+			var pos: Vector3 = z.global_position
+			var r: float = float(z.radius)
+			z.clear_zone()
+			if not done:
+				spawn_zone("Water", pos, r, 0.0, STEAM_TTL, source)
+				SkillVfx.rx_steam(self, pos, r)  # melt wisp
+				done = true
+	print("[RX] FireDamageHit + Ice → Water melt (RX-FIRE-ICE-001)")
+
+
+## RX-COLD-FIRE-001 (F3) — cold snuffs the flames → Fire consumed + brief Steam (quench). out: Steam.
+func _rx_cold_fire(zones: Array, source: Node) -> void:
+	var done := false
+	for z in zones:
+		if String(z.status) == "Fire":
+			var pos: Vector3 = z.global_position
+			var r: float = float(z.radius)
+			z.clear_zone()
+			if not done:
+				spawn_zone("Steam", pos, r, 0.0, STEAM_TTL, source)
+				SkillVfx.rx_steam(self, pos, r)  # quench hiss
+				done = true
+	print("[RX] ColdDamageHit + Fire → quench (RX-COLD-FIRE-001)")
+
+
+## RX-COLD-STEAM-001 (F3) — steam condenses → Water (consume Steam, spawn Water). out: Water (ENV).
+func _rx_cold_steam(zones: Array, source: Node) -> void:
+	var done := false
+	for z in zones:
+		if String(z.status) == "Steam":
+			var pos: Vector3 = z.global_position
+			var r: float = float(z.radius)
+			z.clear_zone()
+			if not done:
+				spawn_zone("Water", pos, r, 0.0, STEAM_TTL, source)
+				SkillVfx.rx_freeze(self, pos, r)  # condensation shimmer
+				done = true
+	print("[RX] ColdDamageHit + Steam → Water condense (RX-COLD-STEAM-001)")

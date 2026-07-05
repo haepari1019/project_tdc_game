@@ -20,19 +20,19 @@ func _ready() -> void:
 
 
 ## screen_dir = on-screen direction toward the attacker (already camera-yaw adjusted).
-func flash(screen_dir: Vector2, severity: float) -> void:
+func flash(screen_dir: Vector2, severity: float, col: Color = COL) -> void:
 	if screen_dir.length() < 0.001:
 		return
 	var d := screen_dir.normalized()
 	var s := clampf(severity, 0.0, 1.0)
 	for h in _hits:
-		if (h.dir as Vector2).dot(d) > MERGE_DOT:  # same direction → refresh, don't stack
+		if (h.dir as Vector2).dot(d) > MERGE_DOT and (h.get("col", COL) as Color) == col:  # same direction → refresh, don't stack
 			h.dir = d
 			h.strength = maxf(h.strength, s)
 			h.t = 0.0
 			queue_redraw()
 			return
-	_hits.append({"dir": d, "strength": s, "t": 0.0})
+	_hits.append({"dir": d, "strength": s, "t": 0.0, "col": col})
 	queue_redraw()
 
 
@@ -61,6 +61,7 @@ func _draw() -> void:
 		var a: float = float(h.strength) * (1.0 - float(h.t) / FADE_S)
 		if a <= 0.003:
 			continue
+		var hc: Color = h.get("col", COL)
 		var base_ang: float = (h.dir as Vector2).angle()
 		var outer := PackedVector2Array()
 		var inner := PackedVector2Array()
@@ -75,7 +76,7 @@ func _draw() -> void:
 			var edge := center + d * t
 			outer.append(edge)
 			inner.append(edge - d * depth)
-			ocol.append(Color(COL.r, COL.g, COL.b, a * (1.0 - absf(off))))  # fade at arc ends
+			ocol.append(Color(hc.r, hc.g, hc.b, a * (1.0 - absf(off))))  # fade at arc ends
 		# band polygon: outer arc (strong) left→right, then inner arc (transparent) right→left
 		var poly := PackedVector2Array()
 		var cols := PackedColorArray()
@@ -84,5 +85,5 @@ func _draw() -> void:
 			cols.append(ocol[i])
 		for i in range(inner.size() - 1, -1, -1):
 			poly.append(inner[i])
-			cols.append(Color(COL.r, COL.g, COL.b, 0.0))
+			cols.append(Color(hc.r, hc.g, hc.b, 0.0))
 		draw_polygon(poly, cols)

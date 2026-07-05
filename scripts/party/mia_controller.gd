@@ -90,6 +90,9 @@ func tick(delta: float) -> void:
 	for member in members:
 		if member.is_mia():
 			mia_list.append(member)
+	# UI-006 §7.8 priority (C2): most-wounded MIA member first, so the PIP surfaces the ally in the
+	# most danger (was raw member order). ref: DRIFT-030 잔여.
+	mia_list.sort_custom(func(a, b): return (a.hp / maxf(a.max_hp, 1.0)) < (b.hp / maxf(b.max_hp, 1.0)))
 	if mia_list != _pip_list:
 		_pip_list = mia_list.duplicate()
 		_party.pip_targets.emit(mia_list)

@@ -100,6 +100,13 @@ func try_identity(m: CharacterBody3D) -> bool:
 		# F-008 §3.7 gear cd_mult 옵션 roll → identity 쿨다운에 곱(낮을수록 빠름). 1.0 = none.
 		var cdm: float = float(m.cooldown_mult) if "cooldown_mult" in m else 1.0
 		m.identity_cooldown_s = float(p.get("cooldown_s", 6.0)) * cdm
+		# P4a Kit Binding 「표식」 — Beacon 정체성은 시전 시 눈앞의 적에게 표식을 남긴다. 결속=조작 전용
+		# (NC 미적용, F-020 §3.3) → is_controlled 게이트. 표식 대상 처치 시 링크 전 슬롯 쿨 감소.
+		if m.is_controlled() and BindingFixtures.identity_marks(String(m.base_gear_id), String(m.ability_id)):
+			var mk: Dictionary = BindingFixtures.MARK
+			var e: CharacterBody3D = nearest_enemy_in_range(m.global_position, float(mk["radius_m"]))
+			if e != null:
+				m.binding_mark(e, float(mk["window_s"]), float(mk["cd_reduce"]))
 		return true
 	return false
 
@@ -137,6 +144,60 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	if skill != null and skill.cast(member, p, target_pos, self):
 		inst.charges = int(inst.charges) - 1
 		inst.cooldown_s = float(p.get("cooldown_s", 6.0)) * (1.0 + float(affix.get("cd_trade", 0.0)))
+		_apply_binding(member, slot_index, target_pos)   # P4a Kit Binding overlay (if the triple matches)
+
+
+# ============================================================================
+# P4a Kit Binding (결속) — resolveEffectiveAbility overlay application (F-020 §3.7). After a base sub
+# cast, triple-match the member's LIVE gear + identity + slot sub against the pilot fixtures and apply
+# the overlay's runtime DELTA (AB files are NOT cloned). NON-CANONICAL pilot; NC never reaches here
+# (cast_skillbook is ally-only). ref: binding_fixtures.gd · ROLE-010 §4.5 · QA-005 §2.12.
+# ============================================================================
+
+func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector3) -> void:
+	var inst = member.get_skillbook(slot_index)
+	if inst == null:
+		return
+	var ov: Dictionary = BindingFixtures.resolve(
+		String(member.base_gear_id), String(member.ability_id),
+		String(inst.get("base_ability_id", "")), slot_index)
+	if ov.is_empty():
+		return
+	var pos: Vector3 = member.global_position
+	var aim: Vector3 = target_pos if target_pos != Vector3.ZERO else pos
+	match String(ov.get("delta", "")):
+		# --- Anchor 「방벽 충전」: 모든 서브가 방벽 +1(공통 버프) → 세 겹이면 기절(캡스톤) ---
+		"bulwark_charge":
+			_anchor_stack(member, pos)
+		# --- Beacon 「표식」: 모든 서브가 표식 대상에게 추가 위협(상태-조건부). 표식 없으면 base만 ---
+		"beacon_mark":
+			_beacon_mark_threat(member)
+		"beacon_mark_refresh":   # R 도전 선포 — 위협 + 표식 유지 시간 갱신.
+			_beacon_mark_threat(member)
+			var mk: Dictionary = BindingFixtures.MARK
+			member.binding_remark(nearest_enemy_in_range(aim, float(mk["radius_m"])), float(mk["window_s"]))
+
+
+## Anchor 「방벽 충전」 — add a BulwarkCharge; on the 3-stack consume, stun the nearest enemy (capstone).
+func _anchor_stack(member: CharacterBody3D, pos: Vector3) -> void:
+	var b: Dictionary = BindingFixtures.BULWARK
+	if member.binding_bulwark_add(int(b["stacks_needed"]), float(b["icd_s"])):
+		var e: CharacterBody3D = nearest_enemy_in_range(pos, float(b["radius_m"]))
+		if e != null and e.has_method("apply_stun"):
+			e.apply_stun(float(b["stun_s"]))
+
+
+## Beacon 「표식」 — 규약의 상태-조건부 버프: 유효한 표식 대상이 있을 때만 그 대상에게 추가 위협을 얹는다.
+## 표식이 없으면(정체성이 아직 안 남겼거나 대상 사망) 아무것도 하지 않는다 → base 스킬만 발현.
+func _beacon_mark_threat(member: CharacterBody3D) -> void:
+	var e = member.get_marked_enemy()
+	if e == null:
+		return
+	var t: float = float(BindingFixtures.MARK["threat"])
+	if e.has_method("add_threat"):
+		e.add_threat(member, t)
+	if e.has_method("set_threat_floor"):
+		e.set_threat_floor(member, t)
 
 
 # ============================================================================

@@ -2,9 +2,9 @@
 
 > Non-SSOT. Phase 2 스프린트 종료마다 갱신. 정본 스코프는 spec `docs/context/ImplementationPhase_FullSpecCoverage.md`. 실행 로드맵: [docs/ROADMAP_P2_FullCoverage.md](docs/ROADMAP_P2_FullCoverage.md).
 
-- spec_ref_pin: `bc22c38` (`main`, 2026-06-22; 제3세력 Stalker Pack 전파 DEC-20260621-001)
-- last_sprint: **P2-S6a 파티 능력 풀 lootable 완료** — lootable sub 44종 + 신규 effect kind 18종. B1 잔여 + 밴드 패널티(sub_bands) + ally-cache + B2 데미지 sub 19 + **bespoke 5종(taunt/pull/slow/relocate/reveal)** 완료. 이전: P2-S5a 진영전+제3세력 · P2-S6a Phase1 · 기어 카탈로그(DRIFT-056). **메타세이브 I1–I5 완료** + **이연 능력 디테일**(Shadowstep+20%·Sentinel 40%반사·Beam Channeling·Bloodlust HP-scale) 완료. 투사체 delivery Phase 1+2(범용 projectile·진영필터 + 파티 10종 + 적 샷 interception RP-02). **P2-S6b-1a 시작**: 스킬북 economy 로직(분석 N=3→해금→상점 buy_raw·ward_scrap, F-009/D-018) + 스타터 시드 정렬(§3.1.1), hub_smoke 검증. **다음: S6b-1b(분석/상점 허브 UI) → gear roll-table(고위험 게이트)·affix 또는 S5b**
-- last_updated: 2026-06-23
+- spec_ref_pin: `77d9532` (`staging`, 2026-07-04; P4a/P4b Identity Kit Binding + 서브 경제 전환 DEC-20260704-001 + erratum DEC-20260704-002)
+- last_sprint: **P2-S8a — Identity Kit Binding P4a Tank 파일럿 (Stage 0+1)** — 결속 = 런타임 오버레이(`binding_fixtures.gd` 비정본, `resolveEffectiveAbility` triple-match, AB 복제 없음), 6 BIND-PILOT 델타(stun/threat/floor/shield/kb/cd), ally-only 훅(NC 배제). **castTier 스키마만**(wind-up/캐스트바=이연 — ally wind-up 부재). sandbox ANCHOR/BEACON/BASE 픽스처 + `binding_smoke`(ci_smoke 7/7). **🚦 다음 = QA-005 §2.12 감독 게이트**([docs/qa/P4A_BIND_GATE_checklist.md](docs/qa/P4A_BIND_GATE_checklist.md)) → Pass 시 Stage 2(P4b 전면 이관·리셋·gear-roll 폐기) / Fail 시 오버레이 단순화. **🚦 게이트 PASS(2026-07-05, 감독)** → 규약(covenant) 재설계·시각화(방벽 pips·표식 ◈)·정체성 이름/설명 정비·허수아비·floatText·조준 UX(사거리링·커서색·move-to-cast) 등 파일럿 폴리시 다수. **다음 = Stage 3 다른 클래스 결속.** 이전: P2-S6a/S6b·gear 롤테이블·메타세이브 I1–I5·투사체 delivery·제3세력. IMPL-DEC-20260704-002/003
+- last_updated: 2026-07-05
 
 ## Full Spec Coverage — AB-### 스냅샷 (2026-06-23 갱신)
 

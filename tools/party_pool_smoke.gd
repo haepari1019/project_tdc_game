@@ -170,7 +170,7 @@ func _initialize() -> void:
 	tank.free()
 
 	# 13) 유저 표시명 (display_names.json) — 백엔드 ID 분리, 매핑 없으면 ID 폴백.
-	_chk("identity 표시명", sd.get_identity_display("tank_iron_beacon") == "강철 봉화")
+	_chk("identity 표시명", sd.get_identity_display("tank_iron_beacon") == "응징의 표식")
 	_chk("effect 표시명", sd.get_effect_label("skillbook_silence") == "침묵")
 	_chk("role 표시명", sd.get_role_label("Healer") == "힐러")
 	_chk("미등록 ID 폴백", sd.get_effect_label("nonexistent_kind") == "nonexistent_kind")

@@ -121,6 +121,23 @@ func _build_occluders() -> void:
 		_root2d.add_child(lo)
 
 
+## F2: dynamic box occluder (closed door) for the enemy sight-cone viewport. Returns the node so it
+## can be freed on open. Mirrors the static box branch (no inset — cones tolerate the full footprint).
+func add_box_occluder(center: Vector2, half: Vector2) -> LightOccluder2D:
+	var lo := LightOccluder2D.new()
+	var poly := OccluderPolygon2D.new()
+	poly.closed = true
+	poly.polygon = PackedVector2Array([
+		_to_fog(center + Vector2(-half.x, -half.y)),
+		_to_fog(center + Vector2(half.x, -half.y)),
+		_to_fog(center + Vector2(half.x, half.y)),
+		_to_fog(center + Vector2(-half.x, half.y)),
+	])
+	lo.occluder = poly
+	_root2d.add_child(lo)
+	return lo
+
+
 func _build_ground_quad() -> void:
 	var quad := MeshInstance3D.new()
 	var pm := PlaneMesh.new()

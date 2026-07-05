@@ -167,6 +167,29 @@ func _build_occluders() -> void:
 		_root2d.add_child(lo)
 
 
+## F2: register a dynamic box occluder (e.g. a closed door) at runtime. Returns the LightOccluder2D
+## so the caller frees it when the barrier opens (fog updates next frame — the viewport is
+## UPDATE_ALWAYS). center/half are world XZ. Mirrors the static box branch (thin-axis inset).
+func add_box_occluder(center: Vector2, half: Vector2) -> LightOccluder2D:
+	var lo := LightOccluder2D.new()
+	var poly := OccluderPolygon2D.new()
+	poly.closed = true
+	var h := half
+	if half.x <= half.y:
+		h.x = maxf(0.03, half.x - OCCLUDER_INSET_M)
+	else:
+		h.y = maxf(0.03, half.y - OCCLUDER_INSET_M)
+	poly.polygon = PackedVector2Array([
+		_to_fog(center + Vector2(-h.x, -h.y)),
+		_to_fog(center + Vector2(h.x, -h.y)),
+		_to_fog(center + Vector2(h.x, h.y)),
+		_to_fog(center + Vector2(-h.x, h.y)),
+	])
+	lo.occluder = poly
+	_root2d.add_child(lo)
+	return lo
+
+
 func _build_lights() -> void:
 	var tex := _make_light_texture()
 	var tex_scale: float = SIGHT_RADIUS_M * PX_PER_M / (float(LIGHT_TEX_PX) / 2.0)

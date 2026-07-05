@@ -1,5 +1,5 @@
 {
-  "_note": "Unified ability catalog (spec D-016 model). Party Identity (AB-020/024/025/026) + enemy SIGNATURE / lootable-shared (AB-002/004/008/010/011/012/098). Enemy BASIC attacks are rom_* (enemy_basics.json, EN-COR-000) — NOT here. AB-001/014/015/016 removed (spec→rom_*). AB-S01~04 removed (non-spec demo subs; subs are skillbooks F-009). effect numbers = DEMO PH (spec AB-### Draft 'design examples'). channel:true = winding 중 제자리(EN-AI-000 §2 interruptible channel). Shock/Hex = party slow (이동 감소); HEX 피해감소 half = 후속.",
+  "_note": "Unified ability catalog (spec D-016 model). Party Identity (AB-020/024/025/026) + enemy SIGNATURE / lootable-shared (AB-002/004/008/010/011/012/098). Enemy BASIC attacks are rom_* (enemy_basics.json, EN-COR-000) — NOT here. AB-001/014/015/016 removed (spec→rom_*). AB-S01~04 removed (non-spec demo subs; subs are skillbooks F-009). effect numbers = DEMO PH (spec AB-### Draft 'design examples'). channel:true = winding 중 제자리(EN-AI-000 §2 interruptible channel). Shock = party slow(이동 감소); HEX = 이동 감소 + 나가는 피해 감소(half, hex_weak).",
   "abilities": {
     "AB-002": {
       "kind": "enemy_melee",
@@ -60,6 +60,7 @@
       "cooldown_s": 4.0,
       "damage_mult": 0.4,
       "hex_slow": 0.6,
+      "hex_weak": 0.5,
       "hex_dur_s": 4.0,
       "vfx": "shot_hex"
     },

@@ -366,7 +366,10 @@
         "cooldown_s": 6,
         "radius_m": 3.0,
         "damage_mult": 1.0,
-        "knockback_m": 0.0
+        "knockback_m": 0.0,
+        "castTier": "B",
+        "rootDuringCast": true,
+        "telegraph_s": 0.9
       },
       "tier": "Basic"
     },
@@ -592,7 +595,7 @@
     },
     {
       "base_ability_id": "AB-034",
-      "display_name": "Rampart Slam",
+      "display_name": "성벽 강타",
       "equip_classes": [
         "Tank"
       ],
@@ -606,7 +609,7 @@
         "height_m": 2.0,
         "barrier_hp": 300.0,
         "duration_s": 4.0,
-        "stagger_s": 0.5
+        "stagger_s": 0.7
       },
       "tier": "Basic"
     },
@@ -841,7 +844,7 @@
     },
     {
       "base_ability_id": "AB-033",
-      "display_name": "Intercept Step",
+      "display_name": "철벽 차단",
       "equip_classes": [
         "Tank"
       ],
@@ -1061,7 +1064,7 @@
     },
     {
       "base_ability_id": "AB-035",
-      "display_name": "Challenge Mark",
+      "display_name": "도전 선포",
       "equip_classes": [
         "Tank"
       ],
@@ -1133,7 +1136,10 @@
         "kind": "skillbook_relocate_ally",
         "cooldown_s": 14,
         "radius_m": 10.0,
-        "relocate_m": 5.0
+        "relocate_m": 5.0,
+        "castTier": "B",
+        "rootDuringCast": true,
+        "telegraph_s": 0.9
       },
       "tier": "Basic"
     },

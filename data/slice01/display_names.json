@@ -1,16 +1,16 @@
 {
   "_note": "유저용 표시명 레이어 — 백엔드 ID와 분리(F-008/F-009 검증·UI). 게임플레이/저장은 항상 ID 사용, UI(툴팁·패널)만 여기를 참조. 매핑 없으면 ID로 폴백. 미등록 ID는 검증 오류 아님(UI 라벨, gameplay 아님).",
   "identities": {
-    "tank_anchor_guard": "닻 수호",
-    "tank_iron_beacon": "강철 봉화",
-    "tank_bulwark_march": "방벽 행군",
-    "tank_sentinel_form": "파수꾼 태세",
-    "dps_press_line": "압박 전선",
-    "dps_arc_weave": "호 직조",
-    "nuker_mark_ruin": "파멸 표식",
-    "nuker_flank_collapse": "측면 붕괴",
-    "healer_mend_circle": "치유의 원",
-    "healer_ward_pulse": "수호 파동"
+    "tank_anchor_guard": "불굴의 수호",
+    "tank_iron_beacon": "응징의 표식",
+    "tank_bulwark_march": "강철 진군",
+    "tank_sentinel_form": "가시 방패",
+    "dps_press_line": "파상 공세",
+    "dps_arc_weave": "관통 난격",
+    "nuker_mark_ruin": "파멸의 각인",
+    "nuker_flank_collapse": "섬멸 급습",
+    "healer_mend_circle": "생명의 성역",
+    "healer_ward_pulse": "가호의 파동"
   },
   "effect_kinds": {
     "skillbook_strike": "강타",
@@ -71,7 +71,7 @@
     "skillbook_haste": "잠시 동안 공격·이동 속도를 높인다.",
     "skillbook_stealth": "잠시 은신해 적의 표적에서 벗어난다.",
     "skillbook_beam": "전방으로 관통 빔을 채널링하며 지속 피해를 준다.",
-    "skillbook_barrier": "지정 위치에 적 투사체를 막는 방벽을 소환한다.",
+    "skillbook_barrier": "지정 위치에 방벽을 소환해 적의 투사체와 진격을 막는다. 벽에 닿는 적은 중심을 잃고 잠시 스턴에 빠진다 (0.7초).",
     "skillbook_purge": "대상에 걸린 강화 효과를 정화(제거)한다.",
     "skillbook_silence": "대상 지역의 적을 침묵시켜 액티브 스킬 사용을 막는다.",
     "skillbook_bolt": "원거리 투사체를 발사해 대상에 피해를 준다.",
@@ -85,6 +85,16 @@
     "skillbook_root": "대상을 속박해 이동을 막는다.",
     "skillbook_tether": "대상과 사슬로 연결해 묶어 둔다.",
     "skillbook_charge": "대상을 향해 돌진해 충돌 피해를 준다.",
-    "skillbook_execute": "체력이 낮은 대상을 처형해 큰 피해를 준다."
+    "skillbook_execute": "체력이 낮은 대상을 처형해 큰 피해를 준다.",
+    "shield_pulse": "자신에게 보호막을 두르고 주변 적의 위협을 끌어당겨 전선을 지킨다.",
+    "cone_sweep": "전방 부채꼴을 연속으로 휩쓸어 여러 적을 동시에 압박한다.",
+    "mark_burst": "가장 약한 적을 노려 강력한 단일 폭발 피해를 터뜨린다.",
+    "radius_heal": "주변 아군이 위태로우면 광역으로 체력을 회복시킨다.",
+    "beacon_threat": "약한 보호막과 함께 단일 대상에 강한 위협을 걸어 정예를 붙든다.",
+    "march_advance": "가장 가까운 적을 향해 전진하며 밀쳐내고 정면의 적을 타격한다.",
+    "sentinel_form": "받는 피해를 크게 줄이고, 들어오는 공격의 일부를 공격자에게 되돌린다. (이동 불가)",
+    "arc_line": "가장 가까운 적을 향해 길고 좁은 관통 선으로 여러 번 타격한다.",
+    "flank_dash": "가장 가까운 적에게 파고들어 연타로 마무리한다.",
+    "ward_shield": "가장 다친 아군에게 보호막을 씌우고 약화 효과 하나를 정화한다."
   }
 }

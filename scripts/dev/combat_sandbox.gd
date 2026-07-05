@@ -71,7 +71,7 @@ const IDENTITY_VERIFY := {
 	"anchor_guard": "주변 잡몹에 위협 펄스 + 자신에 보호막 돔.\n• [파랑] 지면 펄스 + 보호막 돔이 뜸\n• 주변 적 어그로가 이 탱커로 쏠림",
 	"beacon_threat": "근접 적에 강한 위협 고정(threat floor) + 보호막(적 수만큼↑).\n• 적이 이 탱커에 붙어 안 떨어짐(엘리트 홀드)\n• 보호막 게이지 + [파랑] 펄스",
 	"march_advance": "최근접 적 향해 짧게 전진 + 전방 콘 넉백 + 경뎀.\n• 탱커가 앞으로 훅 이동\n• 정면 부채꼴 적 밀쳐냄(knockback) + [청회색] 텔레그래프",
-	"sentinel_form": "거북이 태세 — 받는 피해 감소(DR) + 이동 잠김(Rooted). 6m 내 적 있을 때만 발동.\n• HP가 평소보다 훨씬 천천히 깎임\n• 제자리 고정(이동 X) + [파랑] 펄스\n• (스펙 40% 반사는 미구현 — DRIFT-056)",
+	"sentinel_form": "거북이 태세 — 받는 피해 감소(DR) + 이동 잠김(Rooted). 6m 내 적 있을 때만 발동.\n• HP가 평소보다 훨씬 천천히 깎임\n• 제자리 고정(이동 X) + [파랑] 펄스\n• 받는 피해의 40%를 공격자에게 반사",
 	"press_line": "전방 [청록] 콘 플래시 — 직선 범위 딜.\n• 전방 부채꼴로 여러 적 동시 타격",
 	"mark_ruin": "타겟에 [보라] 수직 빔 + 임팩트 버스트 — 단일 마킹 누킹.\n• 단일 타겟에 보라 빔/버스트",
 	"arc_line": "최근접 적 향해 좁은 관통선 다단히트.\n• [하늘색] 직선이 여러 적 관통(최대 max_hits만큼)",
@@ -327,6 +327,24 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	rampart_btn.text = "Rampart 테스트 (Q=벽 / E=Longshot 투사체)"
 	rampart_btn.pressed.connect(_on_rampart_test)
 	box.add_child(rampart_btn)
+
+	# --- P4a KIT BINDING (결속) pilot — TANK-P4A-ANCHOR/BEACON/BASE fixtures (ROLE-010 §4.5). Each sets
+	# the Tank's gear (GEAR-011/012) + Q/E/R = AB-033/034/035; ANCHOR/BEACON = 결속 ON, BASE = OFF
+	# (회귀). Swap to the Tank (1-4) then fire Q/E/R to feel the overlay vs base. QA-005 §2.12 gate. ---
+	box.add_child(_section("결속 파일럿 (Tank P4a — QA-005 §2.12)"))
+	var bind_row := HBoxContainer.new()
+	bind_row.add_child(_btn("ANCHOR", _on_bind_fixture.bind("anchor")))
+	bind_row.add_child(_btn("BEACON", _on_bind_fixture.bind("beacon")))
+	bind_row.add_child(_btn("BASE (결속 OFF)", _on_bind_fixture.bind("base")))
+	box.add_child(bind_row)
+
+	# --- 허수아비 (스킬샷 테스트) — 불사·정지 표적 + 옆에 누적딜/어그로 표시, 각각 초기화 ---
+	box.add_child(_section("허수아비 (스킬샷 테스트)"))
+	var dummy_row := HBoxContainer.new()
+	dummy_row.add_child(_btn("허수아비 소환", _on_spawn_dummy))
+	dummy_row.add_child(_btn("누적딜 초기화", _on_reset_dummy_dmg))
+	dummy_row.add_child(_btn("어그로 초기화", _on_reset_dummy_threat))
+	box.add_child(dummy_row)
 
 	# --- GEAR SWAP (F-008) — pick a gear → equips onto its matching-role member (REAL equip_gear:
 	# gear → bundled identity → stats/skill), setting BOTH 평타+identity to the gear defaults. Pick
@@ -618,6 +636,76 @@ func _on_gear_changed(index: int) -> void:
 			_show_loadout_verify(m)   # 방금 장착된 멤버의 평타+Identity 검증 표시
 			return
 	_status.text = "장착 가능한 멤버 없음: %s" % gid
+
+
+## P4a Kit Binding pilot fixture (TANK-P4A-ANCHOR/BEACON/BASE) — set the Tank's gear (GEAR-011 anchor /
+## GEAR-012 kite) + Q/E/R = AB-033/034/035, then toggle the global binding gate (ANCHOR/BEACON = ON,
+## BASE = OFF regression). The overlay activates by triple-match at cast time. ref: ROLE-010 §4.5 · QA-005 §2.12.
+func _on_bind_fixture(which: String) -> void:
+	var gear_slug := "gear_ward_tank_kite_shield" if which == "beacon" else "gear_ward_tank_anchor_bulwark"
+	var master: Dictionary = Slice01Data.get_gear_master(gear_slug)
+	if master.is_empty():
+		_status.text = "결속: gear 마스터 없음 (%s)" % gear_slug
+		return
+	var tank: CharacterBody3D = null
+	for m in _party.get_members():
+		if m != null and is_instance_valid(m) and m.has_method("can_equip_gear") and m.can_equip_gear(master):
+			tank = m
+			break
+	if tank == null:
+		_status.text = "결속: 장착 가능한 Tank 멤버 없음"
+		return
+	tank.equip_gear(master)   # → bundled identity (AB-020 anchor / AB-021 beacon) + stats
+	tank.equip_skillbook_by_id(0, "AB-033")   # Q Intercept
+	tank.equip_skillbook_by_id(1, "AB-034")   # E Rampart
+	tank.equip_skillbook_by_id(2, "AB-035")   # R Challenge Mark
+	if tank.has_method("binding_reset"):
+		tank.binding_reset()   # 잔여 방벽 스택/표식으로 인한 오발 방지
+	BindingFixtures.enabled = (which != "base")
+	_refresh_loadout_ui()
+	_show_loadout_verify(tank)
+	var label := {
+		"anchor": "TANK-P4A-ANCHOR (BIND-001~003 ON)",
+		"beacon": "TANK-P4A-BEACON (BIND-004~006 ON)",
+		"base": "TANK-P4A-BASE (결속 OFF · 회귀)",
+	}
+	_status.text = "결속 → %s | %s + Q/E/R AB-033/034/035 | 결속 %s — Tank로 스왑(1-4) 후 Q/E/R" % [
+		label.get(which, which), tank.get("identity_skill_id"), "ON" if BindingFixtures.enabled else "OFF"]
+
+
+var _dummy: Node = null   # 허수아비 참조 (스킬샷 테스트 표적)
+
+## 허수아비 소환 — 기존 적 정리 후 정지·불사 표적 1기. 스폰 직후 새로 추가된 적을 _dummy로 잡아 dummy화.
+func _on_spawn_dummy() -> void:
+	_on_clear()
+	var before := get_tree().get_nodes_in_group("enemy")
+	_combat.debug_spawn_unit("EN-012", 1, "SANDBOX", true, "Dungeon")
+	_dummy = null
+	for e in get_tree().get_nodes_in_group("enemy"):
+		if not before.has(e):
+			_dummy = e
+			break
+	if _dummy != null and _dummy.has_method("mark_as_dummy"):
+		_dummy.mark_as_dummy()
+		_status.text = "허수아비 소환 — 스킬샷/평타로 누적딜·어그로 확인(표적 옆 표기). 아군도 이 표적을 공격."
+	else:
+		_status.text = "허수아비 스폰 실패"
+
+
+func _on_reset_dummy_dmg() -> void:
+	if _dummy != null and is_instance_valid(_dummy) and _dummy.has_method("reset_accumulated_damage"):
+		_dummy.reset_accumulated_damage()
+		_status.text = "누적딜 초기화"
+	else:
+		_status.text = "허수아비 없음 — 먼저 소환"
+
+
+func _on_reset_dummy_threat() -> void:
+	if _dummy != null and is_instance_valid(_dummy) and _dummy.has_method("reset_threat"):
+		_dummy.reset_threat()
+		_status.text = "어그로 초기화"
+	else:
+		_status.text = "허수아비 없음 — 먼저 소환"
 
 
 ## Small button factory (전체 적용 row).

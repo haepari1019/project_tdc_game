@@ -35,6 +35,7 @@ const RETREAT_SPEED_FRAC := 1.0    # flee at full speed (being chased)
 const SLIP_ACCEL := 3.0            # Slippery (oil): velocity lerp rate — low = slidey/inertial
 const ZONE_CAST_RANGE_M := 9.0     # spawn_zone (rangeBand Mid): max dist to place a zone at target
 const ENGAGE_LEASH_M := 18.0       # kite/zone: don't stray past this from spawn anchor (§3 default)
+const RETURN_ARRIVE_M := 1.5       # B6: within this of home_pos → done returning, resume idle
 # healer (PT-016 EN-014): FOLLOW the squad — prefer the most-wounded mate (below HEAL_HUG_THRESHOLD),
 # else just the nearest ally, keeping within HEAL_HUG_M (inside the AB-098 heal radius) so it tags
 # along as the pack chases (doesn't get left behind). HEAL_SEEK_M is generous so a moving group
@@ -211,6 +212,16 @@ func _tick_dormant(enemy: CharacterBody3D, members: Array, delta: float) -> void
 	# Nothing perceived and no lead → idle by placement: AmbushHold holds hidden, Patrol walks its
 	# loop, Fixed roams near home + scans (alive feel).
 	enemy.set_alert_mark(0)
+	# B6: if dragged off post (disengaged by leash/grace), path back to the spawn anchor first,
+	# then resume normal idle. Perception above still runs, so approaching prey re-engages en route.
+	if enemy.returning and enemy.home_pos != Vector3.INF:
+		var hto := Vector2(ep.x - enemy.home_pos.x, ep.z - enemy.home_pos.z)
+		if hto.length() > RETURN_ARRIVE_M:
+			enemy.face_toward(enemy.home_pos)
+			enemy.velocity = _nav_move(enemy, enemy.home_pos, enemy.current_move_speed() * INVESTIGATE_SPEED_FRAC)
+			enemy.move_and_slide()
+			return
+		enemy.returning = false  # reached the post, resume normal idle
 	if ambush:
 		enemy.velocity = Vector3.ZERO  # lie in wait — no roam until sprung
 		enemy.move_and_slide()
@@ -899,7 +910,7 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	if to_party and hit_frac >= HIT_INDICATOR_MIN_FRAC:
 		var src: Vector3 = from - target.global_position  # toward the attacker
 		src.y = 0.0
-		_combat.party_hit.emit(src, clampf(hit_frac * HIT_INDICATOR_GAIN, 0.2, 1.0), target.is_controlled())
+		_combat.party_hit.emit(src, clampf(hit_frac * HIT_INDICATOR_GAIN, 0.2, 1.0), target.is_controlled(), target)
 	# Camera damage feedback — AB-DEFINED SKILL hits only. `chosen` = the picked
 	# ability {ref:"AB-###", trigger}. AB-defined = ref 있음, 스킬 = trigger != "basic"
 	# (평타 ability·무-ability 접촉뎀 제외). 방향 킥 = 맞은 방향(위협 정보) + trauma.
@@ -931,6 +942,8 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 				{"position": target.global_position, "radius": 1.5, "source": enemy})
 		"enemy_hex":  # AB-012 Hex Bolt — HEX-WEAK soft CC (이동 감소; 피해감소 half = 후속)
 			target.apply_slow(float(eff.get("hex_slow", 0.6)), float(eff.get("hex_dur_s", 4.0)))
+			if target.has_method("apply_hex_weak"):   # enemy_unit엔 없음(진영전 표적이면 skip)
+				target.apply_hex_weak(float(eff.get("hex_weak", 0.5)), float(eff.get("hex_dur_s", 4.0)))
 		"enemy_splash":  # AB-008 Slag Spit — splash to party members near the impact point
 			var sr := float(eff.get("splash_radius_m", 1.5))
 			var sfrac := float(eff.get("splash_frac", 0.6))
