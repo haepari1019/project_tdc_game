@@ -107,6 +107,14 @@ func try_identity(m: CharacterBody3D) -> bool:
 			var e: CharacterBody3D = nearest_enemy_in_range(m.global_position, float(mk["radius_m"]))
 			if e != null:
 				m.binding_mark(e, float(mk["window_s"]), float(mk["cd_reduce"]))
+		# P4a Kit Binding 「집중」 — Mark&Ruin 정체성은 단일 표적을 집중 대상으로 새긴다. 살아있는 집중이 있으면
+		# 유지(고정) — 매 시전마다 대상이 튀지 않게. lowest-HP = 저격 우선순위(identity 자체 타겟팅과 일치).
+		if m.is_controlled() and BindingFixtures.identity_focuses(String(m.base_gear_id), String(m.ability_id)):
+			if m.get_focus_enemy() == null:
+				var f: Dictionary = BindingFixtures.FOCUS
+				var fe: CharacterBody3D = lowest_hp_enemy_in_radius(m.global_position, float(f["radius_m"]))
+				if fe != null:
+					m.binding_focus(fe, float(f["window_s"]))
 		return true
 	return false
 
@@ -145,6 +153,10 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		inst.charges = int(inst.charges) - 1
 		inst.cooldown_s = float(p.get("cooldown_s", 6.0)) * (1.0 + float(affix.get("cd_trade", 0.0)))
 		_apply_binding(member, slot_index, target_pos)   # P4a Kit Binding overlay (if the triple matches)
+		# 「집중」 소모 아키타입 — 스택-소모 계열(kind)이면 슬롯/링크 무관하게 누적 집중을 소모(누적 비례 폭발).
+		# 특정 처형 AB에 묶지 않는 카테고리 규칙(BindingFixtures.is_focus_spender). 집중 없으면 no-op.
+		if BindingFixtures.is_focus_spender(String(p.get("kind", ""))):
+			_nuker_focus_spend(member)
 
 
 # ============================================================================
@@ -176,6 +188,12 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			_beacon_mark_threat(member)
 			var mk: Dictionary = BindingFixtures.MARK
 			member.binding_remark(nearest_enemy_in_range(aim, float(mk["radius_m"])), float(mk["window_s"]))
+			# --- Mark&Ruin 「집중」 빌더: 딜링 서브는 집중 대상 명중 시 누적+추가타. 소모는 아키타입 규칙(cast_skillbook) ---
+		"focus_stack":
+			_nuker_focus_stack(member, aim)
+			# --- Flank Collapse 「잠행」: 근접화된 링크 스킬이 원래 사거리 비례 이득(1차 뎀 / 2차 쿨감). 처치→은신은 kill 훅 ---
+		"flank_strike":
+			_nuker_flank_strike(member, slot_index, aim)
 
 
 ## Anchor 「방벽 충전」 — add a BulwarkCharge; on the 3-stack consume, stun the nearest enemy (capstone).
@@ -198,6 +216,61 @@ func _beacon_mark_threat(member: CharacterBody3D) -> void:
 		e.add_threat(member, t)
 	if e.has_method("set_threat_floor"):
 		e.set_threat_floor(member, t)
+
+
+## Mark&Ruin 「집중」 딜링 서브 — 집중 대상을 명중하면 누적 +1 & 누적 비례 추가타.
+## 조준이 집중 대상에서 벗어나면(다른 적 겨냥) 누적이 끊긴다. 집중이 없으면 base 스킬만.
+func _nuker_focus_stack(member: CharacterBody3D, aim: Vector3) -> void:
+	var f: Dictionary = BindingFixtures.FOCUS
+	var e = member.get_focus_enemy()
+	if e == null:
+		return
+	if e.global_position.distance_to(aim) > float(f["radius_m"]):
+		member.binding_focus_break()   # 다른 적을 조준 → 누적 초기화
+		return
+	var stacks: int = member.binding_focus_add(int(f["stack_cap"]), float(f["window_s"]))
+	if stacks > 0:
+		var bonus: float = float(stacks) * float(f["stack_dmg_pct"]) * member.basic_damage
+		deal_damage(e, member, bonus)
+		if e.has_method("popup_status"):   # C — 증폭 추가타를 진홍 숫자로(스택 클수록 커짐 → 증폭 가시화)
+			e.popup_status("+%d" % int(round(bonus)), Color(1.0, 0.35, 0.3))
+
+
+## Mark&Ruin 「집중」 소모 아키타입 — 스택-소모 계열 스킬을 쓰면 쌓인 집중을 모두 소모해 누적 수 비례 폭발.
+## 캡스톤은 특정 처형 스킬이 아니라 카테고리 규칙(is_focus_spender). 집중 대상은 유지(살아있으면) → 재누적·재소모
+## 가능. 집중이 없거나 누적 0이면 아무 일도 없음(순수 base 스킬만). ref: binding_fixtures.gd FOCUS_SPEND_KINDS.
+func _nuker_focus_spend(member: CharacterBody3D) -> void:
+	if not member.has_focus():
+		return
+	var e = member.get_focus_enemy()
+	var stacks: int = member.binding_focus_take()   # 누적 소모(0으로) — 집중 대상은 유지
+	if e != null and stacks > 0:
+		var burst: float = float(stacks) * float(BindingFixtures.FOCUS["spend_mult"]) * member.basic_damage
+		deal_damage(e, member, burst)
+		SkillVfx.mark_ruin(self, e.global_position)
+		if e.has_method("popup_status"):   # B+C — 소모 스택 수 + 폭발 피해를 금색 팝업으로(페이오프 가시화)
+			e.popup_status("집중 %d ⟶ %d" % [stacks, int(round(burst))], Color(1.0, 0.82, 0.3))
+
+
+## Flank Collapse 「잠행」 링크 서브 — 근접화(사거리는 aim_controller가 melee로 강제)된 대가로 원래 range_band에
+## 비례한 이득: 1차 = 추가 피해(주 대상), 2차 = 이 슬롯 재사용 즉시 감소. 처치→은신은 kill 훅(notify_kill)이 별도.
+func _nuker_flank_strike(member: CharacterBody3D, slot_index: int, aim: Vector3) -> void:
+	var inst = member.get_skillbook(slot_index)
+	if inst == null:
+		return
+	var band := String(Slice01Data.get_skillbook_master(String(inst.get("base_ability_id", ""))).get("range_band", "Mid"))
+	var fl: Dictionary = BindingFixtures.FLANK
+	var dmg_pct: float = float(fl["band_dmg"].get(band, 0.0))
+	var cd_pct: float = float(fl["band_cd"].get(band, 0.0))
+	if dmg_pct > 0.0:                                   # 1차: 원거리일수록 큰 추가 피해 → 조준점 근처 주 대상
+		var e = nearest_enemy_in_range(aim, 3.0)
+		if e != null:
+			var bonus: float = dmg_pct * member.basic_damage
+			deal_damage(e, member, bonus)
+			if e.has_method("popup_status"):
+				e.popup_status("+%d" % int(round(bonus)), Color(1.0, 0.35, 0.3))
+	if cd_pct > 0.0:                                    # 2차: 재사용 감소(먼 사거리일수록 큼)
+		inst.cooldown_s = float(inst.cooldown_s) * (1.0 - cd_pct)
 
 
 # ============================================================================

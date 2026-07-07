@@ -64,6 +64,9 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	var cc: Color = member.get_class_color()
 	var kind := String(p.get("kind", ""))
 	_range = float(p.get("range_m", 10.0))
+	# Flank Collapse 「잠행」 — 링크된 스킬은 근접 사거리로만 시전(붙어야 함). 원래 range_m를 melee로 대체 → 링도 좁게.
+	if String(BindingFixtures.resolve(String(member.base_gear_id), String(member.ability_id), String(inst.get("base_ability_id", "")), slot_index).get("delta", "")) == "flank_strike":
+		_range = float(BindingFixtures.FLANK["melee_range_m"])
 	# 커서 색으로 대상 진영 구분 — 아군=초록 / 적=빨강(조준 중임도 십자로 표시).
 	Input.set_custom_mouse_cursor(_cursor_ally if ALLY_TARGET_KINDS.has(kind) else _cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))
 	# 단일타겟 → 원판 없음(커서만) / AoE → 효과 반경 원판. 둘 다 시전 사거리를 하얀 링으로 표시.

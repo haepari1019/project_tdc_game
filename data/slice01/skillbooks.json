@@ -311,7 +311,7 @@
     },
     {
       "base_ability_id": "AB-072",
-      "display_name": "Hailstorm",
+      "display_name": "우박 세례",
       "equip_classes": [
         "DPS",
         "Nuker"
@@ -878,7 +878,7 @@
     },
     {
       "base_ability_id": "AB-055",
-      "display_name": "Scatter Shot",
+      "display_name": "산탄 사격",
       "equip_classes": [
         "DPS",
         "Nuker"
@@ -927,7 +927,7 @@
     },
     {
       "base_ability_id": "AB-058",
-      "display_name": "Arc Detonation",
+      "display_name": "방전 작렬",
       "equip_classes": [
         "Nuker",
         "DPS"
@@ -983,7 +983,7 @@
     },
     {
       "base_ability_id": "AB-060",
-      "display_name": "Rupture Strike",
+      "display_name": "파열 처형",
       "equip_classes": [
         "Nuker"
       ],

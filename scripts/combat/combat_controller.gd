@@ -468,7 +468,7 @@ func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float)
 			if is_instance_valid(e) and e != enemy and e.squad_id == enemy.squad_id:
 				e.add_threat(attacker, GROUP_PULL_BONUS)
 				e.set_threat_floor(attacker, FIRST_AGGRESSOR_FLOOR)
-	enemy.take_damage(dmg)
+	enemy.take_damage(dmg, attacker)   # attacker 전달 — killed_by_party 귀속(파티 킬 로그/전리품) + 처치 관여 크레딧(잠행 은신)
 
 
 ## §3.9 healer threat: each enemy that threatens the healed ally gives the

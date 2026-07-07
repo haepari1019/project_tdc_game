@@ -184,6 +184,12 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 		# 한 정체성의 모든 슬롯 스킬이 같은 시그니처(방벽 충전 / 표식)로 읽힌다.
 		lines.append("[color=#9aa4b2]✦ %s 결속 · %s[/color]" % [idnm, signm])
 		lines.append("[color=#f0b64a]%s[/color]" % String(ov.get("desc_ko", ov.get("payoff", ""))))
+	elif BindingFixtures.identity_focuses(String(m.base_gear_id), String(m.ability_id)) and BindingFixtures.is_focus_spender(kind):
+		# 소모 아키타입 — 슬롯 오버레이가 아니라 카테고리 규칙(is_focus_spender)으로 집중을 소모. 특정 처형 스킬에 묶지 않음.
+		var idnm := Slice01Data.get_identity_display(String(m.identity_skill_id))
+		var signm := String(BindingFixtures.SIGNATURE.get(String(m.ability_id), {}).get("name", "결속"))
+		lines.append("[color=#9aa4b2]✦ %s 결속 · %s (소모 계열)[/color]" % [idnm, signm])
+		lines.append("[color=#f0b64a]쌓인 집중을 모두 소모해 집중 수에 비례한 추가 피해를 준다.[/color]")
 	return "\n".join(lines)
 
 

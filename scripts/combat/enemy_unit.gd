@@ -204,6 +204,8 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 		boss_phased = true
 		print("[EN] %s MiniBoss PHASE 2 (HP <= %d%%, telegraph %+.2fs)" % [enemy_id, int(boss_phase2_hp_frac * 100.0), boss_phase2_telegraph_delta])
 	if hp <= 0.0:
+		if attacker != null and is_instance_valid(attacker) and attacker.has_method("notify_kill"):
+			attacker.notify_kill(self)   # 처치(막타) 훅 — 「잠행」(Flank) 정체성은 여기서 은신(veil) 발동
 		died.emit(self)
 		queue_free()
 
@@ -264,8 +266,8 @@ func _build_dummy_labels() -> void:
 func _physics_process(delta: float) -> void:
 	if _mark_timer_display > 0.0:              # Beacon 표식 표시 자기 만료
 		_mark_timer_display -= delta
-		if _mark_timer_display <= 0.0 and _mark_label:
-			_mark_label.visible = false
+		if _mark_timer_display <= 0.0 and _badges != null:
+			_badges.clear_badge("mark")
 	if not training_dummy:
 		return   # 일반 적은 이동을 EnemyAI가 구동 — 이하 허수아비 전용.
 	# 허수아비는 AI tick을 스킵하므로 여기서 상태 타이머를 직접 감소 → 디버프가 만료되고 재적용/재팝업 가능.
@@ -279,27 +281,37 @@ func _physics_process(delta: float) -> void:
 		_dummy_threat_label.text = _threat_readout()
 
 
+## 여러 스택 상태를 한 줄로 모으는 배지 스트립(lazy). 표식/집중 등이 세로로 나열되지 않게 통합.
+const _OverheadBadges := preload("res://scripts/ui/overhead_badges.gd")
+func _badge_strip():
+	if _badges == null:
+		_badges = _OverheadBadges.new()
+		_badges.position = Vector3(0, _box_size.y + 1.4, 0)
+		add_child(_badges)
+	return _badges
+
+
 ## Beacon 「표식」 시각 표시 — 결속 정체성이 표식을 걸/갱신할 때 호출. `dur`s 후 자동으로 사라짐.
 func show_mark(dur: float) -> void:
-	if _mark_label == null:
-		_mark_label = Label3D.new()
-		_mark_label.text = "◈ 표식"
-		_mark_label.font_size = 34
-		_mark_label.fixed_size = true
-		_mark_label.pixel_size = 0.0005
-		_mark_label.position = Vector3(0, _box_size.y + 1.2, 0)
-		_mark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_mark_label.no_depth_test = true
-		_mark_label.modulate = Color(1.0, 0.72, 0.25)
-		add_child(_mark_label)
-	_mark_label.visible = true
+	_badge_strip().set_badge("mark", "◈")
 	_mark_timer_display = dur
 
 
 func hide_mark() -> void:
 	_mark_timer_display = 0.0
-	if _mark_label:
-		_mark_label.visible = false
+	if _badges != null:
+		_badges.clear_badge("mark")
+
+
+## Mark&Ruin 「집중」 시각 표시 — 집중을 새기거나 누적이 바뀔 때 호출. stacks=현재 누적, at_cap=만렙(캡 큐, 금색).
+func show_focus(stacks: int, at_cap: bool = false) -> void:
+	var txt := "🎯" if stacks <= 0 else ("🎯MAX" if at_cap else "🎯%d" % stacks)
+	_badge_strip().set_badge("focus", txt, at_cap)
+
+
+func hide_focus() -> void:
+	if _badges != null:
+		_badges.clear_badge("focus")
 
 
 ## 어그로 미터 — 파티원별 threat를 내림차순으로. floor(고정) 표기는 생략(현재 값만).
@@ -375,7 +387,7 @@ var accumulated_damage: float = 0.0
 var _dummy_dmg_label: Label3D
 var _dummy_threat_label: Label3D
 # Beacon 「표식」 시각 표시 — 결속 정체성이 표식을 걸면 이 적 위에 "◈ 표식"(자기 만료).
-var _mark_label: Label3D
+var _badges = null                 # OverheadBadges 스트립(lazy) — 표식/집중 등 스택 상태를 한 줄로 통합
 var _mark_timer_display: float = 0.0
 var floor_of: Dictionary = {}  # member -> threat floor (§3.5)
 const DEFAULT_FLOOR := 10.0

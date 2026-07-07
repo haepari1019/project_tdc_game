@@ -6,6 +6,17 @@
 
 ---
 
+### IMPL-DEC-20260706-001 — Stage 3 누커 결속(집중·잠행) + `_deal_damage` attacker 버그픽스
+- **결정:** Stage 3 첫 클래스 = **누커 2정체성** 결속 파일럿(비정본 픽스처, Tank와 동일 오버레이 구조). 정체성 능력 ID는 **IDA-###** 전용 프리픽스(갈래 B — 스펙 `DEC-20260705-001`/`b9b0a96`, 게임 `4062e7d`).
+  - **IDA-025 집중(Mark&Ruin):** identity가 단일 표적 **집중** 지정 → 링크 딜링 서브(BIND-PILOT-007/008)가 집중 대상 명중 시 누적+누적비례 추가타, 딴 적 조준 시 초기화. **소모는 아키타입 규칙**(`FOCUS_SPEND_KINDS=[skillbook_execute]`/`is_focus_spender`) — 특정 처형 AB 하드코딩 회피(유저 지적: "처형 장착 보장 없음"). 소모 시 누적 전량→비례 폭발, **집중 대상 유지**(build→spend 반복). **환급 제거**(원안의 막타 쿨환급은 execute-스킬 고유 → 정체성 규약에 부적합).
+  - **IDA-029 잠행(Flank Collapse):** 링크 서브(BIND-PILOT-010~012)를 **근접 사거리로 강제**(aim `_range`→`FLANK.melee_range_m`) + 원래 `range_band` 비례 이득(1차 뎀 / 2차 즉시 쿨감; Mid<Long). **처치(막타) 시 은신**(`apply_veil` 재사용 = 적 표적 드롭 = 어그로 감소) — 슬롯 오버레이 아닌 **kill 훅**(`identity_flanks` 게이트). (assist-크레딧 완화는 시도했다 유저 요청으로 막타 전용 환원.)
+  - **라벨 통합 `OverheadBadges`(신규):** 방벽/표식/집중/은신 등 스택 마커를 유닛당 **단일 Label3D 한 줄**로 — 여러 상태 동시 발현 시 세로 나열/줌 간격 문제 해소(유저 지적).
+  - **A/B/C 시각화:** 집중 캡=금색 🎯MAX · 소모=금색 「집중 N⟶폭발」 · 증폭 추가타=진홍 +N(**결속 한정 숫자**, 전역 무숫자 미학 유지). 은신=반투명 냉회색 유령 + 👻 배지(반투명 몸체 따라다님) + 매 발동 "은신" 플로팅. flash가 반투명 취소하던 것도 veil-aware로 가드.
+- **⚠️ 버그픽스(별개·중대):** `combat_controller._deal_damage`가 `attacker`를 위협엔 쓰면서 **`take_damage`엔 미전달** → `killed_by_party` **항상 false** → (1) 처치→은신이 **한 번도 발동 안 됨**, (2) `loot_service.on_enemy_defeated`의 `if not by_party: return`으로 **파티 per-kill 전리품(스킬북·ward_scrap, F-009) 전부 스킵**되던 선행 회귀. `take_damage(dmg, attacker)`로 수정 → 은신·킬 귀속·per-kill 드롭 복원(3세력 오프스크린 킬은 attacker=비파티 → 여전히 no-drop, 게이트 올바르게 작동).
+- **이유:** 정체성=규격/카테고리 선언(아키타입 소모·근접화 규칙)이 특정 AB 하드코딩보다 견고(유저 방향). 라벨 통합은 확장(8정체성) 대비. 버그픽스는 은신 디버깅 중 발견.
+- **검증:** `ci_smoke 7/7` · `binding_smoke`(11 오버레이 + focus_stack/is_focus_spender + flank_strike/identity_flanks + band 단조 + 규약) · badge_strip 로직 테스트. 체감 = **감독 게이트 PASS(2026-07-06, 두 누커)**.
+- **영향:** binding_fixtures·ability_dispatch·party_member·enemy_unit·**combat_controller(버그픽스)**·aim_controller·controlled_sheet·overhead_badges(신규)·combat_sandbox·binding_smoke·skillbooks.json. 관련: [[identity-kit-binding-plan]].
+
 ### IMPL-DEC-20260705-001 — P2-S8a 게이트 PASS + 파일럿 폴리시 (결속 규약·시각화·조준 UX)
 - **결정:** `QA-005 §2.12` Tank 결속 게이트 **감독 PASS**(2026-07-05). Stage 2/3 개방. 게이트 전 다수 개선:
   - **규약(covenant) 재설계:** identity가 시그니처 상태를 **선언·생성** → 서브는 그 상태 **조건부**로 버프 → 상태 소모 시 캡스톤. Anchor=방벽 스택(모든 서브 +1, 3겹→기절), Beacon=표식(identity가 부여, 서브는 표식 대상에 추가 위협, 표식 처치→링크 전 슬롯 쿨 감소). `SIGNATURE`/`BULWARK`/`MARK` 데이터화. **방벽 스택 5초 만료**(누적 오발 방지) + `binding_reset()`.
