@@ -375,17 +375,18 @@
     },
     {
       "base_ability_id": "AB-064",
-      "display_name": "Quick Mend",
+      "display_name": "짧은 집중",
       "equip_classes": [
         "Healer"
       ],
       "range_band": "Mid",
       "charges_max": 80,
       "cast": {
-        "kind": "skillbook_heal",
-        "cooldown_s": 5,
-        "radius_m": 5.0,
-        "heal_pct": 0.18
+        "kind": "skillbook_channel_heal",
+        "cooldown_s": 6,
+        "channel_s": 2.0,
+        "radius_m": 6.0,
+        "heal_pct": 0.22
       },
       "tier": "Basic"
     },
@@ -463,18 +464,18 @@
     },
     {
       "base_ability_id": "AB-065",
-      "display_name": "Renewing Tide",
+      "display_name": "수호막",
       "equip_classes": [
         "Healer"
       ],
       "range_band": "Mid",
       "charges_max": 60,
       "cast": {
-        "kind": "skillbook_hot",
-        "cooldown_s": 8,
-        "radius_m": 0.5,
-        "regen_pct_s": 0.05,
-        "duration_s": 5.0
+        "kind": "skillbook_ward_heal",
+        "cooldown_s": 9,
+        "radius_m": 8.0,
+        "shield_pct": 0.16,
+        "ward_s": 4.0
       },
       "tier": "Basic"
     },
@@ -1004,18 +1005,18 @@
     },
     {
       "base_ability_id": "AB-066",
-      "display_name": "Sanctuary Font",
+      "display_name": "긴 집중",
       "equip_classes": [
         "Healer"
       ],
       "range_band": "Mid",
       "charges_max": 50,
       "cast": {
-        "kind": "skillbook_hot",
-        "cooldown_s": 12,
-        "radius_m": 4.0,
-        "regen_pct_s": 0.04,
-        "duration_s": 5.0
+        "kind": "skillbook_channel_heal",
+        "cooldown_s": 14,
+        "channel_s": 5.0,
+        "radius_m": 6.0,
+        "heal_pct": 0.55
       },
       "tier": "Advanced"
     },

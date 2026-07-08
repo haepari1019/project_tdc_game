@@ -328,20 +328,23 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	rampart_btn.pressed.connect(_on_rampart_test)
 	box.add_child(rampart_btn)
 
-	# --- P4a KIT BINDING (결속) pilot — TANK-P4A-ANCHOR/BEACON/BASE fixtures (ROLE-010 §4.5). Each sets
-	# the Tank's gear (GEAR-011/012) + Q/E/R = AB-033/034/035; ANCHOR/BEACON = 결속 ON, BASE = OFF
-	# (회귀). Swap to the Tank (1-4) then fire Q/E/R to feel the overlay vs base. QA-005 §2.12 gate. ---
+	# --- P4a KIT BINDING (결속) pilot — 픽스처는 기어+정체성+Q/E/R을 착용시켜 그 자리에서 결속을 활성화한다
+	# (결속은 착용 즉시 내재 적용 — on/off 토글 없음). 스왑(1-4) 후 Q/E/R로 정체성별 변형 체감. ROLE-010 §4.5. ---
 	box.add_child(_section("결속 파일럿 (Tank P4a — QA-005 §2.12)"))
 	var bind_row := HBoxContainer.new()
 	bind_row.add_child(_btn("ANCHOR", _on_bind_fixture.bind("anchor")))
 	bind_row.add_child(_btn("BEACON", _on_bind_fixture.bind("beacon")))
-	bind_row.add_child(_btn("BASE (결속 OFF)", _on_bind_fixture.bind("base")))
 	box.add_child(bind_row)
 	# Nuker 파일럿 — 집중(ruin_sight, 누적→소모 폭발) / 잠행(flank_knife, 근접화+원거리비례 이득, 처치→은신).
 	var bind_row_n := HBoxContainer.new()
 	bind_row_n.add_child(_btn("NUKER 집중·처형", _on_bind_fixture.bind("nuker")))
 	bind_row_n.add_child(_btn("NUKER 잠행", _on_bind_fixture.bind("flank")))
 	box.add_child(bind_row_n)
+	# Healer 파일럿 — 지속치유(ward_sigil 자리 재해석, 가호 폐지 → 모든 힐이 도트힐 전환·총량↑). 성역은 후속.
+	var bind_row_h := HBoxContainer.new()
+	bind_row_h.add_child(_btn("HEALER 지속치유", _on_bind_fixture.bind("dothealer")))
+	bind_row_h.add_child(_btn("HEALER 성역", _on_bind_fixture.bind("sanctuary")))
+	box.add_child(bind_row_h)
 
 	# --- 허수아비 (스킬샷 테스트) — 불사·정지 표적 + 옆에 누적딜/어그로 표시, 각각 초기화 ---
 	box.add_child(_section("허수아비 (스킬샷 테스트)"))
@@ -647,11 +650,12 @@ func _on_gear_changed(index: int) -> void:
 ## (BASE = OFF regression). The overlay activates by triple-match at cast time. Tank: ANCHOR/BEACON/BASE
 ## (ROLE-010 §4.5 · QA-005 §2.12). Nuker: 집중·처형 (BIND-007~009). Swap to that member (1-4) then fire Q/E/R.
 const _BIND_FIXTURES := {
-	"anchor": {"gear": "gear_ward_tank_anchor_bulwark", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK-P4A-ANCHOR (BIND-001~003 ON)"},
-	"beacon": {"gear": "gear_ward_tank_kite_shield", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK-P4A-BEACON (BIND-004~006 ON)"},
-	"base": {"gear": "gear_ward_tank_anchor_bulwark", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK-P4A-BASE (결속 OFF · 회귀)"},
-	"nuker": {"gear": "gear_ward_nuker_ruin_sight", "subs": ["AB-055", "AB-058", "AB-060"], "role": "Nuker", "label": "NUKER-P4-집중 (BIND-007~008 ON)"},
-	"flank": {"gear": "gear_ward_nuker_flank_knife", "subs": ["AB-055", "AB-072", "AB-060"], "role": "Nuker", "label": "NUKER-P4-잠행 (BIND-010~012 ON)"},
+	"anchor": {"gear": "gear_ward_tank_anchor_bulwark", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK 방벽 충전"},
+	"beacon": {"gear": "gear_ward_tank_kite_shield", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK 표식"},
+	"nuker": {"gear": "gear_ward_nuker_ruin_sight", "subs": ["AB-055", "AB-072", "AB-060"], "role": "Nuker", "label": "NUKER 집중"},
+	"flank": {"gear": "gear_ward_nuker_flank_knife", "subs": ["AB-055", "AB-072", "AB-060"], "role": "Nuker", "label": "NUKER 잠행"},
+	"dothealer": {"gear": "gear_ward_healer_ward_sigil", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 지속치유"},
+	"sanctuary": {"gear": "gear_ward_healer_mend_lantern", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 성역"},
 }
 func _on_bind_fixture(which: String) -> void:
 	var cfg: Dictionary = _BIND_FIXTURES.get(which, {})
@@ -675,12 +679,10 @@ func _on_bind_fixture(which: String) -> void:
 		member.equip_skillbook_by_id(i, String(subs[i]))
 	if member.has_method("binding_reset"):
 		member.binding_reset()   # 잔여 방벽 스택/표식/집중으로 인한 오발 방지
-	BindingFixtures.enabled = (which != "base")
 	_refresh_loadout_ui()
 	_show_loadout_verify(member)
-	_status.text = "결속 → %s | %s + Q/E/R %s | 결속 %s — %s로 스왑(1-4) 후 Q/E/R" % [
-		cfg["label"], member.get("identity_skill_id"), ", ".join(PackedStringArray(subs)),
-		"ON" if BindingFixtures.enabled else "OFF", cfg["role"]]
+	_status.text = "결속 → %s | %s + Q/E/R %s — %s로 스왑(1-4) 후 Q/E/R (착용 즉시 결속 적용)" % [
+		cfg["label"], member.get("identity_skill_id"), ", ".join(PackedStringArray(subs)), cfg["role"]]
 
 
 var _dummy: Node = null   # 허수아비 참조 (스킬샷 테스트 표적)

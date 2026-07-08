@@ -41,6 +41,8 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/ward_shield.gd"),    # IDA-031 Ward Pulse (Healer)
 	# P2-S6a B1 — party lootable sub effect kinds (new, beyond reused strike/fire/stun/cold/zone).
 	preload("res://scripts/combat/abilities/effects/sb_heal.gd"),        # AB-064 Quick Mend (Healer)
+	preload("res://scripts/combat/abilities/effects/sb_channel_heal.gd"),# AB-064/066 집중 채널 힐 (Healer 킷 재설계)
+	preload("res://scripts/combat/abilities/effects/sb_ward_heal.gd"),   # AB-065 수호-흡수 힐 (Healer 킷 재설계)
 	preload("res://scripts/combat/abilities/effects/sb_dr.gd"),          # AB-046/047/068 Shield Wall·Aegis·Warding (Tank/Healer)
 	preload("res://scripts/combat/abilities/effects/sb_ally_shield.gd"), # AB-067 Aegis Blessing (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_hot.gd"),         # AB-065 Renewing Tide (Healer)
@@ -115,6 +117,11 @@ func try_identity(m: CharacterBody3D) -> bool:
 				var fe: CharacterBody3D = lowest_hp_enemy_in_radius(m.global_position, float(f["radius_m"]))
 				if fe != null:
 					m.binding_focus(fe, float(f["window_s"]))
+		# P4a 「성역」 — Mend Circle 정체성은 발밑에 좁은 성역을 세운다(스티키 — 유지 중이면 유지, 만료 시 재설치).
+		if m.is_controlled() and BindingFixtures.identity_sanctuaries(String(m.base_gear_id), String(m.ability_id)):
+			if not m.has_sanctuary():
+				var s: Dictionary = BindingFixtures.SANCT
+				m.binding_sanctuary(m.global_position, float(s["radius_m"]), float(s["dur"]))
 		return true
 	return false
 
@@ -132,6 +139,8 @@ func _band_coeff(cid: String, sub_bands: Dictionary) -> float:
 func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
 	if member == null or not is_instance_valid(member) or not member.is_alive():
 		return
+	if member.has_method("is_channeling") and member.is_channeling():
+		return   # 집중 채널 중 — 점유(다른 서브 시전 차단)
 	var inst = member.get_skillbook(slot_index)
 	if inst == null:
 		return
@@ -147,6 +156,7 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	# D-018 §7.3 — affix coeffMult는 cross-class 밴드와 **독립**으로 곱(합산 ≤15% 안전 클램프). cd_trade는 쿨 가산.
 	var affix: Dictionary = inst.get("affix", {})
 	p["_coeff"] = _band_coeff(String(member.class_id), bands) * (1.0 + clampf(float(affix.get("coeff", 0.0)), -0.15, 0.15))
+	p["_slot"] = slot_index   # 채널 등 취소 시 쿨/차지 환급용(channel_heal이 이 슬롯을 되돌림)
 	# target_pos = aimed ground point (targeted subs) or caster position (self-centered).
 	var skill = _skills.get(String(p.get("kind", "")))
 	if skill != null and skill.cast(member, p, target_pos, self):
@@ -303,6 +313,47 @@ func deal_damage(e: CharacterBody3D, source: CharacterBody3D, dmg: float) -> voi
 
 func heal_threat(healer: CharacterBody3D, ally: CharacterBody3D, eff: float) -> void:
 	_combat._heal_threat(healer, ally, eff)
+
+
+## 치유 choke — 즉시 치유. healer가 「지속 치유」(IDA-031) 정체성이면 즉시 회복 대신 HoT로 전환(총량×total_mult, dur초).
+## 반환 = 위협 계산용 회복량(즉시=실효, HoT=예정 총량). 전환은 기존 apply_regen 재사용(pct=총량/(maxHP·dur)). 신규 상태 없음.
+func deal_heal(target, healer, amount: float) -> float:
+	if healer != null and BindingFixtures.identity_dot_heals(String(healer.base_gear_id), String(healer.ability_id)):
+		var d: Dictionary = BindingFixtures.DOT
+		var total: float = amount * float(d["total_mult"])
+		var dur: float = float(d["dur"])
+		if target != null and target.has_method("apply_regen") and float(target.max_hp) > 0.0:
+			target.apply_regen(total / (float(target.max_hp) * dur), dur)
+		return total
+	# 성역(IDA-026) 안에서 시전 → 회복량 증폭. 증폭 발생 시 "기본 + 성역 버프" 분리 표기(직관적 파악).
+	var amped: float = _sanctuary_amp(healer, amount)
+	if target == null or not target.has_method("heal"):
+		return 0.0
+	var healed: float = target.heal(amped)
+	if amped > amount + 0.5 and healed > 0.5 and target.has_method("popup_heal_split"):
+		var base_h: float = healed * (amount / amped)     # 실효 회복 중 기본분
+		target.popup_heal_split(base_h, healed - base_h)  # 초록 기본 + 금빛 성역 버프
+	return healed
+
+
+## 치유 choke — HoT(재생) 계열. 「지속 치유」면 총 회복량 × total_mult, 「성역」 안 시전이면 × amp 로 강화(pct_per_s 배수).
+## base 와 성역 추가분(bonus)을 분리해 넘긴다 → HoT 틱마다 초록/금색으로 나눠 표기(직관적 파악).
+func deal_regen(target, healer, pct_per_s: float, dur: float) -> void:
+	var p: float = pct_per_s
+	if healer != null and BindingFixtures.identity_dot_heals(String(healer.base_gear_id), String(healer.ability_id)):
+		p *= float(BindingFixtures.DOT["total_mult"])
+	var amped: float = _sanctuary_amp(healer, p)   # 성역 안 시전 → 증폭
+	if target != null and target.has_method("apply_regen"):
+		target.apply_regen(p, dur, amped - p)      # base=p, bonus=성역 추가분(틱마다 금색 분리)
+
+
+## 성역(Mend Circle IDA-026) 증폭 — 성역 정체성 + 시전자가 성역 안에 있을 때만 치유값을 amp배. 밖이면 그대로.
+func _sanctuary_amp(healer, value: float) -> float:
+	if healer != null and healer.has_method("in_sanctuary") \
+			and BindingFixtures.identity_sanctuaries(String(healer.base_gear_id), String(healer.ability_id)) \
+			and healer.in_sanctuary():
+		return value * float(BindingFixtures.SANCT["amp"])
+	return value
 
 
 func shake(trauma: float) -> void:

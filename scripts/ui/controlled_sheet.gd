@@ -15,6 +15,7 @@ var _party: Node
 var _portrait: ColorRect
 var _name_lbl: Label
 var _hp_fill: ColorRect
+var _projected_fill: ColorRect  # HoT 예측 세그먼트(현재 HP → 회복 완료 도달치, 민트)
 var _shield_fill: ColorRect  # IDA-020 shield overlay (white, over HP)
 var _slots: Array = []  # {radial, kind}  kind: "identity" | "sub0" | "empty"
 
@@ -61,6 +62,11 @@ func setup(party: Node) -> void:
 	_hp_fill.anchor_right = 1.0
 	_hp_fill.anchor_bottom = 1.0
 	hp_bg.add_child(_hp_fill)
+	_projected_fill = ColorRect.new()  # HoT 예측: 현재 HP ~ 회복 완료 도달치(민트), 앵커는 _process에서
+	_projected_fill.color = Color(0.55, 1.0, 0.78, 0.5)
+	_projected_fill.anchor_bottom = 1.0
+	_projected_fill.visible = false
+	hp_bg.add_child(_projected_fill)
 	_shield_fill = ColorRect.new()  # white shield overlay, drawn over the HP fill
 	_shield_fill.color = Color(0.86, 0.92, 1.0, 0.72)
 	_shield_fill.anchor_right = 0.0
@@ -98,6 +104,14 @@ func _process(_delta: float) -> void:
 	var hr: float = clampf(m.hp / maxf(m.max_hp, 1.0), 0.0, 1.0) if alive else 0.0
 	_hp_fill.anchor_right = hr
 	_hp_fill.color = _hp_color(hr)
+	# HoT 예측 세그먼트(2안) — 현재 HP ~ 회복 완료 도달치. 오버헤드 HP바와 동일.
+	var proj: float = clampf((m.hp + m.hot_pending_hp()) / maxf(m.max_hp, 1.0), 0.0, 1.0) if (alive and m.has_method("hot_pending_hp")) else 0.0
+	if proj > hr + 0.003:
+		_projected_fill.anchor_left = hr
+		_projected_fill.anchor_right = proj
+		_projected_fill.visible = true
+	else:
+		_projected_fill.visible = false
 	var sr: float = (clampf(m.shield / maxf(m.max_hp, 1.0), 0.0, 1.0) if alive else 0.0)
 	_shield_fill.anchor_right = sr
 	_shield_fill.visible = sr > 0.001
@@ -173,7 +187,7 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 	if bp > 0:
 		lines.append(SkillText.band_line(bp))
 	# 결속(Kit Binding) — 장착 gear + identity + 이 슬롯 AB가 triple-match면 identity 연동으로 추가되는
-	# 효과(오버레이)를 base와 구분되는 색으로 표기. 결속 OFF(BASE)면 resolve()={} → 표시 없음(base only).
+	# 효과(오버레이)를 base와 구분되는 색으로 표기. 이 슬롯이 triple-match 아니면 resolve()={} → 표시 없음(base only).
 	var ov: Dictionary = BindingFixtures.resolve(
 		String(m.base_gear_id), String(m.ability_id), String(inst.get("base_ability_id", "")), idx)
 	if not ov.is_empty():

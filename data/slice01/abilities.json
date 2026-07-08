@@ -305,12 +305,12 @@
       "hits": 2
     },
     "IDA-031": {
-      "kind": "ward_shield",
-      "cooldown_s": 8,
-      "shield_base": 90,
-      "shield_duration_s": 5.0,
-      "cleanse": 1,
-      "range_m": 12.0
+      "kind": "radius_heal",
+      "cooldown_s": 6,
+      "radius_m": 5,
+      "heal_pct": 0.12,
+      "ally_threshold_pct": 0.9,
+      "tank_threshold_pct": 0.95
     },
     "AB-003": {
       "kind": "enemy_charge",

@@ -17,7 +17,7 @@ func cast(m: CharacterBody3D, p: Dictionary, _t: Vector3, ctx) -> bool:
 	var n := 0
 	for a in ctx.allies_in_radius(m.global_position, radius):
 		if a != null and is_instance_valid(a) and a.has_method("apply_regen"):
-			a.apply_regen(pct_s, dur)
+			ctx.deal_regen(a, m, pct_s, dur)   # 「지속 치유」 정체성이면 총량 강화(choke)
 			n += 1
 	SkillVfx.mend_circle(ctx, m.global_position, maxf(radius, 1.5))
 	print("[SB] %s Renewing Tide — HoT %d ally" % [m.class_id, n])

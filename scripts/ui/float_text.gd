@@ -29,12 +29,12 @@ static func popup(parent: Node3D, txt: String, color: Color, base_y: float) -> v
 
 
 func _ready() -> void:
-	font_size = 30
+	font_size = 48            # 수치 가독성 — 화면상 크게(fixed_size라 줌 무관)
 	fixed_size = true           # 카메라 거리와 무관하게 화면상 일정 크기
 	pixel_size = 0.0005
 	billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	no_depth_test = true
-	outline_size = 8            # 배경 대비 가독성(검은 테두리)
+	outline_size = 10           # 배경 대비 가독성(검은 테두리)
 	outline_modulate = Color(0.0, 0.0, 0.0, 0.75)
 
 

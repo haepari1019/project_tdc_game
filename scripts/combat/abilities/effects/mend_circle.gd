@@ -24,7 +24,7 @@ func cast(m: CharacterBody3D, p: Dictionary, _target_pos: Vector3, ctx) -> bool:
 		return false
 	var heal_pct := float(p.get("heal_pct", 0.12))
 	for a in allies:
-		var eff: float = a.heal(a.max_hp * heal_pct)
+		var eff: float = ctx.deal_heal(a, m, a.max_hp * heal_pct)   # 「지속 치유」면 즉시→HoT(choke); mend는 즉시 유지
 		ctx.heal_threat(m, a, eff)
 	SkillVfx.mend_circle(ctx, m.global_position, radius)
 	print("[ID] %s Mend Circle — %d allies healed" % [m.identity_skill_id, allies.size()])

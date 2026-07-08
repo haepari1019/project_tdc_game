@@ -10,6 +10,8 @@ const UiColors := preload("res://scripts/core/ui_colors.gd")
 
 var _fill: MeshInstance3D
 var _fill_mat: StandardMaterial3D
+var _projected: MeshInstance3D    # HoT 예측 세그먼트(현재 HP → 회복 완료 도달치, 민트색)
+var _proj_ratio: float = 0.0
 var _shield: MeshInstance3D       # IDA-020 shield overlay (white, over the fill)
 var _shield_ratio: float = 0.0
 var _marker: MeshInstance3D
@@ -35,6 +37,10 @@ func _ready() -> void:
 	# Force the fill to always draw in front of the bg — otherwise transparent
 	# depth-sorting can flip them frame-to-frame and the bar looks empty (0).
 	_fill_mat.render_priority = 1
+	# HoT 예측 세그먼트(회복 완료 시 도달할 체력) — 현재 HP 오른쪽에 민트색으로. fill이 자라 채운다.
+	_projected = _make_quad(Color(0.55, 1.0, 0.78, 0.5), WIDTH, HEIGHT, 0.015)
+	(_projected.material_override as StandardMaterial3D).render_priority = 1
+	_projected.visible = false
 	# Shield overlay (IDA-020): white bar over the fill, left-anchored, width = shield/maxHP.
 	_shield = _make_quad(Color(0.86, 0.92, 1.0, 0.72), WIDTH, HEIGHT, 0.02)
 	(_shield.material_override as StandardMaterial3D).render_priority = 2
@@ -69,6 +75,12 @@ func _process(delta: float) -> void:
 
 func set_ratio(r: float) -> void:
 	_ratio = clampf(r, 0.0, 1.0)
+	_apply()
+
+
+## HoT 예측치(2안) — 회복 완료 시 도달할 체력 비율. 현재~예측 구간을 민트색 세그먼트로. 0/현재 이하 = 숨김.
+func set_projected(proj: float) -> void:
+	_proj_ratio = clampf(proj, 0.0, 1.0)
 	_apply()
 
 
@@ -126,6 +138,13 @@ func _apply() -> void:
 	_fill.scale = Vector3(maxf(_ratio, 0.0001), 1.0, 1.0)
 	_fill.position.x = -WIDTH * 0.5 * (1.0 - _ratio)
 	_fill_mat.albedo_color = UiColors.hp_color(_ratio)
+	if _projected:                                  # 현재 HP 오른쪽 ~ 예측 도달치 구간
+		if _proj_ratio <= _ratio + 0.003:
+			_projected.visible = false
+		else:
+			_projected.visible = true
+			_projected.scale = Vector3(_proj_ratio - _ratio, 1.0, 1.0)
+			_projected.position.x = WIDTH * ((_ratio + _proj_ratio) * 0.5 - 0.5)
 
 
 func _make_quad(color: Color, w: float, h: float, z: float) -> MeshInstance3D:

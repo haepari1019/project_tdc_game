@@ -6,6 +6,18 @@
 
 ---
 
+### IMPL-DEC-20260708-001 — Stage 3 Healer 결속(지속치유·성역) + 힐러 킷 재설계 + 정체성별 스킬셋 통일
+- **결정:** Stage 3 Healer 2정체성 + **평가 원칙 확립**: *한 클래스의 두 정체성은 동일 3서브를 공유*하고, 정체성이 그 서브를 어떻게 변형하는지로 평가(정체성=규격 철학의 실전화).
+  - **IDA-031 「지속 치유」(가호 폐지, DRIFT-073):** 착용 시 모든 치유가 **도트로 강제 전환**(즉시→N틱, 총량 ×1.4). 치유 choke(`deal_heal`/`deal_regen`)가 `identity_dot_heals` 게이트로 변환(기존 `apply_regen` 재사용). abilities.json IDA-031 kind `ward_shield`→`radius_heal`.
+  - **IDA-026 「성역」:** 정체성이 발밑에 **좁은 고정 zone**(금빛 링, top_level)을 세우고, **그 안에서 시전한 치유를 amp배 증폭**(`_sanctuary_amp` choke) → 무빙 vs 제자리 시전 선택. 링 밝기로 in/out 표시.
+  - **힐 킷 재설계(DRIFT-074):** 도트 서브 중복 제거 → AB-064 짧은집중(채널2s)·AB-065 수호-흡수(보호막 종료 시 흡수량 치유)·AB-066 긴집중(채널5s). 최종 힐이 deal_heal 경유 → **두 정체성과 자동 연동**(도트 전환 / 성역 증폭).
+  - **HoT 고도화:** `apply_regen` 단일→**중첩 인스턴스 리스트**(base/bonus 분리). 피드백: 틱마다 `+N`(base 초록/성역 금색 분리), HP바+캐릭터시트 **예측 세그먼트**(회복 완료 도달치, `hot_pending_hp`). FloatText 폰트 48.
+  - **재사용 컴포넌트:** `cast_bar`(연속 진행바·카메라 빌보드)·`range_disc`(자기중심 힐 범위 지면 표시) — **P4a 캐스팅 시간 전체 확장에 재활용 예정.** 채널=점유(begin/end_channel)+**이동 취소**(0.25m 이탈 → 쿨0·차지 환급), 스턴/다운 취소.
+  - **Nuker 평가 패리티:** 집중·잠행 **동일 3서브 AB-055/072/060**로 통일(E: 058→072). Tank는 이미 AB-033/034/035 공유.
+- **이유:** 힐러에서 "같은 서브가 정체성별로 어떻게 변하나"가 평가에 가장 유효 → 전 클래스로 확장. 도트 서브는 지속치유가 어차피 강제 전환하니 중복. 채널/수호는 서로 뚜렷이 구분되고 정체성 변형이 명확.
+- **검증:** `ci_smoke 7/7` · `binding_smoke`(17 오버레이). 감독 반복 플레이테스트(연속 바·이동취소·범위디스크·성역 분리표기·도트 중첩 등 다수 폴리시 수용).
+- **영향:** abilities.json(IDA-031)·skillbooks.json(AB-064/065/066)·display_names·binding_fixtures·ability_dispatch(치유 choke)·party_member(HoT중첩·수호·채널·성역)·health_bar·controlled_sheet·float_text·combat_sandbox·binding_smoke + 신규 effects(cast_bar·range_disc·channel_heal·sb_channel_heal·ward_heal·sb_ward_heal). DRIFT-073/074. 관련: [[identity-kit-binding-plan]].
+
 ### IMPL-DEC-20260706-001 — Stage 3 누커 결속(집중·잠행) + `_deal_damage` attacker 버그픽스
 - **결정:** Stage 3 첫 클래스 = **누커 2정체성** 결속 파일럿(비정본 픽스처, Tank와 동일 오버레이 구조). 정체성 능력 ID는 **IDA-###** 전용 프리픽스(갈래 B — 스펙 `DEC-20260705-001`/`b9b0a96`, 게임 `4062e7d`).
   - **IDA-025 집중(Mark&Ruin):** identity가 단일 표적 **집중** 지정 → 링크 딜링 서브(BIND-PILOT-007/008)가 집중 대상 명중 시 누적+누적비례 추가타, 딴 적 조준 시 초기화. **소모는 아키타입 규칙**(`FOCUS_SPEND_KINDS=[skillbook_execute]`/`is_focus_spender`) — 특정 처형 AB 하드코딩 회피(유저 지적: "처형 장착 보장 없음"). 소모 시 누적 전량→비례 폭발, **집중 대상 유지**(build→spend 반복). **환급 제거**(원안의 막타 쿨환급은 execute-스킬 고유 → 정체성 규약에 부적합).

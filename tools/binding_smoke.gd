@@ -1,11 +1,8 @@
 extends SceneTree
-## P4a Kit Binding pilot — resolveEffectiveAbility triple-match + enabled-gate logic smoke (no scene/
-## combat). Asserts BindingFixtures.resolve() activates only on a full gear+identity+slot match and is
-## suppressed when binding is OFF (TANK-P4A-BASE, F-020 §3.7 step 5). ref: binding_fixtures.gd · QA-005 §2.12.
+## P4a Kit Binding pilot — resolveEffectiveAbility triple-match logic smoke (no scene/combat). 결속은 착용 즉시
+## 내재 적용(토글 없음) — resolve()는 gear+identity+slot 완전 일치일 때만 활성. ref: binding_fixtures.gd · QA-005 §2.12.
 func _init() -> void:
 	var fails := 0
-
-	BindingFixtures.enabled = true
 
 	# ANCHOR triple-match → BIND-PILOT-001 (GEAR-011 + IDA-020 + AB-033 @ Q).
 	if String(BindingFixtures.resolve("gear_ward_tank_anchor_bulwark", "IDA-020", "AB-033", 0).get("id", "")) != "BIND-PILOT-001":
@@ -23,15 +20,9 @@ func _init() -> void:
 	if not BindingFixtures.resolve("gear_ward_tank_anchor_bulwark", "IDA-020", "AB-033", 1).is_empty():
 		fails += 1; push_error("[BIND] wrong slotIndex must NOT activate an overlay")
 
-	# TANK-P4A-BASE regression: binding OFF → no overlay even on a full match (step 5).
-	BindingFixtures.enabled = false
-	if not BindingFixtures.resolve("gear_ward_tank_anchor_bulwark", "IDA-020", "AB-033", 0).is_empty():
-		fails += 1; push_error("[BIND] enabled=false must suppress all overlays (BASE regression)")
-	BindingFixtures.enabled = true
-
-	# All 11 pilot overlays (Tank 001~006 + Nuker 집중빌더 007~008 + Nuker 잠행 010~012; 집중소모=아키타입).
-	if BindingFixtures.OVERLAYS.size() != 11:
-		fails += 1; push_error("[BIND] expected 11 pilot overlays, got %d" % BindingFixtures.OVERLAYS.size())
+	# All 17 pilot overlays (Tank 001~006 + Nuker 007~008/010~012 + Healer 지속치유 013~015 + Healer 성역 016~018).
+	if BindingFixtures.OVERLAYS.size() != 17:
+		fails += 1; push_error("[BIND] expected 17 pilot overlays, got %d" % BindingFixtures.OVERLAYS.size())
 
 	# 규약(covenant) — identity가 자기완결 규약을 선언(Beacon=표식 / Anchor=방벽 충전).
 	var sig_b := BindingFixtures.signature_for("gear_ward_tank_kite_shield", "IDA-021")
@@ -57,11 +48,6 @@ func _init() -> void:
 		fails += 1; push_error("[BIND] skillbook_execute should be a focus spender archetype")
 	if BindingFixtures.is_focus_spender("skillbook_bolt"):
 		fails += 1; push_error("[BIND] skillbook_bolt must NOT be a focus spender")
-	# 결속 OFF면 소모 아키타입도 비활성(enabled 게이트).
-	BindingFixtures.enabled = false
-	if BindingFixtures.is_focus_spender("skillbook_execute"):
-		fails += 1; push_error("[BIND] enabled=false must suppress the spender archetype")
-	BindingFixtures.enabled = true
 	# 집중 킷(Mark&Ruin)만 identity가 집중을 새긴다(Beacon은 표식이지 집중이 아님).
 	if not BindingFixtures.identity_focuses("gear_ward_nuker_ruin_sight", "IDA-025"):
 		fails += 1; push_error("[BIND] Mark&Ruin identity should focus")
@@ -88,6 +74,28 @@ func _init() -> void:
 	var sig_f := BindingFixtures.signature_for("gear_ward_nuker_flank_knife", "IDA-029")
 	if String(sig_f.get("name", "")) != "잠행" or String(sig_f.get("covenant", "")).is_empty():
 		fails += 1; push_error("[BIND] Flank covenant missing")
+
+	# --- Healer 지속치유 「DoT」 (BIND-PILOT-013~015) — 가호 폐지, 치유 choke가 정체성 게이트로 즉시→HoT 전환 ---
+	if String(BindingFixtures.resolve("gear_ward_healer_ward_sigil", "IDA-031", "AB-064", 0).get("theme", "")) != "dot_heal":
+		fails += 1; push_error("[BIND] Healer Q(QuickMend) should resolve dot_heal (BIND-PILOT-013)")
+	if not BindingFixtures.identity_dot_heals("gear_ward_healer_ward_sigil", "IDA-031"):
+		fails += 1; push_error("[BIND] DoT-heal identity should gate heal→HoT")
+	if BindingFixtures.identity_dot_heals("gear_ward_healer_mend_lantern", "IDA-026"):
+		fails += 1; push_error("[BIND] Mend Circle identity should NOT dot-heal")
+	var sig_h := BindingFixtures.signature_for("gear_ward_healer_ward_sigil", "IDA-031")
+	if String(sig_h.get("name", "")) != "지속 치유" or String(sig_h.get("covenant", "")).is_empty():
+		fails += 1; push_error("[BIND] DoT-heal covenant missing")
+
+	# --- Healer 성역 「Mend Circle」 (BIND-PILOT-016~018) — 좁은 zone, in-zone 시전 시 치유 증폭(choke) ---
+	if String(BindingFixtures.resolve("gear_ward_healer_mend_lantern", "IDA-026", "AB-064", 0).get("theme", "")) != "sanctuary":
+		fails += 1; push_error("[BIND] Healer Q should resolve sanctuary (BIND-PILOT-016)")
+	if not BindingFixtures.identity_sanctuaries("gear_ward_healer_mend_lantern", "IDA-026"):
+		fails += 1; push_error("[BIND] Mend Circle identity should sanctuary")
+	if BindingFixtures.identity_sanctuaries("gear_ward_healer_ward_sigil", "IDA-031"):
+		fails += 1; push_error("[BIND] DoT-heal identity should NOT sanctuary")
+	var sig_s := BindingFixtures.signature_for("gear_ward_healer_mend_lantern", "IDA-026")
+	if String(sig_s.get("name", "")) != "성역" or String(sig_s.get("covenant", "")).is_empty():
+		fails += 1; push_error("[BIND] Sanctuary covenant missing")
 
 	if fails == 0:
 		print("BINDING SMOKE PASSED")

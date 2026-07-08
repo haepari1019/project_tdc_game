@@ -20,7 +20,7 @@ func cast(m: CharacterBody3D, p: Dictionary, _t: Vector3, ctx) -> bool:
 		if a == null or not is_instance_valid(a) or not a.has_method("heal"):
 			continue
 		var amt: float = (float(a.max_hp) * pct + flat) * coeff
-		var eff: float = a.heal(amt)
+		var eff: float = ctx.deal_heal(a, m, amt)   # 「지속 치유」 정체성이면 즉시→HoT 전환(choke)
 		if eff > 0.0:
 			healed += 1
 			ctx.heal_threat(m, a, eff)   # F-022 §3.9 healer threat per effective HP
