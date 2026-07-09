@@ -6,6 +6,12 @@
 
 ---
 
+### IMPL-DEC-20260709-001 — 결속(P4b) 정본 = **이 세션 게임 구현이 SSOT** (스펙 로드맵 스텁 역전)
+- **결정(감독, 2026-07-09):** Identity Kit Binding의 정본은 **게임 레포 구현**(집중/잠행·초월/혈풍·지속치유/성역, `binding_fixtures.gd` + DRIFT-073~077)으로 한다. 스펙의 `BIND-ROADMAP-007~024` + `EXPANSION_P4B.md`는 **다른(가벼운 페이오프) 설계**라 **폐기·재작성 대상** — 우리 구현을 기준으로 다시 씀.
+- **이유:** 실제 플테로 검증·확정된 건 우리 구현. 스펙 스텁(interrupt/spore/cinder, guard-break/lane/stagger 등)은 착수 전 개념이고 실구현과 어긋남. 되돌리기보다 실구현을 정본화가 맞음.
+- **함의(후속, spec 레포 작업):** P4b 정본화 changeset = ①`ROLE-010 §4.5`/`F-020 §3.7`에 실 키스톤(게이지·HP경제·집중·DoT·성역) 반영 ②`BIND-ROADMAP-INDEX`+스텁 폐기/재작성 ③DRIFT-073~077 OPS_30 전파 ④`binding_fixtures` 오버레이 해킹 → 정본 능력 시스템 이관. **이 레포에서 spec md 편집 금지** — 별도 스펙 세션.
+- **영향:** 결정 로깅만(코드 무변경). 관련: [[identity-kit-binding-plan]], DRIFT-073~077.
+
 ### IMPL-DEC-20260708-002 — Stage 3 DPS 결속(초월·혈풍) + 누커 집중 ENC 수정 + 위협 재조정 + 잠행 E 단축
 - **DPS 결속(DRIFT-077, 설계=`docs/design/dps_binding_kit.md`):**
   - **역할 원칙:** 단일표적=누커, **DPS=애초에 광역**. 공유 3서브를 기본 AoE로(작열 폭발 fire 원형 / 절단 광선 beam 라인 / 빙결 파동 cold 원형). 누커 볼트 재탕 금지.
