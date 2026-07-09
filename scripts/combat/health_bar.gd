@@ -6,6 +6,7 @@ extends Node3D
 const WIDTH := 0.85
 const HEIGHT := 0.11
 const BORDER := 0.025
+const OD_HEIGHT := 0.05           # DPS 「초월」 게이지 바 높이(HP바 아래 얇게)
 const UiColors := preload("res://scripts/core/ui_colors.gd")
 
 var _fill: MeshInstance3D
@@ -22,6 +23,9 @@ var _imm_color: Color = Color.WHITE
 var _imm_t: float = 0.0
 var _frame: MeshInstance3D  # §5.3 attention (elite/boss) emphasis
 var _ratio: float = 1.0
+var _od_bar: MeshInstance3D        # DPS 「초월」 게이지(HP바 아래) — 충전=주황 / 발동=밝은 금색
+var _od_bar_mat: StandardMaterial3D
+var _od_bg: MeshInstance3D
 var _cam: Camera3D
 
 
@@ -58,6 +62,16 @@ func _ready() -> void:
 	_marker2_mat = _marker2.material_override
 	_marker2_mat.render_priority = 1
 	_marker2.visible = false
+	# DPS 「초월」 게이지 — HP바 아래 얇은 바(충전 진행 + 발동 시 밝은 금색). 비-DPS면 계속 숨김.
+	var od_y := -(HEIGHT * 0.5 + BORDER + OD_HEIGHT * 0.5)
+	_od_bg = _make_quad(Color(0.04, 0.04, 0.04, 0.8), WIDTH + BORDER * 2.0, OD_HEIGHT + BORDER, 0.0)
+	_od_bg.position.y = od_y
+	_od_bg.visible = false
+	_od_bar = _make_quad(Color(1.0, 0.62, 0.18, 1.0), WIDTH, OD_HEIGHT, 0.01)
+	_od_bar.position.y = od_y
+	_od_bar_mat = _od_bar.material_override
+	_od_bar_mat.render_priority = 1
+	_od_bar.visible = false
 	_apply()
 
 
@@ -98,6 +112,21 @@ func set_shield_ratio(s: float) -> void:
 	_shield.visible = true
 	_shield.scale = Vector3(_shield_ratio, 1.0, 1.0)
 	_shield.position.x = -WIDTH * 0.5 * (1.0 - _shield_ratio)
+
+
+## DPS 「초월」 게이지 — frac 0..1(충전), active면 밝은 금색. frac 0 & 비활성이면 숨김(비-DPS 유닛은 계속 숨김).
+func set_overdrive(frac: float, active: bool) -> void:
+	if _od_bar == null:
+		return
+	var f := clampf(frac, 0.0, 1.0)
+	var show := f > 0.001 or active
+	_od_bar.visible = show
+	_od_bg.visible = show
+	if not show:
+		return
+	_od_bar.scale = Vector3(maxf(f, 0.0001), 1.0, 1.0)
+	_od_bar.position.x = -WIDTH * 0.5 * (1.0 - f)
+	_od_bar_mat.albedo_color = Color(1.0, 0.9, 0.42) if active else Color(1.0, 0.62, 0.18)
 
 
 ## Show the current aggro target's slot color next to the bar (F-022 §5.2).

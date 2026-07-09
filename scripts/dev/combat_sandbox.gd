@@ -345,6 +345,11 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	bind_row_h.add_child(_btn("HEALER 지속치유", _on_bind_fixture.bind("dothealer")))
 	bind_row_h.add_child(_btn("HEALER 성역", _on_bind_fixture.bind("sanctuary")))
 	box.add_child(bind_row_h)
+	# DPS 파일럿 — 초월(press_rod, 명중 게이지→강화 변형 겁화·중력·절대영도) / 혈풍(weave_staff, HP대가+광역 흡수).
+	var bind_row_d := HBoxContainer.new()
+	bind_row_d.add_child(_btn("DPS 초월", _on_bind_fixture.bind("overdrive")))
+	bind_row_d.add_child(_btn("DPS 혈풍", _on_bind_fixture.bind("bloodgale")))
+	box.add_child(bind_row_d)
 
 	# --- 허수아비 (스킬샷 테스트) — 불사·정지 표적 + 옆에 누적딜/어그로 표시, 각각 초기화 ---
 	box.add_child(_section("허수아비 (스킬샷 테스트)"))
@@ -652,10 +657,12 @@ func _on_gear_changed(index: int) -> void:
 const _BIND_FIXTURES := {
 	"anchor": {"gear": "gear_ward_tank_anchor_bulwark", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK 방벽 충전"},
 	"beacon": {"gear": "gear_ward_tank_kite_shield", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK 표식"},
-	"nuker": {"gear": "gear_ward_nuker_ruin_sight", "subs": ["AB-055", "AB-072", "AB-060"], "role": "Nuker", "label": "NUKER 집중"},
-	"flank": {"gear": "gear_ward_nuker_flank_knife", "subs": ["AB-055", "AB-072", "AB-060"], "role": "Nuker", "label": "NUKER 잠행"},
+	"nuker": {"gear": "gear_ward_nuker_ruin_sight", "subs": ["AB-004", "AB-059", "AB-060"], "role": "Nuker", "label": "NUKER 집중"},
+	"flank": {"gear": "gear_ward_nuker_flank_knife", "subs": ["AB-004", "AB-059", "AB-060"], "role": "Nuker", "label": "NUKER 잠행"},
 	"dothealer": {"gear": "gear_ward_healer_ward_sigil", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 지속치유"},
 	"sanctuary": {"gear": "gear_ward_healer_mend_lantern", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 성역"},
+	"overdrive": {"gear": "gear_ward_dps_press_rod", "subs": ["AB-053", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 초월(게이지→강화)"},
+	"bloodgale": {"gear": "gear_ward_dps_weave_staff", "subs": ["AB-053", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 혈풍(HP대가·광역흡수)"},
 }
 func _on_bind_fixture(which: String) -> void:
 	var cfg: Dictionary = _BIND_FIXTURES.get(which, {})

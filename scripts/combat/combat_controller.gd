@@ -311,7 +311,11 @@ const PIERCE_HALF_WIDTH := 0.9      # 관통선 반폭(m) — 이 안의 적이 
 func _resolve_basic(m: CharacterBody3D, foe: CharacterBody3D) -> void:
 	if foe == null or not is_instance_valid(foe):
 		return
-	_deal_damage(foe, m, m.basic_damage)
+	# 「집중」 빌드(mark_ruin 누커, 조작/AI 공통) — 평타로 1차 대상에 집중 누적, 누적 비례로 이 평타를 증폭.
+	# 집중-누커가 아니면 1.0(무영향). ref: ability_dispatch.nuker_focus_accumulate · DRIFT-076.
+	var focus_mult: float = _ability_dispatch.nuker_focus_accumulate(m, foe)
+	_deal_damage(foe, m, m.basic_damage * focus_mult)
+	_ability_dispatch.dps_overdrive_on_basic(m)   # DPS 「초월」 평타 게이지 빌드(press_line 정체성만; 조작/AI 공통)
 	var vfx_to: Vector3 = foe.global_position   # pierce면 관통 끝점까지 VFX 연장
 	var cleave: float = float(m.basic_cleave_m) if "basic_cleave_m" in m else 0.0
 	var kb: float = float(m.basic_knockback_m) if "basic_knockback_m" in m else 0.0

@@ -231,7 +231,7 @@
     },
     {
       "base_ability_id": "AB-041",
-      "display_name": "Glacial Bolt",
+      "display_name": "빙결 파동",
       "equip_classes": [
         "DPS",
         "Nuker"
@@ -244,6 +244,7 @@
       "cast": {
         "kind": "skillbook_cold",
         "cooldown_s": 5.5,
+        "cast_s": 0.8,
         "targeted": true,
         "range_m": 12,
         "radius_m": 2.0,
@@ -261,7 +262,7 @@
     },
     {
       "base_ability_id": "AB-053",
-      "display_name": "Searing Volley",
+      "display_name": "작열 폭발",
       "equip_classes": [
         "DPS",
         "Nuker"
@@ -274,6 +275,7 @@
       "cast": {
         "kind": "skillbook_fire",
         "cooldown_s": 5,
+        "cast_s": 0.6,
         "targeted": true,
         "range_m": 9,
         "radius_m": 2.6,
@@ -384,7 +386,8 @@
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 6,
-        "channel_s": 2.0,
+        "cast_s": 2.0,
+        "cast_range_disc_m": 6.0,
         "radius_m": 6.0,
         "heal_pct": 0.22
       },
@@ -575,7 +578,7 @@
     },
     {
       "base_ability_id": "AB-054",
-      "display_name": "Rending Beam",
+      "display_name": "절단 광선",
       "equip_classes": [
         "DPS"
       ],
@@ -677,7 +680,7 @@
     },
     {
       "base_ability_id": "AB-004",
-      "display_name": "Charged Voltaic Shot",
+      "display_name": "전격 사격",
       "equip_classes": [
         "Nuker",
         "DPS"
@@ -690,6 +693,7 @@
       "cast": {
         "kind": "skillbook_bolt",
         "cooldown_s": 5,
+        "cast_s": 0.5,
         "targeted": true,
         "range_m": 14,
         "radius_m": 1.2,
@@ -955,7 +959,7 @@
     },
     {
       "base_ability_id": "AB-059",
-      "display_name": "Void Lance",
+      "display_name": "공허창",
       "equip_classes": [
         "Nuker",
         "DPS"
@@ -968,6 +972,7 @@
       "cast": {
         "kind": "skillbook_bolt",
         "cooldown_s": 9,
+        "cast_s": 1.5,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.2,
@@ -1014,7 +1019,8 @@
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 14,
-        "channel_s": 5.0,
+        "cast_s": 5.0,
+        "cast_range_disc_m": 6.0,
         "radius_m": 6.0,
         "heal_pct": 0.55
       },

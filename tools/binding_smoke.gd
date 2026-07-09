@@ -20,9 +20,9 @@ func _init() -> void:
 	if not BindingFixtures.resolve("gear_ward_tank_anchor_bulwark", "IDA-020", "AB-033", 1).is_empty():
 		fails += 1; push_error("[BIND] wrong slotIndex must NOT activate an overlay")
 
-	# All 17 pilot overlays (Tank 001~006 + Nuker 007~008/010~012 + Healer 지속치유 013~015 + Healer 성역 016~018).
-	if BindingFixtures.OVERLAYS.size() != 17:
-		fails += 1; push_error("[BIND] expected 17 pilot overlays, got %d" % BindingFixtures.OVERLAYS.size())
+	# All 23 pilot overlays (Tank 001~006 + Nuker 007~008/010~012 + Healer 013~018 + DPS 초월 019~021 + DPS 혈풍 022~024).
+	if BindingFixtures.OVERLAYS.size() != 23:
+		fails += 1; push_error("[BIND] expected 23 pilot overlays, got %d" % BindingFixtures.OVERLAYS.size())
 
 	# 규약(covenant) — identity가 자기완결 규약을 선언(Beacon=표식 / Anchor=방벽 충전).
 	var sig_b := BindingFixtures.signature_for("gear_ward_tank_kite_shield", "IDA-021")
@@ -41,7 +41,7 @@ func _init() -> void:
 		fails += 1; push_error("[BIND] Anchor identity should NOT mark")
 
 	# --- Nuker Mark&Ruin 「집중」 — 빌더 서브 누적(focus_stack, BIND-PILOT-007~008) + 소모 아키타입(is_focus_spender) ---
-	if String(BindingFixtures.resolve("gear_ward_nuker_ruin_sight", "IDA-025", "AB-055", 0).get("delta", "")) != "focus_stack":
+	if String(BindingFixtures.resolve("gear_ward_nuker_ruin_sight", "IDA-025", "AB-004", 0).get("delta", "")) != "focus_stack":
 		fails += 1; push_error("[BIND] Nuker Q should resolve focus_stack (BIND-PILOT-007)")
 	# 소모는 특정 처형 AB가 아니라 kind 아키타입이 담당 — execute-kind는 소모형, bolt-kind는 아님.
 	if not BindingFixtures.is_focus_spender("skillbook_execute"):
@@ -59,8 +59,10 @@ func _init() -> void:
 		fails += 1; push_error("[BIND] Mark&Ruin covenant missing")
 
 	# --- Nuker Flank Collapse 「잠행」 (BIND-PILOT-010~012) — 근접화 + 사거리 비례 이득(flank_strike) + 처치→은신 ---
-	if String(BindingFixtures.resolve("gear_ward_nuker_flank_knife", "IDA-029", "AB-072", 1).get("delta", "")) != "flank_strike":
-		fails += 1; push_error("[BIND] Flank E(Long) should resolve flank_strike (BIND-PILOT-011)")
+	if String(BindingFixtures.resolve("gear_ward_nuker_flank_knife", "IDA-029", "AB-059", 1).get("delta", "")) != "flank_dash":
+		fails += 1; push_error("[BIND] Flank E(공허창) should resolve flank_dash (BIND-PILOT-011)")
+	if String(BindingFixtures.resolve("gear_ward_nuker_flank_knife", "IDA-029", "AB-004", 0).get("delta", "")) != "flank_strike":
+		fails += 1; push_error("[BIND] Flank Q(전격) should resolve flank_strike (BIND-PILOT-010)")
 	# 잠행 킷만 처치→은신 게이트가 열린다(집중 킷은 아님).
 	if not BindingFixtures.identity_flanks("gear_ward_nuker_flank_knife", "IDA-029"):
 		fails += 1; push_error("[BIND] Flank identity should gate veil-on-kill")
@@ -96,6 +98,28 @@ func _init() -> void:
 	var sig_s := BindingFixtures.signature_for("gear_ward_healer_mend_lantern", "IDA-026")
 	if String(sig_s.get("name", "")) != "성역" or String(sig_s.get("covenant", "")).is_empty():
 		fails += 1; push_error("[BIND] Sanctuary covenant missing")
+
+	# --- DPS press_line 「초월」 (BIND-PILOT-019~021) — 명중 게이지 → dur초 강화 변형(fire/beam/cold 분기) ---
+	if String(BindingFixtures.resolve("gear_ward_dps_press_rod", "IDA-024", "AB-053", 0).get("delta", "")) != "overdrive_charge":
+		fails += 1; push_error("[BIND] DPS Q(작열) should resolve overdrive_charge (BIND-PILOT-019)")
+	if not BindingFixtures.identity_overdrive("gear_ward_dps_press_rod", "IDA-024"):
+		fails += 1; push_error("[BIND] press_line identity should overdrive")
+	if BindingFixtures.identity_overdrive("gear_ward_dps_weave_staff", "IDA-027"):
+		fails += 1; push_error("[BIND] arc_weave identity should NOT overdrive")
+	var sig_o := BindingFixtures.signature_for("gear_ward_dps_press_rod", "IDA-024")
+	if String(sig_o.get("name", "")) != "초월" or String(sig_o.get("covenant", "")).is_empty():
+		fails += 1; push_error("[BIND] Overdrive covenant missing")
+
+	# --- DPS arc_weave 「혈풍」 (BIND-PILOT-022~024) — 서브 HP 대가 + 광역 명중 적 비례 회복 ---
+	if String(BindingFixtures.resolve("gear_ward_dps_weave_staff", "IDA-027", "AB-053", 0).get("delta", "")) != "blood_soak":
+		fails += 1; push_error("[BIND] DPS Q(작열) should resolve blood_soak (BIND-PILOT-022)")
+	if not BindingFixtures.identity_bloodgale("gear_ward_dps_weave_staff", "IDA-027"):
+		fails += 1; push_error("[BIND] arc_weave identity should bloodgale")
+	if BindingFixtures.identity_bloodgale("gear_ward_dps_press_rod", "IDA-024"):
+		fails += 1; push_error("[BIND] press_line identity should NOT bloodgale")
+	var sig_bg := BindingFixtures.signature_for("gear_ward_dps_weave_staff", "IDA-027")
+	if String(sig_bg.get("name", "")) != "혈풍" or String(sig_bg.get("covenant", "")).is_empty():
+		fails += 1; push_error("[BIND] Blood Gale covenant missing")
 
 	if fails == 0:
 		print("BINDING SMOKE PASSED")

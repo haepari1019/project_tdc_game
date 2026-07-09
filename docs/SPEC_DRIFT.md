@@ -579,3 +579,27 @@
 - **게임 반영:** `skillbooks.json` AB-064/065/066 `kind` 재해석(`skillbook_channel_heal`/`skillbook_ward_heal`) + 신규 이펙트(sb_channel_heal·channel_heal·sb_ward_heal·ward_heal) + 재사용 컴포넌트 `cast_bar`(연속 진행바)·`range_disc`(자기중심 힐 범위). 채널=점유+이동취소(쿨/차지 환급). 최종 힐은 deal_heal 경유 → 정체성 자동 연동.
 - **분류\전파:** rule/데이터(서브 kind 재정의) — 로깅만, 게이트 후 전파 예정.
 - **상태:** 🕒 로깅. **P4a 재사용:** `cast_bar`/`range_disc`는 「캐스팅 시간 전체 스킬 확장」에서 재활용 예정.
+
+### DRIFT-075 — 캐스터(Nuker·DPS·Healer) 스킬 = 캐스트/채널 중심, 즉발 최소·강패널티 🕒 설계 원칙 (전파 대기)
+- **감독 방향(2026-07-08):** 백라인/캐스터 클래스(**Nuker·DPS·Healer**)는 **즉발기(instant-cast)를 최대한 배제**한다. 즉발기를 넣는다면 **강한 패널티**(예: 고쿨). → 이 클래스 스킬의 기본은 **캐스트 시간/채널**(commit·텔레그래프·이동취소 리스크).
+- **함의:** 단일타겟 너커 등 스킬 **차별화는 숫자(딜/쿨)가 아니라 캐스트 방식(즉발↔짧은캐스트↔긴차지↔채널)이 주도**. 현재 즉발 볼트(AB-004 전격사격·AB-059 공허창 등)는 잠정 — P4a에서 캐스트 시간이 붙으며 자연히 갈림.
+- **연결:** 스펙 **`castTier`(D-016 §3.6.2 wind-up/rootDuringCast)** = 이 원칙의 SSOT 후보. 게임측 `cast_bar`(연속 진행바)·채널(begin/end_channel·이동취소→쿨/차지 환급) 시스템이 「P4a 캐스팅 시간 전체 스킬 확장」의 토대(IMPL-DEC-20260708-001). castTier B/C는 IMPL-DEC-20260704-002에서 이연됨 — 이 원칙으로 재개.
+- **분류\전파:** rule(설계 원칙) — P4a 캐스팅 확장 스프린트에서 **OPS_30로 spec `D-016`/castTier·`ROLE-010` 캐스터 절 전파** 예정. 이 레포에서 spec md 편집 금지.
+- **상태:** 🕒 원칙 로깅(게임 미구현, 스펙 전파 대기).
+
+### DRIFT-076 — 「집중」(Mark&Ruin, IDA-025) 빌드를 조작-전용→**모든 명중·AI 공통**으로 확장 🕒 파일럿 스코프변경 (전파 보류)
+- **증상(2026-07-08):** ENC에서 AI 누커 집중 대상(🎯)이 안 뜸. (거리 아님 — 누커가 근접까지 가도 안 뜸.)
+- **진단(2정):** ① **is_controlled 게이트** — 파일럿 결속은 `F-020 §3.3`(NC 미적용, 조작-전용)대로 `is_controlled()` 안에서만 집중을 씨앗했고, 기본 조작 캐릭터는 탱커(index 0, `party_controller` `_set_controlled_index(0)`)라 AI 누커는 집중을 **아예 안 새김**. ② **씨앗 원천이 8m 정체성뿐** — 조작 중이어도 원거리 서브 캐스터(전격 14m·공허창 15m)는 8m mark_burst가 안 닿아 집중이 안 떴음(2차 문제). 서브 `focus_stack`도 `get_focus_enemy()==null`이라 무력. 허수아비 근접 테스트에서만 우연히 동작.
+- **감독 결정(2026-07-08):** **AI 누커도 집중 빌드**(스펙 `F-020 §3.3` NC-미적용 이탈). 소모(execute)는 서브 아키타입이라 **조작 시에만**(AI는 서브 미사용) — 빌드/시각화는 AI, 페이오프는 조작.
+- **수정:** 집중 seed/stack을 공용 `nuker_focus_accumulate(member, enemy)`로 통일(**ungated**) — **평타(`_resolve_basic`)·정체성(`mark_ruin`)·서브(`_nuker_focus_stack`) 명중이 모두 호출**, is_controlled 무관. 반환=누적 비례 증폭 배수(1+누적×pct)를 각 명중 딜에 곱(평타/정체성 fold-in, 서브는 진홍 추가타 팝업). `FOCUS.seed_radius_m=3.0`. covenant를 "공격이 명중하면 집중 대상(평타·정체성·서브 공통)"으로 갱신.
+- **스코프 주:** 이 ungate는 **「집중」(focus)만**. 탱커 방벽·표식 / 힐러 성역·지속치유는 **여전히 조작-전용** — 동일 확장은 감독 결정 시 별도.
+- **분류\전파:** 파일럿 로컬(binding_fixtures = CombatContentMap-UNREGISTERED 비정본). rule·scope 변경 — P4a 정본화 시 「집중」 빌드 규칙 + **결속 NC 스코프(`F-020 §3.3`) 재검토**와 함께 OPS_30 전파. 이 레포에서 spec md 편집 금지.
+- **상태:** 🕒 파일럿 수정. 게임 내 플레이테스트 확인 대기.
+
+### DRIFT-077 — DPS 결속 「초월(Overdrive)」 / 「혈풍(Blood Gale)」 파일럿 (press_line/arc_weave) 🕒 파일럿 신규 (전파 보류)
+- **감독 설계(2026-07-08):** DPS 두 정체성의 운영 루프를 감독이 직접 지정. **역할 원칙 = 단일표적은 누커, DPS는 애초에 광역** → DPS 공유 3서브를 기본부터 AoE로(작열 폭발 fire 원형 / 절단 광선 beam 라인 / 빙결 파동 cold 원형). 누커 볼트 재탕 금지.
+- **「초월」(press_line/IDA-024):** 스킬·평타 명중마다 게이지↑, 가득 차면 dur초 **강화 변형**. 강화 = **단순 배수 아님, 효과 변화**(ref=LoL 카르마 Mantra): fire→화상(Ignited·**적한정 DoT**, 장판 대신 상태라 아군 무피해) / beam→끌어당김 / cold→빙결(Rooted). 게이지·강화 모두 **조작/AI 공통**([[DRIFT-076]] 스코프) — AI가 게이지를 쌓고, 켜지는 순간 조작 전환해 몰아치는 루프.
+- **「혈풍」(arc_weave/IDA-027):** 서브 시전당 max_hp 12% 소모, **명중 적 1기당 5% 회복**(3기+ 순이득). 서브가 애초에 광역이라 억지 스플래시 없이 성립. 자살 불가(hp_floor 클램프). 적 多=유지 / 적 少=손해 → 누커로 전환 유도.
+- **구현:** `BindingFixtures.OVERDRIVE/BLOODGALE` + BIND-PILOT-019~024(6). party_member 게이지 상태·틱·`blood_soak`, health_bar 초월 게이지 바, overhead_badges 「초월」. dispatch `overdrive_charge`/`blood_soak` 델타 + kind 분기 강화(`_dps_overdrive_empower`) + 명중 집계(radius/cone). 서브 데이터: AB-053/041 cast_s(DRIFT-075), AB-053/054/041 한글명.
+- **분류\전파:** 파일럿 로컬(비정본). rule·scope(캐스터 광역·초월 리소스·NC 공통) — P4a 정본화 시 [[DRIFT-075]]/[[DRIFT-076]]와 함께 spec `ROLE-010`/`D-016` 전파. 이 레포에서 spec md 편집 금지.
+- **상태:** 🕒 파일럿 구현(binding_smoke 23 + ci_smoke 대상). 플레이테스트 확인 대기. 설계 정본 = `docs/design/dps_binding_kit.md`.

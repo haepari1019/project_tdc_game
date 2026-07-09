@@ -9,7 +9,7 @@ class_name OverheadBadges
 ## 사용: `const _OB := preload(".../overhead_badges.gd")` → `var strip = _OB.new(); add_child(strip)` → set_badge/clear_badge.
 
 ## 표시 정렬 순서(왼→오). 목록에 없는 key는 뒤에 붙는다. 새 결속 상태는 여기에 추가.
-const PRIORITY := ["veil", "mark", "bulwark", "focus", "sunder", "ward", "chain", "vulnerable"]
+const PRIORITY := ["overdrive", "veil", "mark", "bulwark", "focus", "sunder", "ward", "chain", "vulnerable"]
 
 var _badges := {}   # key -> String (짧게: 아이콘+숫자, 예 "🎯5" "🛡◆◆◇" "◈")
 var _accent := {}   # key -> bool (강조 상태면 스트립 전체를 금색으로 — 예: 집중 MAX)

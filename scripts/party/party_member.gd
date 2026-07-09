@@ -159,6 +159,11 @@ var _sanctuary_pos: Vector3 = Vector3.ZERO   # Mend Circle 「성역」 — iden
 var _sanctuary_timer_s: float = 0.0          # 성역 유지 시간; 0 = 없음
 var _sanctuary_radius: float = 3.0
 var _sanctuary_ring: MeshInstance3D = null   # 지면 링(top_level — 시전자 이동과 무관하게 고정)
+var _od_gauge: float = 0.0            # DPS press_line 「초월」 게이지(0.._od_gauge_max); active 중엔 max→0 감소(창 진행)
+var _od_gauge_max: float = 100.0
+var _od_active: bool = false          # 초월 발동 상태(링크 서브 강화 변형 on) — ability_dispatch가 조회
+var _od_timer_s: float = 0.0
+var _od_dur_s: float = 0.0
 var _status_orb: MeshInstance3D
 var _flash_heal_tw: Tween
 
@@ -352,6 +357,14 @@ func _tick_binding(delta: float) -> void:
 		elif _sanctuary_ring != null:              # 안 = 밝게(증폭 중) / 밖 = 흐리게(들어가야 증폭)
 			(_sanctuary_ring.material_override as StandardMaterial3D).albedo_color = \
 				Color(1.0, 0.9, 0.55, 0.9) if in_sanctuary() else Color(1.0, 0.9, 0.55, 0.32)
+	if _od_active:                                  # 초월: 창 진행에 따라 게이지 max→0, 만료 시 강화 해제
+		_od_timer_s -= delta
+		_od_gauge = _od_gauge_max * clampf(_od_timer_s / maxf(0.01, _od_dur_s), 0.0, 1.0)
+		if _od_timer_s <= 0.0:
+			_od_active = false
+			_od_gauge = 0.0
+			_set_overdrive_glow(false)
+		_update_overdrive_ui()
 
 
 ## Read the watched enemy internally (untyped) — a freed instance passed as a typed arg throws
@@ -520,6 +533,17 @@ func binding_focus_break() -> void:
 		_focus_enemy.show_focus(0)
 
 
+## 「집중」 전이(E) — 현재 집중을 `enemy`로 옮긴다. 누적·유지 시간 유지, 마커도 이전. 집중 없으면 무시.
+func binding_focus_transfer(enemy) -> void:
+	if _focus_timer_s <= 0.0 or enemy == null:
+		return
+	if _focus_enemy != enemy and is_instance_valid(_focus_enemy) and _focus_enemy.has_method("hide_focus"):
+		_focus_enemy.hide_focus()
+	_focus_enemy = enemy
+	if enemy.has_method("show_focus"):
+		enemy.show_focus(_focus_stacks)
+
+
 ## 소모 아키타입 스킬: 현재 누적을 반환하고 0으로 소모. 집중 대상은 유지(살아있으면) → 다시 쌓아 재소모 가능.
 func binding_focus_take() -> int:
 	var n := _focus_stacks
@@ -535,6 +559,64 @@ func binding_focus_clear() -> void:
 	_focus_enemy = null
 	_focus_timer_s = 0.0
 	_focus_stacks = 0
+
+
+# ---- DPS press_line 「초월(Overdrive)」 (BIND-PILOT-019~021) — 명중 게이지 → dur초 강화 변형. ability_dispatch 구동 ----
+## 게이지 충전(발동 중엔 소진이라 무시). 가득 차면 발동(dur초). 조작/AI 공통(is_controlled 무관 — DRIFT-076 스코프).
+func overdrive_add(amount: float, gauge_max: float, dur: float) -> void:
+	if _od_active or not _alive:
+		return
+	_od_gauge_max = gauge_max
+	_od_gauge = minf(gauge_max, _od_gauge + amount)
+	if _od_gauge >= gauge_max:
+		_od_active = true
+		_od_timer_s = dur
+		_od_dur_s = dur
+		_set_overdrive_glow(true)
+		popup_status("초월!", Color(1.0, 0.85, 0.35))
+	_update_overdrive_ui()
+
+
+func overdrive_is_active() -> bool:
+	return _od_active
+
+
+func overdrive_gauge_frac() -> float:
+	return clampf(_od_gauge / maxf(1.0, _od_gauge_max), 0.0, 1.0)
+
+
+func _set_overdrive_glow(on: bool) -> void:
+	if on:
+		_badge_strip().set_badge("overdrive", "초월", true)   # 금색 강조 뱃지
+	elif _badges != null:
+		_badges.clear_badge("overdrive")
+
+
+func _update_overdrive_ui() -> void:
+	if _hp_bar != null and _hp_bar.has_method("set_overdrive"):
+		_hp_bar.set_overdrive(overdrive_gauge_frac(), _od_active)
+
+
+# ---- DPS arc_weave 「혈풍(Blood Gale)」 (BIND-PILOT-022~024) — 서브 시전 HP 대가 + 명중 적 수 비례 회복 ----
+## 소모(자살 불가 — floor 클램프) + 회복(명중 적 비례). `overheal_shield_dur`>0(혈빙)이면 max_hp 초과 회복분을
+## 임시 보호막으로 전환. 붉은 −N / 초록 +N(막) 팝업. ability_dispatch가 kind별 정산으로 호출.
+func blood_soak(cost: float, refund: float, floor_hp: float, overheal_shield_dur: float = 0.0) -> void:
+	if not _alive:
+		return
+	if cost > 0.0:
+		hp = maxf(floor_hp, hp - cost)
+		popup_status("-%d" % int(round(cost)), Color(0.95, 0.35, 0.3))
+	if refund > 0.0:
+		var healed: float = minf(max_hp - hp, refund)
+		hp += healed
+		var overflow: float = refund - healed
+		if overflow > 0.5 and overheal_shield_dur > 0.0:
+			add_shield(overflow, overheal_shield_dur)            # 혈빙 — 과회복분 임시 보호막
+			popup_status("+%d(막)" % int(round(refund)), Color(0.6, 0.85, 1.0))
+		else:
+			popup_status("+%d" % int(round(maxf(healed, 0.0))), Color(0.4, 0.95, 0.55))
+	if _hp_bar:
+		_hp_bar.set_ratio(hp / max_hp)
 
 
 # ---- Mend Circle 「성역」 (BIND-PILOT-016~018) — identity가 좁은 고정 zone을 세움, 그 안에서 시전 시 치유 증폭 ----

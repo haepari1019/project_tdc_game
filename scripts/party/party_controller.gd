@@ -754,6 +754,9 @@ func _sv1_update_follow(
 		if member.has_method("is_mia") and member.is_mia():
 			member.velocity = Vector3.ZERO
 			continue  # MIA — holds in place for player regroup (F-004 §3.4)
+		if member.has_method("is_channeling") and member.is_channeling():
+			member.velocity = Vector3.ZERO
+			continue  # 캐스팅(채널) 중 비조작 멤버 — 진형 추종\교전을 멈추고 제자리 유지(스킬 발현까지 진형 깨져도 유지). 조작 중이면 위에서 skip → WASD 이동 시 정상 취소.
 		if member.has_method("is_provoked") and member.is_provoked():
 			planned[member] = _provoked_seek_vel(member)  # forced toward the taunt caster (AB-099)
 			continue
@@ -795,6 +798,10 @@ func _sv1_update_follow(
 	# would otherwise stand at the formation origin while everyone else engages, so
 	# drive it into combat here too. Outside combat it holds (the formation reference).
 	if not anchor.is_controlled() and (not anchor.has_method("is_alive") or anchor.is_alive()):
+		# 채널 중인 비조작 앵커도 제자리 유지(스킬 발현까지 진형 깨져도 유지).
+		if anchor.has_method("is_channeling") and anchor.is_channeling():
+			anchor.velocity = Vector3.ZERO
+			return
 		# A provoked NC anchor is forced to the caster like any other member (AB-099).
 		if anchor.has_method("is_provoked") and anchor.is_provoked():
 			anchor.velocity = _provoked_seek_vel(anchor)

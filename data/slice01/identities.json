@@ -11,7 +11,7 @@
         "basic_damage": 8,
         "basic_range_m": 2.2,
         "basic_interval_s": 1.0,
-        "threat_mult": 2.2
+        "threat_mult": 5.0
       }
     },
     {
@@ -23,7 +23,8 @@
         "hp": 110,
         "basic_damage": 16,
         "basic_range_m": 10.0,
-        "basic_interval_s": 0.7
+        "basic_interval_s": 0.7,
+        "threat_mult": 0.6
       }
     },
     {
@@ -35,7 +36,8 @@
         "hp": 90,
         "basic_damage": 14,
         "basic_range_m": 2.4,
-        "basic_interval_s": 1.1
+        "basic_interval_s": 1.1,
+        "threat_mult": 0.6
       }
     },
     {
@@ -60,7 +62,7 @@
         "basic_damage": 10,
         "basic_range_m": 2.4,
         "basic_interval_s": 1.0,
-        "threat_mult": 2.6
+        "threat_mult": 6.0
       }
     },
     {
@@ -73,7 +75,7 @@
         "basic_damage": 9,
         "basic_range_m": 2.2,
         "basic_interval_s": 1.0,
-        "threat_mult": 2.0
+        "threat_mult": 4.5
       }
     },
     {
@@ -86,7 +88,7 @@
         "basic_damage": 7,
         "basic_range_m": 2.0,
         "basic_interval_s": 1.1,
-        "threat_mult": 2.4
+        "threat_mult": 5.5
       }
     },
     {
@@ -98,7 +100,8 @@
         "hp": 100,
         "basic_damage": 13,
         "basic_range_m": 14.0,
-        "basic_interval_s": 0.8
+        "basic_interval_s": 0.8,
+        "threat_mult": 0.6
       }
     },
     {
@@ -110,7 +113,8 @@
         "hp": 85,
         "basic_damage": 20,
         "basic_range_m": 2.2,
-        "basic_interval_s": 1.0
+        "basic_interval_s": 1.0,
+        "threat_mult": 0.6
       }
     },
     {

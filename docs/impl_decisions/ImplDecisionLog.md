@@ -6,6 +6,18 @@
 
 ---
 
+### IMPL-DEC-20260708-002 — Stage 3 DPS 결속(초월·혈풍) + 누커 집중 ENC 수정 + 위협 재조정 + 잠행 E 단축
+- **DPS 결속(DRIFT-077, 설계=`docs/design/dps_binding_kit.md`):**
+  - **역할 원칙:** 단일표적=누커, **DPS=애초에 광역**. 공유 3서브를 기본 AoE로(작열 폭발 fire 원형 / 절단 광선 beam 라인 / 빙결 파동 cold 원형). 누커 볼트 재탕 금지.
+  - **「초월」(press_line):** 명중 게이지→dur초 강화. 강화 = **효과 변화**(카르마 Mantra식, 배수 아님): fire→화상(Ignited·**적한정** DoT — 장판이면 아군 피해라 상태 DoT 채택) / beam→끌어당김 / cold→빙결(Rooted). 게이지·강화 **조작/AI 공통**([[DRIFT-076]] 스코프) → AI가 쌓고 켜질 때 조작 전환.
+  - **「혈풍」(arc_weave):** 서브당 max_hp 12% 소모 + 명중 적 1기당 5% 회복(3기+ 이득). 광역 서브라 자연 성립·자살 불가(floor 클램프).
+  - **구현:** `nuker_focus_accumulate` 패턴 답습 — 공용 `overdrive_charge`/`blood_soak` 델타 + kind 분기 강화 + 명중 집계(radius/cone). 게이지 상태·틱은 party_member, UI는 health_bar 초월 바 + overhead 「초월」 뱃지.
+- **누커 집중 ENC 수정(DRIFT-076):** 씨앗을 8m 정체성-전용·is_controlled 게이트 → **모든 명중(평타/정체성/서브)·조작AI 공통**으로. `nuker_focus_accumulate` 단일화, seed_radius_m=3.0.
+- **위협 재조정:** 탱커 threat_mult ~2.3× 강화(비콘 6.0 등) + 딜러 0.6 감소 — 딜러 폭딜 서브가 어그로 뜯던 근본 원인 상쇄(탱커만 올려선 못 잡음, 상대 위협 정직 판단).
+- **잠행 E 대시:** 서브 원래 사거리(공허창 15m)→**고정 4m**(`FLANK.dash_m`). 맵 가로질러 튕기던 문제 해소.
+- **검증:** `binding_smoke`(23 오버레이) · `ci_smoke 7/7`. 감독 플레이테스트 수용(집중 AI빌드·겁화 장판→화상 DoT 등).
+- **영향:** binding_fixtures·ability_dispatch·party_member·combat_controller·health_bar·overhead_badges·combat_sandbox·binding_smoke·identities.json·skillbooks.json. DRIFT-076/077. 관련: [[identity-kit-binding-plan]].
+
 ### IMPL-DEC-20260708-001 — Stage 3 Healer 결속(지속치유·성역) + 힐러 킷 재설계 + 정체성별 스킬셋 통일
 - **결정:** Stage 3 Healer 2정체성 + **평가 원칙 확립**: *한 클래스의 두 정체성은 동일 3서브를 공유*하고, 정체성이 그 서브를 어떻게 변형하는지로 평가(정체성=규격 철학의 실전화).
   - **IDA-031 「지속 치유」(가호 폐지, DRIFT-073):** 착용 시 모든 치유가 **도트로 강제 전환**(즉시→N틱, 총량 ×1.4). 치유 choke(`deal_heal`/`deal_regen`)가 `identity_dot_heals` 게이트로 변환(기존 `apply_regen` 재사용). abilities.json IDA-031 kind `ward_shield`→`radius_heal`.

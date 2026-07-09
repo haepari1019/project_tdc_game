@@ -9,6 +9,7 @@ extends Node3D
 ## string lives in the file — no other central edit). ref: F-005 · F-009 · QA-005 §2.6.
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
+const _SkillCast := preload("res://scripts/combat/abilities/effects/skill_cast.gd")  # P4a 캐스팅 시간 범용 래퍼
 const _RampartBarrier := preload("res://scripts/world/objects/rampart_barrier.gd")  # AB-034 spawn
 const _Projectile := preload("res://scripts/combat/abilities/projectile.gd")        # delivery=projectile
 
@@ -109,14 +110,9 @@ func try_identity(m: CharacterBody3D) -> bool:
 			var e: CharacterBody3D = nearest_enemy_in_range(m.global_position, float(mk["radius_m"]))
 			if e != null:
 				m.binding_mark(e, float(mk["window_s"]), float(mk["cd_reduce"]))
-		# P4a Kit Binding 「집중」 — Mark&Ruin 정체성은 단일 표적을 집중 대상으로 새긴다. 살아있는 집중이 있으면
-		# 유지(고정) — 매 시전마다 대상이 튀지 않게. lowest-HP = 저격 우선순위(identity 자체 타겟팅과 일치).
-		if m.is_controlled() and BindingFixtures.identity_focuses(String(m.base_gear_id), String(m.ability_id)):
-			if m.get_focus_enemy() == null:
-				var f: Dictionary = BindingFixtures.FOCUS
-				var fe: CharacterBody3D = lowest_hp_enemy_in_radius(m.global_position, float(f["radius_m"]))
-				if fe != null:
-					m.binding_focus(fe, float(f["window_s"]))
+		# P4a Kit Binding 「집중」 — 집중은 여기서 씨앗 안 뿌린다. mark_ruin 누커가 **적을 명중할 때마다**(평타
+		# _resolve_basic · 정체성 mark_ruin · 서브 _nuker_focus_stack) nuker_focus_accumulate로 seed/stack한다.
+		# **is_controlled 무관**(AI 누커도 빌드) — 8m 정체성만 씨앗 뿌리던 조작-전용 방식은 원거리/AI에서 안 떴다. DRIFT-076.
 		# P4a 「성역」 — Mend Circle 정체성은 발밑에 좁은 성역을 세운다(스티키 — 유지 중이면 유지, 만료 시 재설치).
 		if m.is_controlled() and BindingFixtures.identity_sanctuaries(String(m.base_gear_id), String(m.ability_id)):
 			if not m.has_sanctuary():
@@ -156,17 +152,41 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	# D-018 §7.3 — affix coeffMult는 cross-class 밴드와 **독립**으로 곱(합산 ≤15% 안전 클램프). cd_trade는 쿨 가산.
 	var affix: Dictionary = inst.get("affix", {})
 	p["_coeff"] = _band_coeff(String(member.class_id), bands) * (1.0 + clampf(float(affix.get("coeff", 0.0)), -0.15, 0.15))
-	p["_slot"] = slot_index   # 채널 등 취소 시 쿨/차지 환급용(channel_heal이 이 슬롯을 되돌림)
-	# target_pos = aimed ground point (targeted subs) or caster position (self-centered).
-	var skill = _skills.get(String(p.get("kind", "")))
-	if skill != null and skill.cast(member, p, target_pos, self):
+	p["_slot"] = slot_index   # 캐스트 취소 시 쿨/차지 환급용(skill_cast이 이 슬롯을 되돌림)
+	var cd: float = float(p.get("cooldown_s", 6.0)) * (1.0 + float(affix.get("cd_trade", 0.0)))
+	# P4a 「캐스팅 시간」(DRIFT-075) — cast_s>0이면 캐스트바 진행 후 **완료 시점에** 발현+결속(취소 시 환급).
+	# 캐스터(Nuker/DPS/Healer) 스킬은 이 경로가 기본. cast_s=0(즉발)은 아래 즉시 발현.
+	var cast_s: float = float(p.get("cast_s", 0.0))
+	if cast_s > 0.0:
+		inst.charges = int(inst.charges) - 1   # commit — 캐스트 시작에 선차감(취소면 skill_cast이 환급)
+		inst.cooldown_s = cd
+		var node = _SkillCast.new()
+		add_child(node)
+		var pd: Dictionary = p.duplicate()     # 완료 시점 파라미터 고정
+		node.setup(member, slot_index, cast_s, self,
+			func() -> void: _resolve_sub(member, slot_index, pd, target_pos),
+			float(p.get("cast_range_disc_m", 0.0)), _cast_bar_color(String(p.get("kind", ""))))
+		return
+	# 즉발 — 발현 성공 시에만 차감.
+	if _resolve_sub(member, slot_index, p, target_pos):
 		inst.charges = int(inst.charges) - 1
-		inst.cooldown_s = float(p.get("cooldown_s", 6.0)) * (1.0 + float(affix.get("cd_trade", 0.0)))
-		_apply_binding(member, slot_index, target_pos)   # P4a Kit Binding overlay (if the triple matches)
-		# 「집중」 소모 아키타입 — 스택-소모 계열(kind)이면 슬롯/링크 무관하게 누적 집중을 소모(누적 비례 폭발).
-		# 특정 처형 AB에 묶지 않는 카테고리 규칙(BindingFixtures.is_focus_spender). 집중 없으면 no-op.
-		if BindingFixtures.is_focus_spender(String(p.get("kind", ""))):
-			_nuker_focus_spend(member)
+		inst.cooldown_s = cd
+
+
+## 서브 발현(즉발/캐스트 완료 공용) — effect 실행 + **결속 델타를 발현 시점에** 적용 + 집중 소모 아키타입. 성공 여부 반환.
+func _resolve_sub(member: CharacterBody3D, slot_index: int, p: Dictionary, target_pos: Vector3) -> bool:
+	var skill = _skills.get(String(p.get("kind", "")))
+	if skill == null or not skill.cast(member, p, target_pos, self):
+		return false
+	_apply_binding(member, slot_index, target_pos)   # 오버레이 델타(bulwark/mark/focus/flank/…)
+	if BindingFixtures.is_focus_spender(String(p.get("kind", ""))):
+		_nuker_focus_spend(member)                   # execute-kind → 집중 소모(아키타입)
+	return true
+
+
+## 캐스트바 색 — 힐 계열은 초록, 그 외는 파랑.
+func _cast_bar_color(kind: String) -> Color:
+	return Color(0.45, 0.9, 0.7) if kind.contains("heal") else Color(0.5, 0.72, 1.0)
 
 
 # ============================================================================
@@ -201,9 +221,21 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			# --- Mark&Ruin 「집중」 빌더: 딜링 서브는 집중 대상 명중 시 누적+추가타. 소모는 아키타입 규칙(cast_skillbook) ---
 		"focus_stack":
 			_nuker_focus_stack(member, aim)
+		"focus_spread":   # E — 누적 추가타 후 집중을 근처 적으로 전이(누적 유지)
+			_nuker_focus_stack(member, aim)
+			_nuker_focus_spread(member)
 			# --- Flank Collapse 「잠행」: 근접화된 링크 스킬이 원래 사거리 비례 이득(1차 뎀 / 2차 쿨감). 처치→은신은 kill 훅 ---
 		"flank_strike":
 			_nuker_flank_strike(member, slot_index, aim)
+		"flank_dash":     # E — 사거리 비례 이득 후 적 반대편으로 원래 사거리만큼 순간 이탈
+			_nuker_flank_strike(member, slot_index, aim)
+			_nuker_flank_dash(member, slot_index, aim)
+			# --- DPS press_line 「초월」: 서브 명중 시 게이지 충전(비발동) / 초월 중이면 서브 강화 변형(겁화·중력·절대영도) ---
+		"overdrive_charge":
+			_dps_overdrive(member, slot_index, aim)
+			# --- DPS arc_weave 「혈풍」: 서브 시전당 HP 대가 + 광역 명중 적 수 비례 회복(3기+ 이득) ---
+		"blood_soak":
+			_dps_blood_soak(member, slot_index, aim)
 
 
 ## Anchor 「방벽 충전」 — add a BulwarkCharge; on the 3-stack consume, stun the nearest enemy (capstone).
@@ -228,22 +260,35 @@ func _beacon_mark_threat(member: CharacterBody3D) -> void:
 		e.set_threat_floor(member, t)
 
 
-## Mark&Ruin 「집중」 딜링 서브 — 집중 대상을 명중하면 누적 +1 & 누적 비례 추가타.
-## 조준이 집중 대상에서 벗어나면(다른 적 겨냥) 누적이 끊긴다. 집중이 없으면 base 스킬만.
+## Mark&Ruin 「집중」 빌드(공용·ungated) — mark_ruin 누커가 enemy를 명중하면 그 적에게 집중을 seed/stack.
+## **is_controlled 무관**(조작/AI 공통) — AI 누커도 평타·정체성 명중으로 집중을 쌓아 🎯 표시(소모=execute만
+## 서브라 자연히 조작 전용). 반환 = 이 명중에 곱할 증폭 배수(1.0 + 누적×pct); 집중-누커 아니거나 무효 대상이면
+## 1.0(무증폭). 평타(_resolve_basic)·정체성(mark_ruin)·서브(_nuker_focus_stack)가 각자 자기 딜에 곱한다. DRIFT-076.
+func nuker_focus_accumulate(member, enemy) -> float:
+	if enemy == null or not is_instance_valid(enemy):
+		return 1.0
+	if String(member.class_id) != "Nuker" \
+			or not BindingFixtures.identity_focuses(String(member.base_gear_id), String(member.ability_id)):
+		return 1.0
+	var f: Dictionary = BindingFixtures.FOCUS
+	if member.get_focus_enemy() != enemy:
+		member.binding_focus(enemy, float(f["window_s"]))   # 새/다른 대상 → 집중 재설정(스택 0부터 재누적)
+	var stacks: int = member.binding_focus_add(int(f["stack_cap"]), float(f["window_s"]))
+	return 1.0 + float(stacks) * float(f["stack_dmg_pct"])
+
+
+## 「집중」 딜링 서브(전격/공허창) — 조준 지점 근접 적(seed_radius_m)을 명중 대상으로 삼아 집중 빌드 후,
+## 증폭분을 진홍 추가타로 가시화(서브는 discrete 캐스트라 페이오프를 팝업으로 강조). 근처 적 없으면 no-op.
 func _nuker_focus_stack(member: CharacterBody3D, aim: Vector3) -> void:
 	var f: Dictionary = BindingFixtures.FOCUS
-	var e = member.get_focus_enemy()
-	if e == null:
+	var hit: CharacterBody3D = nearest_enemy_in_range(aim, float(f["seed_radius_m"]))
+	if hit == null:
 		return
-	if e.global_position.distance_to(aim) > float(f["radius_m"]):
-		member.binding_focus_break()   # 다른 적을 조준 → 누적 초기화
-		return
-	var stacks: int = member.binding_focus_add(int(f["stack_cap"]), float(f["window_s"]))
-	if stacks > 0:
-		var bonus: float = float(stacks) * float(f["stack_dmg_pct"]) * member.basic_damage
-		deal_damage(e, member, bonus)
-		if e.has_method("popup_status"):   # C — 증폭 추가타를 진홍 숫자로(스택 클수록 커짐 → 증폭 가시화)
-			e.popup_status("+%d" % int(round(bonus)), Color(1.0, 0.35, 0.3))
+	var bonus: float = (nuker_focus_accumulate(member, hit) - 1.0) * member.basic_damage
+	if bonus > 0.0:
+		deal_damage(hit, member, bonus)
+		if hit.has_method("popup_status"):   # C — 증폭 추가타를 진홍 숫자로(스택 클수록 커짐 → 증폭 가시화)
+			hit.popup_status("+%d" % int(round(bonus)), Color(1.0, 0.35, 0.3))
 
 
 ## Mark&Ruin 「집중」 소모 아키타입 — 스택-소모 계열 스킬을 쓰면 쌓인 집중을 모두 소모해 누적 수 비례 폭발.
@@ -260,6 +305,24 @@ func _nuker_focus_spend(member: CharacterBody3D) -> void:
 		SkillVfx.mark_ruin(self, e.global_position)
 		if e.has_method("popup_status"):   # B+C — 소모 스택 수 + 폭발 피해를 금색 팝업으로(페이오프 가시화)
 			e.popup_status("집중 %d ⟶ %d" % [stacks, int(round(burst))], Color(1.0, 0.82, 0.3))
+
+
+## Mark&Ruin 「집중」 E(공허창) — 누적 추가타 후 현재 집중을 근처(spread_m) 다른 적으로 전이(누적 유지). 근처 없으면 유지.
+func _nuker_focus_spread(member: CharacterBody3D) -> void:
+	var cur = member.get_focus_enemy()
+	if cur == null:
+		return
+	var best: CharacterBody3D = null
+	var best_d: float = INF
+	for e in enemies_in_radius(cur.global_position, float(BindingFixtures.FOCUS["spread_m"])):
+		if e == cur or e == null or not is_instance_valid(e):
+			continue
+		var d: float = e.global_position.distance_to(cur.global_position)
+		if d < best_d:
+			best_d = d
+			best = e
+	if best != null:
+		member.binding_focus_transfer(best)
 
 
 ## Flank Collapse 「잠행」 링크 서브 — 근접화(사거리는 aim_controller가 melee로 강제)된 대가로 원래 range_band에
@@ -281,6 +344,122 @@ func _nuker_flank_strike(member: CharacterBody3D, slot_index: int, aim: Vector3)
 				e.popup_status("+%d" % int(round(bonus)), Color(1.0, 0.35, 0.3))
 	if cd_pct > 0.0:                                    # 2차: 재사용 감소(먼 사거리일수록 큼)
 		inst.cooldown_s = float(inst.cooldown_s) * (1.0 - cd_pct)
+
+
+## Flank Collapse 「잠행」 E(공허창) — 발현 후 적의 반대편으로 **짧은 고정 거리(FLANK.dash_m)**만큼 순간 이탈(암살
+## 후 짧게 빠지기). 원래 서브 사거리(공허창 15m)를 쓰면 맵을 가로질러 튕겨 나가 너무 멀었음. DRIFT-076.
+func _nuker_flank_dash(member: CharacterBody3D, _slot_index: int, aim: Vector3) -> void:
+	var tgt = nearest_enemy_in_range(aim, 6.0)
+	var away: Vector3 = member.global_position - (tgt.global_position if tgt != null else aim)
+	away.y = 0.0
+	if away.length() < 0.1:
+		away = Vector3(0, 0, -1)
+	var start: Vector3 = member.global_position
+	member.global_position += away.normalized() * float(BindingFixtures.FLANK["dash_m"])
+	SkillVfx.dash_streak(self, start, member.global_position, Color(0.7, 0.4, 0.5))
+
+
+# ============================================================================
+# DPS Kit Binding — 「초월(Overdrive)」 / 「혈풍(Blood Gale)」. 서브가 애초에 광역(fire 원형·beam 라인·cold 원형)
+# 이라 스플래시 강제 없이 자연 성립. 강화 = 효과 변화(카르마 Mantra식): fire→화상 / beam→끌기 / cold→빙결.
+# 조작/AI 공통(is_controlled 무관). ref: binding_fixtures.gd OVERDRIVE/BLOODGALE · docs/design/dps_binding_kit.md.
+# ============================================================================
+
+## 「초월」 서브 델타 — 비발동이면 게이지 충전(명중 적 수 비례, 광역이 빨리 참), 발동 중이면 서브 강화 변형 실행.
+func _dps_overdrive(member: CharacterBody3D, slot_index: int, aim: Vector3) -> void:
+	var od: Dictionary = BindingFixtures.OVERDRIVE
+	if member.overdrive_is_active():
+		_dps_overdrive_empower(member, slot_index, aim, od)
+	else:
+		var hits: int = clampi(_count_sub_hits(member, slot_index, aim), 1, int(od["hits_cap"]))
+		member.overdrive_add(float(od["sub_gain"]) * float(hits), float(od["gauge_max"]), float(od["dur"]))
+
+
+## 「초월」 강화 변형(발동 중 서브) — kind로 분기. 전부 대상 한정이라 아군 무피해(장판 대신 화상 DoT).
+func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vector3, od: Dictionary) -> void:
+	var inst = member.get_skillbook(slot_index)
+	if inst == null:
+		return
+	var kind := String(inst.params.get("kind", ""))
+	var r: float = float(inst.params.get("radius_m", 2.5)) + float(od["radius_bonus_m"])
+	match kind:
+		"skillbook_fire":     # 겁화 — 명중 적에게 화상(Ignited) 지속딜(장판 아님 = 아군 무피해)
+			var dps: float = float(od["burn_dps_pct"]) * member.basic_damage
+			for e in enemies_in_radius(aim, r):
+				if e.has_method("apply_outcome"):
+					e.apply_outcome("Ignited", float(od["burn_dur"]), dps)
+			SkillVfx.telegraph(self, aim, Color(1.0, 0.35, 0.1), r)
+		"skillbook_cold":     # 절대영도 — 감속(Chilled)을 빙결(Rooted)로 격상 + 반경 확대
+			for e in enemies_in_radius(aim, r):
+				if e.has_method("apply_outcome"):
+					e.apply_outcome("Rooted", float(od["cold_root_s"]))
+			SkillVfx.telegraph(self, aim, Color(0.6, 0.9, 1.0), r)
+		"skillbook_beam":     # 중력 광선 — 빔 원뿔 내 적을 빔 중심선으로 끌어당김(군집화)
+			_dps_overdrive_beam_pull(member, aim, od)
+
+
+## 중력 광선 — 빔 방향(member→aim) 원뿔 내 적을 각자 빔 축선의 최근접점으로 끌어당긴다(넉백 역방향).
+func _dps_overdrive_beam_pull(member: CharacterBody3D, aim: Vector3, od: Dictionary) -> void:
+	var dir: Vector3 = aim - member.global_position
+	dir.y = 0.0
+	if dir.length() < 0.1:
+		return
+	dir = dir.normalized()
+	var range_m := 16.0
+	for e in enemies_in_cone(member.global_position, dir, range_m, deg_to_rad(float(od["beam_half_deg"]))):
+		if not e.has_method("apply_knockback"):
+			continue
+		var to: Vector3 = e.global_position - member.global_position
+		to.y = 0.0
+		var along: float = clampf(to.dot(dir), 0.0, range_m)
+		var pull: Vector3 = (member.global_position + dir * along) - e.global_position
+		pull.y = 0.0
+		if pull.length() > 0.05:
+			e.apply_knockback(pull.normalized(), minf(float(od["beam_pull_m"]), pull.length()))
+
+
+## 「혈풍」 서브 델타 — HP 대가 소모 + 명중 적 수 비례 회복(3기+ 순이득). **서브별 변형**(kind 분기, 초월과 대칭):
+## fire=흡수 폭발(기본 회복) / beam=흡혈 광선(채널 사이펀 → 회복 증폭) / cold=혈빙(과회복분 임시 보호막).
+func _dps_blood_soak(member: CharacterBody3D, slot_index: int, aim: Vector3) -> void:
+	var inst = member.get_skillbook(slot_index)
+	if inst == null:
+		return
+	var bg: Dictionary = BindingFixtures.BLOODGALE
+	var kind := String(inst.params.get("kind", ""))
+	var cost: float = float(bg["hp_cost_pct"]) * member.max_hp
+	var base_refund: float = float(bg["refund_pct"]) * member.max_hp * float(_count_sub_hits(member, slot_index, aim))
+	match kind:
+		"skillbook_beam":   # 흡혈 광선 — 채널 사이펀: 회복 증폭
+			member.blood_soak(cost, base_refund * float(bg["beam_refund_mult"]), float(bg["hp_floor"]))
+		"skillbook_cold":   # 혈빙 — 과회복(max_hp 초과)분을 임시 보호막으로
+			member.blood_soak(cost, base_refund, float(bg["hp_floor"]), float(bg["shield_dur"]))
+		_:                  # 작열(fire) 등 — 흡수 폭발(기본 회복)
+			member.blood_soak(cost, base_refund, float(bg["hp_floor"]))
+
+
+## 서브가 실제로 때린 적 수 — fire/cold는 명중점 반경, beam은 원뿔 근사. 초월 충전량/혈풍 회복 정산 공용.
+func _count_sub_hits(member: CharacterBody3D, slot_index: int, aim: Vector3) -> int:
+	var inst = member.get_skillbook(slot_index)
+	if inst == null:
+		return 0
+	var kind := String(inst.params.get("kind", ""))
+	if kind == "skillbook_beam":
+		var dir: Vector3 = aim - member.global_position
+		dir.y = 0.0
+		if dir.length() < 0.1:
+			return 0
+		return enemies_in_cone(member.global_position, dir.normalized(),
+			float(inst.params.get("range_m", 14.0)), deg_to_rad(float(inst.params.get("half_deg", 7.0)))).size()
+	return enemies_in_radius(aim, float(inst.params.get("radius_m", 2.5))).size()
+
+
+## DPS 「초월」 평타 게이지 빌드 — press_line 정체성 평타 명중마다 충전(발동 중엔 무시). combat_controller._resolve_basic 호출.
+func dps_overdrive_on_basic(member: CharacterBody3D) -> void:
+	if String(member.class_id) != "DPS" \
+			or not BindingFixtures.identity_overdrive(String(member.base_gear_id), String(member.ability_id)):
+		return
+	var od: Dictionary = BindingFixtures.OVERDRIVE
+	member.overdrive_add(float(od["basic_gain"]), float(od["gauge_max"]), float(od["dur"]))
 
 
 # ============================================================================

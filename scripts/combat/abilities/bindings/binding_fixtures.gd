@@ -28,7 +28,7 @@ const SIGNATURE := {
 	},
 	"IDA-025": {
 		"name": "집중",
-		"covenant": "정체성이 단일 표적을 집중 대상으로 새긴다. 링크된 스킬을 그 대상에게 명중시킬수록 집중이 쌓여 피해가 증폭되고, 다른 적을 조준하면 집중이 초기화된다. 집중을 소모하는 계열의 스킬을 사용하면, 쌓아 둔 집중을 모두 터뜨려 집중 수에 비례한 추가 피해를 준다.",
+		"covenant": "공격이 적에게 명중하면 그 대상이 집중 대상이 된다(평타·정체성·서브 공통). 같은 대상에게 계속 명중시킬수록 집중이 쌓여 피해가 증폭되고, 다른 적을 명중시키면 집중이 그 적으로 옮겨가며 초기화된다. 집중을 소모하는 계열의 스킬을 사용하면, 쌓아 둔 집중을 모두 터뜨려 집중 수에 비례한 추가 피해를 준다.",
 	},
 	"IDA-029": {
 		"name": "잠행",
@@ -42,18 +42,26 @@ const SIGNATURE := {
 		"name": "성역",
 		"covenant": "정체성이 발밑에 좁은 성역을 세운다. 성역 안에 머문 채 치유 스킬을 시전하면 회복량이 크게 늘지만, 성역을 벗어나면 평범해진다. 움직이며 쫓을지, 성역을 지키며 강하게 치유할지 선택하게 된다.",
 	},
+	"IDA-024": {
+		"name": "초월",
+		"covenant": "스킬과 평타로 적을 명중할 때마다 초월 게이지가 쌓인다. 게이지가 가득 차면 짧은 시간 초월 상태가 되어 링크된 스킬이 강화된 형태로 발동한다 — 화염은 화상 지속딜을 남기고, 광선은 적을 끌어당기며, 냉기는 얼려버린다. 게이지는 힐·탱을 운영하는 동안에도 쌓이니, 초월이 켜지는 순간 딜러로 전환해 몰아쳐라.",
+	},
+	"IDA-027": {
+		"name": "혈풍",
+		"covenant": "링크된 스킬은 모두 자신의 체력을 대가로 시전되지만, 광역으로 명중한 적의 수에 비례해 체력을 돌려받는다. 세 명 이상 휩쓸면 오히려 이득이다. 적이 많을수록 강하게 유지되고 적이 적으면 손해이니, 광역이 필요한 순간에 꺼내 쓰는 정체성이다.",
+	},
 }
 ## 시그니처 공통 payoff 파라미터 (해당 정체성의 모든 슬롯 스킬이 공유).
 const BULWARK := {"stacks_needed": 3, "stun_s": 1.5, "icd_s": 8.0, "radius_m": 8.0}   # Anchor 방벽 → 기절(가장 가까운 적). stun_s=튜닝(스펙 예시 0.8, 체감↑ 위해 1.5)
 const MARK := {"window_s": 8.0, "cd_reduce": 0.40, "radius_m": 8.0, "threat": 45.0}    # Beacon 표식 → 위협/환급
-const FOCUS := {"stack_cap": 5, "stack_dmg_pct": 0.15, "window_s": 8.0, "radius_m": 12.0, "spend_mult": 0.7}  # Mark&Ruin 집중 → 누적 추가타 / 소모 시 누적 비례 폭발
+const FOCUS := {"stack_cap": 5, "stack_dmg_pct": 0.15, "window_s": 8.0, "radius_m": 12.0, "seed_radius_m": 3.0, "spend_mult": 0.7, "spread_m": 8.0}  # Mark&Ruin 집중 → 링크 서브가 명중한 적(seed_radius_m 내 = 조준 대상)을 집중 대상으로 새김 / 누적 추가타 / 소모 폭발 / E는 spread_m 내 근처 적으로 전이
 # 「집중」 소모 아키타입 — 이 계열의 kind을 가진 스킬이면 슬롯·링크 여부와 무관하게 누적 집중을 소모한다.
 # 특정 처형 스킬(AB) 하드코딩을 피하려는 의도(그 스킬이 반드시 장착된다는 보장이 없음). 소모형 kind 추가 시 여기에.
 const FOCUS_SPEND_KINDS := ["skillbook_execute"]
 # Flank Collapse 잠행 — 링크 스킬을 근접 사거리로 강제하고, 원래 range_band이 멀수록 큰 이득(1차 피해/2차 쿨감).
 # 처치 시 veil_s초 은신(apply_veil = 적 표적 드롭 = 어그로 감소). band_dmg=basic_damage 배수, band_cd=쿨 감소율.
 const FLANK := {
-	"melee_range_m": 2.8, "veil_s": 2.0,
+	"melee_range_m": 2.8, "veil_s": 2.0, "dash_m": 4.0,   # E 이탈 = 짧은 고정 거리(원래 서브 사거리 15m를 그대로 쓰면 너무 멀리 튕김, DRIFT-076)
 	"band_dmg": {"Melee": 0.0, "Mid": 0.25, "Long": 0.5},
 	"band_cd": {"Melee": 0.0, "Mid": 0.10, "Long": 0.20},
 }
@@ -63,6 +71,21 @@ const DOT := {"total_mult": 1.4, "dur": 4.0}
 # Mend Circle 성역 — 정체성이 발밑에 좁은 zone(radius_m)을 세우고, 그 안에서 시전한 치유를 amp배 증폭(무빙 대신
 # 제자리 시전 유도). 치유 choke(deal_heal/deal_regen)가 in_sanctuary 게이트로 증폭. dur초 후 만료·재설치.
 const SANCT := {"radius_m": 3.0, "dur": 8.0, "amp": 1.4}
+# DPS press_line 「초월(Overdrive)」 — 명중으로 게이지 충전(평타/서브·조작AI공통), 가득 차면 dur초간 링크 서브가
+# **강화 변형**으로 발동(단순 배수 아님·효과 변화, ref=LoL 카르마 Mantra). fire→화상 DoT(Ignited·적한정),
+# beam→끌어당김(pull), cold→빙결(Rooted). DPS=광역이라 세 변형 모두 대상한정=아군 무피해. DRIFT-077.
+const OVERDRIVE := {
+	"gauge_max": 100.0, "basic_gain": 8.0, "sub_gain": 12.0, "hits_cap": 5, "dur": 6.0,
+	"burn_dur": 4.0, "burn_dps_pct": 0.4, "beam_pull_m": 3.0, "beam_half_deg": 12.0,
+	"cold_root_s": 1.5, "radius_bonus_m": 1.0,
+}
+# DPS arc_weave 「혈풍(Blood Gale)」 — 서브 시전당 max_hp 소모, 명중 적 수 비례 회복(3기+ 순이득). 서브가
+# 애초에 광역이라 억지 스플래시 없이 자연 성립. 자살 불가(hp_floor 클램프). DRIFT-077.
+const BLOODGALE := {
+	"hp_cost_pct": 0.12, "refund_pct": 0.05, "hp_floor": 1.0,
+	"beam_refund_mult": 2.0,   # 흡혈 광선(절단광선) — 채널 사이펀이라 회복 증폭(더 빨아옴)
+	"shield_dur": 5.0,          # 혈빙(빙결) — 과회복(max_hp 초과)분을 임시 보호막으로, 이 시간동안
+}
 
 # `theme` = 시그니처(bulwark/mark). `delta` = 서브가 규약에 기여하는 방식(공통). `desc_ko` = 서브 툴팁 줄글.
 # Anchor 서브: 전부 방벽 +1(공통 버프). Beacon 서브: 전부 표식 대상 조건부 위협(공통), R은 표식 갱신 추가.
@@ -101,25 +124,25 @@ const OVERLAYS := [
 	# 소모는 슬롯 오버레이가 아니라 아키타입 규칙(FOCUS_SPEND_KINDS / is_focus_spender)이 담당 — 특정 처형 스킬에 묶지 않음.
 	{
 		"id": "BIND-PILOT-007", "gear": "gear_ward_nuker_ruin_sight",
-		"identity_ab": "IDA-025", "slot_ab": "AB-055", "slot_index": 0, "theme": "focus", "delta": "focus_stack",
-		"payoff": "ScatterShot → Focus +1 & 누적 비례 추가타", "desc_ko": "집중 대상에게 명중하면 집중을 한 겹 쌓고, 쌓인 만큼 추가 피해를 준다. 다른 적을 조준하면 집중이 초기화된다.",
+		"identity_ab": "IDA-025", "slot_ab": "AB-004", "slot_index": 0, "theme": "focus", "delta": "focus_stack",
+		"payoff": "전격사격 → Focus +1 & 누적 비례 추가타", "desc_ko": "명중한 적을 집중 대상으로 새기고 집중을 한 겹 쌓아, 쌓인 만큼 추가 피해를 준다. 다른 적을 명중하면 집중이 그 적으로 옮겨가며 초기화된다.",
 	},
 	{
 		"id": "BIND-PILOT-008", "gear": "gear_ward_nuker_ruin_sight",
-		"identity_ab": "IDA-025", "slot_ab": "AB-072", "slot_index": 1, "theme": "focus", "delta": "focus_stack",
-		"payoff": "Hailstorm → Focus +1 & 누적 비례 추가타", "desc_ko": "집중 대상에게 명중하면 집중을 한 겹 쌓고, 쌓인 만큼 추가 피해를 준다. 다른 적을 조준하면 집중이 초기화된다.",
+		"identity_ab": "IDA-025", "slot_ab": "AB-059", "slot_index": 1, "theme": "focus", "delta": "focus_spread",
+		"payoff": "공허창 → 누적 추가타 + 집중을 근처 적으로 전이", "desc_ko": "집중 대상을 명중하면 누적+추가 피해를 준 뒤, 집중을 근처의 다른 적으로 전이시킨다(누적 유지).",
 	},
 	# Nuker Flank Collapse 「잠행」 링크 서브: 근접 사거리로만 시전 + 원래 range_band 비례 이득(1차 뎀/2차 쿨감).
 	# 처치 시 은신은 슬롯 오버레이가 아니라 kill 훅(identity_flanks 게이트)이 담당 — 어떤 처치든 vanish.
 	{
 		"id": "BIND-PILOT-010", "gear": "gear_ward_nuker_flank_knife",
-		"identity_ab": "IDA-029", "slot_ab": "AB-055", "slot_index": 0, "theme": "flank", "delta": "flank_strike",
-		"payoff": "ScatterShot(Mid) → 근접화 + 사거리 비례 이득", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
+		"identity_ab": "IDA-029", "slot_ab": "AB-004", "slot_index": 0, "theme": "flank", "delta": "flank_strike",
+		"payoff": "전격사격(Long) → 근접화 + 사거리 비례 이득(큼)", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
 	},
 	{
 		"id": "BIND-PILOT-011", "gear": "gear_ward_nuker_flank_knife",
-		"identity_ab": "IDA-029", "slot_ab": "AB-072", "slot_index": 1, "theme": "flank", "delta": "flank_strike",
-		"payoff": "Hailstorm(Long) → 근접화 + 사거리 비례 이득(큼)", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
+		"identity_ab": "IDA-029", "slot_ab": "AB-059", "slot_index": 1, "theme": "flank", "delta": "flank_dash",
+		"payoff": "공허창(Long) → 근접화 + 사거리 비례 이득 + 타격 후 반대편 이탈", "desc_ko": "근접에서만 시전된다. 원래 사거리 비례 이득에 더해, 발현 후 적의 반대편으로 원래 사거리만큼 순간 이탈한다.",
 	},
 	{
 		"id": "BIND-PILOT-012", "gear": "gear_ward_nuker_flank_knife",
@@ -158,6 +181,39 @@ const OVERLAYS := [
 		"id": "BIND-PILOT-018", "gear": "gear_ward_healer_mend_lantern",
 		"identity_ab": "IDA-026", "slot_ab": "AB-066", "slot_index": 2, "theme": "sanctuary", "delta": "sanct",
 		"payoff": "SanctuaryFont → 성역 안 증폭", "desc_ko": "성역 안에 머문 채 시전하면 회복량이 늘어난다. 성역을 벗어나면 평범해진다.",
+	},
+	# DPS press_line 「초월」 링크 서브(광역 3종): 명중 시 초월 게이지 충전, 초월 중이면 서브가 강화 변형으로 발동.
+	# 강화는 kind로 분기(fire→화상 / beam→끌어당김 / cold→빙결) — _dps_overdrive. delta 공통 overdrive_charge.
+	{
+		"id": "BIND-PILOT-019", "gear": "gear_ward_dps_press_rod",
+		"identity_ab": "IDA-024", "slot_ab": "AB-053", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
+		"payoff": "작열 폭발 → 초월 충전 / (초월)겁화: 화상 DoT", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「겁화」로 발동 — 명중한 적에게 화상 지속딜을 남긴다.",
+	},
+	{
+		"id": "BIND-PILOT-020", "gear": "gear_ward_dps_press_rod",
+		"identity_ab": "IDA-024", "slot_ab": "AB-054", "slot_index": 1, "theme": "overdrive", "delta": "overdrive_charge",
+		"payoff": "절단 광선 → 초월 충전 / (초월)중력광선: 끌어당김", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「중력 광선」으로 발동 — 빔에 맞은 적을 중심선으로 끌어당긴다.",
+	},
+	{
+		"id": "BIND-PILOT-021", "gear": "gear_ward_dps_press_rod",
+		"identity_ab": "IDA-024", "slot_ab": "AB-041", "slot_index": 2, "theme": "overdrive", "delta": "overdrive_charge",
+		"payoff": "빙결 파동 → 초월 충전 / (초월)절대영도: 빙결", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「절대영도」로 발동 — 감속이 빙결(속박)로 격상된다.",
+	},
+	# DPS arc_weave 「혈풍」 링크 서브(광역 3종): 시전당 HP 소모 + 명중 적 수 비례 회복(3기+ 이득). delta 공통 blood_soak.
+	{
+		"id": "BIND-PILOT-022", "gear": "gear_ward_dps_weave_staff",
+		"identity_ab": "IDA-027", "slot_ab": "AB-053", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak",
+		"payoff": "작열 폭발 → 흡수 폭발(기본 회복)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다(3기 이상이면 이득).",
+	},
+	{
+		"id": "BIND-PILOT-023", "gear": "gear_ward_dps_weave_staff",
+		"identity_ab": "IDA-027", "slot_ab": "AB-054", "slot_index": 1, "theme": "bloodgale", "delta": "blood_soak",
+		"payoff": "절단 광선 → 흡혈 광선(채널 사이펀·회복 증폭)", "desc_ko": "체력을 대가로 시전하는 흡혈 광선. 채널로 빨아들여 맞춘 적 수 대비 더 많이 회복한다(사이펀).",
+	},
+	{
+		"id": "BIND-PILOT-024", "gear": "gear_ward_dps_weave_staff",
+		"identity_ab": "IDA-027", "slot_ab": "AB-041", "slot_index": 2, "theme": "bloodgale", "delta": "blood_soak",
+		"payoff": "빙결 파동 → 혈빙(과회복 → 임시 보호막)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다. 최대 체력을 넘긴 과회복분은 임시 보호막이 된다.",
 	},
 ]
 
@@ -217,6 +273,24 @@ static func identity_sanctuaries(base_gear_id: String, identity_ab: String) -> b
 	for ov in OVERLAYS:
 		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
 				and String(ov.get("theme", "")) == "sanctuary":
+			return true
+	return false
+
+
+## 이 gear+identity가 「초월」 킷(DPS press_line)인가 — 명중으로 게이지 충전 + 초월 중 서브 강화 변형 게이트.
+static func identity_overdrive(base_gear_id: String, identity_ab: String) -> bool:
+	for ov in OVERLAYS:
+		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+				and String(ov.get("theme", "")) == "overdrive":
+			return true
+	return false
+
+
+## 이 gear+identity가 「혈풍」 킷(DPS arc_weave)인가 — 서브 시전당 HP 대가 + 명중 적 비례 회복 게이트.
+static func identity_bloodgale(base_gear_id: String, identity_ab: String) -> bool:
+	for ov in OVERLAYS:
+		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+				and String(ov.get("theme", "")) == "bloodgale":
 			return true
 	return false
 
