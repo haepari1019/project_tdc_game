@@ -30,3 +30,7 @@ desktop.ini
 # Large binaries (use Git LFS when tracked — see .gitattributes)
 # *.png
 # *.wav
+
+# Claude Code personal settings + hooks (ab-edit-drift-logging reminder)
+.claude/settings.local.json
+.claude/hooks/ab-drift-reminder.sh
