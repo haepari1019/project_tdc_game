@@ -128,8 +128,12 @@ var _veil_timer_s: float = 0.0
 var _veil_dur: float = 1.0
 # F-009 Shadowstep (AB-061) — the NEXT damaging hit by this member is boosted, consumed once.
 var _next_hit_bonus: float = 0.0
-# F-009 Channeling (AB-054 Rending Beam) — caster occupied; blocks other active casts for the channel.
+# F-009 Casting (wind-up, skill_cast) — caster occupied; blocks other active casts until the cast
+# resolves. NOTE: AB-054 Rending Beam is a CHANNEL, not a wind-up cast — it does NOT set this (it no
+# longer occupies/roots; instead moving or casting interrupts it via _active_channel below).
 var _channel_timer_s: float = 0.0
+## AB-054 채널 진행 노드 참조 — 이동/다른 스킬 시전이 채널을 강제로 막지 않고 대신 중단시킨다(begin_channel 점유와 별개).
+var _active_channel: Node = null
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/Slippery/Shock/Ignited/
 ## WindBuffeted — shared container with enemy_unit. Movement folds into move_speed_mult; Slippery
 ## adds inertia (player_controller); Ignited DoT applied in _physics_process.
@@ -159,11 +163,9 @@ var _sanctuary_pos: Vector3 = Vector3.ZERO   # Mend Circle 「성역」 — iden
 var _sanctuary_timer_s: float = 0.0          # 성역 유지 시간; 0 = 없음
 var _sanctuary_radius: float = 3.0
 var _sanctuary_ring: MeshInstance3D = null   # 지면 링(top_level — 시전자 이동과 무관하게 고정)
-var _od_gauge: float = 0.0            # DPS press_line 「초월」 게이지(0.._od_gauge_max); active 중엔 max→0 감소(창 진행)
-var _od_gauge_max: float = 100.0
-var _od_active: bool = false          # 초월 발동 상태(링크 서브 강화 변형 on) — ability_dispatch가 조회
-var _od_timer_s: float = 0.0
-var _od_dur_s: float = 0.0
+var _od_gauge: float = 0.0            # DPS press_line 「초월」 게이지(0.._od_gauge_max). 가득 차면 발동 상태로 유지
+var _od_gauge_max: float = 100.0      # (지속시간 없음) — 강화 서브 1회 시전 시 소모, 비전투 5초면 초기화(party_controller)
+var _od_active: bool = false          # 초월 발동 상태(다음 서브 1회가 강화 변형) — ability_dispatch가 조회·소모
 var _status_orb: MeshInstance3D
 var _flash_heal_tw: Tween
 
@@ -357,14 +359,8 @@ func _tick_binding(delta: float) -> void:
 		elif _sanctuary_ring != null:              # 안 = 밝게(증폭 중) / 밖 = 흐리게(들어가야 증폭)
 			(_sanctuary_ring.material_override as StandardMaterial3D).albedo_color = \
 				Color(1.0, 0.9, 0.55, 0.9) if in_sanctuary() else Color(1.0, 0.9, 0.55, 0.32)
-	if _od_active:                                  # 초월: 창 진행에 따라 게이지 max→0, 만료 시 강화 해제
-		_od_timer_s -= delta
-		_od_gauge = _od_gauge_max * clampf(_od_timer_s / maxf(0.01, _od_dur_s), 0.0, 1.0)
-		if _od_timer_s <= 0.0:
-			_od_active = false
-			_od_gauge = 0.0
-			_set_overdrive_glow(false)
-		_update_overdrive_ui()
+	# 초월은 더 이상 시간으로 감소하지 않는다 — 가득 차면 강화 서브 1회를 쓸 때까지(overdrive_reset) 유지.
+	# 비전투 5초 시 초기화는 party_controller가 처리(전투 상태를 아는 쪽).
 
 
 ## Read the watched enemy internally (untyped) — a freed instance passed as a typed arg throws
@@ -561,17 +557,17 @@ func binding_focus_clear() -> void:
 	_focus_stacks = 0
 
 
-# ---- DPS press_line 「초월(Overdrive)」 (BIND-PILOT-019~021) — 명중 게이지 → dur초 강화 변형. ability_dispatch 구동 ----
-## 게이지 충전(발동 중엔 소진이라 무시). 가득 차면 발동(dur초). 조작/AI 공통(is_controlled 무관 — DRIFT-076 스코프).
-func overdrive_add(amount: float, gauge_max: float, dur: float) -> void:
+# ---- DPS press_line 「초월(Overdrive)」 (BIND-PILOT-019~021) — 명중 게이지 → 강화 변형(1회). ability_dispatch 구동 ----
+## 게이지 충전(발동 중엔 홀드라 무시). 가득 차면 발동 — 지속시간 없이 유지되며, 다음 강화 서브 1회 시전 시
+## overdrive_reset로 소모된다(비전투 5초면 party_controller가 초기화). `_dur`은 미사용(구 지속형 잔재).
+## 조작/AI 공통(is_controlled 무관 — DRIFT-076 스코프).
+func overdrive_add(amount: float, gauge_max: float, _dur: float = 0.0) -> void:
 	if _od_active or not _alive:
 		return
 	_od_gauge_max = gauge_max
 	_od_gauge = minf(gauge_max, _od_gauge + amount)
 	if _od_gauge >= gauge_max:
 		_od_active = true
-		_od_timer_s = dur
-		_od_dur_s = dur
 		_set_overdrive_glow(true)
 		popup_status("초월!", Color(1.0, 0.85, 0.35))
 	_update_overdrive_ui()
@@ -583,6 +579,17 @@ func overdrive_is_active() -> bool:
 
 func overdrive_gauge_frac() -> float:
 	return clampf(_od_gauge / maxf(1.0, _od_gauge_max), 0.0, 1.0)
+
+
+## 초월 소모/초기화 — 강화 서브 1회 시전(소모, ability_dispatch) 또는 비전투 5초(초기화, party_controller) 시
+## 호출. 게이지·발동을 모두 클리어. 이미 비어 있으면 no-op.
+func overdrive_reset() -> void:
+	if not _od_active and _od_gauge <= 0.0:
+		return
+	_od_active = false
+	_od_gauge = 0.0
+	_set_overdrive_glow(false)
+	_update_overdrive_ui()
 
 
 func _set_overdrive_glow(on: bool) -> void:
@@ -1054,6 +1061,26 @@ func is_channeling() -> bool:
 ## 채널 종료/취소 — 점유 즉시 해제(완료·취소 공통). ref: channel_heal.
 func end_channel() -> void:
 	_channel_timer_s = 0.0
+
+
+## AB-054 채널 노드 등록(시전 시). 이전 채널이 남아 있으면 먼저 중단.
+func set_active_channel(n: Node) -> void:
+	interrupt_active_channel()
+	_active_channel = n
+
+
+## 진행 중인 AB-054 채널을 즉시 중단(이동·새 스킬 시전이 트리거). 노드가 스스로 정리한다.
+func interrupt_active_channel() -> void:
+	var c := _active_channel
+	_active_channel = null
+	if c != null and is_instance_valid(c) and c.has_method("cancel_channel"):
+		c.cancel_channel()
+
+
+## 채널 노드가 자연 종료 시 호출 — 아직 자기 자신일 때만 참조 해제(더 새 채널을 덮어쓰지 않게).
+func clear_active_channel(n: Node) -> void:
+	if _active_channel == n:
+		_active_channel = null
 
 
 ## F-009/F-008 Ward Pulse (IDA-031) — cleanse one debuff. Returns the removed outcome id ("" if none).

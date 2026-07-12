@@ -415,7 +415,8 @@ func _on_sub_key(slot_index: int) -> void:
 	if ctrl.has_method("is_provoked") and ctrl.is_provoked():
 		return  # Provoked (AB-099): active skills locked — only forced basic on the caster
 	if ctrl.has_method("is_channeling") and ctrl.is_channeling():
-		return  # Channeling (AB-054 Rending Beam): busy until the channel finishes
+		return  # Casting (wind-up, skill_cast): occupied until it resolves. NOTE: AB-054 beam is NOT
+		#        this — it's an interruptible channel (a new cast cancels it inside cast_skillbook).
 	var inst = ctrl.get_skillbook(slot_index)
 	if inst == null:
 		return

@@ -31,6 +31,14 @@ const COLOR := {
 	# Party debuff (AB-057 Focus Fire) — Vulnerable: 받는 피해 +mag (enemy take_damage가 읽음).
 	"Vulnerable": Color(1.0, 0.45, 0.55),
 }
+# Korean display name per outcome (status-chip label in enemy_info). Superset of float_text.OUTCOME_KO
+# (adds Tethered/Bloodlust). Unknown ids fall back to the raw id.
+const KO := {
+	"Sodden": "침수", "Chilled": "냉각", "SteamHaze": "증기", "Shock": "감전",
+	"Slippery": "빙판", "Ignited": "점화", "WindBuffeted": "돌풍",
+	"Scented": "혈향", "Rooted": "속박", "Pinned": "고정", "Tethered": "포박",
+	"Bloodlust": "광폭", "Vulnerable": "취약",
+}
 const DEFAULT_IGNITE_DPS := 8.0
 
 var _t: Dictionary = {}    # id -> remaining seconds
@@ -90,11 +98,12 @@ func move_mult() -> float:
 	return m
 
 
-## Active outcomes for the status overlay: [{color, ratio (0 fresh → 1 expiring), buff=false}].
+## Active outcomes for the status overlay: [{name, color, ratio (0 fresh → 1 expiring), buff}].
 func status_list() -> Array:
 	var out: Array = []
 	for id in _t.keys():
 		out.append({
+			"name": KO.get(id, id),
 			"color": COLOR.get(id, Color(0.8, 0.8, 0.8)),
 			"ratio": 1.0 - clampf(float(_t[id]) / maxf(float(_dur.get(id, 0.01)), 0.01), 0.0, 1.0),
 			"buff": BUFF.has(id),

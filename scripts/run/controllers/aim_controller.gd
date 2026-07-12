@@ -20,10 +20,13 @@ const ALLY_TARGET_KINDS := [
 	"skillbook_heal", "skillbook_shield", "skillbook_ally_shield", "skillbook_hot",
 	"skillbook_relocate_ally", "skillbook_regen",
 ]
+## 직선형(광선) 조준으로 다룰 kind — 원형 원판/링이 아니라 시전자→마우스 직선 레인으로 표시.
+const LINE_AIM_KINDS := ["skillbook_beam"]
 
 var _cursor_ally: ImageTexture     # 초록 십자(아군 대상)
 var _cursor_enemy: ImageTexture    # 빨강 십자(적 대상)
 var _range: float = 0.0            # 이번 조준 스킬의 시전 사거리(range_m)
+var _is_line_aim: bool = false     # 직선 빔 조준 여부(확정 시 사거리까지 안 걷고 그 방향으로 즉시 시전)
 
 
 func setup(aim_marker: Node3D, combat: Node3D) -> void:
@@ -67,6 +70,13 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	# Flank Collapse 「잠행」 — 링크된 스킬은 근접 사거리로만 시전(붙어야 함). 원래 range_m를 melee로 대체 → 링도 좁게.
 	if String(BindingFixtures.resolve(String(member.base_gear_id), String(member.ability_id), String(inst.get("base_ability_id", "")), slot_index).get("delta", "")) == "flank_strike":
 		_range = float(BindingFixtures.FLANK["melee_range_m"])
+	# 직선 빔(AB-054 절단 광선) — 원형이 아니라 시전자→마우스 직선 레인으로 조준(적 커서). 확정 시 그 방향으로 즉시 시전.
+	if LINE_AIM_KINDS.has(kind):
+		_is_line_aim = true
+		Input.set_custom_mouse_cursor(_cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))
+		_aim.show_beam(member, _range, 2.0 * float(p.get("radius_m", 1.0)), cc)
+		return
+	_is_line_aim = false
 	# 커서 색으로 대상 진영 구분 — 아군=초록 / 적=빨강(조준 중임도 십자로 표시).
 	Input.set_custom_mouse_cursor(_cursor_ally if ALLY_TARGET_KINDS.has(kind) else _cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))
 	# 단일타겟 → 원판 없음(커서만) / AoE → 효과 반경 원판. 둘 다 시전 사거리를 하얀 링으로 표시.
@@ -82,6 +92,7 @@ func cancel() -> void:
 	_active = false
 	_member = null
 	_slot = -1
+	_is_line_aim = false
 	Input.set_custom_mouse_cursor(null, Input.CURSOR_ARROW)   # 커서 원복(기본 화살표)
 	_aim.hide_marker()
 
@@ -107,6 +118,10 @@ func _confirm_cast(target_pos: Vector3) -> void:
 	var slot := _slot
 	var rng := _range
 	var cb := _combat
+	# 직선 빔 — 방향만 의미(사거리까지 걷지 않음). 마우스 방향으로 그 자리에서 즉시 시전.
+	if _is_line_aim:
+		cb.cast_skillbook(m, slot, target_pos)
+		return
 	var d: Vector3 = m.global_position - target_pos
 	d.y = 0.0
 	if d.length() <= rng:

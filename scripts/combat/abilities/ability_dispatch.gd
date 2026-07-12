@@ -145,6 +145,10 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		return
 	if float(inst.cooldown_s) > 0.0:
 		return
+	# 채널(AB-054) 중 새 스킬을 쓰면 채널을 막지 않고 대신 중단시킨다(이동 중단은 beam_channel이 처리).
+	# 이 시점은 차지/쿨 검증을 통과해 새 시전이 실제로 진행될 때뿐 — 실패한 시도로는 채널을 끊지 않는다.
+	if member.has_method("interrupt_active_channel"):
+		member.interrupt_active_channel()
 	var p: Dictionary = inst.params
 	# D-016 §3.2 / D-012 §2.4 — sub-class use is penalised by identity-distance band (the master's
 	# `sub_bands`); main class = full coeff. (was: flat −10% off the first equip class.)
@@ -370,9 +374,10 @@ func _dps_overdrive(member: CharacterBody3D, slot_index: int, aim: Vector3) -> v
 	var od: Dictionary = BindingFixtures.OVERDRIVE
 	if member.overdrive_is_active():
 		_dps_overdrive_empower(member, slot_index, aim, od)
+		member.overdrive_reset()   # 강화 서브 1회 시전 = 초월 소모(지속시간 없음)
 	else:
 		var hits: int = clampi(_count_sub_hits(member, slot_index, aim), 1, int(od["hits_cap"]))
-		member.overdrive_add(float(od["sub_gain"]) * float(hits), float(od["gauge_max"]), float(od["dur"]))
+		member.overdrive_add(float(od["sub_gain"]) * float(hits), float(od["gauge_max"]))
 
 
 ## 「초월」 강화 변형(발동 중 서브) — kind로 분기. 전부 대상 한정이라 아군 무피해(장판 대신 화상 DoT).
@@ -396,6 +401,11 @@ func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vecto
 			SkillVfx.telegraph(self, aim, Color(0.6, 0.9, 1.0), r)
 		"skillbook_beam":     # 중력 광선 — 빔 원뿔 내 적을 빔 중심선으로 끌어당김(군집화)
 			_dps_overdrive_beam_pull(member, aim, od)
+		"skillbook_bolt":     # 감전 폭주 — 명중 적을 침묵(액티브 캐스트 봉쇄). AB-044 Hush Ward와 동일 API 재사용.
+			for e in enemies_in_radius(aim, r):
+				if e.has_method("apply_silence"):
+					e.apply_silence(float(od["bolt_silence_s"]))
+			SkillVfx.telegraph(self, aim, Color(0.62, 0.42, 0.95), r)
 
 
 ## 중력 광선 — 빔 방향(member→aim) 원뿔 내 적을 각자 빔 축선의 최근접점으로 끌어당긴다(넉백 역방향).
@@ -459,7 +469,7 @@ func dps_overdrive_on_basic(member: CharacterBody3D) -> void:
 			or not BindingFixtures.identity_overdrive(String(member.base_gear_id), String(member.ability_id)):
 		return
 	var od: Dictionary = BindingFixtures.OVERDRIVE
-	member.overdrive_add(float(od["basic_gain"]), float(od["gauge_max"]), float(od["dur"]))
+	member.overdrive_add(float(od["basic_gain"]), float(od["gauge_max"]))
 
 
 # ============================================================================

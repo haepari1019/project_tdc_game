@@ -11,9 +11,9 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_strike",
-        "cooldown_s": 4,
-        "radius_m": 4.0,
-        "damage_mult": 2.5,
+        "cooldown_s": 2,
+        "radius_m": 8.0,
+        "damage_mult": 1.0,
         "knockback_m": 3.0
       },
       "tier": "Basic"
@@ -244,7 +244,7 @@
       "cast": {
         "kind": "skillbook_cold",
         "cooldown_s": 5.5,
-        "cast_s": 0.8,
+        "cast_s": 3.5,
         "targeted": true,
         "range_m": 12,
         "radius_m": 2.0,
@@ -275,7 +275,7 @@
       "cast": {
         "kind": "skillbook_fire",
         "cooldown_s": 5,
-        "cast_s": 0.6,
+        "cast_s": 3.0,
         "targeted": true,
         "range_m": 9,
         "radius_m": 2.6,
@@ -386,7 +386,7 @@
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 6,
-        "cast_s": 2.0,
+        "cast_s": 3.0,
         "cast_range_disc_m": 6.0,
         "radius_m": 6.0,
         "heal_pct": 0.22
@@ -666,10 +666,11 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
-        "cooldown_s": 2,
+        "cooldown_s": 6,
+        "cast_s": 3.0,
         "targeted": true,
         "range_m": 11,
-        "radius_m": 1.6,
+        "radius_m": 4.0,
         "damage_mult": 1.0,
         "lightning": true,
         "shock_s": 2.0,
@@ -693,7 +694,7 @@
       "cast": {
         "kind": "skillbook_bolt",
         "cooldown_s": 5,
-        "cast_s": 0.5,
+        "cast_s": 4.0,
         "targeted": true,
         "range_m": 14,
         "radius_m": 1.2,
@@ -972,7 +973,7 @@
       "cast": {
         "kind": "skillbook_bolt",
         "cooldown_s": 9,
-        "cast_s": 1.5,
+        "cast_s": 5.0,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.2,
@@ -1019,7 +1020,7 @@
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 14,
-        "cast_s": 5.0,
+        "cast_s": 10.0,
         "cast_range_disc_m": 6.0,
         "radius_m": 6.0,
         "heal_pct": 0.55

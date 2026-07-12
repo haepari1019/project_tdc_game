@@ -399,6 +399,7 @@ const THREAT_RETAIN_PER_S := 0.6
 # --- Status: slow (Nuker Nova sub) ---
 var slow_timer_s: float = 0.0
 var slow_factor: float = 1.0
+var _slow_dur: float = 0.0     # 슬로우 총 지속(적 인스펙트 패널 arc용)
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE) — shared container with party_member. Ticked
 ## via tick_outcome() from EnemyAI; folds into current_move_speed; Slippery flags inertia in EnemyAI.
 var _outcome = preload("res://scripts/combat/outcome_status.gd").new()
@@ -406,9 +407,11 @@ var _outcome = preload("res://scripts/combat/outcome_status.gd").new()
 # --- Status: stun / interrupt (party Toll Stun etc.) — freezes the enemy AND cancels any
 # in-progress cast/dash (EN-AI-000 §2 channel interrupt). Ticked by EnemyAI while engaged. ---
 var stun_timer_s: float = 0.0
+var _stun_dur: float = 0.0     # 기절 총 지속(인스펙트 패널 arc용)
 # --- Status: silence (AB-044 Hush Ward) — blocks ACTIVE ability casts (signature/dash/provoke/
 # frenzy). Movement + basic attacks stay allowed (AB-044 §2). ccTenacity shortens it. ---
 var silence_timer_s: float = 0.0
+var _silence_dur: float = 0.0  # 침묵 총 지속(인스펙트 패널 arc용)
 
 # --- Status: knockback (smoothed push over KB_TIME, not an instant teleport) ---
 const KB_TIME := 0.18
@@ -428,6 +431,7 @@ func apply_slow(factor: float, duration: float) -> void:
 		popup_status("둔화", Color(0.5, 0.75, 1.0))
 	slow_factor = factor
 	slow_timer_s = maxf(slow_timer_s, duration)
+	_slow_dur = maxf(_slow_dur, slow_timer_s)
 
 
 func tick_slow(delta: float) -> void:
@@ -435,6 +439,7 @@ func tick_slow(delta: float) -> void:
 		slow_timer_s -= delta
 		if slow_timer_s <= 0.0:
 			slow_factor = 1.0
+			_slow_dur = 0.0
 
 
 ## Elemental outcome timers + Ignited DoT. Called each engaged tick by EnemyAI (like tick_slow).
@@ -510,6 +515,7 @@ func apply_stun(duration: float) -> void:
 	if stun_timer_s <= 0.0:
 		popup_status("기절", Color(1.0, 0.9, 0.3))
 	stun_timer_s = maxf(stun_timer_s, duration / maxf(cc_tenacity, 0.01))  # ccTenacity shortens CC
+	_stun_dur = maxf(_stun_dur, stun_timer_s)
 	if _stun_label:
 		_stun_label.visible = true    # C3: overhead stun mark for the duration
 
@@ -521,8 +527,10 @@ func is_stunned() -> bool:
 func tick_stun(delta: float) -> void:
 	if stun_timer_s > 0.0:
 		stun_timer_s = maxf(0.0, stun_timer_s - delta)
-		if stun_timer_s <= 0.0 and _stun_label:
-			_stun_label.visible = false
+		if stun_timer_s <= 0.0:
+			_stun_dur = 0.0
+			if _stun_label:
+				_stun_label.visible = false
 
 
 ## Silence (AB-044 Hush Ward) — block active ability casts for `duration` (ccTenacity shortens).
@@ -533,6 +541,7 @@ func apply_silence(duration: float) -> void:
 	if silence_timer_s <= 0.0:
 		popup_status("침묵", Color(0.8, 0.5, 1.0))
 	silence_timer_s = maxf(silence_timer_s, duration / maxf(cc_tenacity, 0.01))
+	_silence_dur = maxf(_silence_dur, silence_timer_s)
 
 
 func is_silenced() -> bool:
@@ -542,6 +551,38 @@ func is_silenced() -> bool:
 func tick_silence(delta: float) -> void:
 	if silence_timer_s > 0.0:
 		silence_timer_s = maxf(0.0, silence_timer_s - delta)
+		if silence_timer_s <= 0.0:
+			_silence_dur = 0.0
+
+
+## Active buffs/debuffs for the enemy inspect panel (enemy_info.gd) — same shape as
+## party_member.get_status_list(): each {color, ratio (0 fresh → 1 expiring), buff}. Timer-based CC
+## first (stun/slow/silence), then elemental outcomes (Chilled/Ignited/Bloodlust/Vulnerable/…).
+func get_status_list() -> Array:
+	var out: Array = []
+	if stun_timer_s > 0.0:  # debuff (기절/인터럽트)
+		out.append({
+			"name": "기절",
+			"color": Color(1.0, 0.85, 0.2),
+			"ratio": 1.0 - clampf(stun_timer_s / maxf(_stun_dur, 0.01), 0.0, 1.0),
+			"buff": false,
+		})
+	if slow_timer_s > 0.0:  # debuff (둔화)
+		out.append({
+			"name": "둔화",
+			"color": Color(0.40, 0.78, 1.0),
+			"ratio": 1.0 - clampf(slow_timer_s / maxf(_slow_dur, 0.01), 0.0, 1.0),
+			"buff": false,
+		})
+	if silence_timer_s > 0.0:  # debuff (침묵 — 액티브 시전 봉쇄)
+		out.append({
+			"name": "침묵",
+			"color": Color(0.8, 0.5, 1.0),
+			"ratio": 1.0 - clampf(silence_timer_s / maxf(_silence_dur, 0.01), 0.0, 1.0),
+			"buff": false,
+		})
+	out.append_array(_outcome.status_list())  # 원소 아웃컴(Sodden/Chilled/Ignited/Bloodlust/…)
+	return out
 
 
 func current_move_speed() -> float:

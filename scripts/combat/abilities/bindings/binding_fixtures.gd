@@ -73,11 +73,11 @@ const DOT := {"total_mult": 1.4, "dur": 4.0}
 const SANCT := {"radius_m": 3.0, "dur": 8.0, "amp": 1.4}
 # DPS press_line 「초월(Overdrive)」 — 명중으로 게이지 충전(평타/서브·조작AI공통), 가득 차면 dur초간 링크 서브가
 # **강화 변형**으로 발동(단순 배수 아님·효과 변화, ref=LoL 카르마 Mantra). fire→화상 DoT(Ignited·적한정),
-# beam→끌어당김(pull), cold→빙결(Rooted). DPS=광역이라 세 변형 모두 대상한정=아군 무피해. DRIFT-077.
+# beam→끌어당김(pull), cold→빙결(Rooted), bolt→감전 폭주(Silenced·적한정). DPS=광역이라 전부 대상한정=아군 무피해. DRIFT-077.
 const OVERDRIVE := {
 	"gauge_max": 100.0, "basic_gain": 8.0, "sub_gain": 12.0, "hits_cap": 5, "dur": 6.0,
 	"burn_dur": 4.0, "burn_dps_pct": 0.4, "beam_pull_m": 3.0, "beam_half_deg": 12.0,
-	"cold_root_s": 1.5, "radius_bonus_m": 1.0,
+	"cold_root_s": 1.5, "radius_bonus_m": 1.0, "bolt_silence_s": 2.0,
 }
 # DPS arc_weave 「혈풍(Blood Gale)」 — 서브 시전당 max_hp 소모, 명중 적 수 비례 회복(3기+ 순이득). 서브가
 # 애초에 광역이라 억지 스플래시 없이 자연 성립. 자살 불가(hp_floor 클램프). DRIFT-077.
@@ -182,12 +182,17 @@ const OVERLAYS := [
 		"identity_ab": "IDA-026", "slot_ab": "AB-066", "slot_index": 2, "theme": "sanctuary", "delta": "sanct",
 		"payoff": "SanctuaryFont → 성역 안 증폭", "desc_ko": "성역 안에 머문 채 시전하면 회복량이 늘어난다. 성역을 벗어나면 평범해진다.",
 	},
-	# DPS press_line 「초월」 링크 서브(광역 3종): 명중 시 초월 게이지 충전, 초월 중이면 서브가 강화 변형으로 발동.
-	# 강화는 kind로 분기(fire→화상 / beam→끌어당김 / cold→빙결) — _dps_overdrive. delta 공통 overdrive_charge.
+	# DPS press_line 「초월」 링크 서브(광역 3종 + bolt 대체 슬롯): 명중 시 초월 게이지 충전, 초월 중이면 서브가 강화 변형으로 발동.
+	# 강화는 kind로 분기(fire→화상 / beam→끌어당김 / cold→빙결 / bolt→감전 폭주) — _dps_overdrive. delta 공통 overdrive_charge.
 	{
 		"id": "BIND-PILOT-019", "gear": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-053", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
 		"payoff": "작열 폭발 → 초월 충전 / (초월)겁화: 화상 DoT", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「겁화」로 발동 — 명중한 적에게 화상 지속딜을 남긴다.",
+	},
+	{
+		"id": "BIND-PILOT-026", "gear": "gear_ward_dps_press_rod",
+		"identity_ab": "IDA-024", "slot_ab": "AB-003", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
+		"payoff": "Arc Bolt Volley → 초월 충전 / (초월)감전 폭주: 침묵", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「감전 폭주」로 발동 — 명중한 적을 침묵시켜 액티브 스킬을 봉쇄한다.",
 	},
 	{
 		"id": "BIND-PILOT-020", "gear": "gear_ward_dps_press_rod",
