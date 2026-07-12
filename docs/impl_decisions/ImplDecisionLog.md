@@ -6,6 +6,18 @@
 
 ---
 
+### IMPL-DEC-20260712-002 — AB-054 채널 = 인터럽트형(비점유·비루트) 재구현
+- **결정(2026-07-12, 사용자 지시):** AB-054 빔 채널의 셀프 Rooted(이동잠금) + `begin_channel` 점유를 제거하고, **이동(시전지점 0.3m 이탈)·다른 스킬 시전·기절/다운 시 중단되는 인터럽트형**으로 전환. 진행바=감소형(청록, 캐스팅과 반대방향), 조준=원형→**직선 레인**.
+- **이유:** "속박" 셀프-CC가 맥락에 안 맞음(사용자 피드백). 채널을 강제 잠금이 아니라 "유지하면 이득·움직이면 끊김"의 리스크-리워드로.
+- **대안:** (기각) 지속 root 유지 / (기각) 점유는 두되 이동만 허용. 인터럽트형이 캐스터 기동성·직관에 부합.
+- **영향 파일:** `beam_channel`·`sb_beam`·`aim_marker`·`aim_controller`·`party_member`(`_active_channel`/`interrupt_active_channel`)·`ability_dispatch`(cast_skillbook interrupt)·`dungeon_run`/`combat_sandbox`(주석). `begin_channel`/`is_channeling`은 wind-up 캐스트(skill_cast)용 유지. **규칙 변경 = DRIFT-079 (OPS_30 전파 후보).**
+
+### IMPL-DEC-20260712-001 — DPS 초월 = 무지속 1회 소모 + 비전투 초기화
+- **결정(2026-07-12, 사용자 지시):** 초월(press_line)을 지속시간형(dur 6s 창) → **무지속**으로. 만석=발동 유지 → **강화 서브 1회 시전 시 소모**(`overdrive_reset`), **비전투 5초 유지 시 게이지 초기화**(`party_controller`가 `engagement_changed` 신호로 one-shot 타이머 구동). 게이지 UI = 오버헤드 → 캐릭터 시트 체력 아래.
+- **이유:** "발동 후 지속" 대신 "충전→1회 강한 한 방"이 리소스로 더 읽힘(사용자). OOC 초기화로 전투 밖 충전 캐리 방지.
+- **대안:** (기각) 지속형 유지 / (기각) OOC 감쇠(decay). 1회 소모 + 하드 초기화가 단순·명확.
+- **영향 파일:** `party_member`(드레인/`_od_timer_s` 제거·`overdrive_reset`)·`ability_dispatch`(empower 후 소모·2-arg add)·`party_controller`(OOC 타이머)·`controlled_sheet`(시트 게이지). `OVERDRIVE.dur`=잔재. **규칙 변경 = DRIFT-080 (OPS_30 전파 후보).**
+
 ### IMPL-DEC-20260709-001 — 결속(P4b) 정본 = **이 세션 게임 구현이 SSOT** (스펙 로드맵 스텁 역전)
 - **결정(감독, 2026-07-09):** Identity Kit Binding의 정본은 **게임 레포 구현**(집중/잠행·초월/혈풍·지속치유/성역, `binding_fixtures.gd` + DRIFT-073~077)으로 한다. 스펙의 `BIND-ROADMAP-007~024` + `EXPANSION_P4B.md`는 **다른(가벼운 페이오프) 설계**라 **폐기·재작성 대상** — 우리 구현을 기준으로 다시 씀.
 - **이유:** 실제 플테로 검증·확정된 건 우리 구현. 스펙 스텁(interrupt/spore/cinder, guard-break/lane/stagger 등)은 착수 전 개념이고 실구현과 어긋남. 되돌리기보다 실구현을 정본화가 맞음.

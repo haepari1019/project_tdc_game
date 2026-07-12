@@ -2,10 +2,10 @@
 
 > **무엇:** 구현이 spec(SSOT)과 달라진 지점의 **단일 추적 대장**. 발견 즉시 `DRIFT-###`로 기록하고, 분류·결정·상태를 유지한다.
 > **규칙:** [AGENTS.md](../AGENTS.md) §Spec drift & propagation. 튜닝수치=로깅만 / 아이디어=`OPS_08·I-002` / 규칙변경=spec repo `OPS_30` 전파 후 `spec_ref.json` 재핀.
-> **최종 갱신:** 2026-06-26 — **역전파 배치(스펙 `origin/staging` 누적·푸시됨, `spec_ref` 재핀 `staging@f16c262`; `origin/main`은 사용자 promotion 대상이라 미변경 — 스펙 AGENTS.md):** DRIFT-058(AB-070+Bloodlust)·067(forceEncounter 난이도 스키마+Q-HUB-020 일반화)·064(루트 출처 모델)·066/046(런타임 인카운터 제너레이터+증원)·028/030/032/065/068(데모 콘텐츠/데이터) **→ DEC-20260626-001~005 OPS_30 전파**. 027(인-런 부활)·018/019(perception·분대AI)·037/038(fog·see-through)는 **이미 전파됨**(D-020+F-007 §3.6.1·F-011 DEC-20260609/610/618-001) — 재전파 불필요. **PENDING-PROP 없음.** · **이전 스펙 핀:** `bc22c38` (DEC-20260621-001 제3세력 Stalker Pack · DRIFT-055; `ef9c0c7`=DEC-20260620-002·DRIFT-054, `d62df49`=DRIFT-050 AB-011 channel·DEC-20260620-001). 이전: (**Phase 2 Full Spec Coverage 채택** — 데모 스코프 상한 해제, `ImplementationPhase_FullSpecCoverage.md` · DRIFT-037 F-011 fog·DRIFT-038 F-012 see-through 전파 `daa1114`/DEC-20260618-001 머지+재핀). **PENDING-PROP 없음.** 이전 핀: 4422e50=Phase2 채택·DRIFT-037/038, 0edf55c=DRIFT-035/036(F-004 §3.5·F-012 §3.1.2), b84e975=DEC-20260611-003~006, c795fee=DEC-001/002, f7739a1=DRIFT-021.
-> **2026-07-04 갱신 (T1 백로그 배치):** DRIFT-069 신설 — 잔여 종결 6(HEX-WEAK·거리leash+복귀·난이도 드롭률·fog 문 occluder·적 stun VFX+오프스크린 지표·PIP §7.8) **구현**, 전 헤드리스 PASS. **신규 콘텐츠 2 = `PENDING-PROP`(OPS_30 승인 대기):** F3 환경 RX 3종·B7 zone spread. ⚠️ 상단 "PENDING-PROP 없음"은 2026-06-26 기준 — 현재 DRIFT-069 F3/B7 대기. 상세=DRIFT-069·`ImplDecisionLog` IMPL-DEC-20260704-001.
-> **2026-07-04 갱신 ② (스펙 내부 erratum 전파):** DRIFT-070/071/072 신설 — `DEC-20260704-001`(서브 경제 Skillbook→Gear/마석 전환)이 **impact_scope에서 `D-011`을 누락** → 서브 로드아웃 정본 필드가 D-011(구 `subEquippedSkillbooks`) ↔ D-019/D-018(`equippedSlotAbilities`) 상충. 감독 결정: **D-019 정본**. + `BIND-ROADMAP-008` slotIndex Q→E(071) + Healer 스타터 프리모딩 정합(072). **`DEC-20260704-002` OPS_30 전파 진행** + `spec_ref` 재핀 예정(f16c262→e328aaa 계열).
-> **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조 검증).
+> **최종 갱신:** 2026-07-09 — **컴팩션:** 스펙 전파 완료(✅ MERGED / ✅ 전파 / 🔷 전파) 드리프트 **19건 제거** — DRIFT-000·005·018·019·021·022·023·024·025·027·035·036·037·038·050·054·070·071·072(스펙 SSOT 반영 완료; 이력=spec DecisionLog/커밋). 잔존 = 튜닝 로깅(전파금지)·impl 결정·전파 후보(미전파)·파일럿 로깅(🕒 전파 보류). **현재 스펙 핀:** `staging@2bf37b2`(QA-031·Phase 2, 결속 정본 계열).
+> **미전파(승인/게이트 대기):** DRIFT-069 F3 환경 RX 3종·B7 zone spread = `PENDING-PROP`(OPS_30) · DRIFT-073~077 파일럿 결속/캐스터 설계 = 🕒 로깅(게이트 후 전파) · 058·064·065·066·067·068 = 전파 후보.
+> **2026-07-12 추가(미커밋 작업 로깅):** DRIFT-078 I-006 캐스팅 확장 패스(엄브렐러·impl/tuning·진행 중) · **DRIFT-079 AB-054 채널 규칙변경**·**DRIFT-080 DPS 초월 개편** = 🔶 rule **전파 후보**(OPS_30 미전파) · DRIFT-081 적 상태칩(impl). 세부 원장 = `docs/_WIP_casting_expansion_pass.md` §4.
+> **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조) 이래 누적.
 
 ## 범례
 - **분류**: `tuning`(전파금지·로깅만) · `idea`(OPS_08) · `rule`(OPS_30 전파) · `code-bug`(가드/검증 결함) · `scope`(스코프/마일스톤)
@@ -13,30 +13,14 @@
 
 ---
 
-## 🔶 DRIFT-000 — Phase 1a(Slice-01) 종료 → Phase 1b 확장 (최상위 스코프 결정)
-
-| | |
-|---|---|
-| **현실** | 사용자 선언: "Slice-01은 사실상 끝났고 이후 필요한 기능부터 확장 중." 즉 프로젝트는 **1b 확장 단계**. |
-| **스펙/문서 상태** | `spec_ref.json`·`manifest.json`·`WORK_ORDER.md`·spec `SpecScopeTracker`는 여전히 **Phase 1a / QA-030 진행중**으로 기술. |
-| **알려진 갭** | Slice-01 졸업 게이트 **`T-ENC-NORM-001`은 공식 검증된 적 없음** (필수방이 ENC-NORM-001을 스폰 안 함 → DRIFT-004). "선언적 완료 — 미검증 갭 수용". |
-| **분류** | `scope` |
-| **결정** | (1) Slice-01을 *선언적 완료*로 닫음(미검증 갭 수용). (2) 1b 기능 확장을 공식화 → spec `SpecScopeTracker`/`TODO` 갱신 + **1b 계약 `QA-031` 신설** 필요. |
-| **상태** | ✅ `MERGED` — spec staging 머지 완료(`d70ed48`: QA-031·QA-030 §7·DEC-20260608-001·SpecScopeTracker·TODO). 게임 `spec_ref.json`/`manifest` 재핀(QA-031·1b), 헤드리스 검증 통과. |
-| **참고** | 나중에 Slice-01을 진짜 마일스톤으로 써야 하면 DRIFT-004를 `adopt`로 전환해 게이트 검증부터. |
-
----
-
 ## 요약 표
 
 | ID | 영역 | 분류 | 결정 | 상태 |
 |----|------|------|------|------|
-| 000 | Phase 1a→1b 전환 | scope | 선언적 완료 + 1b 공식화(QA-031) | ✅ MERGED (staging d70ed48) |
 | 001 | 플레이어 서브 스킬 AB-S01~04 | rule | **유지** = 1b 스킬북 기능, spec 승격(QA-031); AB-S0x→spec 서브 정합은 1b 콘텐츠 과제 | ✅ MERGED · 정합 BACKLOG |
 | 002 | Identity 전원 자동(조작캐 포함) | rule | spec HEAD와 정합 → **재핀** | RESOLVED (P2) |
 | 003 | 인런 키: 스왑 1-4 / 서브 Q | rule | 스왑=HEAD 정합(재핀); 서브키는 001에 종속 | RESOLVED/부분 |
 | 004 | P-ADV-01 → ENC-HARD-001 (NORM-001 도달불가) | scope | **둘 다 살림**: P-ADV-01→NORM-001, P-ADV-02→HARD-001 | RESOLVED (P3) |
-| 005 | 1b 메커닉이 전투에(EN-005/006·증원·상태이상) | rule | 유지=1b, spec 승격(QA-031) | ✅ MERGED (staging d70ed48) |
 | 006 | abilities.json id 검증 누락 + 미등록 ID | code-bug | 등록(14 AB) + `require_id` + sub_ability_id 검증 | RESOLVED (P3) |
 | 007 | IDA-020 Anchor Guard 수치 | tuning | 로깅만, 재산출 | LOGGED |
 | 008 | IDA-024 Press the Line 수치 + 3타 붕괴 | tuning/polish | 로깅; 3타 순차는 1b 폴리시 | LOGGED/BACKLOG |
@@ -49,16 +33,8 @@
 | 015 | 맵 장애물 + 파티합집합 LOS 가림 구현 (F-011 선행) | scope/impl | occlusion-only 토대, 풀 F-011은 보류 | IMPLEMENTED |
 | 016 | RMB 카메라회전 + WASD 카메라상대 + 방향별속도(W>A/D>S) + 진형정면=카메라추종 | rule/impl | F-002(RMB=페이싱)와 충돌 → 카메라 우선. 진형 이동반전 플립머신 제거(~134줄). 페이싱 구현 시 재바인딩 | IMPLEMENTED |
 | 017 | enemy_unit LAYER_ENEMY 3→4 콜리전레이어 근본수정 | code-bug | 적이 world비트 공유하던 버그 수정(LOS·스티어링 정상화) | FIXED |
-| 018 | 적 시야 인지(F-011 perception **부분구현**, deferred→1b): 전방콘(FOV~160°)+LOS+근접버블·2존(경계존?·전투존!)·last_seen 수색·도망 시 grace(6s)+감속(0.55) 추격 후 포기 | scope/rule | **유지=1b 확장.** F-011 perception 데모 부분집합 노트 + 신규 **F-013** enemy-AI + QA-031 승격 | ✅ MERGED (staging 6f0e534 · DEC-20260610-001) |
-| 019 | 적 **분대(squad)** 단위 engage(분대 독립·분대원 근접전파 9m·stray 예외) + **미리 스폰(휴면)**·시작방 인카운터→메인전투방 이전·방 먼쪽 배치 + navmesh 추격 + **threat/시야기반 타겟**(미인지 대상 비타겟) | rule/scope | 신규 **F-013** enemy-AI 행동 루프로 SSOT화(분대=F-022 Encounter Group 구체화). 포스트복귀/리쉬는 F-013 §9 후속 | ✅ MERGED (staging 6f0e534 · DEC-20260610-001) |
 | 020 | 전투AI/인지 **튜닝수치**(FOV 160°·sight 12m·proximity 2.5m·alert_zone 0.2·scan ±35°/4s·investigate 0.35·chase_blind 0.55·squad_prop 9m·exit_grace 6s·lane 12m·cone alpha 0.05~0.06) | tuning | 로깅만(전파 금지). grace 6s는 D-010 §4.2와 정합 | LOGGED |
-| 021 | 비결속 지휘권 **분리 모델**: 지휘권 보유자(리더 고정·핑/MIA 대상) ↔ 포메이션 랠리 앵커(보유자 조작/복귀 중 stand-in 자동·복귀 시 환원) | rule | F-003 §3.0.4 신설로 SSOT화(보유자=리더 고정, 랠리 앵커만 자동). UI-008=리더 외 명시 지정 | ✅ MERGED (staging f7739a1 · DEC-20260610-002) |
-| 022 | **방향 피격 인디케이터** — 조작캐 피격 시 공격자 방향으로 화면 가장자리 빨간 글로우(인포워 HUD) | rule(전파됨) | **F-011 §3.7** 방향 피격 인디케이터(정보전 HUD) 신설. DEC-20260611-006(b84e975); 수치=tuning | ✅ MERGED (b84e975) |
-| 023 | **인벤토리 시스템**(5×8 백팩 + 컨테이너, `i` 토글·중앙·창드래그) + **백팩 아이템**(가변 W×H·occupancy·드래그&드롭·경계/겹침/스냅·**회전 R**·**컨테이너 간 이동**) | rule(전파됨) | **F-010 §3.8.1** Run Inventory 그리드 표현. DEC-20260611-004(b84e975); 용량모델·무게·스택 정합 OQ | ✅ MERGED (b84e975) |
-| 024 | **월드 루프**: 상자(키 보유, 우클릭 루팅) → 키 → **키 게이트 문**(탈출경로 차단) → 문 개방 시 objective → 탈출. RM-OBJ-01 진입 자동완료 **제거**. 상호작용=우클릭(E=서브스킬2 예약) | rule(전파됨) | **DBP-DEMO-001 §4.1** 키-게이트 objective(상자→키→문) + QA-030 §3.5. DEC-20260611-005(b84e975); gimmick 타입 카탈로그=F-026 후속 | ✅ MERGED (b84e975) |
-| 025 | **Identity Gear**(F-008): 던전 루팅 gear → 장비 슬롯 장착·교체(equipClasses)·장착 Safe/미장착 At-Risk | rule(전파됨) | 던전 루팅 정식 채택, DEC-20260611-001 전파(4281981) | ✅ MERGED (c795fee) |
 | 026 | **스킬북 시스템 B**: 적 lootable AB(AB-002/010/011) per-kill 드랍 → 백팩 At-Risk 1×1 / Q·E·R 3슬롯 장착(클래스 게이트·드래그·우클릭·녹적 프리뷰)·탄수 소모·전투 외 교체 / Identity 고정서브(AB-S01~04) 제거 | rule(전파됨)+tuning | per-kill·서브3슬롯=spec(DEC-20260611-002, c795fee). charges 8/10/6·드랍률 0.5·독/스턴 프록시=tuning/impl | IMPLEMENTED |
-| 027 | **소모품 시스템 + 부활 스크롤**: consumables.json·스택(max 3)·Z/X/C 핫키(호버+키/드래그 등록, 6시 시트 위 바)·**인-런 부활**(휴식중만, 소모1→다운 아군 부활 HP50%) | rule(전파됨) | **F-010 §3.4·D-020·F-007 §3.6.1 경계** 전파. DEC-20260611-003(b84e975); 부활 HP%·채널·스택=tuning | ✅ MERGED (b84e975) |
 | 028 | **Fatal 장판 트랩 + MIA + navmesh carve + 레버**: 초크포인트 트랩→치명 장판(텔레그래프→치사·피아무구분) 스폰→파티 분리 / 후미 fatal 회피·stand-off hold / 장판=**navmesh carve**(벽처럼 우회/단절) / **MIA 양경로**(비결속 leash 20m·즉시 경계링·1s 경고·5s MIA·조작캐면 앵커 강제이전 / 복귀실패=nav 경로 도달불가) / 레버=함정 회복 | rule(기존 spec 구현)+scope+tuning | F-006 트랩·F-004 §3.1.1/§3.3·F-003 §3.3.1/§3.6.2·F-001 §3.6 구현. 트랩/레버 gimmick=신규 데모(전파 후보). 장판 수치·leash 20m·타이밍=tuning | IMPLEMENTED (일부 전파 후보) |
 | 029 | **기름 배럴 + 화염 연쇄(RX-OIL-FIRE) + 디버프 핍 + 서브 페널티**: 파괴 배럴(ENT-BARREL)→기름 장판(슬로우 필드)·화염 스킬북(Ember Lance AB-037)→기름 점화→**폭발+화염/독안개 장판+연쇄**(depth≤2) / zone 일반화(status·impassable·ttl·slow) / 슬로우·DoT 디버프 핍 / **서브 클래스 페널티**(비주력 −10% + UI 경고) | rule(기존 spec 구현)+tuning | F-027 RX-OIL-FIRE-001·ENT-BARREL-001·D-016 AB-037·F-021 ZONE/연쇄·F-009 §3.2.1 구현. 수치·main=first-equip-class 휴리스틱=tuning/impl | IMPLEMENTED |
 | 030 | **MIA 대응 UI(UI-006) 정식화 + 다중 MIA 모집지점 픽스**: 중앙 분리경고 배너 + PIP 카메라(world 공유·강조 3s→저강조→8s 자동최소화·최소/확장·다중 MIA 사이클 ▶·수동닫기 5s 쿨다운) / MIA 멤버=랠리 앵커·지휘권 stand-in **선정 제외** / 비조작 전원 MIA여도 BOUND 폴백 안 함(UNBOUND 유지=leash로 고립 유지, 마지막 조작캐만 이동) | rule(기존 spec 구현)+impl+tuning | UI-006 §6/§7 구현, F-003 §3.6.2 MIA 거동 정제. anchor 제외·all-MIA-unbound=**전파 후보**(F-003 §3.0.4 stand-in 선정). 타이밍 3/8/5s·PIP 크기=tuning | IMPLEMENTED (일부 전파 후보) |
@@ -66,10 +42,6 @@
 | 032 | **횃불(ENT-TORCH) 들기/던지기 + 광원화 + 화염 어그로 + 시야밖 피격 수색**: 횃불=carriable 점화체(F-interact→소모품 슬롯, 빈슬롯 자동·풀이면 선택, 발동=지면조준 투척→착지 점화+소모), 들고 기름 접촉 즉시 점화 / 횃불이 방 광원(천장 omni 그리드 대체, 동적조명) / 던지거나 들고 점화한 화염·폭발이 적 때리면 **던진 주체에게 threat** / **시야 밖 피격(어떤 수단이든)→공격자 방향 investigate 수색** | rule(기존 spec 구현)+impl+tuning | F-021 §3.1.2(carry/투척/torch+oil)·F-027 ENT-TORCH·F-011/F-013(수색) 구현. 아군 능동 carry/투척·화염 source 어그로·시야밖 수색=전파 후보. 적 carry/몬스터 세트(증분2) 후속. 광원·수치=tuning | IMPLEMENTED (아군측; 적 carry 후속) |
 | 033 | **적 횃불꾼(EN-014) + 제네릭 적-오브젝트 프로토콜 + 랜턴/토치 분리 (증분2)**: `interacts_with_objects` 적이 group interactable 중 `enemy_usable()` 오브젝트 탐색→`enemy_use`(들기); 든 오브젝트가 `enemy_combat_tick()`으로 행동(토치=접근→텔레그래프→투척). 행동이 오브젝트 내부라 신규 오브젝트는 적 코드 무수정·체스트=enemy_usable 미구현→자동 제외 / 방 조명=고정 랜턴(줍기 불가), 토치=기름 코트 4개만 | rule(기존 spec 구현)+impl+content | F-021 §3.1.2 적 carry/투척·EN-COR-000 구현. EN-014=신규 데모 적(spec 정합=1b). 제네릭 프로토콜=확장 아키텍처. 랜턴·수치=impl/tuning | IMPLEMENTED |
 | 034 | **배치 허브(F-010 §3.2 / UI-005 / F-003) — 스태시 로드아웃 편집 + 반입 At-Risk + 포메이션 편집**: 메뉴에 InventoryUI(combat=null→장착 허용) + 정적 허브 파티 임베드 → 스태시(소유 gear/스킬북/소모품)를 컨테이너로 띄워 캐릭터 Q/E/R·장착·백팩 드래그. **탑다운 드래그 포메이션 에디터**(4 역할 토큰→슬롯 오프셋). Deploy 시 멤버 서브+백팩+포메이션 직렬화→RunLoadout→dungeon_run 적용(At-Risk 시작→정산 연동, 슬롯 오프셋 오버라이드). 소모품 스택10·Ctrl클릭 분해팝업·드래그 합치기. 오토로드 런타임 경로 접근 | rule(기존 spec 구현)+impl | F-010 §3.2·UI-005·F-007 At-Risk·F-003 슬롯 오프셋 구현. 스태시 시드·스택수치·CLAMP/SCALE=content/tuning | IMPLEMENTED |
-| 035 | **전투 진형 — 탱커 선공 게이트 + 2선 딜러(원거리 백라인/근접 측면 플랭크) + DPS 원거리화** | rule(전파됨)+tuning | AI DPS/Nuker는 탱커 첫타 전까지 교전·접근 보류; 원거리=백라인 딜, 근접=탱커축 측면 플랭크. DPS basic_range 2.0→10.0=tuning | ✅ 전파 (F-004 §3.5, DEC-20260616-001, spec 0edf55c) + 재핀; range=tuning |
-| 036 | **카메라 RMB 세로 드래그 = pitch 틸트(인버트) + 피치 범위 15~85°** | rule(전파됨)+tuning | RMB Δy→pitch(yaw와 동시 자유오빗). 범위·감도·줌=tuning | ✅ 전파 (F-012 §3.1.2, DEC-20260616-002, spec 0edf55c) + 재핀 |
-| 037 | **F-011 풀 GPU vision fog**(2D SubViewport 파티-LOS→3D next_pass·explored 기억) + 적 시야콘 GPU union 재구성 + **렌더러 Forward+ 강제→web export 차단** | scope/impl + rule(제약) | DRIFT-015 deferred 풀 F-011 구현됨. fog 가시모델(차폐형 마스크·Explored Memory·시야콘 오버레이) **F-011 §3.0/§3.3/§5 정식화**. Forward+/web-export 제약=**impl-only 결정**(spec 비대상, ARCHITECTURE DEBT-PLAT-FWD) | ✅ MERGED (F-011 §3.0/§3.3/§5, daa1114·DEC-20260618-001, spec 4422e50) + 재핀 |
-| 038 | **F-012 wall x-ray** — 카메라↔조작캐 사이 벽 알파 페이드(see-through), 저각 시네마틱 카메라 보완 | rule/impl | DRIFT-036 pitch 저각화의 짝. **F-011 §3.3.1 Camera Occlusion See-Through**로 정식화(F-012 §3.1.2가 F-011에 위임) | ✅ MERGED (F-011 §3.3.1, daa1114·DEC-20260618-001, spec 4422e50) + 재핀 |
 | 039 | **P2-S1 던전 스케일 — spawn resolver(LDG-SPAWN-DEMO-001) + 다층맵(≥12룸 Upper/Mid/Deep) + ENC 9·EN 6 스텁** | scope/impl + content(stub) | (pool×difficulty×world_layer) resolver·force override 구현; ROOM_SPECS 절차확장(placeholder 기하 유지=DEBT-DM3); EN/ENC 스텁 kit·전투폴리시=P2-S2. Recovery 이연(DRIFT-031) | 🔸 IMPLEMENTED (헤드리스 검증; 인터랙티브 Hard 플레이 스모크 user-pending) |
 
 > **비-드리프트(기존 spec 구현=정합, ImplDecisionLog 기록):** partyInCombat 진입/종료(D-010 §4.1 피해·공격·인지 / §4.2 grace), 비조작 안전우선 슬롯-이탈 트리거=피격/사거리(F-004 §3.1/§3.3), 힐러 포지셔닝(F-005), **지휘권 진입 핸드오프=서브리더 앵커(F-003 §3.4 #2)** — 진입 동작은 기존 spec 정합. 단 **스왑 중 지휘권/랠리 거동은 §3.0.4 분리 모델로 정제 → DRIFT-021(✅ MERGED f7739a1)**. 서브리더 지정(UI-005)·지휘권 전환 UX(UI-008)·Leader Move Ping(F-003 §3.5)은 **미구현(기본값/보류)**.
@@ -98,11 +70,6 @@
 - **결정(2026-06-08, 사용자): "둘 다 살림".** `manifest` `P-ADV-01 → ENC-NORM-001`(복원, 필수·게이트), `rooms.json` `RM-ADV-02`에 `pool_slot: P-ADV-02` 추가 + `manifest` `P-ADV-02 → ENC-HARD-001`(ADV-02 분기의 선택 전투). NORM-001은 다시 도달 가능, HARD-001도 보존.
 - **상태:** `RESOLVED` (P3). 헤드리스 로드 검증 통과. **잔여:** ENC-NORM-001 전투 실제 스폰/플레이는 F5 기준선 검증 + HARD-001의 1b spec 승격(DRIFT-005와 함께 QA-031).
 
-### DRIFT-005 — 1b 난이도 메커닉이 전투에 유입
-- EN-005(독)·EN-006(스턴 CC)·증원 웨이브·상태이상(F-021)으로 effective mechanicAxes 3 > 데모 상한 2. 단, EN-005/006·AB-010/011은 **유효 spec ID**.
-- **결정:** 1b 기능으로 유지, spec 승격(QA-031). 단 *Slice-01 검증 전투*(DRIFT-004 A 선택 시)에는 등장 금지.
-- **상태:** ✅ **MERGED** (staging d70ed48 — `QA-031`이 EN-005/006/013·`ENC-HARD-001`·증원 wave·`F-021` 상태이상 depth 1을 1b In-scope로 승격, DEC-20260608-001).
-
 ### DRIFT-006 — abilities.json 검증 누락 (코드 가드 버그) ✅ RESOLVED (P3)
 - `slice01_data._parse_abilities()`가 `require_id` 미수행. `id_registry.ability_ids`엔 IDA-020/024/025/026만 → AB-001/002/010/011/015/016·AB-S0x가 "미등록 ID→abort" 우회. `sub_ability_id`도 미검증이었음.
 - **처리(P3):** ① `id_registry.ability_ids`에 사용중 14개 AB-### 등록(`_note`로 AB-S0x 비-spec 표기) ② `_parse_abilities`에 `require_id` 루프 ③ `_parse_identities`에 `sub_ability_id` 검증 추가. 헤드리스 로드 검증 통과(등록 누락 시 abort했을 것).
@@ -130,53 +97,12 @@
 - 013: 아군간 물리충돌 제거 — spec 조항 없음(스티어링 스태킹 방지용). F-003 정밀검증(QA-003) 시 재검토.
 - 014: 파티전멸=Run Failure(F-007 §3.7.1)는 실제 규칙이나 QA-030 Non-goal로 1a 보류. 1b에서 "4 down→Run Failure" 저비용 추가 권장.
 
-### DRIFT-018 — 적 시야 인지(F-011 perception 부분구현, deferred→1b) ✅ MERGED (staging 6f0e534)
-- **구현(2026-06-09):** 적 휴면/경계/전투 3상태 + **하이브리드 시야콘** 인지:
-  - 전방 FOV 콘(~160°) + **LOS 레이캐스트**(벽 가림) + **360° 근접버블**(2.5m, 각도무관) — `combat_controller._tick_dormant`/`_has_los`, `enemy_unit`(facing·scan·콘 VFX).
-  - 콘 거리 **2존**: 외곽 20%=경계존(`?` + last_seen 조사 이동), 내부 80%=전투존(`!` + 교전 진입). 근접버블=전투존.
-  - 교전 중 **LOS 끊기면** 마지막 목격(last_seen)으로 감속 추적, `combat_exit_grace_s`(6s) 무LOS 시 휴식 복귀. 공격도 LOS 게이트(벽 관통 사격 차단).
-- **F-011 관계:** F-011(Vision & Information War)은 QA-031 Non-goal/Expansion(보류, DRIFT-015 occlusion-토대만). 본 작업은 그 위에 **적→파티 perception(시야콘·인지·시야기반 전투 진입)** 을 1b에서 선구현 = **deferred 스코프를 앞당김**. 미구현 잔여: perceptionProfile별 수치·Patrol 경로·Threat Memory·광원합집합 인지.
-- **분류/전파:** scope(F-011 일부 1b 편입) + rule(신규 적AI). **PENDING-PROP** → spec repo OPS_30: QA-031(1b 스코프에 perception/enemy-AI 추가)·F-011(구현된 perception 모델 일부 확정 or "demo subset" 명시)·SpecScopeTracker. DecisionLog `DEC-`.
-
-### DRIFT-019 — 적 분대(squad) 전투AI + 미리스폰 + 시야기반 타겟 ✅ MERGED (staging 6f0e534)
-- **구현(2026-06-09):**
-  - **분대(squad)** = 인카운터 그룹. engage는 적 단위지만 **같은 분대 근접(9m) 전파**만 → 조사로 분대와 멀어진 적을 잡아도 먼 분대는 안 깨움(stray 예외). partyInCombat = 임의 적 engaged(파생).
-  - **미리 스폰**: 런 시작 시 인카운터를 휴면 분대로 사전 배치(방 진입 트리거 제거). **시작 방 인카운터는 메인 전투방으로 이전**, 분대는 방 **먼쪽**(파티 시작 반대편)에 배치 + 입구 반대 응시.
-  - **타겟**: highest-threat → 없으면 **시야(LOS) 내 최근접**. 인지·위협 없는 먼 멤버(숨은 본대)는 타겟 안 됨. 인지 시 그 멤버에 위협 부여(분대 공유).
-  - 적 **navmesh 추격**(벽 우회), 비결속 Tank-앵커도 전투 합류.
-- **분류/전파:** rule/scope — 신규 적 전투AI 동작(분대 어그로·미리스폰·도망 대응). **PENDING-PROP** → QA-031 + enemy-AI 규칙 절(신규 또는 `F-024 RiskPatterns`/`F-022` 확장). 인카운터 미리스폰은 `DBP`/encounter 스폰 모델과 정합 필요.
-- **잔여(미구현):** 포기 후 **스폰 원위치 복귀** + 스폰 리쉬(Phase D 잔여).
-
-### DRIFT-021 — 비결속 지휘권: 보유자↔랠리 앵커 분리 (rule) ✅ MERGED (staging f7739a1)
-- **증상(사용자):** 비결속에서 Tank(컨트롤)로 정찰 나간 뒤 DPS로 스왑하면, 기대는 "Tank 복귀·DPS만 이탈"인데 **Tank·DPS 둘 다 대열 이탈**. 원인: §3.4가 "컨트롤=비리더 → 앵커=리더(Tank)"인데, 그 Tank는 방금 멀리 정찰 간 캐릭이라 **파티가 Tank를 따라 이동**.
-- **구현(2026-06-10, 2차 정제):** `_update_command_holder()`를 **per-frame** 갱신으로 — **리더가 정본 앵커**(이동핑 명령 대상). 리더가 "나가 있는" 동안만 임시 위임: ① 리더 컨트롤(정찰) → stand-in 보유(파티 위치 유지) ② 리더 해제됐으나 복귀 중 → stand-in 유지(파티가 리더의 먼 위치로 안 끌려감) ③ **리더가 대열 복귀(stand-in 앵커 5m 내, `_leader_returned`) → 앵커를 리더로 환원**. stand-in 선정 시 **방금 떨어진 정찰자 제외**(`avoid_scout`)로 거울 케이스(서브 정찰→리더 스왑)도 처리. 결과: 떨어진 1명만 이탈, 나머지 대열 유지, 복귀자 슬롯 복귀, **앵커는 임의 멤버로 흘러가지 않고 리더로 돌아옴**.
-- **§3.4 관계:** 진입 핸드오프(리더 컨트롤→서브, §3.4 #2/#3)는 **그대로**. 추가: (a)리더=정본 앵커·복귀 시 환원 (b)정찰/복귀 중 임시 stand-in (c)stand-in 후보=leader/sub→전 멤버(2명으론 불충족)·정찰자 제외. 1차 시도(앵커가 stand-in으로 영구 drift)는 사용자 지적으로 폐기 — 앵커는 이동핑 대상이라 의미있는 역할이어야 함.
-- **전파 결과(✅ MERGED, staging f7739a1 · DEC-20260610-002):** 전파 단계에서 F-003 §3.0/§3.10이 "**앵커 고정 + UI-008 수동 전환**" 모델임을 발견 — 단순 확장이 아니라 **모델 충돌**. 사용자 결정으로 **분리 모델** 채택: **지휘권 보유자**(리더 고정·이동핑/MIA/합류 기준, UI-008로만 변경) ↔ **포메이션 랠리 앵커**(보유자 조작/복귀 중 stand-in 자동·복귀 시 환원, 정찰자 제외)를 **F-003 §3.0.4** 신설로 SSOT화. 게임 코드는 랠리 앵커만 구현(핑/MIA 미구현이라 보유자=리더는 개념상 동치). `leader_return_radius_m` 5m은 tuning. UI-008은 "리더 외 명시 지정"으로 재정의(후속). 게임 `spec_ref.json` 재핀 f7739a1.
-
-### DRIFT-022 — 방향 피격 인디케이터 (인포워 HUD) ✅ MERGED (b84e975 · DEC-20260611-006)
-- **구현(2026-06-10):** 조작 캐릭 피격 시 **공격자 방향으로 화면 가장자리 빨간 글로우** — `CombatController.party_hit` 신호(모든 피격, 칩뎀컷, severity=dmg/maxHP) → dungeon_run이 조작캐만 필터 + 카메라 `unproject_position`으로 스크린 방향 산출 → `damage_indicator.gd`(Control, 절차 draw, 동방향 debounce·페이드). 기존 카메라 방향킥(AB 전용)을 보강.
-- **분류/전파:** scope/idea — 신규 인포워 HUD 피드백 UX. spec 미정의. **F-011**(Vision & Information War, 정보 제시) 또는 신규 **UI 문서**가 적합한 홈. F5 확인·튜닝(방향 부호·강도·페이드) 후 OPS_30 정합. 튜닝수치(MIN_FRAC 0.012·GAIN 4.0·SPREAD 38°·DEPTH 0.16·FADE 0.7s)는 전파 금지.
-- **확장(2단계):** 팔로워(비조작) 오프스크린 피격 표시 — F-003 §3.9 분리경고/PIP와 정합 여지. ImplDecisionLog IMPL-DEC-20260610-011.
-- **전파 결과(✅ MERGED, b84e975 · DEC-20260611-006):** `F-011` §3.7(방향 피격 인디케이터, 정보전 HUD) 신설로 SSOT화. 수치(MIN_FRAC·GAIN·SPREAD·DEPTH·FADE)는 tuning 유지. 팔로워 오프스크린 확장은 F-011 §3.7 후속 노트.
-
-### DRIFT-025 — Identity Gear 던전 루팅·교체 (rule, 전파됨) ✅ MERGED (staging 4281981→c795fee)
-- **결정/전파:** 장비 identity-bound + **던전 루팅 정식 채택**(per F-008). 장착 gear=Safe / 미장착 looted=At-Risk(결정 B) / `equipClasses` 동일역할 교체. `DEC-20260611-001` 전파(F-008/D-019/F-007/D-011/D-015/F-010/QA-008/HUB-COR-000/Terms + DataMap), staging `4281981`, 게임 재핀.
-- **구현:** `gear.json` 4 스타터 master, `party_member._bind_gear`(gear→identity), 인벤 PARTY GEAR 슬롯(드래그/우클릭·녹적 프리뷰·게이트), 던전 gear 루팅(~40%). 게임 커밋 da46e13.
-- **잔여:** 추출 정산(At-Risk→Owned/Loss) F-007 배선 미구현(표시/플래그까지). 풀 D-019 인스턴스(unlockState·blacksmith·Magitech) 보류. 미장착 Owned Protected 승격=귀속(bind) 모델 후속(F-008 OQ-7).
-
 ### DRIFT-026 — 스킬북 시스템 (Track B 구현; per-kill 전파 MERGED) 🔸 IMPLEMENTED
 - **구현(2026-06-11):** F-009 스킬북 경제 게임 구현. `skillbooks.json` 3종(`AB-002` Shield Bash/Tank · `AB-010` Venom Spit/Nuker·Healer · `AB-011` Toll Stun/Tank·DPS = 적 lootable AB **Shared**). 적 처치 시 그 적의 lootable AB 확률 드랍(`enemy_defeated` AB refs 전파 → `dungeon_run._roll_loot_def`) → 백팩 **At-Risk** 1×1. `party_member.skillbook_slots[3]`(Q/E/R), `ability_dispatch.cast_skillbook`(탄수−1·쿨다운, 자기중심 AoE), Q/E/R 입력. 인벤 SUB 슬롯 UI(조작캐 3슬롯·클래스 게이트·드래그/우클릭·녹적 프리뷰·탄수 표시), `controlled_sheet` 탄수/쿨 표시. **Identity 고정서브 제거**(`_bind_gear` sub 바인딩 삭제) → 서브 전부 스킬북(F-009 §3.1).
 - **전파/분류:** 드랍 트리거 **per-kill** + 서브 3슬롯은 **rule = 전파됨**(`DEC-20260611-002`, staging `c795fee`; D-018 §7.4 per-kill·F-009 §3.6·QA-009 §2.5). equip이어도 At-Risk(§3.7)·클래스 게이트(§3.2.1)·탄수(D-018)는 기존 spec 정합.
 - **tuning/impl(전파금지):** `charges_max` 8/10/6 (spec 권장 50~80 — "제약적" 데모 체감 위해 하향, ChangeProtocol §5-d). `SKILLBOOK_DROP_CHANCE` 0.85 · `GEAR_DROP_CHANCE` 0.08(던전런 ~2회) (spec 예 8~15% — 데모 밸런스). cast 효과 **프록시**: 적 poison/stun 미모델 → poison=업프론트 버스트+slow, stun=near-freeze slow(`apply_slow(0.05, stun_s)`). 캐스트는 지면조준 없이 자기중심 AoE(데모 단순화).
 - **DRIFT-001 관계:** 자작 서브 `AB-S01~04`는 이제 **미사용**(서브=스킬북 구동, spec 모델 정합). DRIFT-001 "AB-S0x→spec 서브 정합" 과제는 본 구현으로 **실질 대체**(Shared 적 AB 3종 사용); AB-S01~04 정의는 abilities.json에 잔존(orphan, 후속 정리 가능).
 - **잔여:** 추출 정산이 At-Risk 스킬북을 실제 Safe/Loss로 처리하는 F-007 배선 미구현(장비와 동일). 분석·상점·affix·tier(F-009 §3.3/§3.5)는 허브 메타 후속. 풀 D-018 인스턴스(instanceId·affix)·Range/Family 게이트 미구현.
-
-### DRIFT-027 — 소모품 시스템 + 부활 스크롤 (인-런 부활) ✅ MERGED (b84e975 · DEC-20260611-003)
-- **구현(2026-06-11):** F-010 소모품 데모. `consumables.json` 1종(`con_revive_scroll` 부활 스크롤, `max_stack` 3, `usable_in_combat` false, `effect` revive_ally). 인벤 1×1 **스택 아이템**(시드 3장=1스택), **Z/X/C 핫키**(party-shared) — 등록: 인벤에서 **소모품 호버 + Z/X/C** 또는 **바에 드래그**. **6시 캐릭터 시트 위 `ConsumableBar`**(3슬롯, 할당 소모품+보유수 표시). **부활(타겟+채널)**: Z/X/C → **타겟팅**(죽은 아군 **월드 시체 ray** 또는 **파티시트 초상화** 클릭, 우클릭/Esc 취소·재입력 토글) → **1.5s 빛기둥 채널**(`SkillVfx.revive_pillar`) → `party_member.revive(0.5)`(HP 50%)+소모1. **휴식중(`not is_engaged()`)만**. 핫키 **유니크**(1슬롯)·호버+동일키 토글해제·바슬롯 드래그(다른슬롯 이동/밖 해제). 인벤 열림 중 Z/X/C=핫키 등록(use와 분리).
-- **분류/전파:** scope/idea — **인-런 부활은 spec과 결이 다름**: `F-007` §3.6.1은 "`AwaitingRevive`/`ReviveOffer` 부활 경제를 소유하지 않으며 도입하지 않는다"(추출 정산 `ExtractCasualty` 한정). 본 구현은 hub/추출 경제가 아니라 **런 중 다운→소모품 부활**이라 직접 위반은 아니나 정합 필요. `con_revive_scroll`은 `D-020` 카탈로그 미등재. **PENDING-PROP 후보** → F-010(소모품 use 입력·효과)/D-020(부활 소모품)/F-007(인-런 부활 경계) 정합 시 OPS_30. 인벤/월드루프(DRIFT-023/024)와 동급의 "신규 시스템 데모 → 전파 후보".
-- **tuning/impl:** 부활 HP 50%·스택 3·핫키 Z/X/C·바 위치(시트 위 ~110px)는 데모값. 드래그-프리뷰 미구현(호버+키/드롭 등록만). 게임 사용 피드백은 콘솔 print(전투중/대상없음).
-- **전파 결과(✅ MERGED, b84e975 · DEC-20260611-003):** `D-020` `con_revive_scroll` + `F-010` §3.4 인-런 부활 범주 + `F-007` §3.6.1 경계(허브 `AwaitingRevive`/`ReviveOffer` 경제와 별개·탈출 전 부활자≠ExtractCasualty)로 SSOT화. 부활 HP%·채널·스택·핫키=tuning 유지. 사용자 결정: F-007 경계 명시만(본문 1급 규칙 신설 안 함).
-- **잔여:** 다른 소모품(회복/해독 등 `D-020`)·전투 중 사용 입력(F-010 §3.7.1 2단 루트)·소모품 At-Risk/추출 정산 미구현.
 
 ### DRIFT-028 — Fatal 장판 트랩 + MIA(비결속 leash/복귀실패) + navmesh carve + 레버 🔸 IMPLEMENTED
 - **구현(2026-06-11):** B-시퀀스(함정→분리→MIA→레버). 대부분 **기존 spec 구현**.
@@ -270,38 +196,6 @@
 - **tuning/content:** 스태시 시드 구성, max_stack 10, 분해 팝업 기본=절반, 포메이션 CLAMP_M 3.6·SCALE 28px/m. v1 소모품 -/+ 셀렉터는 스태시 드래그로 통일(제거).
 - **잔여:** 포메이션은 슬롯 **오프셋**만(class별 위치) — leader/subleader **명시 지정**(UI-008)·역할↔슬롯 재배정은 미구현. 스태시 비-소모 영속(데모는 비고갈). 인벤은 오버레이(컨펌은 메뉴 버튼 순서로만 위/아래). gear 스왑은 역할당 1종이라 제한적.
 
-### DRIFT-035 — 전투 진형: 탱커 선공 게이트 + 2선 딜러 + DPS 원거리화 ✅ 전파+재핀
-- **현실/의도(2026-06-16):** 자동전투에서 비조작 딜러(DPS/Nuker)가 탱커보다 먼저 적에게 돌진·교전 → 분대 컨셉(탱커 전선·딜러 후열) 위배. 사용자 결정: **탱커 첫타를 게이트**로, 2선=측면.
-- **구현(게임 레포):**
-  - **탱커 선공 게이트:** `CombatController._deal_damage`에서 탱커 첫 피해 → `_tank_engaged`=true + `tank_engaged` 시그널. 디스인게이지(`_refresh_party_in_combat` any=false) 시 리셋. AI DPS/Nuker는 게이트 전까지 `_tick_party_attacks`에서 평타·Identity 보류 + `PartyController` engage 루프에서 대형 이탈(접근) 보류(시그널-래치 `_tank_engaged`). **조작캐 예외**(is_controlled), **탱커 사망 시 게이트 개방**(딜러 자유).
-  - **2선 포지셔닝(`CombatPositioning.engage_target`):** 원거리(basic_range>3.5m)=대형 슬롯 유지(백라인, 사거리 내 자동공격) / 근접=탱커→적 축의 **수직(측면)** melee reach 지점(전면·추월 금지). 힐러=기존 부상자 지원 유지.
-- **분류/전파:** **✅ 행동 규칙(탱커 선공·2선 딜러) 전파 완료 → F-004 §3.5 신설(DEC-20260616-001, spec `0edf55c`) + spec_ref 재핀.** 스킬=F-005·위협=F-022 참조. **DPS basic_range 2.0→10.0=tuning(로깅만, 전파 안 함)** — DPS=원거리 광역 설계와 정합(데이터가 근접으로 박혀 있던 불일치 교정).
-- **잔여:** 탱커 자동 전진(앵커일 때 전선 진입)은 명시 로직 없음 — 전열 슬롯+파티 전진에 의존. 근접 측면 side-flip 미세 지터 가능. 원거리 사거리 10m=잠정 튜닝값.
-
-### DRIFT-036 — 카메라 RMB 세로 드래그 = pitch 틸트(인버트) ✅ 전파+재핀
-- **현실/의도(2026-06-16):** 기존 RMB 드래그=yaw(수평)만. 사용자 요청으로 **RMB 세로 드래그(Δy)→카메라 pitch** 추가(인버트), 피치 범위 15~85°(저각 시네마틱↔거의 탑다운).
-- **구현(게임):** `camera_rig.pitch_by_drag(dy)` — `_pitch ± dy*PITCH_DRAG_SENS(0.15)` clampf(PITCH_MIN 15·PITCH_MAX 85) + `_apply_placement`. dungeon_run RMB 모션에서 yaw(Δx)+pitch(Δy) 동시(자유 오빗). 저각 가림=wall_xray see-through.
-- **분류/전파:** **✅ 규칙(RMB Δy=pitch 틸트) 전파 → F-012 §3.1.2 신설(DEC-20260616-002, spec `0edf55c`) + §9 open Q 해소, spec_ref 재핀.** 민감도·pitch 범위·줌 수치=tuning(로깅만).
-- **잔여:** 줌(거리, scroll)·전방 가중 카메라는 F-012 후속. pitch 범위/감도=잠정 튜닝값.
-
-### DRIFT-037 — F-011 풀 GPU vision fog(Step 1-3) + 적 시야콘 GPU 재구성 + Forward+ 강제 ✅ MERGED (daa1114 · DEC-20260618-001)
-- **구현(2026-06-14~16):** DRIFT-015(occlusion-only 토대)·DRIFT-018(적 perception)에서 **보류했던 풀 F-011 시야 fog**를 GPU 2D 라이팅으로 구현.
-  - **파티-LOS fog**(`run/controllers/vision_fog.gd`, 332): top-down SubViewport에 멤버별 그림자캐스트 PointLight2D + 벽 LightOccluder2D → 점등영역 = 파티 union 가시폴리곤(차폐형, 거리감쇠 아님). 별도 **explored 누적 뷰포트**(CLEAR_ONCE+ADD, `fog_accumulate.gdshader`)=기억(한 번 본 곳은 무채색 저채도 잔존). 공유 `vision_fog.gdshader`를 월드 메쉬 `next_pass`로 붙여 **3D 적용**(각 메쉬 월드XZ→fog UV, **depth 텍스처 재구성 없음** — 두 번 실패했던 부분 회피). V=디버그 오버레이, B=3D fog A/B.
-  - **적 시야콘 GPU 재구성**(`run/controllers/enemy_vision_overlay.gd`, 206): 기존 레이팬 콘(벽 엣지 떨림)을 fog와 동일 기법으로 교체 — 적별 섹터 PointLight2D + 벽 occluder → 벽서 정확 클립되는 union 마스크, 지면 quad가 샘플(빨강 전투/노랑 경계). fog cur-LOS로 게이트(가시영역만 표시).
-  - **렌더러 Forward+ 강제**(`project.godot` `rendering_method="forward_plus"`): 2D 라이팅 그림자 + 셰이더 next_pass가 Compatibility 백엔드 미동작 → Forward+ 전환. **결과: web(HTML5) export 차단**(Compatibility 전용). ARCHITECTURE §6 `DEBT-PLAT-FWD`.
-- **분류/전파:** **scope/impl + rule(제약).** DRIFT-015는 "풀 F-011 전파는 정식화 때 OPS_30"으로 명시 보류 → 본 구현으로 그 조건 충족. ① fog 가시모델(union LOS·explored 기억)을 **F-011에 확정**하거나 "demo subset" 명시 ② **Forward+/web-export-차단**은 플랫폼/타겟 **제약 변경**(ChangeProtocol §1 constraints) → QA-031/contract 또는 플랫폼 스코프에 반영. **PENDING-PROP** → spec repo OPS_30(F-011 + SpecScopeTracker + QA) + **사용자 플랫폼 결정**(web 타겟 포기 수용 여부).
-- **전파 결과(✅ MERGED, daa1114 · DEC-20260618-001, spec 4422e50):** ① fog 가시모델 — **F-011 §3.0 Explored Memory · §3.3 차폐형 가시 마스크 · §5 적 시야콘 바닥 오버레이**로 정식화(거리감쇠 아님, "미탐색 FoW 없음" §1 정합). ② **Forward+/web-export 차단은 사용자 결정으로 spec 비대상(impl-only)** — 게임 `ARCHITECTURE.md` DEBT-PLAT-FWD에만 잔존, 스펙 미반영(DEC alternatives B 기각). 게임 `spec_ref.json` 재핀 `4422e50`(Phase 2). 잔여 미구현(광원 합집합·perceptionProfile 차등·Patrol·미니맵 레이어)은 1b 현황 노트로 F-011에 명시.
-- **tuning/impl(전파금지):** fog PX_PER_M 12·SIGHT_RADIUS 64m·MAX_LIGHTS 4·OCCLUDER_INSET 0.15, 시야콘 PX_PER_M 8·CULL 32m·MAX_LIGHTS 16·overlay alpha 0.03·색(빨강/노랑). 셰이더 3종(vision_fog/fog_accumulate/enemy_vision_overlay).
-- **관련 아이디어:** "시야콘 상시표시 → 가시화 소모품/UI"(OPS_08 미등록). 적 시야콘 오버레이는 현재 개발용 상시 on.
-- **잔여:** fog 동적 occluder(움직이는 벽/문 개방 미반영)·멀티층·성능(UPDATE_ALWAYS 2 뷰포트). 시야콘 16개 캡.
-
-### DRIFT-038 — F-012 wall x-ray(카메라↔캐릭 벽 투과) ✅ MERGED (daa1114 · DEC-20260618-001)
-- **구현(2026-06-16):** 카메라 저각 pitch(DRIFT-036, `camera_rig` PITCH_MIN 30→15)에서 벽/장애물이 파티를 가리는 문제 → **see-through 벽 투과**(`run/controllers/wall_xray.gd`, 92): 매프레임 카메라→**생존 멤버 전원** 레이캐스트(벽 레이어 1, 최대 5겹)→히트 벽 머티리얼 알파 0.16 페이드 + F-011 fog `next_pass` 임시 제거(이중 어둡힘 방지), 비차폐 시 복원. `camera_rig` 주석에 "PITCH_MIN lowered from 30; wall_xray handles wall occlusion".
-- **분류/전파:** **rule/impl.** DRIFT-036(RMB pitch 틸트, ✅ F-012 §3.1.2 전파)의 **직접 후속** — 저각 카메라가 만든 가림을 해소하는 카메라 가시규칙. F-012에 "카메라 가림 처리(see-through/페이드)" 절 신설 후보. 단독으론 표현 휴리스틱(impl)에 가까워 **전파 여부 사용자 판단** 필요. **PENDING-PROP** → spec repo OPS_30(F-012 §3.x) 또는 impl-only(`ImplDecisionLog`)로 종결.
-- **전파 결과(✅ MERGED, daa1114 · DEC-20260618-001, spec 4422e50):** F-012 §3.x 신설 대신 **F-011 §3.3.1 Camera Occlusion See-Through**로 정식화 — F-012 §3.1.2(저각 카메라)가 가림 처리를 시야/엄폐 소유자 **F-011에 위임**(역참조 정밀화, related 양방향). see-through=**표현(렌더) 처리**로 명시(충돌·LOS·적 perception 판정 불변). 수치(XRAY_ALPHA·MAX_OCCLUDERS)=tuning 유지. 게임 `spec_ref.json` 재핀 `4422e50`.
-- **tuning/impl(전파금지):** XRAY_ALPHA 0.16·MAX_OCCLUDERS 5·WALL_LAYER 1. 투과 대상=StandardMaterial3D 가진 벽만.
-- **잔여:** 아웃라인/블러 폴리시·카메라-룸 fog(파일 헤더 "follow-up polish") 미구현.
-
 ### DRIFT-020 — 전투AI/인지 튜닝수치 (LOGGED, 전파금지)
 - FOV 160° · sight_range 12m · proximity 2.5m · alert_zone_frac 0.2 · scan ±35°/4s · investigate_speed 0.35 · chase_blind 0.55 · squad_prop_radius 9m · combat_exit_grace 6s · squad_lane 12m · cone alpha 0.05~0.06.
 - **탈출 채널(2026-06-10):** POINT-DEMO-01 홀드→Extraction Success. **비전투 5s / 전투중(partyInCombat) 30s** (매 프레임 현재 전투상태로 임계 판정) + 큰 카운트다운 UI(높은 수→1). **F-007 §3.1.2 정합**(ExtractionActivate=채널·홀드, 완료=성공; 채널 시간은 "후속 UI/전투 SSOT"라 tuning). 존 이탈=취소(실패 정산 없음, F-007). `EXTRACT_RADIUS_M` 3m.
@@ -379,12 +273,6 @@
 - **분류\전파:** **tuning(로깅만, 전파금지).** spec `F-025 §11` design-example 수치 조정. PT-004 `zone_radius_m` 8.0 유지 → 9m 사거리로 존 가장자리까지 타격, 존(8m) 내에서만 추격. 밸런스 PH.
 - **잔여:** zone 고수 vs 보상 밸런스 F6 체감. range_band Long은 서술 메타(기계적으론 unit attack_range_m 9가 게이트).
 
-### DRIFT-050 — AB-011 Toll Stun = channel + 락온 (OPENER 신뢰성) ✅ 전파+재핀
-- **현실(2026-06-19, 사용자: "EN-006 AB-011 스턴이 제대로 작동 안 함"):** 비-channel이라 0.5s 윈드업 중 EN-006/타겟 이동으로 사거리(+0.6) 밖이 되면 resolve에서 self-dodge → OPENER 스턴이 거의 안 들어감. `abilities.json` AB-011 `channel:true` 추가(윈드업 중 제자리·인터럽트 가능), `_resolve_enemy_attack`의 enemy_stun 거리-dodge 블록 제거 → LOS만 유지되면 락온 적중.
-- **분류\전파:** **impl(스펙 OPENER 의도 충족) + tuning.** spec `AB-011 BellRing`: `comboRole: OPENER`(층 A, 적중 전제)·telegraph 0.5·"근접 진입 시 우선". channel-freeze·거리-dodge 제거는 게임 인코딩으로 OPENER가 실제로 들어가게 함. 카운터플레이 = **인터럽트(채널 중 stun)** 또는 LOS 차단(spec 정밀 interrupt = AB-030). 스펙 명시 channel 아님 → 게임측 §2 채널 모델로 인코딩(로깅).
-- **✅ 전파(2026-06-20, DEC-20260620-001, spec `d62df49`):** `EN-AI-000 §2`가 이미 AB-011을 interruptible 채널(`channel_s 0.7`, "stun 실패")로 규정 → 게임 동작은 **정합**, 누락은 **AB-011 ability 문서**(채널 명시 없음)였음. Catalog에 `channel:true`·`interruptible:true` + "채널 완료 시 LOS 적중(무빙 회피 불가)·실패=인터럽트/LOS차단" 명문화, `related`에 EN-AI-000. OPS_30(mapper/xref 신규 drift 0) → `spec_ref` 재핀 `4422e50`→`d62df49`.
-- **잔여:** 스턴 적중률·인터럽트 체감 F6. 수치 불일치(EN-AI-000 §2 `channel_s 0.7` vs AB-011 `telegraph_s 0.50`·게임 0.5) = tuning, 별도 reconcile.
-
 ### DRIFT-053 — P2-S3b zone 매체 모델 + RX-OIL-FIRE Smoke 정정 (game→spec) ✅ code-bug 수정
 - **현실(2026-06-20, P2-S3b):** `reaction_system`의 RX-OIL-FIRE가 폭발 후 **데미지 ToxicGas 존**(`GAS_DPS`)을 깔았음 — 그러나 스펙 `RX-OIL-FIRE-001`은 **Smoke(연소 연기·무해·시야), 독·ToxicGas 아님** + 유닛 **Ignited** + Fire 잔류로 명시(`STATUS-ENV-CORE`도 Smoke/ToxicGas 분리). **게임이 스펙을 어긴 code-bug.**
 - **수정:** `hazard_zone`를 매체→OUTCOME 디스패치 모델로(`_apply_medium`; Fire→Ignited·ToxicGas→Poisoned·Water/Ice/Oil/Steam/Wind→이동결과·Smoke/Veg→무해). RX-OIL-FIRE = 폭발+**Ignited**(APPLY-IGNITED-…-5S)+Fire 잔류+**Smoke(무해)**. ToxicGas는 별도 매체(`AB-039`, S3f) 전용.
@@ -401,14 +289,6 @@
 - **변경:** 새 engage `healer`(게임측 dispatch key) 신설 + PT-016에 배정. `_move_healer` = ① 플레이어 근접 시 kite 후퇴(공용 `_kite_flee`), ② **무리를 따라 이동**(`_heal_follow_target` = 체력 최저<90% 우선, 없으면 최근접 아군; HEAL_SEEK 30m)해 AB-098 힐 사거리(HEAL_HUG 2.5) 유지 → 무리가 플레이어를 쫓아 이동해도 **낙오 안 함**, ③ 혼자/이미 무리와 함께면 hold(평타-접근 안 함 → jitter 제거). 검증기 `_ENGAGE_PROFILES`에 healer 추가.
 - **분류\전파:** **impl(거동 인코딩) + code-bug(jitter).** spec PT-016 = Support/Hold/Mid/flee_if_melee — healer는 그 'Engaged 우선'을 게임측에서 힐러 포지셔닝으로 구현. 수치(HUG 2.5·SEEK 14·<90%) DEMO PH.
 - **잔여:** 아군이 플레이어와 근접교전 중일 때 hug↔flee 미세 진동 가능(엣지) — 체감 F6.
-
-### DRIFT-054 — LDG-SPAWN resolve = 가중 다중후보 + runSeed ✅ 전파+재핀 / 스폰 위치 시드 산포 🔶 impl
-- **현실(2026-06-20, 사용자: "방마다 ENC를 확률적으로, 런 시작 시 결정 → 반복 변주 + 방보다 많은 ENC 소화"):** spawn_table resolve가 `(pool, difficulty, layer)` → ENC **1:1 고정**이라 반복 플레이 시 완전 예측 가능 + ENC 24종 중 다수 미노출(특히 Normal 런은 5방 빼고 비어 있었음).
-- **변경(스펙 규칙):** resolve를 **가중 후보집합 + `runSeed` 추첨**으로 확장. 키마다 후보 ENC 다수(각 `weight`), 인스턴스 생성 시 시드로 1개 결정(런 내 결정론·재현). `forceEncounter` override 우선. `placementBehavior`가 후보마다 따라가 같은 방이 런마다 Fixed/Patrol/AmbushHold 변주 → PAT/AMB가 룸 추가 없이 자연 노출.
-- **✅ 전파(2026-06-20, DEC-20260620-002, spec `ef9c0c7`):** `LDG-SPAWN-DEMO-001` §2 resolve 재정의·§3 `weight` 컬럼+PAT/AMB Normal 후보·§5 검증(weight≥0, 후보집합 동일 difficulty/layer). F-006 §3.1.2 step2~3(poolSlot=규모/티어, 인스턴스 resolve)가 이미 허용 → **F-006 무편집**. OPS_30(mapper/xref 신규 drift 0) → `spec_ref` 재핀 `d62df49`→`ef9c0c7`. 게임: `get_encounter_for_pool` weighted+seeded + RunLoadout `run_seed` + `spawn_table.json` 미러.
-- **스폰 위치 시드 산포 🔶 impl(게임측):** `_squad_spawn_center`가 룸당 고정 deep point였음 → 위치도 예측 가능. run_seed로 ±SPAWN_SCATTER_M(4.5m) 산포. 스펙은 authored `ambushAnchorRefs[]`/`holdAnchor`(LDG-001) **복수 앵커**를 이미 허용 → 별도 규칙 전파 불필요, 데모는 절차적 시드 산포로 단순화(정식 authored 앵커/patrol graph는 후속 레벨디자인). **(2026-06-21 픽스)** 초기 navmesh 스냅 제거 — prespawn 시점 NavigationServer 맵 미sync → `map_get_closest_point`가 origin(0,0,0) 반환 → **전 분대 시작점 붕괴** 회귀. deep point는 interior라 스냅 없이 안전(기존 `_spawn_offset` ring과 동일 범위).
-- **P-ADV-06~09 확장 풀 🔶 impl:** 게임 DungeonScale(P2-S1) 룸/풀로 스펙 데모 본편(6 Room) 밖 — 동일 resolve 규칙 적용, 스펙 §3 note에 명시. 가중치·조합 = DEMO PH(밸런스 튜닝 여지). 임시 P-PAT/AMB pool_slot 제거(후보가 ADV/ENTRY/ROUTE 행에 편입돼 ENC 로드 유지).
-- **잔여:** 시드 picker = hash 기반 placeholder(가중 순서는 맞으나 균등성은 근사) — 필요 시 정식 RNG. Hard PAT/AMB 변주(Normal 전용 현행). 체감 F6(런 반복 → ENC·위치·거동 변주).
 
 ### DRIFT-055 — P2-S5a-3 제3세력 Stalker Pack: 능력 수치 PH + 일부 effect 근사 🔶 tuning/impl
 - **현실(2026-06-22, DEC-20260621-001 / spec `bc22c38` 재핀):** EN-3RD-01/02/03 + AB-100~106 + PT-023/024/025 + status/effect 전파·구현. stat(hp/speed/dmg/range/interval)·AB 수치(cooldown/telegraph/dash_range/scent_s/root_s/execute_under/atk_speed_mult 등) = **DEMO PH**(F-025 §11 design examples).
@@ -549,25 +429,6 @@
 - **분류\전파:** impl + tuning(로깅만). 종결 6은 기존 spec 구현. **F3/B7 = 새 규칙 → PENDING-PROP**(승인 후 OPS_30). IDA-052 reflect 키 불일치(`reflect_frac`→`reflect` 폴백)·party_member:510·combat_sandbox:74 stale 주석 수정 포함(비-드리프트).
 - **이연:** C2 §7.5/§7.2(PIP 아이콘/관통가림)·저위험 부채(DEBT-DUP-*)·E3 tier-충전수(밸런스). ref: `ImplDecisionLog` IMPL-DEC-20260704-001.
 
-### DRIFT-070 — 서브 로드아웃 정본 필드: D-011 미갱신(`subEquippedSkillbooks`) vs D-019/D-018(`equippedSlotAbilities`) 🔷 spec-내부 모순 (전파 진행)
-- **발견(2026-07-04, P4a/P4b 플래닝):** `DEC-20260704-001`(서브 경제 Skillbook→Gear/마석 전환)이 `D-018`(§9 Frozen)·`D-019`(§3 `equippedSlotAbilities[3]`)·`F-020`(§3.2.3)에는 전파됐으나 **`D-011`을 impact_scope에서 누락** → D-011 ssot_note가 여전히 `canonical=subEquippedSkillbooks` → 서브 로드아웃 정본 필드가 문서 간 상충.
-- **충돌 위치:** `D-011`:8(ssot_note)·§2:25·§4:39/42/51 = `subEquippedSkillbooks` canonical ↔ `D-019` §3.1:82 "Deprecated P4b"·§9:272 마이그·`D-018` §9:318 "Frozen → `equippedSlotAbilities[]`". D-011에 `equippedSlotAbilities` 등장 0회.
-- **결정(감독 2026-07-04): D-019 쪽이 정본.** 서브 SSOT=`D-019.equippedSlotAbilities[3]`(gear 인스턴스 귀속), `subEquippedSkillbooks`=1회 read-only 마이그 import로 강등. + 부수 오기: D-011:26 passive 트리 링크 `F-009 §10`→`F-020 §3.10`/`F-029 §3.6`.
-- **분류\전파:** rule(spec-내부 erratum) — **OPS_30 전파**(DEC-20260704-002). D-011 ssot_note/§1/§2/§4/§6 P4b 정합 편집 + depends_on에 D-019 추가.
-- **상태:** 🔷 전파 (D-011, DEC-20260704-002, spec staging). **게임 영향:** Stage 2(P4b 이관)에서 `equippedSlotAbilities`로 재시드 — 첫 스프린트(Stage 0+1) 무관.
-
-### DRIFT-071 — `BIND-ROADMAP-008` 본문 slotIndex Q ↔ INDEX 표 E 🔷 spec-내부 오기 (전파 진행)
-- **발견(2026-07-04):** `BIND-ROADMAP-008_MarkSpore.md`:21 본문 `slotIndex 0 (Q)` ↔ `BIND-ROADMAP-INDEX.md`:33 = 008=slot **E**. 슬롯풀(INDEX:27 `AB-030` Q·`AB-039` E·`AB-085` R)·형제 011(`AB-039`@E) 대조 시 **E(1)가 정답**, 본문 오기.
-- **결정(감독): 인덱스 표 기준(E / slotIndex 1).** 본문 slotIndex Q→E 정정(파일명 "…E"·제목 "Mark × Spore E"도 이미 E 함의).
-- **분류\전파:** rule(비정본 스텁 오기) — `docs/combat/bindings/`는 CombatContentMap 미등록이나 "모두 전파" 결정으로 본문 즉시 정정(OPS_30, DEC-20260704-002).
-- **상태:** 🔷 전파 (BIND-ROADMAP-008 본문, spec staging). **게임 영향:** 없음(Nuker 로드맵 Stage 3 이전 무관).
-
-### DRIFT-072 — Healer 스타터 서브 2종(F-009 §3.1.1 레거시) vs 1종(F-008 §3.10.2 프리모딩) 🔷 spec 설계 갭 (전파 진행)
-- **발견(2026-07-04):** `F-009` §3.1.1:72 Healer 스타터=`AB-044`+`AB-045`(레거시 StarterGrant, §3.9.4:255에서 프리모딩으로 대체 명시) ↔ `F-008` §3.10.2:217 프리모딩=`AB-044`(Q)만. P4b 시작 슬롯 1개라 클래스당 1종이 내부 일관이나 Healer 2번째 스타터 `AB-045`(Lifeline) 향방 불명.
-- **결정(감독): 권고대로 — 프리모딩(`AB-044`) 정본.** `AB-045`는 **트리 T1 E-슬롯 해금 후 재획득**. "스킬 장비는 구현 후 다듬음." `F-008` §3.10.2에 Healer 특례 주석 + `F-009` §3.1.1에 P4b 대체 포인터.
-- **분류\전파:** rule(설계 의도 확정) — OPS_30 전파(DEC-20260704-002).
-- **상태:** 🔷 전파 (F-008 §3.10.2·F-009 §3.1.1, spec staging). **게임 영향:** Stage 2 첫런 그랜트만.
-
 ### DRIFT-073 — 가호(Ward Pulse, IDA-031) 폐지 → 「지속 치유」(DoT) 재해석 🕒 파일럿 설계변경 (전파 보류)
 - **발견/결정(감독 2026-07-08, P2-S8a Stage3 Healer):** IDA-031 가호(=아군 보호막 제공, `ward_shield`)를 **폐지**하고 **지속 치유** 정체성으로 재해석 — 착용 시 **모든 치유가 도트힐로 강제 전환**(즉시 회복 대신 N틱 분할, 총 회복량↑). 이유: 도트 서브를 따로 두는 것보다 정체성이 힐 전체를 변형하는 편이 평가/판타지 모두 선명.
 - **게임 반영:** `abilities.json` IDA-031 `kind` `ward_shield`→`radius_heal`(자동시전도 힐). 전환 로직 = 치유 choke(`ability_dispatch.deal_heal`/`deal_regen`)가 `identity_dot_heals` 게이트로 즉시→HoT 변환(기존 `apply_regen` 재사용). `ward_shield.gd` 미사용(무해).
@@ -603,3 +464,29 @@
 - **구현:** `BindingFixtures.OVERDRIVE/BLOODGALE` + BIND-PILOT-019~024(6). party_member 게이지 상태·틱·`blood_soak`, health_bar 초월 게이지 바, overhead_badges 「초월」. dispatch `overdrive_charge`/`blood_soak` 델타 + kind 분기 강화(`_dps_overdrive_empower`) + 명중 집계(radius/cone). 서브 데이터: AB-053/041 cast_s(DRIFT-075), AB-053/054/041 한글명.
 - **분류\전파:** 파일럿 로컬(비정본). rule·scope(캐스터 광역·초월 리소스·NC 공통) — P4a 정본화 시 [[DRIFT-075]]/[[DRIFT-076]]와 함께 spec `ROLE-010`/`D-016` 전파. 이 레포에서 spec md 편집 금지.
 - **상태:** 🕒 파일럿 구현(binding_smoke 23 + ci_smoke 대상). 플레이테스트 확인 대기. 설계 정본 = `docs/design/dps_binding_kit.md`.
+
+### DRIFT-078 — I-006 캐스팅 확장 패스: 캐스터 서브 즉발→캐스트/채널 정합 (엄브렐러) 🔶 impl/tuning (진행 중)
+- **배경(2026-07-09~):** [[DRIFT-075]] 원칙(캐스터=캐스트/채널 중심) 적용 — 캐스터 서브 ~29종 즉발을 스킬 하나씩 샌드박스 핑퐁으로 캐스트/방향/효과 정합. **수치 밸런싱은 스킵**(명백한 파손·방향만). 세부 대칭 원장 = `docs/_WIP_casting_expansion_pass.md` §4(패스 종료 시 삭제, 정본=이 항목). 티어 밴드 A(0~0.4s)/B(3~5s)/C(8~15s).
+- **완료분(cast_s 부여):** AB-041(cold) 0.8→3.5(B) · AB-053(fire 작열) 0.6→3.0(B) · AB-064(channel_heal) 2.0→3.0 · AB-004(bolt) 0.5→4.0(B) · AB-059(bolt) 1.5→5.0(B) · AB-066(channel_heal 궁극) 5.0→10.0(C) · **AB-003(bolt)** +cast_s 3.0·cd 2→6·radius 1.6→4.0(A→B).
+- **효과·결속 변경:** **AB-002 Shield Bash** — 반경 4→8·dmg ×2.5→×1.0·cd 4→2(Anchor 방벽충전 스팸형 궁합) + 발동 프레임 반경 telegraph 링 + **헛스윙도 차지/쿨 소모**(반응형 CC는 명중이 아니라 휘두름이 비용, `sb_strike`). **AB-003 초월 링크** — press_line 초월 중 감전 폭주(`skillbook_bolt`→`apply_silence` 2.0s, AB-044 API 재사용) + `OVERLAYS` `BIND-PILOT-026`(press_rod·IDA-024·AB-003@slot0, AB-053과 슬롯 공유). [[DRIFT-077]] 초월 kind 분기 확장.
+- **분류\전파:** impl/tuning(cast_s·수치=로깅만). 단 [[DRIFT-075]] castTier 원칙 자체는 P4a에서 OPS_30 전파 대기 — 개별 cast_s 값은 그 하위 튜닝. 이 레포 spec md 편집 금지.
+- **상태:** 🔶 진행 중(위 8 AB 완료, 잔여 ~21 AB는 ENC 순회). **미커밋**. ci_smoke 대상.
+
+### DRIFT-079 — AB-054 절단 광선: 채널 rootDuringCast/점유 폐지 → 인터럽트형 채널 🔶 rule (전파 후보)
+- **변경(2026-07-12, 사용자 지시):** AB-054 빔 채널이 시전자에 걸던 **셀프 Rooted(이동잠금) + begin_channel 점유(타 시전 차단)를 제거**. 대신 **인터럽트형** — 이동(시전지점 0.3m 이탈)·다른 스킬 시전·기절/다운 시 채널이 **중단**된다(강제 차단 아님).
+- **UI:** 채널 진행을 **감소형 바**(캐스팅바가 좌→우 차오르는 것과 반대로 우→좌 소진·청록색)로 표시 — "속박" 상태 텍스트/오브 제거. 조준은 원형 원판→**직선 레인**(시전자→마우스, 길이=사거리·너비=빔폭).
+- **구현:** `beam_channel`(감소바+이동/중단 감시+`cancel_channel`), `sb_beam`(Rooted/begin_channel 제거→`set_active_channel`), `party_member`(`_active_channel`+`interrupt_active_channel`), `ability_dispatch.cast_skillbook`(새 시전 시 채널 중단), `aim_marker.show_beam`/`aim_controller`(직선 조준+방향 즉시 시전). `begin_channel`/`is_channeling`은 wind-up 캐스트(skill_cast)용으로 유지.
+- **분류\전파:** **rule** — 스펙 `D-016` `rootDuringCast`/`castTier`(채널 성격)와 직접 충돌. [[DRIFT-075]] 캐스터 원칙 전파 시 함께 OPS_30(채널=인터럽트형·비점유 모델) 전파 후보. `ImplDecisionLog.md`의 "Beam=cone+Rooted move-lock" 노트 outdated → 갱신 필요. 이 레포 spec md 편집 금지.
+- **상태:** 🔶 구현(**미커밋·미검증** — godot 헤드리스 부재로 인게임 확인 필요). 플레이테스트 대기.
+
+### DRIFT-080 — DPS 「초월」 운영 개편: 지속형 → 강화 1회 소모 + 비전투 초기화 🔶 rule (전파 후보, [[DRIFT-077]] 개정)
+- **변경(2026-07-12, 사용자 지시):** [[DRIFT-077]]의 초월을 **지속시간형(dur 6s 창) → 무지속**으로. 게이지 만석=발동 유지, **강화 서브 1회 시전 시 소모**(`overdrive_reset`), **비전투 5초 지속 시 게이지 초기화**. `OVERDRIVE.dur`·party_member `_od_timer_s/_od_dur_s`·physics 드레인 제거.
+- **UI:** 초월 게이지를 오버헤드 HP바 → **캐릭터 시트(controlled_sheet) 체력 바 바로 아래** 금색 게이지 + "초월/초월 준비!" 라벨로 이동(가독성). 초월 DPS 정체성일 때만 표시.
+- **구현:** `party_member`(무지속 유지·`overdrive_reset`·드레인 제거), `ability_dispatch._dps_overdrive`(empower 후 소모·2-arg overdrive_add), `party_controller`(engagement_changed→비전투 5초 one-shot 타이머→전 멤버 `overdrive_reset`), `controlled_sheet`(시트 게이지 바).
+- **분류\전파:** **rule** — 초월 리소스 모델(지속→1회소모·OOC초기화) 변경. P4a 정본화 시 [[DRIFT-077]]/[[DRIFT-075]]와 함께 `ROLE-010`/`dps_binding_kit.md` 전파. `binding_fixtures.OVERDRIVE.dur`=구 지속형 잔재. 이 레포 spec md 편집 금지.
+- **상태:** 🔶 구현(**미커밋·미검증**). 플레이테스트 대기.
+
+### DRIFT-081 — 적 상태(버프/디버프) 12시 인스펙트 시트 칩 노출 🔶 impl (전파 불필요)
+- **변경(2026-07-12):** 적 좌클릭 인스펙트 패널(enemy_info, 12시)에 **버프/디버프 칩**(아이콘+한글명 상자)을 체력 아래에 나열. 적이 스스로 상태를 노출하도록 `enemy_unit.get_status_list()` 신설(stun/slow/silence + 원소 아웃컴, party_member와 동일 `{name,color,ratio,buff}` 스키마), `outcome_status`에 한글명(`KO`) 맵 추가. 샌드박스도 동일 패널 재사용(적 클릭 시 표시).
+- **분류\전파:** impl(기존 상태를 표시만; 규칙·필드·enum 변경 없음). 전파 불필요, 로깅만.
+- **상태:** 🔶 구현(**미커밋**). 인게임 확인 필요. (샌드박스 좌패널 접기/스크롤/휠줌차단 = dev 툴링, 비-드리프트.)
