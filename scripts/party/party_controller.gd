@@ -19,6 +19,8 @@ signal pip_targets(members: Array)             # UI-006 §7 PIP camera targets (
 
 var _party_damaged: bool = false  ## latch: a party member was hit (formation-break trigger; cleared on disengage)
 var _tank_engaged: bool = false   ## latch: tank landed its first hit (opens 2nd-line DPS/Nuker engage; cleared on disengage)
+const OVERDRIVE_OOC_RESET_S := 5.0   ## DPS 「초월」: 비전투가 이 시간 유지되면 게이지 초기화
+var _ooc_timer: Timer = null         ## 비전투 카운트다운(one-shot) — 재교전 시 정지
 var cohesion_mode: int = PartyCohesion.MODE_BOUND
 ## Formation-priority toggle. OFF (default) = combat priority: followers may
 ## break formation to engage — but ONLY after contact (party was hit, or an enemy
@@ -198,6 +200,12 @@ func bind_combat(combat: Node) -> void:
 	combat.party_damaged.connect(_on_party_damaged)
 	combat.engagement_changed.connect(_on_engagement_changed)
 	combat.tank_engaged.connect(_on_tank_engaged)
+	# 비전투 5초 → DPS 초월 게이지 초기화. one-shot 타이머(전투 종료 시 시작 / 재교전 시 정지).
+	_ooc_timer = Timer.new()
+	_ooc_timer.one_shot = true
+	_ooc_timer.wait_time = OVERDRIVE_OOC_RESET_S
+	_ooc_timer.timeout.connect(_reset_overdrive_all)
+	add_child(_ooc_timer)
 
 
 func _on_party_damaged() -> void:
@@ -214,6 +222,17 @@ func _on_engagement_changed(engaged: bool) -> void:
 	if not engaged:
 		_party_damaged = false
 		_tank_engaged = false
+		if _ooc_timer != null:
+			_ooc_timer.start()   # 비전투 진입 → 5초 뒤 초월 초기화(그 전에 재교전하면 정지)
+	elif _ooc_timer != null:
+		_ooc_timer.stop()        # 재교전 → 초기화 취소(게이지 유지)
+
+
+## 비전투 5초 경과 → 전 멤버 초월 게이지 초기화(초월 없는 멤버는 no-op).
+func _reset_overdrive_all() -> void:
+	for m in _members:
+		if m != null and is_instance_valid(m) and m.has_method("overdrive_reset"):
+			m.overdrive_reset()
 
 
 func try_swap_to(index: int) -> bool:

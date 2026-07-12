@@ -10,6 +10,7 @@ const CombatController := preload("res://scripts/combat/combat_controller.gd")
 const CameraRig := preload("res://scripts/run/controllers/camera_rig.gd")
 const PartySheet := preload("res://scripts/ui/party_sheet.gd")          # UI-002 party HP + sub radials
 const ControlledSheet := preload("res://scripts/ui/controlled_sheet.gd")  # UI-003 Identity + Q/E/R cooldowns
+const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")              # 12시 적 케릭시트(클릭 인스펙트, 게임 parity)
 const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")  # S3b zone media (test laying)
 const Torch := preload("res://scripts/world/objects/torch.gd")  # ENT-TORCH — PAT-003 EN-010 bearer test
 const AimMarker := preload("res://scripts/ui/aim_marker.gd")              # 지면-타겟 서브 조준(던전 parity)
@@ -111,11 +112,20 @@ var _status: Label
 var _formation_lbl: Label
 var _cohesion_lbl: Label
 var _info_label: RichTextLabel
+var _enemy_info: EnemyInfo     # 12시 적 케릭시트 — 적 좌클릭 시 표시(빈 공간 클릭=해제)
 var _identity_dd: OptionButton
 var _basic_dd: OptionButton   # 평타(basic) archetype — gear's basic half only (OFF = 평타 끔)
 var _sub_dd: Array = []   # [OptionButton ×3] — Q/E/R sub loadout for the controlled member
 var _gear_dd: OptionButton   # Identity Gear swap (equips onto the matching-role member — F-008)
 var _cam_dragging := false
+
+# Left dev panel — fixed width, viewport-capped height, collapsible + scrollable (was an
+# unbounded VBoxContainer that overflowed the bottom of the screen and widened with long labels).
+const PANEL_WIDTH := 300.0
+var _panel_root: VBoxContainer   # header + scroll body — used to swallow wheel-zoom over the panel
+var _panel_scroll: ScrollContainer
+var _panel_toggle_btn: Button
+var _panel_open := true
 
 
 func _ready() -> void:
@@ -202,6 +212,9 @@ func _build_ui() -> void:
 	_build_game_hud(layer)      # real in-game HUD (party sheet + controlled skill cooldowns)
 	_build_control_panel(layer)
 	_build_info_panel(layer)
+	# 12시(상단중앙) 적 케릭시트 — 적을 좌클릭하면 표시(게임 dungeon_run parity). mouse-transparent.
+	_enemy_info = EnemyInfo.new()
+	layer.add_child(_enemy_info)
 
 
 ## The shipping HUD pieces that show ally skill cooldowns/charges — UI-002 PartySheet (HP + Q/E/R
@@ -229,14 +242,39 @@ func _build_game_hud(layer: CanvasLayer) -> void:
 
 ## Top-LEFT control panel — ENC spawn (replace) + single-unit spawn (additive) + shared toggles.
 func _build_control_panel(layer: CanvasLayer) -> void:
-	var box := VBoxContainer.new()
-	box.position = Vector2(16, 16)
-	box.add_theme_constant_override("separation", 5)
-	layer.add_child(box)
+	var root := VBoxContainer.new()
+	root.position = Vector2(16, 16)
+	layer.add_child(root)
+	_panel_root = root
 
+	var header := HBoxContainer.new()
+	header.custom_minimum_size = Vector2(PANEL_WIDTH, 0)
+	root.add_child(header)
 	var title := Label.new()
 	title.text = "COMBAT SANDBOX (dev)"
-	box.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # pushes the toggle to the right edge
+	header.add_child(title)
+	_panel_toggle_btn = Button.new()
+	_panel_toggle_btn.text = "▾ 접기"
+	_panel_toggle_btn.tooltip_text = "패널 접기/펼치기"
+	_panel_toggle_btn.pressed.connect(_on_toggle_panel)
+	header.add_child(_panel_toggle_btn)
+
+	# Fixed-width, viewport-capped-height scroll body — content that overflows scrolls instead
+	# of running past the bottom of the screen; horizontal scroll stays off since _clip_panel_widths
+	# (called at the end of this function) keeps every child within PANEL_WIDTH.
+	_panel_scroll = ScrollContainer.new()
+	_panel_scroll.custom_minimum_size = Vector2(PANEL_WIDTH, _panel_body_height())
+	_panel_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	root.add_child(_panel_scroll)
+	get_viewport().size_changed.connect(func() -> void: _panel_scroll.custom_minimum_size.y = _panel_body_height())
+
+	# The content column fills the scroll body's width (minus the vertical scrollbar); every child
+	# defaults to SIZE_FILL so they all stretch to this same width → a clean single-column grid.
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 5)
+	_panel_scroll.add_child(box)
 
 	# --- Encounter (replaces all) ---
 	box.add_child(_section("ENCOUNTER (replace)"))
@@ -268,8 +306,10 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	_unit_dropdown.item_selected.connect(func(_i: int) -> void: _refresh_info())
 	box.add_child(_unit_dropdown)
 	var row_h := HBoxContainer.new()
+	row_h.add_theme_constant_override("separation", 6)
 	var cnt_lbl := Label.new()
 	cnt_lbl.text = "count"
+	cnt_lbl.custom_minimum_size = Vector2(52, 0)   # fixed lead column — aligns with the grid rows below
 	row_h.add_child(cnt_lbl)
 	_count_spin = SpinBox.new()
 	_count_spin.min_value = 1
@@ -278,6 +318,7 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	row_h.add_child(_count_spin)
 	_third_chk = CheckBox.new()
 	_third_chk.text = "Third 진영"   # 체크 시 이 유닛을 3세력으로 — 일반 적과 실시간 교전(F-028)
+	_third_chk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row_h.add_child(_third_chk)
 	box.add_child(row_h)
 	var spawn_unit := Button.new()
@@ -330,34 +371,21 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 
 	# --- P4a KIT BINDING (결속) pilot — 픽스처는 기어+정체성+Q/E/R을 착용시켜 그 자리에서 결속을 활성화한다
 	# (결속은 착용 즉시 내재 적용 — on/off 토글 없음). 스왑(1-4) 후 Q/E/R로 정체성별 변형 체감. ROLE-010 §4.5. ---
-	box.add_child(_section("결속 파일럿 (Tank P4a — QA-005 §2.12)"))
-	var bind_row := HBoxContainer.new()
-	bind_row.add_child(_btn("ANCHOR", _on_bind_fixture.bind("anchor")))
-	bind_row.add_child(_btn("BEACON", _on_bind_fixture.bind("beacon")))
-	box.add_child(bind_row)
+	box.add_child(_section("결속 파일럿 (P4a — QA-005 §2.12)"))
+	# One role per row: a fixed-width role label + two equal-width variant buttons → the two button
+	# columns line up across all four rows (grid). Role prefix moved out of the button text into the lead.
+	box.add_child(_btn_row("Tank", [_btn("방벽충전", _on_bind_fixture.bind("anchor")), _btn("표식", _on_bind_fixture.bind("beacon"))]))
 	# Nuker 파일럿 — 집중(ruin_sight, 누적→소모 폭발) / 잠행(flank_knife, 근접화+원거리비례 이득, 처치→은신).
-	var bind_row_n := HBoxContainer.new()
-	bind_row_n.add_child(_btn("NUKER 집중·처형", _on_bind_fixture.bind("nuker")))
-	bind_row_n.add_child(_btn("NUKER 잠행", _on_bind_fixture.bind("flank")))
-	box.add_child(bind_row_n)
+	box.add_child(_btn_row("Nuker", [_btn("집중·처형", _on_bind_fixture.bind("nuker")), _btn("잠행", _on_bind_fixture.bind("flank"))]))
 	# Healer 파일럿 — 지속치유(ward_sigil 자리 재해석, 가호 폐지 → 모든 힐이 도트힐 전환·총량↑). 성역은 후속.
-	var bind_row_h := HBoxContainer.new()
-	bind_row_h.add_child(_btn("HEALER 지속치유", _on_bind_fixture.bind("dothealer")))
-	bind_row_h.add_child(_btn("HEALER 성역", _on_bind_fixture.bind("sanctuary")))
-	box.add_child(bind_row_h)
+	box.add_child(_btn_row("Healer", [_btn("지속치유", _on_bind_fixture.bind("dothealer")), _btn("성역", _on_bind_fixture.bind("sanctuary"))]))
 	# DPS 파일럿 — 초월(press_rod, 명중 게이지→강화 변형 겁화·중력·절대영도) / 혈풍(weave_staff, HP대가+광역 흡수).
-	var bind_row_d := HBoxContainer.new()
-	bind_row_d.add_child(_btn("DPS 초월", _on_bind_fixture.bind("overdrive")))
-	bind_row_d.add_child(_btn("DPS 혈풍", _on_bind_fixture.bind("bloodgale")))
-	box.add_child(bind_row_d)
+	box.add_child(_btn_row("DPS", [_btn("초월", _on_bind_fixture.bind("overdrive")), _btn("혈풍", _on_bind_fixture.bind("bloodgale"))]))
 
 	# --- 허수아비 (스킬샷 테스트) — 불사·정지 표적 + 옆에 누적딜/어그로 표시, 각각 초기화 ---
 	box.add_child(_section("허수아비 (스킬샷 테스트)"))
-	var dummy_row := HBoxContainer.new()
-	dummy_row.add_child(_btn("허수아비 소환", _on_spawn_dummy))
-	dummy_row.add_child(_btn("누적딜 초기화", _on_reset_dummy_dmg))
-	dummy_row.add_child(_btn("어그로 초기화", _on_reset_dummy_threat))
-	box.add_child(dummy_row)
+	box.add_child(_btn("허수아비 소환", _on_spawn_dummy))   # full-width primary action
+	box.add_child(_btn_row("초기화", [_btn("누적딜", _on_reset_dummy_dmg), _btn("어그로", _on_reset_dummy_threat)]))
 
 	# --- GEAR SWAP (F-008) — pick a gear → equips onto its matching-role member (REAL equip_gear:
 	# gear → bundled identity → stats/skill), setting BOTH 평타+identity to the gear defaults. Pick
@@ -406,7 +434,9 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 		dd.custom_minimum_size = Vector2(240, 0)
 		dd.add_item("%s: (none)" % ["Q", "E", "R"][slot])
 		dd.set_item_metadata(0, "")
-		for row in Slice01Data.get_skillbook_rows():
+		var sb_rows := Slice01Data.get_skillbook_rows()
+		sb_rows.sort_custom(func(a, b): return String(a.get("base_ability_id", "")) < String(b.get("base_ability_id", "")))
+		for row in sb_rows:
 			dd.add_item("%s: %s (%s)" % [["Q", "E", "R"][slot], row.get("display_name", "?"), row.get("base_ability_id", "?")])
 			dd.set_item_metadata(dd.item_count - 1, String(row.get("base_ability_id", "")))
 		dd.item_selected.connect(_on_sub_changed.bind(slot))
@@ -416,14 +446,8 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	# --- 전체 적용 (all members at once) — turn a channel ON/OFF for the WHOLE party in one click.
 	# Verify-one workflow: 전체 OFF, swap to the member, turn its channel back ON via the dropdown.
 	box.add_child(_section("전체 적용 (검증)"))
-	var basic_row := HBoxContainer.new()
-	basic_row.add_child(_btn("평타 전체 ON", _set_all_basic.bind(true)))
-	basic_row.add_child(_btn("평타 전체 OFF", _set_all_basic.bind(false)))
-	box.add_child(basic_row)
-	var id_row := HBoxContainer.new()
-	id_row.add_child(_btn("ID 전체 ON", _set_all_identity.bind(true)))
-	id_row.add_child(_btn("ID 전체 OFF", _set_all_identity.bind(false)))
-	box.add_child(id_row)
+	box.add_child(_btn_row("평타", [_btn("ON", _set_all_basic.bind(true)), _btn("OFF", _set_all_basic.bind(false))]))
+	box.add_child(_btn_row("ID", [_btn("ON", _set_all_identity.bind(true)), _btn("OFF", _set_all_identity.bind(false))]))
 
 	var hint := Label.new()
 	hint.text = "1-4 swap · WASD · Q/E/R sub · G 진형/전투우선 · U 결속/비결속 · Z zone깔기 · wheel zoom · RMB-drag orbit · [ ] pitch"
@@ -443,6 +467,49 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	# Loadout dropdowns track the controlled member (swap 1-4 → reflect that member's loadout).
 	_party.controlled_changed.connect(func(_m: Node) -> void: _refresh_loadout_ui())
 	_refresh_loadout_ui()
+
+	# Long labels/buttons (Korean section headers, verbose gear/skillbook names) report their own
+	# unwrapped minimum width — without this, they'd force `box` wider than PANEL_WIDTH regardless
+	# of custom_minimum_size (which is only a floor, not a cap). Clip/wrap them all so PANEL_WIDTH holds.
+	_clip_panel_widths(box)
+
+
+## Available height for the scrollable panel body — viewport height minus top/bottom margins and
+## the header row, so the panel never runs past the bottom of the screen at any window size.
+func _panel_body_height() -> float:
+	return max(get_viewport().get_visible_rect().size.y - 100.0, 240.0)
+
+
+## Collapse/expand the panel body (header stays visible either way).
+func _on_toggle_panel() -> void:
+	_panel_open = not _panel_open
+	_panel_scroll.visible = _panel_open
+	_panel_toggle_btn.text = "▾ 접기" if _panel_open else "▸ 펼치기"
+
+
+## True when the mouse is over the dev panel (header + visible body). The panel's rect shrinks to
+## just the header when collapsed, so wheel-zoom works everywhere except the panel it hovers.
+func _pointer_over_panel() -> bool:
+	return _panel_root != null and _panel_root.get_global_rect().has_point(_panel_root.get_global_mouse_position())
+
+
+## Recursively keep text-bearing controls from forcing the panel wider than PANEL_WIDTH — without
+## the ugly mid-glyph hard cut. Labels wrap; Buttons/OptionButtons trim to an ellipsis (…) and
+## carry their full text as a tooltip so nothing is lost. Fixed-width lead labels (_btn_row) are
+## left un-wrapped so the grid columns stay put.
+func _clip_panel_widths(n: Node) -> void:
+	for child in n.get_children():
+		if child is Label:
+			var l := child as Label
+			if l.custom_minimum_size.x <= 0.0:
+				l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		elif child is Button:
+			var b := child as Button
+			b.clip_text = true
+			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			if b.tooltip_text == "" and b.text != "":
+				b.tooltip_text = b.text
+		_clip_panel_widths(child)
 
 
 ## Top-RIGHT info panel — selected single unit's behavior + 검증 체크리스트 (or ENC composition).
@@ -735,6 +802,25 @@ func _btn(text: String, cb: Callable) -> Button:
 	return b
 
 
+## Grid-aligned button row: a fixed-width lead label + N equal-width buttons. The fixed lead column
+## (LEAD_W) makes the button columns line up across every row that uses this helper (matrix layout).
+const _ROW_LEAD_W := 52.0
+func _btn_row(lead: String, buttons: Array) -> HBoxContainer:
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 6)
+	if lead != "":
+		var l := Label.new()
+		l.text = lead
+		l.custom_minimum_size = Vector2(_ROW_LEAD_W, 0)
+		l.add_theme_font_size_override("font_size", 11)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hb.add_child(l)
+	for b in buttons:
+		(b as Button).size_flags_horizontal = Control.SIZE_EXPAND_FILL   # equal split → aligned columns
+		hb.add_child(b)
+	return hb
+
+
 ## Show a member's loadout-verification text in the RIGHT info panel (loadout 선택 시 호출).
 func _show_loadout_verify(m: CharacterBody3D) -> void:
 	if _info_label != null:
@@ -915,7 +1001,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("ui_cancel"):
 			_aim_ctrl.cancel()
 			return
-	if event is InputEventMouseButton and event.pressed:
+	# Left-click (not aiming, not over the panel) inspects an enemy in the 12시 panel; empty space clears.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed \
+			and not _pointer_over_panel():
+		_select_enemy_under_mouse()
+		return
+	# Wheel over the dev panel = scroll it, never zoom the camera. At the scroll boundary the
+	# ScrollContainer stops consuming the wheel so it leaks here — guard on the pointer being over
+	# the panel so that leaked event doesn't zoom.
+	if event is InputEventMouseButton and event.pressed and not _pointer_over_panel():
 		match event.button_index:
 			MOUSE_BUTTON_WHEEL_UP:
 				_camera.zoom(1)
@@ -942,6 +1036,24 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
 
 
+## Left-click → ray-pick an enemy (collision layer 4) for the 12시 inspect panel; else clear.
+## Mirrors dungeon_run._select_enemy_under_mouse so the sandbox behaves like the real game.
+func _select_enemy_under_mouse() -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var mouse := get_viewport().get_mouse_position()
+	var from := cam.project_ray_origin(mouse)
+	var to := from + cam.project_ray_normal(mouse) * 1000.0
+	var q := PhysicsRayQueryParameters3D.create(from, to, 4)  # LAYER_ENEMY
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	var n: Node = hit.get("collider") if not hit.is_empty() else null
+	if n != null and n.has_method("get_body_color"):
+		_enemy_info.set_enemy(n)
+	else:
+		_enemy_info.clear()
+
+
 func _cast_sub(slot: int) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl == null or not ctrl.is_alive() or ctrl.is_stunned():
@@ -949,7 +1061,8 @@ func _cast_sub(slot: int) -> void:
 	if ctrl.has_method("is_provoked") and ctrl.is_provoked():
 		return
 	if ctrl.has_method("is_channeling") and ctrl.is_channeling():
-		return  # Channeling (AB-054 Rending Beam) — busy until the channel finishes
+		return  # Casting (wind-up, skill_cast) — occupied until it resolves. AB-054 beam is NOT this
+		#        (interruptible channel: a new cast cancels it via cast_skillbook.interrupt_active_channel).
 	var inst = ctrl.get_skillbook(slot)
 	if inst == null:
 		return

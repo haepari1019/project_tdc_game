@@ -17,6 +17,9 @@ var _name_lbl: Label
 var _hp_fill: ColorRect
 var _projected_fill: ColorRect  # HoT 예측 세그먼트(현재 HP → 회복 완료 도달치, 민트)
 var _shield_fill: ColorRect  # IDA-020 shield overlay (white, over HP)
+var _od_bg: ColorRect        # DPS 「초월」 게이지 — 체력 바로 아래(초월 DPS일 때만 표시)
+var _od_fill: ColorRect      # 금색 게이지 채움(0..1)
+var _od_label: Label         # "초월" / 발동 시 "초월 준비!"
 var _slots: Array = []  # {radial, kind}  kind: "identity" | "sub0" | "empty"
 
 
@@ -74,6 +77,26 @@ func setup(party: Node) -> void:
 	_shield_fill.visible = false
 	hp_bg.add_child(_shield_fill)
 
+	# DPS 「초월」 게이지 — 체력 바 바로 아래(읽기 편하게). 초월 DPS 정체성일 때만 _process에서 표시.
+	_od_bg = ColorRect.new()
+	_od_bg.custom_minimum_size = Vector2(HP_W, 11)
+	_od_bg.color = Color(0.06, 0.05, 0.02, 0.9)
+	_od_bg.visible = false
+	col.add_child(_od_bg)
+	_od_fill = ColorRect.new()   # 금색 채움(왼쪽 고정, anchor_right = 게이지 비율)
+	_od_fill.color = Color(0.95, 0.72, 0.2)
+	_od_fill.anchor_right = 0.0
+	_od_fill.anchor_bottom = 1.0
+	_od_bg.add_child(_od_fill)
+	_od_label = Label.new()      # 바 위 중앙 라벨("초월" / 발동 시 "초월 준비!")
+	_od_label.text = "초월"
+	_od_label.add_theme_font_size_override("font_size", 9)
+	_od_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_od_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_od_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_od_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_od_bg.add_child(_od_label)
+
 	# Action bar: Identity(auto) + sub skillbooks Q/E/R (F-009 §3.1).
 	for d in [["auto", "identity"], ["Q", "sub0"], ["E", "sub1"], ["R", "sub2"]]:
 		var sv := VBoxContainer.new()
@@ -115,6 +138,15 @@ func _process(_delta: float) -> void:
 	var sr: float = (clampf(m.shield / maxf(m.max_hp, 1.0), 0.0, 1.0) if alive else 0.0)
 	_shield_fill.anchor_right = sr
 	_shield_fill.visible = sr > 0.001
+	# 「초월」 게이지 — 초월 DPS 정체성일 때만 체력 아래에 표시. 발동 시 밝은 금색 + "초월 준비!".
+	var is_od: bool = alive and m.has_method("overdrive_gauge_frac") \
+		and BindingFixtures.identity_overdrive(String(m.base_gear_id), String(m.ability_id))
+	_od_bg.visible = is_od
+	if is_od:
+		var oa: bool = m.overdrive_is_active()
+		_od_fill.anchor_right = m.overdrive_gauge_frac()
+		_od_fill.color = Color(1.0, 0.92, 0.5) if oa else Color(0.95, 0.72, 0.2)
+		_od_label.text = "초월 준비!" if oa else "초월"
 	for s in _slots:
 		var k := String(s.kind)
 		if k == "identity":
