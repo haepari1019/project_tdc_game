@@ -80,6 +80,8 @@ const HIT_SHAKE_CAP := 0.6
 var _combat: Node3D    # CombatController — spatial queries / damage / threat / shake owner
 var _reactions: Node3D  # ReactionSystem — destructibles + RX-OIL-FIRE chain
 var _skills: Dictionary = {}  # kind -> skill instance (built from _SKILL_SCRIPTS)
+## AB-005 focus_dump — 직전 서브 이펙트가 때린 적 수(sb_strike가 report). 단일(1)→집중 소모 / 그외→빌드.
+var _last_hit_count: int = 0
 
 
 func setup(combat: Node3D, reactions: Node3D) -> void:
@@ -230,6 +232,11 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			var mk: Dictionary = BindingFixtures.MARK
 			member.binding_remark(nearest_enemy_in_range(aim, float(mk["radius_m"])), float(mk["window_s"]))
 			# --- Mark&Ruin 「집중」 빌더: 딜링 서브는 집중 대상 명중 시 누적+추가타. 소모는 아키타입 규칙(cast_skillbook) ---
+		"focus_dump":   # AB-005 — 레인에 적 1명이면 집중 소모(덤프 처형), 여럿이면 빌드/유지
+			if _last_hit_count == 1:
+				_nuker_focus_spend(member)
+			else:
+				_nuker_focus_stack(member, aim)
 		"focus_stack":
 			_nuker_focus_stack(member, aim)
 		"focus_spread":   # E — 누적 추가타 후 집중을 근처 적으로 전이(누적 유지)
@@ -444,7 +451,16 @@ func _dps_blood_soak(member: CharacterBody3D, slot_index: int, aim: Vector3) -> 
 	var bg: Dictionary = BindingFixtures.BLOODGALE
 	var kind := String(inst.params.get("kind", ""))
 	var cost: float = float(bg["hp_cost_pct"]) * member.max_hp
-	var base_refund: float = float(bg["refund_pct"]) * member.max_hp * float(_count_sub_hits(member, slot_index, aim))
+	var hits: Array = _sub_hit_enemies(member, slot_index, aim)
+	var base_refund: float = float(bg["refund_pct"]) * member.max_hp * float(hits.size())
+	# 흡혈 연출 — 맞은 적들에서 붉은 오브가 시전자로 빨려들며 흡수(회복 있을 때만). ref: SkillVfx.blood_siphon.
+	if not hits.is_empty():
+		var srcs: Array = []
+		for e in hits:
+			if e != null and is_instance_valid(e):
+				srcs.append(e.global_position)
+		if not srcs.is_empty():
+			SkillVfx.blood_siphon(self, srcs, member.global_position)
 	match kind:
 		"skillbook_beam":   # 흡혈 광선 — 채널 사이펀: 회복 증폭
 			member.blood_soak(cost, base_refund * float(bg["beam_refund_mult"]), float(bg["hp_floor"]))
@@ -454,20 +470,25 @@ func _dps_blood_soak(member: CharacterBody3D, slot_index: int, aim: Vector3) -> 
 			member.blood_soak(cost, base_refund, float(bg["hp_floor"]))
 
 
-## 서브가 실제로 때린 적 수 — fire/cold는 명중점 반경, beam은 원뿔 근사. 초월 충전량/혈풍 회복 정산 공용.
-func _count_sub_hits(member: CharacterBody3D, slot_index: int, aim: Vector3) -> int:
+## 서브가 실제로 때린 적 목록 — fire/cold는 명중점 반경, beam은 원뿔 근사. 초월 충전량/혈풍 회복·흡혈 VFX 공용.
+func _sub_hit_enemies(member: CharacterBody3D, slot_index: int, aim: Vector3) -> Array:
 	var inst = member.get_skillbook(slot_index)
 	if inst == null:
-		return 0
+		return []
 	var kind := String(inst.params.get("kind", ""))
 	if kind == "skillbook_beam":
 		var dir: Vector3 = aim - member.global_position
 		dir.y = 0.0
 		if dir.length() < 0.1:
-			return 0
+			return []
 		return enemies_in_cone(member.global_position, dir.normalized(),
-			float(inst.params.get("range_m", 14.0)), deg_to_rad(float(inst.params.get("half_deg", 7.0)))).size()
-	return enemies_in_radius(aim, float(inst.params.get("radius_m", 2.5))).size()
+			float(inst.params.get("range_m", 14.0)), deg_to_rad(float(inst.params.get("half_deg", 7.0))))
+	return enemies_in_radius(aim, float(inst.params.get("radius_m", 2.5)))
+
+
+## 서브가 실제로 때린 적 수 — 초월 충전량/혈풍 회복 정산 공용.
+func _count_sub_hits(member: CharacterBody3D, slot_index: int, aim: Vector3) -> int:
+	return _sub_hit_enemies(member, slot_index, aim).size()
 
 
 ## DPS 「초월」 평타 게이지 빌드 — press_line 정체성 평타 명중마다 충전(발동 중엔 무시). combat_controller._resolve_basic 호출.
@@ -489,6 +510,11 @@ func skill_for(kind: String):
 	return _skills.get(kind, null)
 
 
+## 이펙트가 이번 캐스트로 때린 적 수 보고 — focus_dump(AB-005)가 단일/광역을 판정하는 데 사용.
+func report_hit_count(n: int) -> void:
+	_last_hit_count = n
+
+
 func enemies_in_radius(pos: Vector3, r: float) -> Array:
 	return _combat._enemies_in_radius(pos, r)
 
@@ -499,6 +525,10 @@ func nearest_enemy_in_range(pos: Vector3, r: float) -> CharacterBody3D:
 
 func enemies_in_cone(pos: Vector3, axis: Vector3, r: float, half: float) -> Array:
 	return _combat._enemies_in_cone(pos, axis, r, half)
+
+
+func enemies_in_rect(pos: Vector3, axis: Vector3, length: float, half_width: float) -> Array:
+	return _combat._enemies_in_rect(pos, axis, length, half_width)
 
 
 func lowest_hp_enemy_in_radius(pos: Vector3, r: float) -> CharacterBody3D:

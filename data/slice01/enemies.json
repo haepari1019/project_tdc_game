@@ -280,11 +280,7 @@
         "attack_interval_s": 1.4
       },
       "basic_attack": "rom_fodder_melee_tap",
-      "abilities": [
-        {
-          "ref": "AB-005"
-        }
-      ],
+      "abilities": [],
       "tags": {
         "tier": "Trash",
         "archetype": "FodderTrash",

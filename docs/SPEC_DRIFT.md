@@ -469,8 +469,10 @@
 - **배경(2026-07-09~):** [[DRIFT-075]] 원칙(캐스터=캐스트/채널 중심) 적용 — 캐스터 서브 ~29종 즉발을 스킬 하나씩 샌드박스 핑퐁으로 캐스트/방향/효과 정합. **수치 밸런싱은 스킵**(명백한 파손·방향만). 세부 대칭 원장 = `docs/_WIP_casting_expansion_pass.md` §4(패스 종료 시 삭제, 정본=이 항목). 티어 밴드 A(0~0.4s)/B(3~5s)/C(8~15s).
 - **완료분(cast_s 부여):** AB-041(cold) 0.8→3.5(B) · AB-053(fire 작열) 0.6→3.0(B) · AB-064(channel_heal) 2.0→3.0 · AB-004(bolt) 0.5→4.0(B) · AB-059(bolt) 1.5→5.0(B) · AB-066(channel_heal 궁극) 5.0→10.0(C) · **AB-003(bolt)** +cast_s 3.0·cd 2→6·radius 1.6→4.0(A→B).
 - **효과·결속 변경:** **AB-002 Shield Bash** — 반경 4→8·dmg ×2.5→×1.0·cd 4→2(Anchor 방벽충전 스팸형 궁합) + 발동 프레임 반경 telegraph 링 + **헛스윙도 차지/쿨 소모**(반응형 CC는 명중이 아니라 휘두름이 비용, `sb_strike`). **AB-003 초월 링크** — press_line 초월 중 감전 폭주(`skillbook_bolt`→`apply_silence` 2.0s, AB-044 API 재사용) + `OVERLAYS` `BIND-PILOT-026`(press_rod·IDA-024·AB-003@slot0, AB-053과 슬롯 공유). [[DRIFT-077]] 초월 kind 분기 확장.
+- **⚡ 어텐션 이코노미 보강(2026-07-12, 사용자 결정 — rule):** 딜 최소주의 — **딜 서브(Nuker/DPS)=긴 캐스트+긴 쿨+큰 한방**("가끔·중요"), Tank=반응형 즉발 OK, Healer 큰 힐=긴 캐스트+쿨, Movement 상시. + **규칙5(통합 refine):** Shared 기본 통합, 진영분기는 **새 적 전용 스킬(신규 ID)** 로만(같은 ID 분기 금지). **rule-level → OPS_30 전파 후보**([[DRIFT-082]]/[[DRIFT-075]] 배치 동반). 세부=WIP §0.
+- **AB-005 Melee Flurry(2026-07-12):** 즉발 스팸필러(cd1)→**커밋 근접 버스트**(cast_s 3.0·cd 10·dmg ×1→×3·range_band Mid→Melee) + Nuker 집중 바인딩(BIND-PILOT-027). 규칙5 적용: EN-010=빠른 rush라 AB-005 제거→기본평타(abilities.json AB-005 orphan).
 - **분류\전파:** impl/tuning(cast_s·수치=로깅만). 단 [[DRIFT-075]] castTier 원칙 자체는 P4a에서 OPS_30 전파 대기 — 개별 cast_s 값은 그 하위 튜닝. 이 레포 spec md 편집 금지.
-- **상태:** 🔶 진행 중(위 8 AB 완료, 잔여 ~21 AB는 ENC 순회). **미커밋**. ci_smoke 대상.
+- **상태:** 🔶 진행 중(위 8 AB + **AB-005** 완료, 잔여 ~20 AB는 ENC 순회). **미커밋**. ci_smoke 7/7. ⚠️ 어텐션 이코노미 rule은 기판정 딜 서브 **쿨 소급 검토** 후보(예: AB-003 cd6이 "가끔"에 아직 잦음).
 
 ### DRIFT-079 — AB-054 절단 광선: 채널 rootDuringCast/점유 폐지 → 인터럽트형 채널 🔶 rule (전파 후보)
 - **변경(2026-07-12, 사용자 지시):** AB-054 빔 채널이 시전자에 걸던 **셀프 Rooted(이동잠금) + begin_channel 점유(타 시전 차단)를 제거**. 대신 **인터럽트형** — 이동(시전지점 0.3m 이탈)·다른 스킬 시전·기절/다운 시 채널이 **중단**된다(강제 차단 아님).

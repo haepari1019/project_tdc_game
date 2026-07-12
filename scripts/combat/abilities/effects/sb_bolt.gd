@@ -17,6 +17,8 @@ func kind() -> String:
 func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var center: Vector3 = Vector3(target_pos.x, m.global_position.y, target_pos.z) if target_pos != Vector3.ZERO else m.global_position
 	if String(p.get("delivery", "instant")) == "projectile":
+		if bool(p.get("arc_vfx", false)):          # AB-004 「전격 사격」 시그니처 — 지리릿 번개 크래클(발사 순간)
+			SkillVfx.lightning_bolt(ctx, m.global_position, center, Color(0.55, 0.8, 1.0))
 		ctx.spawn_projectile(self, m, center, p)   # entity travels → resolve_at() on impact
 		ctx.sub_shake(p)
 		print("[SB] %s bolt → projectile @target (x%.1f)" % [m.class_id, float(p.get("damage_mult", 1.0))])

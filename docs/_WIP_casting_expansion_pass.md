@@ -15,6 +15,11 @@
 - **대부분 서브가 Shared** → AB당 **적-시전 + 아군-시전 동시 판정**(K1 대칭).
 - **판정-1회:** 같은 AB가 여러 ENC에 겹치면 **첫 등장 ENC에서만** 판정.
 
+**⚡ 어텐션 이코노미 (2026-07-12 보강 — 딜 최소주의):** 플레이어 인지예산은 **Tank(어그로)·Healer(힐싸이클)·Movement·적 대응**이 지배(3서브×4클래스=12버튼 포화). 딜은 **잔여 주의로 최소 조작**하되 "딜 기분"은 남긴다.
+- **딜 서브(Nuker/DPS) = 긴 캐스트 + 긴 쿨 + 큰 한방** → "가끔, 중요하게"(저쿨 난사·짧은 캐스트 **금지**). 캐스트·쿨 **둘 다** 레버. 드문 만큼 한 방 임팩트 — 이 경우 **딜 집중은 위 "밸런싱 스킵"의 예외**(설계-의도).
+- **Tank 서브 = 손이 가는 존**(어그로 관리) → 반응형·즉발/짧음 OK. **Healer = 큰 힐은 긴 캐스트 + 긴 쿨**(드물게). **Movement = 항상 가용.**
+- **규칙5(통합 refine):** Shared = 기본 통합(적도 같은 스킬). **진영별 같은 ID 분기 금지**(드리프트). 예외(적 빠른 싸이클/적-전용 밸런싱)만 **새 적 전용 스킬(신규 ID)** 신설·배치. 예: AB-005 = 아군 커밋 버스트로 정의, EN-010은 빠른 rush라 AB-005 제거→기본 평타.
+
 ---
 
 ## 1. 참조
@@ -121,6 +126,7 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 | **AB-002** Shield Bash | A 유지(반응형 CC) | 반경 4→8·dmg ×2.5→×1.0·cd 4→2(스팸형 광역 저딜) · 발동 telegraph 링 · **헛스윙도 차지/쿨 소모** | Tank 방벽충전(IDA-020) 스팸 소스 궁합 · 표식(IDA-021) 광역 어그로 | 적 EN-001도 근접 CC(A) — 대칭 | `skillbooks.json` · `sb_strike.gd` | ✅ 완료 |
 | **AB-003** Arc Bolt Volley | A→**B**(cast_s 3.0·cd 2→6·radius 1.6→4.0) | 볼트 연사→광역 캐스트 볼트 | **DPS 초월 감전폭주**(BIND-PILOT-026, bolt→`apply_silence` 2.0s) · Nuker 집중/잠행 generic 후보 | 적 EN-011=필러(§3.6.1 A/0.30) ↔ 아군 B — **비대칭**(아군 볼트를 캐스터화, 적은 필러 유지) | `skillbooks.json` · `binding_fixtures.gd` · `ability_dispatch.gd` | ✅ 완료 |
 | **AB-004** 전격사격(bolt) | A→**B**(cast_s 0.5→4.0) | — | — | (대칭 판정 보류) | `skillbooks.json` | ✅ 완료 |
+| **AB-005** Melee Flurry | A→**B 커밋**(cast_s 3.0·cd 1→10·dmg ×1.0→×3.0·range_band Mid→Melee) | 스팸필러→**드문 커밋 근접 버스트** + **방향성: 자기중심 원형→전방 직사각형 레인**(shape rect·length 5·width 3, `sb_strike` rect 모드+`_enemies_in_rect`+`rect_lane` VFX, targeted **플레이어 조준**(show_beam 레인)/AI 최근접) + **단일대상 +50%**(single_target_mult) + **전방 범위밖 넉백 6m** + **sub_bands 제거→Nuker 적성(메인)** | Nuker **집중**(BIND-027 `focus_dump`: 단일→집중소모 처형/광역→유지·빌드) + **잠행**(BIND-028: 이미근접 generic +15% 합연산, `FLANK.band_dmg.Melee` 0→0.15) | 적 EN-010=빠른 필러라 **통합 안 함** → 규칙5 분기(AB-005 제거·기본평타). abilities.json AB-005=orphan | `skillbooks.json`·`sb_strike.gd`·`combat_controller.gd`·`skill_vfx.gd`·`binding_fixtures.gd`·`enemies.json` | ✅ 완료 |
 | **AB-041** Glacial Bolt(cold) | A→**B**(cast_s 0.8→3.5) | — | 초월 cold→빙결(Rooted) 강화 | 적 EN-007 존/볼트 ↔ 아군 B | `skillbooks.json` | ✅ 완료 |
 | **AB-053** 작열(fire) | A→**B**(cast_s 0.6→3.0) | — | 초월 fire→화상(Ignited) 강화(BIND-019) | (DPS 전용) | `skillbooks.json` | ✅ 완료 |
 | **AB-059** 공허창(bolt) | A→**B**(cast_s 1.5→5.0) | — | — | (Ally-only) | `skillbooks.json` | ✅ 완료 |
@@ -143,7 +149,7 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 
 | 적(EN) | AB(캐스터 서브) | 완료? |
 |--------|------------------|-------|
-| EN-001 Aegis Bearer | AB-002(탱 강타) · AB-099(적전용 도발바) | |
+| EN-001 Aegis Bearer | AB-002(탱 강타) · AB-099(적전용 도발바) | ✅ (AB-002 A유지 · AB-099 무변경) |
 | EN-002 Voltaic Acolyte | AB-004 | ✅ |
 | EN-003 Skirting Raptor | AB-006(누커 이동) | |
 | EN-004 Slag Siphon | AB-008(볼트) · AB-009(존) · AB-042(존) | |
@@ -151,8 +157,8 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 | EN-006 Bell Ringer | AB-011(스턴) | |
 | EN-007 Mire Hexer | AB-012(취약) · AB-036·040·043(존) · AB-041 | AB-041 ✅ |
 | EN-008 Corner Knife | AB-013(돌진) | |
-| EN-010 Front Rush | AB-005(연타 필러) | |
-| EN-011 Back Pester | AB-003(볼트 필러) | |
+| EN-010 Front Rush | AB-005(커밋 근접 버스트) | ✅ |
+| EN-011 Back Pester | AB-003(통합 캐스트 볼트) | ✅ |
 | EN-3RD-01 Stalker | AB-100(핀) · AB-101(추적) | |
 | EN-3RD-02 Snarer | AB-102(루트) · AB-103(테더) | |
 | EN-3RD-03 Reaver | AB-104(돌진) · AB-106(처형) | |
@@ -166,7 +172,7 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 ### 5.3 진행표
 | ENC | 판정 스킬(신규) | 상태 |
 |-----|------------------|------|
-| ENC-NORM-001 | AB-002 · AB-003 · AB-005 · (AB-099 적전용) | ⬜ 진행 전 |
+| ENC-NORM-001 | AB-002 · AB-003 · AB-005 · (AB-099 적전용) | ✅ **완료** (AB-002 A유지·AB-003 통합캐스트·AB-005 커밋버스트+방향성+바인딩 / AB-099 무변경) |
 | ENC-HARD-001 | AB-011 · AB-010 · AB-039 · AB-007 | ⬜ |
 | ENC-NORM-002 | _(구성 확인 후 채움)_ | ⬜ |
 | … | | |
@@ -186,6 +192,13 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 | AB-099 | Iron Mockery | 존 도발(적 telegraph) | (없음·적전용) | EN-001 Aegis Bearer | 적 telegraph | 아군 서브 없음 → **적 캐스트바만 확인**(이미 B/1.0) |
 
 **들고 갈 ally-only 후보(선택):** 없음/자유(라이트 ENC).
+
+> ✅ **ENC-NORM-001 완료 (2026-07-13) — 가설 대비 실제 결정:** 위 "A 유지 후보" 가설은 **딜 서브에 한해 뒤집힘**(어텐션 이코노미 §0 보강). 실제:
+> - **AB-002** Shield Bash — A 유지(cd2), 반경 telegraph 링 + 헛스윙 비용. (Tank 반응형 CC = 즉발 OK.)
+> - **AB-003** Arc Bolt Volley — **통합**(단일정의, 적↔아군 동일 cast_s 3.0, CastContext) + DPS 초월 감전폭주 + charge_up 파리티. [[DRIFT-082]].
+> - **AB-005** Melee Flurry — **커밋 근접 버스트**(cast_s 3.0·cd 10·dmg ×3·단일 +50%·전방 넉백 6m) + **전방 직사각형 조준**(rect·show_beam) + Nuker 집중(focus_dump: 단일 소모/광역 유지)·잠행(generic melee +15%) 바인딩. range_band Melee 정정.
+> - **AB-099** Iron Mockery — 적전용(enemy_provoke), 아군 서브 없음, 텔레그래프 이미 정상 → **무변경**.
+> 세부 = §4 원장. **다음 ENC = ENC-HARD-001**(§7).
 
 ---
 

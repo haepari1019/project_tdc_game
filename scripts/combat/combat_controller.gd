@@ -417,6 +417,22 @@ func _enemies_in_cone(pos: Vector3, axis: Vector3, r: float, half_angle: float) 
 	return out
 
 
+## Enemies in a forward RECTANGLE lane — along-axis ∈ [0, length], perpendicular ≤ half_width.
+func _enemies_in_rect(pos: Vector3, axis: Vector3, length: float, half_width: float) -> Array:
+	var out: Array = []
+	for e in _enemies:
+		if not is_instance_valid(e):
+			continue
+		var rel: Vector3 = e.global_position - pos
+		rel.y = 0.0
+		var along: float = rel.dot(axis)
+		if along < 0.0 or along > length:
+			continue
+		if (rel - axis * along).length() <= half_width:
+			out.append(e)
+	return out
+
+
 func _lowest_hp_enemy_in_radius(pos: Vector3, r: float) -> CharacterBody3D:
 	var best: CharacterBody3D = null
 	var best_hp := INF

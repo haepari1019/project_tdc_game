@@ -32,7 +32,7 @@ const SIGNATURE := {
 	},
 	"IDA-029": {
 		"name": "잠행",
-		"covenant": "정체성이 근접 교전을 강제한다. 링크된 스킬은 근접 거리에서만 시전되지만, 원래 사거리가 멀수록 더 큰 피해(1차)와 재사용 감소(2차)를 얻는다. 적을 처치하면 짧은 시간 은신하여 적의 표적에서 벗어난다.",
+		"covenant": "정체성이 근접 교전을 강제한다. 링크된 스킬은 근접 거리에서만 시전되지만, 원래 사거리가 멀수록 더 큰 피해(1차)와 재사용 감소(2차)를 얻는다. 이미 근접인 스킬은 피해 배율 +15%를 얻는다(합연산). 적을 처치하면 짧은 시간 은신하여 적의 표적에서 벗어난다.",
 	},
 	"IDA-031": {
 		"name": "지속 치유",
@@ -62,7 +62,7 @@ const FOCUS_SPEND_KINDS := ["skillbook_execute"]
 # 처치 시 veil_s초 은신(apply_veil = 적 표적 드롭 = 어그로 감소). band_dmg=basic_damage 배수, band_cd=쿨 감소율.
 const FLANK := {
 	"melee_range_m": 2.8, "veil_s": 2.0, "dash_m": 4.0,   # E 이탈 = 짧은 고정 거리(원래 서브 사거리 15m를 그대로 쓰면 너무 멀리 튕김, DRIFT-076)
-	"band_dmg": {"Melee": 0.0, "Mid": 0.25, "Long": 0.5},
+	"band_dmg": {"Melee": 0.15, "Mid": 0.25, "Long": 0.5},   # Melee = 이미 근접 → generic +15%(합연산). Mid/Long = 근접화 보상(멀수록 큼)
 	"band_cd": {"Melee": 0.0, "Mid": 0.10, "Long": 0.20},
 }
 # Ward Pulse 자리 재해석 → 지속 치유(가호=보호막 폐지, DRIFT-073). 치유 choke(deal_heal/deal_regen)가 정체성
@@ -132,6 +132,11 @@ const OVERLAYS := [
 		"identity_ab": "IDA-025", "slot_ab": "AB-059", "slot_index": 1, "theme": "focus", "delta": "focus_spread",
 		"payoff": "공허창 → 누적 추가타 + 집중을 근처 적으로 전이", "desc_ko": "집중 대상을 명중하면 누적+추가 피해를 준 뒤, 집중을 근처의 다른 적으로 전이시킨다(누적 유지).",
 	},
+	{
+		"id": "BIND-PILOT-027", "gear": "gear_ward_nuker_ruin_sight",
+		"identity_ab": "IDA-025", "slot_ab": "AB-005", "slot_index": 0, "theme": "focus", "delta": "focus_dump",
+		"payoff": "Melee Flurry — 단일: 집중 소모 처형 / 광역: 집중 유지·빌드", "desc_ko": "레인에 적이 하나뿐이면 쌓아둔 집중을 모두 소모해 처형 폭발을 일으킨다. 여럿이면 집중을 유지·누적하며 쓸어버린다.",
+	},
 	# Nuker Flank Collapse 「잠행」 링크 서브: 근접 사거리로만 시전 + 원래 range_band 비례 이득(1차 뎀/2차 쿨감).
 	# 처치 시 은신은 슬롯 오버레이가 아니라 kill 훅(identity_flanks 게이트)이 담당 — 어떤 처치든 vanish.
 	{
@@ -148,6 +153,11 @@ const OVERLAYS := [
 		"id": "BIND-PILOT-012", "gear": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-060", "slot_index": 2, "theme": "flank", "delta": "flank_strike",
 		"payoff": "Rupture(Mid) → 근접화 + 사거리 비례 이득", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
+	},
+	{
+		"id": "BIND-PILOT-028", "gear": "gear_ward_nuker_flank_knife",
+		"identity_ab": "IDA-029", "slot_ab": "AB-005", "slot_index": 0, "theme": "flank", "delta": "flank_strike",
+		"payoff": "Melee Flurry(근접) → generic +15% 추가타(합연산)", "desc_ko": "이미 근접 스킬이라 근접화 보상으로 +15% 추가 피해를 얻는다(합연산).",
 	},
 	# Healer 지속치유(가호 폐지) 링크 힐 서브: 실제 전환은 deal_heal/deal_regen choke(정체성 게이트)가 담당 —
 	# 오버레이는 킷 등록 + 툴팁용(delta "dot_heal"은 _apply_binding에서 no-op, 전환은 choke에서).

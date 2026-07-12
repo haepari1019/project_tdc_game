@@ -702,6 +702,7 @@
         "damage_mult": 2.0,
         "lightning": true,
         "shock_s": 2.0,
+        "arc_vfx": true,
         "delivery": "projectile",
         "speed_mps": 26.0
       },
@@ -713,17 +714,19 @@
       "equip_classes": [
         "Nuker"
       ],
-      "sub_bands": {
-        "Nuker": "B2"
-      },
-      "range_band": "Mid",
+      "range_band": "Melee",
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_strike",
-        "cooldown_s": 1,
-        "radius_m": 2.2,
-        "damage_mult": 1.0,
-        "knockback_m": 0.0
+        "cooldown_s": 10,
+        "cast_s": 3.0,
+        "targeted": true,
+        "shape": "rect",
+        "length_m": 5.0,
+        "width_m": 3.0,
+        "damage_mult": 3.0,
+        "single_target_mult": 1.5,
+        "knockback_m": 6.0
       },
       "tier": "Basic"
     },

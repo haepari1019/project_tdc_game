@@ -10,6 +10,9 @@ const _BAND_COEFF := {"B0": 1.0, "B1": 0.9, "B2": 0.75, "B3": 0.55}   # D-016 §
 ## 스킬 한 줄 설명 — prose(kind별) + 핵심 수치(피해/반경/지속). 색 없음(본문).
 static func describe(kind: String, params: Dictionary) -> String:
 	var prose := Slice01Data.get_skill_desc(kind)
+	var stm := float(params.get("single_target_mult", 1.0))
+	if stm > 1.0:   # AB-005 — 범위 내 단일 대상이면 피해 증폭(param 있는 스킬만)
+		prose += " 범위 내 적이 단일 개체라면 피해를 %d%% 증폭한다." % int(round((stm - 1.0) * 100.0))
 	var nums := _key_nums(params)
 	if nums.is_empty():
 		return prose
@@ -26,7 +29,7 @@ static func _key_nums(p: Dictionary) -> String:
 			break
 	for k in p:
 		var ks := String(k)
-		if ks.ends_with("_s") and ks != "cooldown_s" and ks != "telegraph_s":
+		if ks.ends_with("_s") and ks != "cooldown_s" and ks != "telegraph_s" and ks != "cast_s":
 			parts.append("지속 %s초" % _n(float(p[k])))
 			break
 	return "  ·  ".join(parts)

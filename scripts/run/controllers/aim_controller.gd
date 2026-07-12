@@ -70,11 +70,15 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	# Flank Collapse 「잠행」 — 링크된 스킬은 근접 사거리로만 시전(붙어야 함). 원래 range_m를 melee로 대체 → 링도 좁게.
 	if String(BindingFixtures.resolve(String(member.base_gear_id), String(member.ability_id), String(inst.get("base_ability_id", "")), slot_index).get("delta", "")) == "flank_strike":
 		_range = float(BindingFixtures.FLANK["melee_range_m"])
-	# 직선 빔(AB-054 절단 광선) — 원형이 아니라 시전자→마우스 직선 레인으로 조준(적 커서). 확정 시 그 방향으로 즉시 시전.
-	if LINE_AIM_KINDS.has(kind):
+	# 직선 빔(AB-054 절단 광선) / 전방 직사각형(AB-005 rect) — 원형이 아니라 시전자→마우스 직선 레인으로
+	# 조준(적 커서). 확정 시 그 방향으로 즉시 시전(사거리까지 걷지 않음).
+	var is_rect := String(p.get("shape", "")) == "rect"
+	if LINE_AIM_KINDS.has(kind) or is_rect:
 		_is_line_aim = true
 		Input.set_custom_mouse_cursor(_cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))
-		_aim.show_beam(member, _range, 2.0 * float(p.get("radius_m", 1.0)), cc)
+		var lane_len: float = float(p.get("length_m", 5.0)) if is_rect else _range
+		var lane_w: float = float(p.get("width_m", 2.0)) if is_rect else 2.0 * float(p.get("radius_m", 1.0))
+		_aim.show_beam(member, lane_len, lane_w, cc)
 		return
 	_is_line_aim = false
 	# 커서 색으로 대상 진영 구분 — 아군=초록 / 적=빨강(조준 중임도 십자로 표시).

@@ -37,6 +37,29 @@ static func telegraph(parent: Node3D, pos: Vector3, color: Color, radius: float 
 	_ground_pulse(parent, pos, radius, color, 0.5)
 
 
+## Forward RECTANGLE telegraph (직사각형 전방 레인) — a flat box from `pos` extending `length` along
+## `axis`, `width` wide. Conveys a directional lane (AB-005 Melee Flurry 전방 sweep).
+static func rect_lane(parent: Node3D, pos: Vector3, axis: Vector3, length: float, width: float, color: Color) -> void:
+	var a := axis
+	a.y = 0.0
+	if a.length() < 0.01:
+		a = Vector3(0, 0, 1)
+	a = a.normalized()
+	var mi := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(width, 0.08, length)
+	mi.mesh = box
+	var mat := _mat(Color(color.r, color.g, color.b, 0.35))
+	mi.material_override = mat
+	parent.add_child(mi)
+	var center := pos + a * (length * 0.5) + Vector3(0, 0.06, 0)
+	mi.global_position = center
+	mi.look_at(center + a, Vector3.UP)      # 박스 z축(length)을 전방 축에 정렬
+	var tw := mi.create_tween()
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.4)
+	tw.tween_callback(mi.queue_free)
+
+
 ## Forward FAN telegraph (AB-099 전방 부채꼴 결계) — a flat ground sector spanning `deg`° around
 ## `facing`, radius `radius`, apex at `apex`. Conveys a directional zone (not a self-centered disc).
 static func fan_telegraph(parent: Node3D, apex: Vector3, facing: Vector3, radius: float, deg: float, color: Color, dur: float) -> void:
@@ -663,6 +686,56 @@ static func charge_up(parent: Node3D, pos: Vector3, dur: float, color: Color) ->
 	tw.tween_property(mat, "emission_energy_multiplier", 5.5, dur).from(1.5)
 	tw.chain().tween_property(mat, "albedo_color:a", 0.0, 0.1)
 	tw.tween_callback(mi.queue_free)
+
+
+## Blood Gale (IDA-027 「혈풍」) lifesteal — each hit enemy's WHOLE body sheds red essence wisps (spread
+## across its silhouette) that get VACUUMED into the caster as a staggered stream (slow drift → snap
+## accel), + a green "receive/heal" glow at the caster. Reads as a siphon/drain (청소기로 유체 빨리듯),
+## NOT a fired projectile, and clearly as healing-to-me (red enemy essence → green my-heal).
+## ref: ability_dispatch._dps_blood_soak.
+static func blood_siphon(parent: Node3D, from_positions: Array, to: Vector3) -> void:
+	var dest: Vector3 = to + Vector3(0, 1.0, 0)                 # 시전자 가슴으로 수렴
+	var wisps := 8                                             # 적 1기당 몸 전체에서 빨려나오는 유체 입자 수
+	var body := Vector3(0.42, 1.35, 0.42)                      # 적 대략 실루엣(입자 분포 볼륨)
+	for src in from_positions:
+		var base: Vector3 = src as Vector3
+		for _i in wisps:
+			var off := Vector3(randf_range(-body.x, body.x), randf_range(0.15, body.y), randf_range(-body.z, body.z))
+			var mi := MeshInstance3D.new()
+			var s := SphereMesh.new()
+			s.radius = 0.09
+			s.height = 0.18
+			mi.mesh = s
+			var mat := _emat(Color(0.85, 0.05, 0.12))          # 핏빛 유체
+			mi.material_override = mat
+			parent.add_child(mi)
+			mi.global_position = base + off                    # 몸 실루엣 곳곳에서 스며나옴
+			var delay: float = randf_range(0.0, 0.22)          # 스태거 = 몸 전체가 쪼옥 빨려드는 스트림
+			var dur: float = randf_range(0.5, 0.7)
+			var tw := mi.create_tween()
+			tw.set_parallel(true)
+			tw.tween_property(mi, "global_position", dest, dur).set_delay(delay).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)   # 슬로우 → 훅 빨려듦
+			tw.tween_property(mi, "scale", Vector3(0.2, 0.2, 0.2), dur).set_delay(delay).from(Vector3.ONE)
+			tw.chain().tween_property(mat, "albedo_color:a", 0.0, 0.08)                       # 도착 = 흡수(소멸)
+			tw.tween_callback(mi.queue_free)
+	# 시전자에 초록 「흡수/회복」 글로우 — 오브가 모이는 동안 커지다(오브 가속과 동조) 페이드. 적 투사체(=피격)와
+	# 달리 "내가 회복한다"를 명확히 신호(적 피 red → 내 회복 green).
+	var glow := MeshInstance3D.new()
+	var gs := SphereMesh.new()
+	gs.radius = 0.5
+	gs.height = 1.0
+	glow.mesh = gs
+	var gmat := _emat(Color(0.30, 0.95, 0.45))
+	glow.material_override = gmat
+	parent.add_child(glow)
+	glow.global_position = dest
+	glow.scale = Vector3(0.15, 0.15, 0.15)
+	var gtw := glow.create_tween()
+	gtw.set_parallel(true)
+	gtw.tween_property(glow, "scale", Vector3(1.1, 1.1, 1.1), 0.85).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+	gtw.tween_property(gmat, "emission_energy_multiplier", 4.0, 0.85).from(1.0)
+	gtw.chain().tween_property(gmat, "albedo_color:a", 0.0, 0.15)
+	gtw.tween_callback(glow.queue_free)
 
 
 ## Fast lightning bolt (AB-004 release) — a jagged segmented arc from `from` to `to` that flashes

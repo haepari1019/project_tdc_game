@@ -56,7 +56,7 @@
     "affix_charges_small": "탄약 증가"
   },
   "skill_desc": {
-    "skillbook_strike": "대상 지역의 적을 강타해 즉시 피해를 준다.",
+    "skillbook_strike": "대상 지역의 적을 강타해 피해를 주고 밀어낸다.",
     "skillbook_poison": "대상에 맹독을 걸어 시간에 걸쳐 지속 피해를 준다.",
     "skillbook_stun": "대상 지역의 적을 강타하고 잠시 기절시킨다.",
     "skillbook_fire": "지정 지점에 화염 피해를 주고 점화시킨다.",
