@@ -169,7 +169,8 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		var pd: Dictionary = p.duplicate()     # 완료 시점 파라미터 고정
 		node.setup(member, slot_index, cast_s, self,
 			func() -> void: _resolve_sub(member, slot_index, pd, target_pos),
-			float(p.get("cast_range_disc_m", 0.0)), _cast_bar_color(String(p.get("kind", ""))))
+			float(p.get("cast_range_disc_m", 0.0)), _cast_bar_color(String(p.get("kind", ""))),
+			_cast_charge_color(p))
 		return
 	# 즉발 — 발현 성공 시에만 차감.
 	if _resolve_sub(member, slot_index, p, target_pos):
@@ -191,6 +192,12 @@ func _resolve_sub(member: CharacterBody3D, slot_index: int, p: Dictionary, targe
 ## 캐스트바 색 — 힐 계열은 초록, 그 외는 파랑.
 func _cast_bar_color(kind: String) -> Color:
 	return Color(0.45, 0.9, 0.7) if kind.contains("heal") else Color(0.5, 0.72, 1.0)
+
+
+## 캐스트 「전격 모으기」 차징 VFX 색 — 전격(lightning) 계열만 charge_up 표시(적 enemy_charge와 동일 톤).
+## 그 외(힐·냉기·화염 등)는 투명 → 미표시. ref: skill_cast.charge_color.
+func _cast_charge_color(p: Dictionary) -> Color:
+	return Color(0.4, 0.7, 1.0, 0.55) if bool(p.get("lightning", false)) else Color(0, 0, 0, 0)
 
 
 # ============================================================================
@@ -475,6 +482,12 @@ func dps_overdrive_on_basic(member: CharacterBody3D) -> void:
 # ============================================================================
 # ctx facade — drop-in skills call these (shared systems stay single-owned).
 # ============================================================================
+
+## PILOT — skill effect instance by kind (CastContext routes enemy UNIFIED casts through the same
+## effects the ally uses — one definition, two front-ends). ref: cast_context.gd.
+func skill_for(kind: String):
+	return _skills.get(kind, null)
+
 
 func enemies_in_radius(pos: Vector3, r: float) -> Array:
 	return _combat._enemies_in_radius(pos, r)

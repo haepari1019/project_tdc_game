@@ -132,6 +132,8 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 
 **DRIFT-078(엄브렐러):** "I-006 캐스팅 확장 패스 — 캐스터 서브 즉발→캐스트/채널 정합." 분류 `impl/tuning`. 위 원장이 세부, 패스 완료 시 확정 요약을 DRIFT-078 본문에 집약. (생성 직전 `SPEC_DRIFT.md` 실제 최신 번호 재확인.)
 
+**DRIFT-082(패스 파생 — 통합, 2026-07-12 확정):** AB-003 §2.2-B **대칭 판정**이 "적↔아군 **완전 동일**(단일정의)" 결정으로 귀결 → 위 원장 AB-003 행의 "비대칭(적은 필러 유지)" 칸은 **폐기(superseded)**. Shared 스킬 통합 아키텍처 = **CastContext**("해소 1개 + 프론트엔드 2개"), AB-003 파일럿 구현 완료. **fodder(EN-011) 3초 캐스트 확정 OK**(재배정 불요). AB-002는 A(즉발) 유지 확정(cd2). rule/design·OPS_30 전파 후보 — packet=[_PROP_PACKET_DRIFT-082.md](_PROP_PACKET_DRIFT-082.md). 잔여 대칭 subset(strike/stun/poison/cold) 통합 = follow-on.
+
 ---
 
 ## 5. ENC 이터레이션 순서 + 진행표

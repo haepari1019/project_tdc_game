@@ -6,6 +6,7 @@ extends Node3D
 
 const CastBar := preload("res://scripts/combat/abilities/effects/cast_bar.gd")
 const RangeDisc := preload("res://scripts/combat/abilities/effects/range_disc.gd")
+const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")   # 전격 모으기 charge_up 재사용
 const MOVE_CANCEL_M := 0.25   # 시작 지점에서 이 거리 이상 움직이면 취소
 
 var _caster: CharacterBody3D
@@ -20,7 +21,8 @@ var _done: bool = false
 
 
 func setup(caster: CharacterBody3D, slot_index: int, dur: float, ctx, on_complete: Callable,
-		radius: float = 0.0, bar_color: Color = Color(0.45, 0.8, 1.0)) -> void:
+		radius: float = 0.0, bar_color: Color = Color(0.45, 0.8, 1.0),
+		charge_color: Color = Color(0, 0, 0, 0)) -> void:
 	_caster = caster
 	_slot = slot_index
 	_dur = dur
@@ -34,6 +36,8 @@ func setup(caster: CharacterBody3D, slot_index: int, dur: float, ctx, on_complet
 		var disc := RangeDisc.new()
 		add_child(disc)
 		disc.setup(caster, radius, Color(bar_color.r, bar_color.g, bar_color.b))
+	if charge_color.a > 0.0:                        # 「전격 모으기」 캐스트 차징 — 적 charge_up을 아군 캐스트로 확장.
+		SkillVfx.charge_up(self, caster.global_position, dur, charge_color)   # self 자식 → 취소/완료 시 함께 정리
 	if caster.has_method("begin_channel"):
 		caster.begin_channel(dur)                  # 점유 = 캐스트 중 다른 서브 차단
 

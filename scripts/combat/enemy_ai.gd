@@ -8,6 +8,7 @@ extends Node3D
 ## ref: F-013 EnemyCombatAI · F-011 Vision · F-022 Threat.
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
+const CastBar := preload("res://scripts/combat/abilities/effects/cast_bar.gd")   # PILOT — 적 통합 캐스트바(아군 파리티)
 
 # Line-of-sight raycast (perception + attack gating). Mask = world layer (1) only —
 # walls/cover block; party(2)/enemy(3,4) are ignored. ref: enemy_visibility.
@@ -331,6 +332,8 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		if enemy.winding:
 			enemy.winding = false
 			enemy.windup_target = null
+			enemy.windup_unified = {}
+			_clear_cast_bar(enemy)
 			print("[EN] %s cast interrupted (stun)" % enemy.enemy_id)
 		enemy.dashing = false
 		enemy.velocity = Vector3.ZERO
@@ -343,6 +346,8 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# (replaces an await; keeps the encounter deterministic). ref: DEBT-OTHER-AWAIT.
 	if enemy.winding:
 		enemy.windup_timer_s -= delta
+		if enemy.windup_bar != null and is_instance_valid(enemy.windup_bar) and enemy.windup_total_s > 0.0:
+			enemy.windup_bar.set_progress(1.0 - enemy.windup_timer_s / enemy.windup_total_s)
 		if enemy.windup_timer_s <= 0.0:
 			_resolve_enemy_attack(enemy)  # dash abilities set enemy.dashing here
 	# Dash takeover (AB-006/013): a short post-telegraph lunge drives movement (like knockback);
@@ -769,6 +774,35 @@ func _nearest_usable_object(enemy: CharacterBody3D) -> Node:
 	return best
 
 
+## PILOT — a UNIFIED ability shares ONE definition (the skillbook master) across ally + enemy. Returns
+## its flattened `cast` params if `ref` is unified (skillbook `unified:true`), else {}. The enemy drives
+## its wind-up from that cast_s and resolves via the shared sb_* effect. ref: cast_context.gd · _WIP §통합.
+func _unified_cast(ref: String) -> Dictionary:
+	var sb: Dictionary = Slice01Data.get_skillbook_master(ref)
+	if sb.is_empty() or not bool(sb.get("unified", false)):
+		return {}
+	return sb.get("cast", {})
+
+
+## PILOT — 적 통합 캐스트 진행바(아군 CastBar 파리티): 시전자 HP 바 바로 위에 붙어 진행률을 그린다.
+func _start_cast_bar(enemy: CharacterBody3D) -> void:
+	_clear_cast_bar(enemy)
+	var bar = CastBar.new()
+	add_child(bar)
+	var y_off: float = 2.4
+	if "_box_size" in enemy and enemy._box_size.y > 0.0:
+		y_off = enemy._box_size.y + 0.95   # HP 바(box.y+0.55) 바로 위
+	bar.setup(enemy, y_off, Color(0.5, 0.72, 1.0))   # 아군 non-heal 캐스트바와 동일 톤
+	enemy.windup_bar = bar
+
+
+## 진행바 제거(완료·중단 공통). 유닛 소멸 시엔 CastBar가 스스로 정리.
+func _clear_cast_bar(enemy: CharacterBody3D) -> void:
+	if enemy.windup_bar != null and is_instance_valid(enemy.windup_bar):
+		enemy.windup_bar.queue_free()
+	enemy.windup_bar = null
+
+
 ## Data-driven enemy attack: choose ability (ready cooldown signature > basic). Telegraphed
 ## casts start a frame-driven wind-up (resolved in tick); others hit now.
 ## Extensible — assign any ability to any unit via enemies.json abilities[].ref.
@@ -784,6 +818,11 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 		if String(chosen.get("trigger", "")) == "signature":
 			enemy.ability_cd[ref] = float(eff.get("cooldown_s", 0.0))
 	var tele: float = float(eff.get("telegraph_s", 0.0))
+	# PILOT — UNIFIED ability: cast time = the SINGLE skillbook definition's cast_s (identical to the
+	# ally). Resolution routes through the shared sb_* effect in _resolve_enemy_attack.
+	var uni: Dictionary = _unified_cast(String(chosen.get("ref", "")))
+	if not uni.is_empty():
+		tele = float(uni.get("cast_s", tele))
 	if enemy.boss_phased and tele > 0.0:
 		tele = maxf(0.3, tele + enemy.boss_phase2_telegraph_delta)  # MiniBoss phase-2: faster cast
 	if tele > 0.0:
@@ -793,6 +832,7 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 		enemy.windup_eff = eff
 		enemy.windup_chosen = chosen
 		enemy.windup_target = target
+		enemy.windup_unified = uni
 		# Telegraph PLACEMENT = dodge affordance. Ground-at-impact marker ONLY for positional AoE
 		# (splash — space out to avoid). Target-LOCKED signature casts cue ON the caster. BASIC pokes
 		# get NO telegraph at all (impact feedback is enough; a tell adds noise for a cheap poke).
@@ -806,6 +846,9 @@ func _begin_enemy_attack(enemy: CharacterBody3D, target: CharacterBody3D) -> voi
 			# Target-LOCKED casts (incl. splash — the primary is locked, splash is incidental): a
 			# caster wind-up cue. No ground-at-spot marker — the homing orb lands ON the moving target.
 			SkillVfx.windup_cue(self, enemy.global_position, tele, _telegraph_color(k))
+		if not uni.is_empty():                       # PILOT — 통합 캐스트: 아군처럼 HP 바 위 캐스트바(진행률)
+			enemy.windup_total_s = tele
+			_start_cast_bar(enemy)
 	else:
 		_deliver_enemy_hit(enemy, target, eff, chosen)  # no telegraph → resolve immediately
 
@@ -817,6 +860,16 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 	var target = enemy.windup_target  # untyped: may be a freed instance (target died mid-windup in
 	enemy.winding = false             # faction war) — a typed assign would throw; is_instance_valid below guards.
 	enemy.windup_target = null
+	_clear_cast_bar(enemy)            # 캐스트 완료/해소 → HP 바 위 캐스트바 제거(아군 파리티)
+	# PILOT — UNIFIED skillbook cast (AB-003): resolve through the SAME sb_* effect the ally uses, via the
+	# faction-flipped CastContext. Projectile delivery handles walls/interception, so no LOS gate (matches
+	# the ally, whose shot is likewise geometry-blocked, not LOS-gated). ref: cast_context.gd.
+	if not enemy.windup_unified.is_empty():
+		var uni: Dictionary = enemy.windup_unified
+		enemy.windup_unified = {}
+		if is_instance_valid(target):
+			_combat.resolve_unified_cast(enemy, uni, target.global_position)
+		return
 	# Zone/ally signatures are target-less — resolve before the party-target validation/LOS gate.
 	if String(eff.get("kind", "")) == "enemy_heal":
 		_apply_enemy_heal(enemy, eff, chosen)

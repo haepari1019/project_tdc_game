@@ -30,6 +30,7 @@ const Spatial := preload("res://scripts/core/spatial.gd")
 const EnemyAI := preload("res://scripts/combat/enemy_ai.gd")
 const AbilityDispatch := preload("res://scripts/combat/abilities/ability_dispatch.gd")
 const ReactionSystem := preload("res://scripts/combat/abilities/reaction_system.gd")
+const CastContext := preload("res://scripts/combat/abilities/cast_context.gd")   # PILOT — enemy 통합 캐스트 ctx
 
 ## D-010 §4.2 combat_exit_grace_s — an engaged enemy with no combat event and no
 ## line of sight to the party for this long disengages (전투중 → dormant). Tuning.
@@ -93,6 +94,9 @@ var _enemy_ai: EnemyAI
 var _ability_dispatch: AbilityDispatch
 ## World-object AoE + RX-OIL-FIRE hazard chemistry (child node). DEBT-GOD2.
 var _reactions: ReactionSystem
+## PILOT — enemy-faction cast context: runs UNIFIED skillbook effects for enemy casters (one skill
+## definition, two casting front-ends). ref: cast_context.gd · AB-003 파일럿.
+var _enemy_cast_ctx: CastContext
 
 
 func setup(party: Node3D, map: Node3D) -> void:
@@ -107,6 +111,9 @@ func setup(party: Node3D, map: Node3D) -> void:
 	_ability_dispatch = AbilityDispatch.new()
 	add_child(_ability_dispatch)
 	_ability_dispatch.setup(self, _reactions)
+	_enemy_cast_ctx = CastContext.new()
+	add_child(_enemy_cast_ctx)
+	_enemy_cast_ctx.setup(self, _ability_dispatch, "enemy")
 
 
 ## partyInCombat: true while ANY enemy is engaged. Drives HUD + follower re-form.
@@ -275,7 +282,7 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 			if src != null and is_instance_valid(src) and m.attack_cooldown_s <= 0.0:
 				var to_src: Vector3 = src.global_position - m.global_position
 				to_src.y = 0.0
-				if to_src.length() <= m.basic_range_m and m.basic_enabled:
+				if to_src.length() <= m.basic_range_m and m.basic_enabled and not m.is_channeling():
 					_resolve_basic(m, src)
 					m.attack_cooldown_s = m.attack_interval()   # Haste(AB-069)-aware
 			continue
@@ -289,6 +296,8 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 			continue
 		if not m.basic_enabled:
 			continue   # 평타 검증: 이 멤버 평타 OFF (identity만 / 또는 완전 정지)
+		if m.is_channeling():
+			continue   # 캐스트(cast_s wind-up) 진행 중엔 평타 정지 — 캐스트에 전념(적 winding 직렬화와 대칭). ref: DRIFT-075
 		if m.attack_cooldown_s > 0.0:
 			continue
 		var foe := _nearest_enemy_in_range(m.global_position, m.basic_range_m)
@@ -300,6 +309,15 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 
 func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
 	_ability_dispatch.cast_skillbook(member, slot_index, target_pos)
+
+
+## PILOT — resolve a UNIFIED skillbook ability CAST BY AN ENEMY through the SAME sb_* effect the ally
+## uses, via the faction-flipped CastContext. `params` = the skillbook's flattened `cast` dict (the
+## single definition both sides share). ref: cast_context.gd · enemy_ai._resolve_enemy_attack.
+func resolve_unified_cast(caster: CharacterBody3D, params: Dictionary, target_pos: Vector3) -> void:
+	var effect = _ability_dispatch.skill_for(String(params.get("kind", "")))
+	if effect != null:
+		effect.cast(caster, params, target_pos, _enemy_cast_ctx)
 
 
 const BASIC_CLEAVE_FALLOFF := 0.6   # 평타 cleave 2차 대상 피해 비율 (ba 아키타입 splash)

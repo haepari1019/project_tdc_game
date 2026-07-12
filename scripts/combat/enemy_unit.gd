@@ -25,6 +25,15 @@ var max_hp: float = 50.0
 var hp: float = 50.0
 var move_speed: float = 3.5
 var contact_damage: float = 6.0
+## Shared skillbook effects (sb_*) read the caster uniformly as `basic_damage` / `class_id`. Enemies
+## expose these as read aliases so a UNIFIED ability (CastContext 파일럿) resolves identically for an
+## enemy caster — one effect definition, two casting front-ends. ref: cast_context.gd · AB-003 파일럿.
+var basic_damage: float:
+	get:
+		return contact_damage
+var class_id: String:
+	get:
+		return enemy_id
 var attack_range_m: float = 1.6
 var attack_interval_s: float = 1.2
 ## Per-unit attack timer, ticked by CombatController.
@@ -95,6 +104,12 @@ var windup_eff: Dictionary = {}
 var windup_chosen: Dictionary = {}
 var windup_target: CharacterBody3D = null
 var windup_pos: Vector3 = Vector3.ZERO   # ground-target capture (spawn_zone — telegraphed spot)
+## PILOT — UNIFIED skillbook cast params stashed between wind-up start and resolve; non-empty → resolve
+## through the SAME sb_* effect the ally uses (via CastContext), not _deliver_enemy_hit. ref: AB-003 파일럿.
+var windup_unified: Dictionary = {}
+## PILOT — 통합 캐스트 진행바(HP 바 위) + 총 캐스트시간(진행률 계산). 아군 CastBar 파리티. ref: enemy_ai.
+var windup_bar: Node = null
+var windup_total_s: float = 0.0
 
 # --- Perception facing + vision cone (Phase C2: hybrid vision cone) ---
 const SCAN_HALF_DEG := 35.0   # dormant idle scan sweep amplitude

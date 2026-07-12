@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260712-003 — Shared 스킬 적↔아군 통합 아키텍처: "해소 1개 + 프론트엔드 2개"(CastContext) — AB-003 파일럿
+- **결정:** Shared 스킬(적도 사용)을 두 정의(skillbooks.json 아군 / abilities.json 적)로 나누지 않고 **단일 정의에서 양측 동일 발현**. 진영-agnostic `cast_context.gd`(CastContext)를 도입해 **하나의 sb_* 이펙트**가 아군/적 모두 구동. AB-003이 파일럿.
+- **이유:** "같은 ID인데 시전자에 따라 딴 거동"은 공유 정체성의 혼란 + 이중유지 비용(0.7 vs 3.0·mult 1.3 vs 1.0 실제 드리프트)만 있고 이득 없음(사용자 판정). "해소(효과·VFX·캐스트시간·mult)=통합, 선택·조준(플레이어 vs AI)=진영별"로 분리하면 진영 의존면이 실제로 `enemies_in_radius`/`deal_damage`/projectile-mask **3개뿐** → 파사드로 흡수.
+- **대안(기각):** (가) 두 정의 유지+얇은 per-side 오버라이드 — 파일 중복만 줄이고 거동 divergence 인지비용 잔존. (나) fodder용 별도 약스킬 포크 — 사용자가 "fodder 3초 캐스트 OK"로 판정 → 불요(ID 스프롤 회피).
+- **아키텍처:** CastContext=Node3D 파사드(VFX parent 겸). 아군=기존 AbilityDispatch(party ctx) 유지, 적=CastContext(enemy) — resolution 코드는 동일 `sb_bolt`. 적 caster는 `basic_damage`/`class_id` 별칭으로 sb_* 인터페이스 충족. 적 프론트엔드=enemy_ai winding 재사용(윈드업=cast_s, resolve→`resolve_unified_cast`). skillbook `unified:true`가 스위치.
+- **분류\전파:** **rule/design → [[DRIFT-082]]**(OPS_30 전파 후보·packet). D-016 §3.6.1 telegraph 밴드 모델 변경 포함. 파일럿=AB-003; 잔여 subset(strike/stun/poison/cold)=follow-on.
+- **영향:** (신규) `scripts/combat/abilities/cast_context.gd`. `enemy_unit`(별칭+windup_unified/bar/total), `combat_controller`(resolve_unified_cast·_enemy_cast_ctx 마운트), `ability_dispatch`(skill_for·_cast_charge_color), `enemy_ai`(_unified_cast·윈드업 cast_s·resolve 라우팅·CastBar), `skill_cast`(charge_color), `cast_bar`(적 재사용). 데이터: skillbooks/abilities.json AB-003. + 캐스트중 평타정지 게이트(combat_controller).
+
 ### IMPL-DEC-20260712-002 — AB-054 채널 = 인터럽트형(비점유·비루트) 재구현
 - **결정(2026-07-12, 사용자 지시):** AB-054 빔 채널의 셀프 Rooted(이동잠금) + `begin_channel` 점유를 제거하고, **이동(시전지점 0.3m 이탈)·다른 스킬 시전·기절/다운 시 중단되는 인터럽트형**으로 전환. 진행바=감소형(청록, 캐스팅과 반대방향), 조준=원형→**직선 레인**.
 - **이유:** "속박" 셀프-CC가 맥락에 안 맞음(사용자 피드백). 채널을 강제 잠금이 아니라 "유지하면 이득·움직이면 끊김"의 리스크-리워드로.

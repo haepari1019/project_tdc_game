@@ -655,6 +655,7 @@
     {
       "base_ability_id": "AB-003",
       "display_name": "Arc Bolt Volley",
+      "unified": true,
       "equip_classes": [
         "DPS",
         "Nuker"

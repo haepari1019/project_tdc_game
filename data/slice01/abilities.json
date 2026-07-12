@@ -314,11 +314,9 @@
     },
     "AB-003": {
       "kind": "enemy_charge",
-      "telegraph_s": 0.7,
       "channel": true,
       "cooldown_s": 6.0,
-      "damage_mult": 1.3,
-      "vfx": "shot_lightning"
+      "unified": true
     },
     "AB-005": {
       "kind": "enemy_melee",
