@@ -15,8 +15,8 @@ func _ready() -> void:
 	# 발밑 선택 링(스타크래프트식) — 얇은 초록 테두리. TorusMesh는 XZ 평면에 이미 눕혀 있음(회전 불요).
 	var ring_mi := MeshInstance3D.new()
 	var ring := TorusMesh.new()
-	ring.inner_radius = 0.55
-	ring.outer_radius = 0.65
+	ring.inner_radius = 0.36
+	ring.outer_radius = 0.42
 	ring_mi.mesh = ring
 	ring_mi.position.y = 0.05
 	ring_mi.material_override = _mat(Color(0.30, 1.0, 0.45, 0.9), false)  # 초록 링(조종 표시)
