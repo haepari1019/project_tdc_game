@@ -1,9 +1,10 @@
 extends RefCounted
-class_name BindingFixtures
-## P4a Tank Kit Binding (결속) pilot overlays — BIND-PILOT-001~006. **NON-CANONICAL dev fixtures.**
-## `docs/combat/bindings/` is CombatContentMap-UNREGISTERED in the spec (README) → these are deliberately
-## NOT in `id_registry` / `require_id`. effectiveAbility = baseAbilityId + bindingOverlayId(if active);
-## the AB effect files are NOT cloned — an overlay is a runtime DELTA applied AFTER the base sub cast.
+class_name BindingOverlays
+## Kit Binding (결속) — 정본 결속 오버레이 레지스트리. **게임이 SSOT** (IMPL-DEC-20260709-001: spec 로드맵 스텁 역전).
+## 결속 = effectiveAbility = baseAbilityId + bindingOverlayId(활성 시). AB effect 파일은 복제하지 않음 —
+## 오버레이는 base 서브 캐스트 **후** 적용되는 런타임 DELTA. resolve = triple-match(gear + identity_ab + slot_ab + slot).
+## id_registry 미등재 = 오버레이는 **독립 능력이 아니라** effectiveAbility 합성 요소(별 네임스페이스 BIND-###) —
+## spec CombatContentMap도 bindings 미등재. 정식 spec 등재는 P4b 정본화 배치(OPS_30).
 ## ref: F-020 §3.7 resolveEffectiveAbility · F-008 §3.9 · D-019 §10 · ROLE-010 §4.5 · QA-005 §2.12 · spec 77d9532.
 ##
 ## **공통 규약 (identity covenant):** identity가 시그니처 규약을 **선언·생성**하고, 링크된 서브(base 스킬)는
@@ -91,142 +92,153 @@ const BLOODGALE := {
 # Anchor 서브: 전부 방벽 +1(공통 버프). Beacon 서브: 전부 표식 대상 조건부 위협(공통), R은 표식 갱신 추가.
 const OVERLAYS := [
 	{
-		"id": "BIND-PILOT-001", "gear": "gear_ward_tank_anchor_bulwark",
+		"id": "BIND-001", "gear": "gear_ward_tank_anchor_bulwark",
 		"identity_ab": "IDA-020", "slot_ab": "AB-033", "slot_index": 0, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Intercept → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
-		"id": "BIND-PILOT-002", "gear": "gear_ward_tank_anchor_bulwark",
+		"id": "BIND-002", "gear": "gear_ward_tank_anchor_bulwark",
 		"identity_ab": "IDA-020", "slot_ab": "AB-034", "slot_index": 1, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Barrier → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
-		"id": "BIND-PILOT-003", "gear": "gear_ward_tank_anchor_bulwark",
+		"id": "BIND-003", "gear": "gear_ward_tank_anchor_bulwark",
 		"identity_ab": "IDA-020", "slot_ab": "AB-035", "slot_index": 2, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Mark → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
-		"id": "BIND-PILOT-004", "gear": "gear_ward_tank_kite_shield",
+		"id": "BIND-004", "gear": "gear_ward_tank_kite_shield",
 		"identity_ab": "IDA-021", "slot_ab": "AB-033", "slot_index": 0, "theme": "mark", "delta": "beacon_mark",
 		"payoff": "Intercept → +threat vs marked", "desc_ko": "표식 대상에게 추가 위협 효과를 부여한다.",
 	},
 	{
-		"id": "BIND-PILOT-005", "gear": "gear_ward_tank_kite_shield",
+		"id": "BIND-005", "gear": "gear_ward_tank_kite_shield",
 		"identity_ab": "IDA-021", "slot_ab": "AB-034", "slot_index": 1, "theme": "mark", "delta": "beacon_mark",
 		"payoff": "Barrier → +threat vs marked", "desc_ko": "표식 대상에게 추가 위협 효과를 부여한다.",
 	},
 	{
-		"id": "BIND-PILOT-006", "gear": "gear_ward_tank_kite_shield",
+		"id": "BIND-006", "gear": "gear_ward_tank_kite_shield",
 		"identity_ab": "IDA-021", "slot_ab": "AB-035", "slot_index": 2, "theme": "mark", "delta": "beacon_mark_refresh",
 		"payoff": "Challenge → +threat vs marked + 표식 갱신", "desc_ko": "표식 대상에게 추가 위협을 주고, 표식의 유지 시간을 갱신한다.",
 	},
 	# Nuker Mark&Ruin 「집중」 링크 서브(빌더): 집중 대상 명중 시 누적 +1 & 누적 비례 추가타(공통).
 	# 소모는 슬롯 오버레이가 아니라 아키타입 규칙(FOCUS_SPEND_KINDS / is_focus_spender)이 담당 — 특정 처형 스킬에 묶지 않음.
 	{
-		"id": "BIND-PILOT-007", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-007", "gear": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-004", "slot_index": 0, "theme": "focus", "delta": "focus_stack",
 		"payoff": "전격사격 → Focus +1 & 누적 비례 추가타", "desc_ko": "명중한 적을 집중 대상으로 새기고 집중을 한 겹 쌓아, 쌓인 만큼 추가 피해를 준다. 다른 적을 명중하면 집중이 그 적으로 옮겨가며 초기화된다.",
 	},
 	{
-		"id": "BIND-PILOT-008", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-008", "gear": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-059", "slot_index": 1, "theme": "focus", "delta": "focus_spread",
 		"payoff": "공허창 → 누적 추가타 + 집중을 근처 적으로 전이", "desc_ko": "집중 대상을 명중하면 누적+추가 피해를 준 뒤, 집중을 근처의 다른 적으로 전이시킨다(누적 유지).",
 	},
 	{
-		"id": "BIND-PILOT-027", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-027", "gear": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-005", "slot_index": 0, "theme": "focus", "delta": "focus_dump",
 		"payoff": "Melee Flurry — 단일: 집중 소모 처형 / 광역: 집중 유지·빌드", "desc_ko": "레인에 적이 하나뿐이면 쌓아둔 집중을 모두 소모해 처형 폭발을 일으킨다. 여럿이면 집중을 유지·누적하며 쓸어버린다.",
 	},
 	# Nuker Flank Collapse 「잠행」 링크 서브: 근접 사거리로만 시전 + 원래 range_band 비례 이득(1차 뎀/2차 쿨감).
 	# 처치 시 은신은 슬롯 오버레이가 아니라 kill 훅(identity_flanks 게이트)이 담당 — 어떤 처치든 vanish.
 	{
-		"id": "BIND-PILOT-010", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-010", "gear": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-004", "slot_index": 0, "theme": "flank", "delta": "flank_strike",
 		"payoff": "전격사격(Long) → 근접화 + 사거리 비례 이득(큼)", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
 	},
 	{
-		"id": "BIND-PILOT-011", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-011", "gear": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-059", "slot_index": 1, "theme": "flank", "delta": "flank_dash",
 		"payoff": "공허창(Long) → 근접화 + 사거리 비례 이득 + 타격 후 반대편 이탈", "desc_ko": "근접에서만 시전된다. 원래 사거리 비례 이득에 더해, 발현 후 적의 반대편으로 원래 사거리만큼 순간 이탈한다.",
 	},
 	{
-		"id": "BIND-PILOT-012", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-012", "gear": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-060", "slot_index": 2, "theme": "flank", "delta": "flank_strike",
 		"payoff": "Rupture(Mid) → 근접화 + 사거리 비례 이득", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
 	},
 	{
-		"id": "BIND-PILOT-028", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-028", "gear": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-005", "slot_index": 0, "theme": "flank", "delta": "flank_strike",
 		"payoff": "Melee Flurry(근접) → generic +15% 추가타(합연산)", "desc_ko": "이미 근접 스킬이라 근접화 보상으로 +15% 추가 피해를 얻는다(합연산).",
+	},
+	# Tank Toll Stun(AB-011) — 타겟 단일 기절. 방벽/표식 둘 다 generic delta로 링크(코드 무변경).
+	{
+		"id": "BIND-029", "gear": "gear_ward_tank_anchor_bulwark",
+		"identity_ab": "IDA-020", "slot_ab": "AB-011", "slot_index": 0, "theme": "bulwark", "delta": "bulwark_charge",
+		"payoff": "Toll Stun → 방벽 충전", "desc_ko": "적을 기절시키며 방벽을 한 겹 쌓는다.",
+	},
+	{
+		"id": "BIND-030", "gear": "gear_ward_tank_kite_shield",
+		"identity_ab": "IDA-021", "slot_ab": "AB-011", "slot_index": 0, "theme": "mark", "delta": "beacon_mark",
+		"payoff": "Toll Stun → 표식", "desc_ko": "기절시킨 적을 표식해 추가 위협을 부여한다.",
 	},
 	# Healer 지속치유(가호 폐지) 링크 힐 서브: 실제 전환은 deal_heal/deal_regen choke(정체성 게이트)가 담당 —
 	# 오버레이는 킷 등록 + 툴팁용(delta "dot_heal"은 _apply_binding에서 no-op, 전환은 choke에서).
 	{
-		"id": "BIND-PILOT-013", "gear": "gear_ward_healer_ward_sigil",
+		"id": "BIND-013", "gear": "gear_ward_healer_ward_sigil",
 		"identity_ab": "IDA-031", "slot_ab": "AB-064", "slot_index": 0, "theme": "dot_heal", "delta": "dot_heal",
 		"payoff": "QuickMend → 지속 치유 전환", "desc_ko": "즉시 치유가 지속 치유로 바뀌어 더 오래 나눠 들어오고, 총 회복량이 늘어난다.",
 	},
 	{
-		"id": "BIND-PILOT-014", "gear": "gear_ward_healer_ward_sigil",
+		"id": "BIND-014", "gear": "gear_ward_healer_ward_sigil",
 		"identity_ab": "IDA-031", "slot_ab": "AB-065", "slot_index": 1, "theme": "dot_heal", "delta": "dot_heal",
 		"payoff": "RenewingTide → 지속 치유 강화", "desc_ko": "지속 치유의 총 회복량이 늘어난다.",
 	},
 	{
-		"id": "BIND-PILOT-015", "gear": "gear_ward_healer_ward_sigil",
+		"id": "BIND-015", "gear": "gear_ward_healer_ward_sigil",
 		"identity_ab": "IDA-031", "slot_ab": "AB-066", "slot_index": 2, "theme": "dot_heal", "delta": "dot_heal",
 		"payoff": "SanctuaryFont → 지속 치유 강화", "desc_ko": "지속 치유의 총 회복량이 늘어난다.",
 	},
 	# Healer 성역 링크 힐 서브: 실제 증폭은 deal_heal/deal_regen choke(in_sanctuary 게이트) — 오버레이는 등록+툴팁용.
 	{
-		"id": "BIND-PILOT-016", "gear": "gear_ward_healer_mend_lantern",
+		"id": "BIND-016", "gear": "gear_ward_healer_mend_lantern",
 		"identity_ab": "IDA-026", "slot_ab": "AB-064", "slot_index": 0, "theme": "sanctuary", "delta": "sanct",
 		"payoff": "QuickMend → 성역 안 증폭", "desc_ko": "성역 안에 머문 채 시전하면 회복량이 늘어난다. 성역을 벗어나면 평범해진다.",
 	},
 	{
-		"id": "BIND-PILOT-017", "gear": "gear_ward_healer_mend_lantern",
+		"id": "BIND-017", "gear": "gear_ward_healer_mend_lantern",
 		"identity_ab": "IDA-026", "slot_ab": "AB-065", "slot_index": 1, "theme": "sanctuary", "delta": "sanct",
 		"payoff": "RenewingTide → 성역 안 증폭", "desc_ko": "성역 안에 머문 채 시전하면 회복량이 늘어난다. 성역을 벗어나면 평범해진다.",
 	},
 	{
-		"id": "BIND-PILOT-018", "gear": "gear_ward_healer_mend_lantern",
+		"id": "BIND-018", "gear": "gear_ward_healer_mend_lantern",
 		"identity_ab": "IDA-026", "slot_ab": "AB-066", "slot_index": 2, "theme": "sanctuary", "delta": "sanct",
 		"payoff": "SanctuaryFont → 성역 안 증폭", "desc_ko": "성역 안에 머문 채 시전하면 회복량이 늘어난다. 성역을 벗어나면 평범해진다.",
 	},
 	# DPS press_line 「초월」 링크 서브(광역 3종 + bolt 대체 슬롯): 명중 시 초월 게이지 충전, 초월 중이면 서브가 강화 변형으로 발동.
 	# 강화는 kind로 분기(fire→화상 / beam→끌어당김 / cold→빙결 / bolt→감전 폭주) — _dps_overdrive. delta 공통 overdrive_charge.
 	{
-		"id": "BIND-PILOT-019", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-019", "gear": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-053", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
 		"payoff": "작열 폭발 → 초월 충전 / (초월)겁화: 화상 DoT", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「겁화」로 발동 — 명중한 적에게 화상 지속딜을 남긴다.",
 	},
 	{
-		"id": "BIND-PILOT-026", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-026", "gear": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-003", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
 		"payoff": "Arc Bolt Volley → 초월 충전 / (초월)감전 폭주: 침묵", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「감전 폭주」로 발동 — 명중한 적을 침묵시켜 액티브 스킬을 봉쇄한다.",
 	},
 	{
-		"id": "BIND-PILOT-020", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-020", "gear": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-054", "slot_index": 1, "theme": "overdrive", "delta": "overdrive_charge",
 		"payoff": "절단 광선 → 초월 충전 / (초월)중력광선: 끌어당김", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「중력 광선」으로 발동 — 빔에 맞은 적을 중심선으로 끌어당긴다.",
 	},
 	{
-		"id": "BIND-PILOT-021", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-021", "gear": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-041", "slot_index": 2, "theme": "overdrive", "delta": "overdrive_charge",
 		"payoff": "빙결 파동 → 초월 충전 / (초월)절대영도: 빙결", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「절대영도」로 발동 — 감속이 빙결(속박)로 격상된다.",
 	},
 	# DPS arc_weave 「혈풍」 링크 서브(광역 3종): 시전당 HP 소모 + 명중 적 수 비례 회복(3기+ 이득). delta 공통 blood_soak.
 	{
-		"id": "BIND-PILOT-022", "gear": "gear_ward_dps_weave_staff",
+		"id": "BIND-022", "gear": "gear_ward_dps_weave_staff",
 		"identity_ab": "IDA-027", "slot_ab": "AB-053", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak",
 		"payoff": "작열 폭발 → 흡수 폭발(기본 회복)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다(3기 이상이면 이득).",
 	},
 	{
-		"id": "BIND-PILOT-023", "gear": "gear_ward_dps_weave_staff",
+		"id": "BIND-023", "gear": "gear_ward_dps_weave_staff",
 		"identity_ab": "IDA-027", "slot_ab": "AB-054", "slot_index": 1, "theme": "bloodgale", "delta": "blood_soak",
 		"payoff": "절단 광선 → 흡혈 광선(채널 사이펀·회복 증폭)", "desc_ko": "체력을 대가로 시전하는 흡혈 광선. 채널로 빨아들여 맞춘 적 수 대비 더 많이 회복한다(사이펀).",
 	},
 	{
-		"id": "BIND-PILOT-024", "gear": "gear_ward_dps_weave_staff",
+		"id": "BIND-024", "gear": "gear_ward_dps_weave_staff",
 		"identity_ab": "IDA-027", "slot_ab": "AB-041", "slot_index": 2, "theme": "bloodgale", "delta": "blood_soak",
 		"payoff": "빙결 파동 → 혈빙(과회복 → 임시 보호막)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다. 최대 체력을 넘긴 과회복분은 임시 보호막이 된다.",
 	},

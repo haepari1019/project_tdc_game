@@ -3,7 +3,7 @@
 > **감독(사람)이 채우는 폼.** 이 게이트가 P4b 전면 경제 이관의 분기점이다.
 > **Pass 판정 → Stage 2(P4b) 진행 / Fail → 오버레이 단순화 후 재테스트, 타 클래스 확장 금지** (`EXPANSION_P4B` §금지).
 > spec: `77d9532` · `QA-005 §2.12` · `ROLE-010 §4.5` · `docs/combat/bindings/` (비정본 파일럿).
-> 구현: P2-S8a (Stage 0+1). 결속 = 런타임 오버레이(`binding_fixtures.gd`), AB 파일 복제 없음.
+> 구현: P2-S8a (Stage 0+1). 결속 = 런타임 오버레이(`binding_overlays.gd`), AB 파일 복제 없음.
 
 ## 실행 방법 (combat sandbox)
 1. 샌드박스 씬 진입 → 좌측 패널 **"결속 파일럿 (Tank P4a)"** 섹션.
@@ -14,15 +14,15 @@
 ## 관찰할 오버레이 (ON일 때만)
 | 픽스처 | 슬롯 | 오버레이 | PAYOFF (base 대비 추가분) |
 |--------|------|----------|---------------------------|
-| ANCHOR (GEAR-011·IDA-020) | Q AB-033 | BIND-PILOT-001 | Intercept 3회 누적 → 0.8s **Stun** (8s ICD) |
-| | E AB-034 | BIND-PILOT-002 | Barrier → **threat pulse +50 + threat floor +25** 2s |
-| | R AB-035 | BIND-PILOT-003 | Mark → 시전자 **Shield 60 / 5s** |
-| BEACON (GEAR-012·IDA-021) | Q AB-033 | BIND-PILOT-004 | Intercept → **threat floor +15%** 2s |
-| | E AB-034 | BIND-PILOT-005 | wall stagger **knockback +25%** |
-| | R AB-035 | BIND-PILOT-006 | Mark 대상 8s 내 처치 → **AB-035 쿨 −40%** |
+| ANCHOR (GEAR-011·IDA-020) | Q AB-033 | BIND-001 | Intercept 3회 누적 → 0.8s **Stun** (8s ICD) |
+| | E AB-034 | BIND-002 | Barrier → **threat pulse +50 + threat floor +25** 2s |
+| | R AB-035 | BIND-003 | Mark → 시전자 **Shield 60 / 5s** |
+| BEACON (GEAR-012·IDA-021) | Q AB-033 | BIND-004 | Intercept → **threat floor +15%** 2s |
+| | E AB-034 | BIND-005 | wall stagger **knockback +25%** |
+| | R AB-035 | BIND-006 | Mark 대상 8s 내 처치 → **AB-035 쿨 −40%** |
 | BASE | — | (없음) | base AB만 — 회귀 기준선 |
 
-> 수치는 `BIND-PILOT-###` 설계 예시(튜닝). BIND-005 knockback은 파일럿 근사(시전 시 전방 콘 push). castTier는 전부 **A(즉발)** — wind-up 없음.
+> 수치는 `BIND-###` 설계 예시(튜닝). BIND-005 knockback은 파일럿 근사(시전 시 전방 콘 push). castTier는 전부 **A(즉발)** — wind-up 없음.
 
 ---
 
@@ -57,7 +57,7 @@ ANCHOR **또는** BEACON이 `ENC-HARD-001`에서 BASE 대비 **문서화된 payo
 
 ## DoD & 분기
 - **Gate 1·2·3 Pass + 4·5 회귀 통과 → PASS.** → Stage 2(P4b 전면 이관) 착수 승인. Nuker/DPS/Healer 로드맵(Stage 3) 개방.
-- **어느 하나 Fail → FAIL.** → 해당 `BIND-PILOT-###` 오버레이 **단순화** 후 재테스트. **타 클래스 본문화 금지** (게이트 재통과 전까지).
+- **어느 하나 Fail → FAIL.** → 해당 `BIND-###` 오버레이 **단순화** 후 재테스트. **타 클래스 본문화 금지** (게이트 재통과 전까지).
 - 결과는 `ROLE-010 §4.5` + 본 파일 + ENC Notes 1줄로 기록. 최악(반복 Fail): 결속 컨셉 폐기 판정.
 
 ## 최종 판정

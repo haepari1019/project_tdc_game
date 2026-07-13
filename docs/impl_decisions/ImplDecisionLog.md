@@ -27,9 +27,9 @@
 - **영향 파일:** `party_member`(드레인/`_od_timer_s` 제거·`overdrive_reset`)·`ability_dispatch`(empower 후 소모·2-arg add)·`party_controller`(OOC 타이머)·`controlled_sheet`(시트 게이지). `OVERDRIVE.dur`=잔재. **규칙 변경 = DRIFT-080 (OPS_30 전파 후보).**
 
 ### IMPL-DEC-20260709-001 — 결속(P4b) 정본 = **이 세션 게임 구현이 SSOT** (스펙 로드맵 스텁 역전)
-- **결정(감독, 2026-07-09):** Identity Kit Binding의 정본은 **게임 레포 구현**(집중/잠행·초월/혈풍·지속치유/성역, `binding_fixtures.gd` + DRIFT-073~077)으로 한다. 스펙의 `BIND-ROADMAP-007~024` + `EXPANSION_P4B.md`는 **다른(가벼운 페이오프) 설계**라 **폐기·재작성 대상** — 우리 구현을 기준으로 다시 씀.
+- **결정(감독, 2026-07-09):** Identity Kit Binding의 정본은 **게임 레포 구현**(집중/잠행·초월/혈풍·지속치유/성역, `binding_overlays.gd` + DRIFT-073~077)으로 한다. 스펙의 `BIND-ROADMAP-007~024` + `EXPANSION_P4B.md`는 **다른(가벼운 페이오프) 설계**라 **폐기·재작성 대상** — 우리 구현을 기준으로 다시 씀.
 - **이유:** 실제 플테로 검증·확정된 건 우리 구현. 스펙 스텁(interrupt/spore/cinder, guard-break/lane/stagger 등)은 착수 전 개념이고 실구현과 어긋남. 되돌리기보다 실구현을 정본화가 맞음.
-- **함의(후속, spec 레포 작업):** P4b 정본화 changeset = ①`ROLE-010 §4.5`/`F-020 §3.7`에 실 키스톤(게이지·HP경제·집중·DoT·성역) 반영 ②`BIND-ROADMAP-INDEX`+스텁 폐기/재작성 ③DRIFT-073~077 OPS_30 전파 ④`binding_fixtures` 오버레이 해킹 → 정본 능력 시스템 이관. **이 레포에서 spec md 편집 금지** — 별도 스펙 세션.
+- **함의(후속, spec 레포 작업):** P4b 정본화 changeset = ①`ROLE-010 §4.5`/`F-020 §3.7`에 실 키스톤(게이지·HP경제·집중·DoT·성역) 반영 ②`BIND-ROADMAP-INDEX`+스텁 폐기/재작성 ③DRIFT-073~077 OPS_30 전파 ④`binding_overlays` 오버레이 해킹 → 정본 능력 시스템 이관. **이 레포에서 spec md 편집 금지** — 별도 스펙 세션.
 - **영향:** 결정 로깅만(코드 무변경). 관련: [[identity-kit-binding-plan]], DRIFT-073~077.
 
 ### IMPL-DEC-20260708-002 — Stage 3 DPS 결속(초월·혈풍) + 누커 집중 ENC 수정 + 위협 재조정 + 잠행 E 단축
@@ -42,7 +42,7 @@
 - **위협 재조정:** 탱커 threat_mult ~2.3× 강화(비콘 6.0 등) + 딜러 0.6 감소 — 딜러 폭딜 서브가 어그로 뜯던 근본 원인 상쇄(탱커만 올려선 못 잡음, 상대 위협 정직 판단).
 - **잠행 E 대시:** 서브 원래 사거리(공허창 15m)→**고정 4m**(`FLANK.dash_m`). 맵 가로질러 튕기던 문제 해소.
 - **검증:** `binding_smoke`(23 오버레이) · `ci_smoke 7/7`. 감독 플레이테스트 수용(집중 AI빌드·겁화 장판→화상 DoT 등).
-- **영향:** binding_fixtures·ability_dispatch·party_member·combat_controller·health_bar·overhead_badges·combat_sandbox·binding_smoke·identities.json·skillbooks.json. DRIFT-076/077. 관련: [[identity-kit-binding-plan]].
+- **영향:** binding_overlays·ability_dispatch·party_member·combat_controller·health_bar·overhead_badges·combat_sandbox·binding_smoke·identities.json·skillbooks.json. DRIFT-076/077. 관련: [[identity-kit-binding-plan]].
 
 ### IMPL-DEC-20260708-001 — Stage 3 Healer 결속(지속치유·성역) + 힐러 킷 재설계 + 정체성별 스킬셋 통일
 - **결정:** Stage 3 Healer 2정체성 + **평가 원칙 확립**: *한 클래스의 두 정체성은 동일 3서브를 공유*하고, 정체성이 그 서브를 어떻게 변형하는지로 평가(정체성=규격 철학의 실전화).
@@ -54,18 +54,18 @@
   - **Nuker 평가 패리티:** 집중·잠행 **동일 3서브 AB-055/072/060**로 통일(E: 058→072). Tank는 이미 AB-033/034/035 공유.
 - **이유:** 힐러에서 "같은 서브가 정체성별로 어떻게 변하나"가 평가에 가장 유효 → 전 클래스로 확장. 도트 서브는 지속치유가 어차피 강제 전환하니 중복. 채널/수호는 서로 뚜렷이 구분되고 정체성 변형이 명확.
 - **검증:** `ci_smoke 7/7` · `binding_smoke`(17 오버레이). 감독 반복 플레이테스트(연속 바·이동취소·범위디스크·성역 분리표기·도트 중첩 등 다수 폴리시 수용).
-- **영향:** abilities.json(IDA-031)·skillbooks.json(AB-064/065/066)·display_names·binding_fixtures·ability_dispatch(치유 choke)·party_member(HoT중첩·수호·채널·성역)·health_bar·controlled_sheet·float_text·combat_sandbox·binding_smoke + 신규 effects(cast_bar·range_disc·channel_heal·sb_channel_heal·ward_heal·sb_ward_heal). DRIFT-073/074. 관련: [[identity-kit-binding-plan]].
+- **영향:** abilities.json(IDA-031)·skillbooks.json(AB-064/065/066)·display_names·binding_overlays·ability_dispatch(치유 choke)·party_member(HoT중첩·수호·채널·성역)·health_bar·controlled_sheet·float_text·combat_sandbox·binding_smoke + 신규 effects(cast_bar·range_disc·channel_heal·sb_channel_heal·ward_heal·sb_ward_heal). DRIFT-073/074. 관련: [[identity-kit-binding-plan]].
 
 ### IMPL-DEC-20260706-001 — Stage 3 누커 결속(집중·잠행) + `_deal_damage` attacker 버그픽스
 - **결정:** Stage 3 첫 클래스 = **누커 2정체성** 결속 파일럿(비정본 픽스처, Tank와 동일 오버레이 구조). 정체성 능력 ID는 **IDA-###** 전용 프리픽스(갈래 B — 스펙 `DEC-20260705-001`/`b9b0a96`, 게임 `4062e7d`).
-  - **IDA-025 집중(Mark&Ruin):** identity가 단일 표적 **집중** 지정 → 링크 딜링 서브(BIND-PILOT-007/008)가 집중 대상 명중 시 누적+누적비례 추가타, 딴 적 조준 시 초기화. **소모는 아키타입 규칙**(`FOCUS_SPEND_KINDS=[skillbook_execute]`/`is_focus_spender`) — 특정 처형 AB 하드코딩 회피(유저 지적: "처형 장착 보장 없음"). 소모 시 누적 전량→비례 폭발, **집중 대상 유지**(build→spend 반복). **환급 제거**(원안의 막타 쿨환급은 execute-스킬 고유 → 정체성 규약에 부적합).
-  - **IDA-029 잠행(Flank Collapse):** 링크 서브(BIND-PILOT-010~012)를 **근접 사거리로 강제**(aim `_range`→`FLANK.melee_range_m`) + 원래 `range_band` 비례 이득(1차 뎀 / 2차 즉시 쿨감; Mid<Long). **처치(막타) 시 은신**(`apply_veil` 재사용 = 적 표적 드롭 = 어그로 감소) — 슬롯 오버레이 아닌 **kill 훅**(`identity_flanks` 게이트). (assist-크레딧 완화는 시도했다 유저 요청으로 막타 전용 환원.)
+  - **IDA-025 집중(Mark&Ruin):** identity가 단일 표적 **집중** 지정 → 링크 딜링 서브(BIND-007/008)가 집중 대상 명중 시 누적+누적비례 추가타, 딴 적 조준 시 초기화. **소모는 아키타입 규칙**(`FOCUS_SPEND_KINDS=[skillbook_execute]`/`is_focus_spender`) — 특정 처형 AB 하드코딩 회피(유저 지적: "처형 장착 보장 없음"). 소모 시 누적 전량→비례 폭발, **집중 대상 유지**(build→spend 반복). **환급 제거**(원안의 막타 쿨환급은 execute-스킬 고유 → 정체성 규약에 부적합).
+  - **IDA-029 잠행(Flank Collapse):** 링크 서브(BIND-010~012)를 **근접 사거리로 강제**(aim `_range`→`FLANK.melee_range_m`) + 원래 `range_band` 비례 이득(1차 뎀 / 2차 즉시 쿨감; Mid<Long). **처치(막타) 시 은신**(`apply_veil` 재사용 = 적 표적 드롭 = 어그로 감소) — 슬롯 오버레이 아닌 **kill 훅**(`identity_flanks` 게이트). (assist-크레딧 완화는 시도했다 유저 요청으로 막타 전용 환원.)
   - **라벨 통합 `OverheadBadges`(신규):** 방벽/표식/집중/은신 등 스택 마커를 유닛당 **단일 Label3D 한 줄**로 — 여러 상태 동시 발현 시 세로 나열/줌 간격 문제 해소(유저 지적).
   - **A/B/C 시각화:** 집중 캡=금색 🎯MAX · 소모=금색 「집중 N⟶폭발」 · 증폭 추가타=진홍 +N(**결속 한정 숫자**, 전역 무숫자 미학 유지). 은신=반투명 냉회색 유령 + 👻 배지(반투명 몸체 따라다님) + 매 발동 "은신" 플로팅. flash가 반투명 취소하던 것도 veil-aware로 가드.
 - **⚠️ 버그픽스(별개·중대):** `combat_controller._deal_damage`가 `attacker`를 위협엔 쓰면서 **`take_damage`엔 미전달** → `killed_by_party` **항상 false** → (1) 처치→은신이 **한 번도 발동 안 됨**, (2) `loot_service.on_enemy_defeated`의 `if not by_party: return`으로 **파티 per-kill 전리품(스킬북·ward_scrap, F-009) 전부 스킵**되던 선행 회귀. `take_damage(dmg, attacker)`로 수정 → 은신·킬 귀속·per-kill 드롭 복원(3세력 오프스크린 킬은 attacker=비파티 → 여전히 no-drop, 게이트 올바르게 작동).
 - **이유:** 정체성=규격/카테고리 선언(아키타입 소모·근접화 규칙)이 특정 AB 하드코딩보다 견고(유저 방향). 라벨 통합은 확장(8정체성) 대비. 버그픽스는 은신 디버깅 중 발견.
 - **검증:** `ci_smoke 7/7` · `binding_smoke`(11 오버레이 + focus_stack/is_focus_spender + flank_strike/identity_flanks + band 단조 + 규약) · badge_strip 로직 테스트. 체감 = **감독 게이트 PASS(2026-07-06, 두 누커)**.
-- **영향:** binding_fixtures·ability_dispatch·party_member·enemy_unit·**combat_controller(버그픽스)**·aim_controller·controlled_sheet·overhead_badges(신규)·combat_sandbox·binding_smoke·skillbooks.json. 관련: [[identity-kit-binding-plan]].
+- **영향:** binding_overlays·ability_dispatch·party_member·enemy_unit·**combat_controller(버그픽스)**·aim_controller·controlled_sheet·overhead_badges(신규)·combat_sandbox·binding_smoke·skillbooks.json. 관련: [[identity-kit-binding-plan]].
 
 ### IMPL-DEC-20260705-001 — P2-S8a 게이트 PASS + 파일럿 폴리시 (결속 규약·시각화·조준 UX)
 - **결정:** `QA-005 §2.12` Tank 결속 게이트 **감독 PASS**(2026-07-05). Stage 2/3 개방. 게이트 전 다수 개선:
@@ -74,17 +74,17 @@
   - **정체성 이름/설명 정비:** 툴팁 이름 소스 통일(display_names, 스타터가 SKILL_INFO로 다른 이름 뜨던 버그 수정) + 10종 이름 재작명(기능 기반, 사물 비유 배제) + kind별 skill_desc 채움(정체성·barrier 스태거 등).
   - **허수아비**(스킬샷 테스트: 불사·정지·누적딜/어그로 표시+초기화, AI tick 스킵+상태 자가 tick)·**조준 UX**(단일=사거리 링만+커서 십자 / AoE=+원판, 커서색 아군초록/적빨강, **사거리 밖=걸어가서 시전** move-to-cast via `order_move_to`).
 - **이유:** 게이트가 "재미/명료성"을 사람 판정 → 상태 가시성·툴팁 명확성·조준 피드백이 필수. 규약 재설계는 유저 지적(서브가 시그니처와 무관하게 라벨만 붙던 문제) 수용.
-- **영향:** binding_fixtures·ability_dispatch·party_member·enemy_unit·combat_controller·aim_marker·aim_controller·controlled_sheet·float_text(신규)·combat_sandbox·display_names.json·skillbooks.json·P4A_BIND_GATE_checklist(PASS). 관련: [[identity-kit-binding-plan]].
+- **영향:** binding_overlays·ability_dispatch·party_member·enemy_unit·combat_controller·aim_marker·aim_controller·controlled_sheet·float_text(신규)·combat_sandbox·display_names.json·skillbooks.json·P4A_BIND_GATE_checklist(PASS). 관련: [[identity-kit-binding-plan]].
 
 ### IMPL-DEC-20260704-002 — P2-S8a: Identity Kit Binding P4a Tank 파일럿 + castTier 스키마 스캐폴딩
 - **결정:** 스펙 `77d9532`(P4a/P4b changeset) 채택 후 **첫 스프린트 = Stage 0+1**(감독 결정 2026-07-04: Stage0+1·완전 리셋·gear-roll 폐기는 Stage 2).
-  - **결속 = 런타임 오버레이.** `binding_fixtures.gd`(신규, **비정본**·`id_registry` 미등록·**AB 파일 복제 없음**). `resolveEffectiveAbility` **triple-match**(gear 슬러그 + identity `AB` + slot `AB` + `slotIndex`)를 `ability_dispatch.cast_skillbook`의 **ally 경로에만** 훅 → NC 자동 배제(`try_identity` 미변경). 6 BIND-PILOT 델타(stun/threat/floor/shield/kb/cd)를 **기존 프리미티브**(enemy `apply_stun`/`add_threat`/`set_threat_floor`/`apply_knockback` · member `shield`)로 구현. 트랜지언트 상태(bulwark stacks/ICD·recycle window)는 `party_member`에 배치·`_tick_binding`.
+  - **결속 = 런타임 오버레이.** `binding_overlays.gd`(신규, **비정본**·`id_registry` 미등록·**AB 파일 복제 없음**). `resolveEffectiveAbility` **triple-match**(gear 슬러그 + identity `AB` + slot `AB` + `slotIndex`)를 `ability_dispatch.cast_skillbook`의 **ally 경로에만** 훅 → NC 자동 배제(`try_identity` 미변경). 6 BIND 델타(stun/threat/floor/shield/kb/cd)를 **기존 프리미티브**(enemy `apply_stun`/`add_threat`/`set_threat_floor`/`apply_knockback` · member `shield`)로 구현. 트랜지언트 상태(bulwark stacks/ICD·recycle window)는 `party_member`에 배치·`_tick_binding`.
   - **castTier B/C = 이연.** D1 스코핑에서 **ally 서브 wind-up 시스템 부재** 확인 → castTier는 **스키마만**(parse+validate `A|B|C` + `params` 노출). wind-up/root/캐스트바(UI-003) 머신은 후속(신규 머신, 파일럿=전부 A라 비선결). AB-028/045는 spec `D-016 §3.6.2`대로 `castTier:B`/`rootDuringCast:true` 시드(동작 미소비, 데이터만).
   - **의도적 근사:** BIND-005 knockback=전방 콘 push(배리어 stagger 델타 대신) · BIND-001 ICD=멤버 단위(spec=per-enemy 8s) · BIND-004 floor=현재 threat의 +15%. 픽스처 키=게임 **슬러그**(`gear_ward_tank_*`), spec `GEAR-011/012` 약칭 아님.
 - **이유:** `QA-005 §2.12` 게이트를 **사람이 판정**하려면 파일럿이 플레이 가능해야 함. 게이트 전 전면 DB 스키마 이관 불필요(비정본 픽스처). 결속=베이스 교체 아님(오버레이 델타).
 - **대안:** (a) castTier 풀 wind-up 이번 스프린트 — 신규 머신·파일럿 비선결 → 이연. (b) AB 파일 이원화(복제) — 스펙 금지(`F-020 §3.7`). (c) binding 정본 DB 스키마 선반영 — 게이트 전 위험 → 픽스처로.
 - **검증:** `ci_smoke` **7/7 PASS**(신규 `binding_smoke.gd`: triple-match + `enabled` 게이트 + 6 오버레이 assert). 오버레이 **체감 = 감독 게이트**([docs/qa/P4A_BIND_GATE_checklist.md](docs/qa/P4A_BIND_GATE_checklist.md)).
-- **영향:** `binding_fixtures.gd`(신규)·`ability_dispatch.gd`·`party_member.gd`·`slice01_data.gd`·`skillbooks.json`·`combat_sandbox.gd`·`spec_ref.json`(핀 `77d9532`)·`ci_smoke.sh`·`binding_smoke.gd`(신규)·`P4A_BIND_GATE_checklist.md`(신규). 관련: [[identity-kit-binding-plan]].
+- **영향:** `binding_overlays.gd`(신규)·`ability_dispatch.gd`·`party_member.gd`·`slice01_data.gd`·`skillbooks.json`·`combat_sandbox.gd`·`spec_ref.json`(핀 `77d9532`)·`ci_smoke.sh`·`binding_smoke.gd`(신규)·`P4A_BIND_GATE_checklist.md`(신규). 관련: [[identity-kit-binding-plan]].
 
 ### IMPL-DEC-20260704-001 — T1 백로그 배치 구현 결정 (BACKLOG_open_items §T1)
 - **결정:** 잔여 종결 6 + 신규 2 구현(상세 `SPEC_DRIFT` DRIFT-069). 핵심 설계 판단:

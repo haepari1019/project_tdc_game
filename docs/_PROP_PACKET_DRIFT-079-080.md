@@ -7,7 +7,7 @@
 
 ## 왜 지금 piecemeal OPS_30을 안 하나 (근거 요약)
 1. **미검증** — 079/080 인게임 미확인. 073~077도 같은 이유로 "🕒 게이트 후 전파" 홀드 중. 플테 후 설계가 바뀌면 SSOT를 되돌려야 함.
-2. **스펙이 runtime을 게임에 위임** — AB-054는 "채널 거동 runtime TBD", IDA-024는 "런타임 SSOT = 게임 `binding_fixtures.gd`". 게임 변경 + DRIFT 로깅으로 이미 정합, 키스톤 텍스트 갱신만 배치 대상.
+2. **스펙이 runtime을 게임에 위임** — AB-054는 "채널 거동 runtime TBD", IDA-024는 "런타임 SSOT = 게임 `binding_overlays.gd`". 게임 변경 + DRIFT 로깅으로 이미 정합, 키스톤 텍스트 갱신만 배치 대상.
 3. **정본 절차 = 배치** — 073~077 + 075(부모) + 078이 P4b 별도 스펙 세션에서 함께 OPS_30로 나가기로 이미 정해짐. 079/080만 떼면 부모 원칙(075) 없이 SSOT가 조각남.
 
 ---
@@ -67,5 +67,5 @@
 - [ ] 위 타깃 1·2 편집 적용 → OPS_20 lint → `staging` PR
 - [ ] 머지 후 게임 `spec_ref.json` 핀 bump + `SPEC_DRIFT.md` DRIFT-079/080 상태 → ✅ 전파
 - [ ] `docs/design/dps_binding_kit.md` 초월 서술(구 지속형) 갱신
-- [ ] `binding_fixtures.gd` `OVERDRIVE.dur`(=6.0) 잔재 제거
+- [ ] `binding_overlays.gd` `OVERDRIVE.dur`(=6.0) 잔재 제거
 - [ ] 이 packet 파일 삭제(정본은 스펙 + SPEC_DRIFT)

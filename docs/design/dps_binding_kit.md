@@ -1,6 +1,6 @@
 # DPS Kit Binding — 「초월」 & 「혈풍」 (P4a Stage 3, DPS)
 
-감독 설계(2026-07-08). 파일럿 결속 = 비정본 런타임 오버레이(`binding_fixtures.gd`). NC 스코프는
+감독 설계(2026-07-08). 파일럿 결속 = 비정본 런타임 오버레이(`binding_overlays.gd`). NC 스코프는
 「집중」과 동일하게 **조작/AI 공통 빌드**(소모/리스크는 조작 시 발휘). ref: DRIFT-075(캐스터=캐스트 중심),
 DRIFT-076(집중 AI빌드), ROLE-010 §4.5, QA-005 §2.12.
 
@@ -61,7 +61,7 @@ DRIFT-076(집중 AI빌드), ROLE-010 §4.5, QA-005 §2.12.
 
 ---
 
-## 오버레이 (BIND-PILOT-019~024, 6종)
+## 오버레이 (BIND-019~024, 6종)
 | id | gear | identity | slot_ab | idx | theme | delta |
 |---|---|---|---|---|---|---|
 | 019 | press_rod | IDA-024 | AB-053 | 0 | overdrive | overdrive_charge |

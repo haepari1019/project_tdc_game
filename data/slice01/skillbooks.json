@@ -44,18 +44,16 @@
       "base_ability_id": "AB-011",
       "display_name": "Toll Stun",
       "equip_classes": [
-        "Tank",
-        "DPS"
+        "Tank"
       ],
-      "sub_bands": {
-        "DPS": "B2"
-      },
       "range_band": "Mid",
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_stun",
         "cooldown_s": 8,
-        "radius_m": 4.5,
+        "targeted": true,
+        "range_m": 9,
+        "radius_m": 2.5,
         "damage_mult": 0.6,
         "stun_s": 1.4
       },

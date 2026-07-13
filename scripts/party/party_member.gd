@@ -144,11 +144,11 @@ var _outcome = preload("res://scripts/combat/outcome_status.gd").new()
 var provoked_timer_s: float = 0.0
 var _provoke_dur: float = 1.0
 var provoke_source: Node = null
-# P4a Kit Binding (결속) — transient overlay runtime state (BIND-PILOT-*). Controlled-ally only
+# P4a Kit Binding (결속) — transient overlay runtime state (BIND-*). Controlled-ally only
 # (NC never casts subs, F-020 §3.3). Applied by AbilityDispatch after a base sub cast; ticked here.
-# ref: F-020 §3.7 · binding_fixtures.gd. All cleared on debug_reset.
+# ref: F-020 §3.7 · binding_overlays.gd. All cleared on debug_reset.
 const BULWARK_STACK_WINDOW := 5.0  # 이 시간 안에 다음 스택을 안 쌓으면 방벽 스택 리셋(누적 방지)
-var bulwark_stacks: int = 0        # BIND-PILOT-001 — Intercept accrues; 3-stack consume → stun + reset
+var bulwark_stacks: int = 0        # BIND-001 — Intercept accrues; 3-stack consume → stun + reset
 var _bulwark_icd_s: float = 0.0    # ICD after a consume (pilot: member-wide; spec = per-enemy 8s)
 var _bulwark_stack_timer: float = 0.0  # 스택 만료 타이머(마지막 스택 이후 경과)
 var _badges = null                 # OverheadBadges 스트립(lazy) — 방벽 등 자기 스택 상태를 한 줄로 통합
@@ -330,7 +330,7 @@ func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Diction
 # ============================================================================
 # P4a Kit Binding (결속) — runtime overlay state helpers. Driven by AbilityDispatch._apply_binding
 # after a base sub cast (which owns ctx / enemy queries); this side holds + ticks the per-member
-# transient state. NON-CANONICAL pilot. ref: F-020 §3.7 · binding_fixtures.gd.
+# transient state. NON-CANONICAL pilot. ref: F-020 §3.7 · binding_overlays.gd.
 # ============================================================================
 
 func _tick_binding(delta: float) -> void:
@@ -390,7 +390,7 @@ func _binding_mark_clear() -> void:
 	_mark_cd_reduce = 0.0
 
 
-## BIND-PILOT-001 — add a BulwarkCharge; returns true when a full-stack consume fires (caller stuns).
+## BIND-001 — add a BulwarkCharge; returns true when a full-stack consume fires (caller stuns).
 ## Drives an overhead pip readout so the 누적 is visible (QA-005 §2.12 gate feedback).
 func binding_bulwark_add(needed: int, icd_s: float) -> bool:
 	if _bulwark_icd_s > 0.0:
@@ -432,7 +432,7 @@ func _badge_strip():
 	return _badges
 
 
-## BIND-PILOT-003 — self shield (never lowers an existing larger shield). Uses the IDA-020 shield channel.
+## BIND-003 — self shield (never lowers an existing larger shield). Uses the IDA-020 shield channel.
 func binding_self_shield(amount: float, dur: float) -> void:
 	if shield_timer_s <= 0.0:
 		popup_status("보호막", Color(0.4, 0.9, 1.0))
@@ -476,7 +476,7 @@ func get_marked_enemy():
 	return _marked_enemy
 
 
-# ---- Mark&Ruin 「집중」 (BIND-PILOT-007~009) — identity가 집중 대상 새김 → 딜링 서브 누적 → 처형 폭발 -----------
+# ---- Mark&Ruin 「집중」 (BIND-007~009) — identity가 집중 대상 새김 → 딜링 서브 누적 → 처형 폭발 -----------
 
 ## Read the focus enemy internally (untyped) — never cross a typed boundary with a possibly-freed ref.
 func _binding_focus_dead() -> bool:
@@ -557,7 +557,7 @@ func binding_focus_clear() -> void:
 	_focus_stacks = 0
 
 
-# ---- DPS press_line 「초월(Overdrive)」 (BIND-PILOT-019~021) — 명중 게이지 → 강화 변형(1회). ability_dispatch 구동 ----
+# ---- DPS press_line 「초월(Overdrive)」 (BIND-019~021) — 명중 게이지 → 강화 변형(1회). ability_dispatch 구동 ----
 ## 게이지 충전(발동 중엔 홀드라 무시). 가득 차면 발동 — 지속시간 없이 유지되며, 다음 강화 서브 1회 시전 시
 ## overdrive_reset로 소모된다(비전투 5초면 party_controller가 초기화). `_dur`은 미사용(구 지속형 잔재).
 ## 조작/AI 공통(is_controlled 무관 — DRIFT-076 스코프).
@@ -604,7 +604,7 @@ func _update_overdrive_ui() -> void:
 		_hp_bar.set_overdrive(overdrive_gauge_frac(), _od_active)
 
 
-# ---- DPS arc_weave 「혈풍(Blood Gale)」 (BIND-PILOT-022~024) — 서브 시전 HP 대가 + 명중 적 수 비례 회복 ----
+# ---- DPS arc_weave 「혈풍(Blood Gale)」 (BIND-022~024) — 서브 시전 HP 대가 + 명중 적 수 비례 회복 ----
 ## 소모(자살 불가 — floor 클램프) + 회복(명중 적 비례). `overheal_shield_dur`>0(혈빙)이면 max_hp 초과 회복분을
 ## 임시 보호막으로 전환. 붉은 −N / 초록 +N(막) 팝업. ability_dispatch가 kind별 정산으로 호출.
 func blood_soak(cost: float, refund: float, floor_hp: float, overheal_shield_dur: float = 0.0) -> void:
@@ -626,7 +626,7 @@ func blood_soak(cost: float, refund: float, floor_hp: float, overheal_shield_dur
 		_hp_bar.set_ratio(hp / max_hp)
 
 
-# ---- Mend Circle 「성역」 (BIND-PILOT-016~018) — identity가 좁은 고정 zone을 세움, 그 안에서 시전 시 치유 증폭 ----
+# ---- Mend Circle 「성역」 (BIND-016~018) — identity가 좁은 고정 zone을 세움, 그 안에서 시전 시 치유 증폭 ----
 
 ## identity가 `pos`에 성역을 세운다(반경 radius, dur초). 지면 링을 top_level로 그 위치에 고정.
 func binding_sanctuary(pos: Vector3, radius: float, dur: float) -> void:
@@ -679,8 +679,8 @@ func binding_sanctuary_clear() -> void:
 ## 처치 훅(enemy_unit.take_damage 사망 시 가해자에게 호출) — 「잠행」(Flank Collapse) 정체성이면 짧은 은신(veil):
 ## apply_veil = 적 표적 드롭(어그로 감소) + 몸체 디밍. 어떤 처치든(정체성/서브/평타) 발동 → 암살 후 이탈 판타지.
 func notify_kill(_enemy) -> void:
-	if BindingFixtures.identity_flanks(String(base_gear_id), String(ability_id)):
-		apply_veil(float(BindingFixtures.FLANK["veil_s"]))
+	if BindingOverlays.identity_flanks(String(base_gear_id), String(ability_id)):
+		apply_veil(float(BindingOverlays.FLANK["veil_s"]))
 
 
 ## DEBUG (combat sandbox): full reset to re-run an experiment — alive, full HP, all statuses +

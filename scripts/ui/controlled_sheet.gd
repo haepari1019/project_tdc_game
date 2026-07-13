@@ -140,7 +140,7 @@ func _process(_delta: float) -> void:
 	_shield_fill.visible = sr > 0.001
 	# 「초월」 게이지 — 초월 DPS 정체성일 때만 체력 아래에 표시. 발동 시 밝은 금색 + "초월 준비!".
 	var is_od: bool = alive and m.has_method("overdrive_gauge_frac") \
-		and BindingFixtures.identity_overdrive(String(m.base_gear_id), String(m.ability_id))
+		and BindingOverlays.identity_overdrive(String(m.base_gear_id), String(m.ability_id))
 	_od_bg.visible = is_od
 	if is_od:
 		var oa: bool = m.overdrive_is_active()
@@ -198,7 +198,7 @@ func _skill_tip(m, header: String) -> String:
 		lines.append("[color=#9aa4b2]쿨다운 %ss[/color]" % _num(cd))
 	# 결속 규약 — 이 정체성이 결속 킷이면 시그니처 규약을 자기완결적으로 표기(라벨 회색 · 규약 금색).
 	# 상태 생성·의미·활용을 한 문단으로. 서브는 이 규약이 base를 조건부로 버프하는 것으로 읽힌다.
-	var sig: Dictionary = BindingFixtures.signature_for(String(m.base_gear_id), String(m.ability_id))
+	var sig: Dictionary = BindingOverlays.signature_for(String(m.base_gear_id), String(m.ability_id))
 	if not sig.is_empty():
 		lines.append("[color=#9aa4b2]✦ 결속 · %s[/color]" % String(sig.get("name", "")))
 		lines.append("[color=#f0b64a]%s[/color]" % String(sig.get("covenant", "")))
@@ -206,7 +206,7 @@ func _skill_tip(m, header: String) -> String:
 
 
 ## 보조(Q/E/R) 스킬북 슬롯 툴팁 — 표시명 + 설명문 + 탄/쿨 + affix(색) + 비주력 패널티(색) +
-## 결속 오버레이(다른 색: identity 연동으로 추가된 효과). BBCode. ref: F-020 §3.7 · binding_fixtures.gd.
+## 결속 오버레이(다른 색: identity 연동으로 추가된 효과). BBCode. ref: F-020 §3.7 · binding_overlays.gd.
 func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) -> String:
 	var kind := String(inst.params.get("kind", ""))
 	var lines: Array = [
@@ -220,20 +220,20 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 		lines.append(SkillText.band_line(bp))
 	# 결속(Kit Binding) — 장착 gear + identity + 이 슬롯 AB가 triple-match면 identity 연동으로 추가되는
 	# 효과(오버레이)를 base와 구분되는 색으로 표기. 이 슬롯이 triple-match 아니면 resolve()={} → 표시 없음(base only).
-	var ov: Dictionary = BindingFixtures.resolve(
+	var ov: Dictionary = BindingOverlays.resolve(
 		String(m.base_gear_id), String(m.ability_id), String(inst.get("base_ability_id", "")), idx)
 	if not ov.is_empty():
 		var idnm := Slice01Data.get_identity_display(String(m.identity_skill_id))
-		var sig: Dictionary = BindingFixtures.SIGNATURE.get(String(m.ability_id), {})
+		var sig: Dictionary = BindingOverlays.SIGNATURE.get(String(m.ability_id), {})
 		var signm := String(sig.get("name", "결속"))
 		# 라벨(정체성 · 시그니처)은 base와 같은 회색으로 일관되게, 결속으로 추가되는 효과만 황금색.
 		# 한 정체성의 모든 슬롯 스킬이 같은 시그니처(방벽 충전 / 표식)로 읽힌다.
 		lines.append("[color=#9aa4b2]✦ %s 결속 · %s[/color]" % [idnm, signm])
 		lines.append("[color=#f0b64a]%s[/color]" % String(ov.get("desc_ko", ov.get("payoff", ""))))
-	elif BindingFixtures.identity_focuses(String(m.base_gear_id), String(m.ability_id)) and BindingFixtures.is_focus_spender(kind):
+	elif BindingOverlays.identity_focuses(String(m.base_gear_id), String(m.ability_id)) and BindingOverlays.is_focus_spender(kind):
 		# 소모 아키타입 — 슬롯 오버레이가 아니라 카테고리 규칙(is_focus_spender)으로 집중을 소모. 특정 처형 스킬에 묶지 않음.
 		var idnm := Slice01Data.get_identity_display(String(m.identity_skill_id))
-		var signm := String(BindingFixtures.SIGNATURE.get(String(m.ability_id), {}).get("name", "결속"))
+		var signm := String(BindingOverlays.SIGNATURE.get(String(m.ability_id), {}).get("name", "결속"))
 		lines.append("[color=#9aa4b2]✦ %s 결속 · %s (소모 계열)[/color]" % [idnm, signm])
 		lines.append("[color=#f0b64a]쌓인 집중을 모두 소모해 집중 수에 비례한 추가 피해를 준다.[/color]")
 	return "\n".join(lines)

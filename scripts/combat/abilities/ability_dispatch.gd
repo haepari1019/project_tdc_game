@@ -107,8 +107,8 @@ func try_identity(m: CharacterBody3D) -> bool:
 		m.identity_cooldown_s = float(p.get("cooldown_s", 6.0)) * cdm
 		# P4a Kit Binding 「표식」 — Beacon 정체성은 시전 시 눈앞의 적에게 표식을 남긴다. 결속=조작 전용
 		# (NC 미적용, F-020 §3.3) → is_controlled 게이트. 표식 대상 처치 시 링크 전 슬롯 쿨 감소.
-		if m.is_controlled() and BindingFixtures.identity_marks(String(m.base_gear_id), String(m.ability_id)):
-			var mk: Dictionary = BindingFixtures.MARK
+		if m.is_controlled() and BindingOverlays.identity_marks(String(m.base_gear_id), String(m.ability_id)):
+			var mk: Dictionary = BindingOverlays.MARK
 			var e: CharacterBody3D = nearest_enemy_in_range(m.global_position, float(mk["radius_m"]))
 			if e != null:
 				m.binding_mark(e, float(mk["window_s"]), float(mk["cd_reduce"]))
@@ -116,9 +116,9 @@ func try_identity(m: CharacterBody3D) -> bool:
 		# _resolve_basic · 정체성 mark_ruin · 서브 _nuker_focus_stack) nuker_focus_accumulate로 seed/stack한다.
 		# **is_controlled 무관**(AI 누커도 빌드) — 8m 정체성만 씨앗 뿌리던 조작-전용 방식은 원거리/AI에서 안 떴다. DRIFT-076.
 		# P4a 「성역」 — Mend Circle 정체성은 발밑에 좁은 성역을 세운다(스티키 — 유지 중이면 유지, 만료 시 재설치).
-		if m.is_controlled() and BindingFixtures.identity_sanctuaries(String(m.base_gear_id), String(m.ability_id)):
+		if m.is_controlled() and BindingOverlays.identity_sanctuaries(String(m.base_gear_id), String(m.ability_id)):
 			if not m.has_sanctuary():
-				var s: Dictionary = BindingFixtures.SANCT
+				var s: Dictionary = BindingOverlays.SANCT
 				m.binding_sanctuary(m.global_position, float(s["radius_m"]), float(s["dur"]))
 		return true
 	return false
@@ -186,7 +186,7 @@ func _resolve_sub(member: CharacterBody3D, slot_index: int, p: Dictionary, targe
 	if skill == null or not skill.cast(member, p, target_pos, self):
 		return false
 	_apply_binding(member, slot_index, target_pos)   # 오버레이 델타(bulwark/mark/focus/flank/…)
-	if BindingFixtures.is_focus_spender(String(p.get("kind", ""))):
+	if BindingOverlays.is_focus_spender(String(p.get("kind", ""))):
 		_nuker_focus_spend(member)                   # execute-kind → 집중 소모(아키타입)
 	return true
 
@@ -206,14 +206,14 @@ func _cast_charge_color(p: Dictionary) -> Color:
 # P4a Kit Binding (결속) — resolveEffectiveAbility overlay application (F-020 §3.7). After a base sub
 # cast, triple-match the member's LIVE gear + identity + slot sub against the pilot fixtures and apply
 # the overlay's runtime DELTA (AB files are NOT cloned). NON-CANONICAL pilot; NC never reaches here
-# (cast_skillbook is ally-only). ref: binding_fixtures.gd · ROLE-010 §4.5 · QA-005 §2.12.
+# (cast_skillbook is ally-only). ref: binding_overlays.gd · ROLE-010 §4.5 · QA-005 §2.12.
 # ============================================================================
 
 func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector3) -> void:
 	var inst = member.get_skillbook(slot_index)
 	if inst == null:
 		return
-	var ov: Dictionary = BindingFixtures.resolve(
+	var ov: Dictionary = BindingOverlays.resolve(
 		String(member.base_gear_id), String(member.ability_id),
 		String(inst.get("base_ability_id", "")), slot_index)
 	if ov.is_empty():
@@ -229,7 +229,7 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			_beacon_mark_threat(member)
 		"beacon_mark_refresh":   # R 도전 선포 — 위협 + 표식 유지 시간 갱신.
 			_beacon_mark_threat(member)
-			var mk: Dictionary = BindingFixtures.MARK
+			var mk: Dictionary = BindingOverlays.MARK
 			member.binding_remark(nearest_enemy_in_range(aim, float(mk["radius_m"])), float(mk["window_s"]))
 			# --- Mark&Ruin 「집중」 빌더: 딜링 서브는 집중 대상 명중 시 누적+추가타. 소모는 아키타입 규칙(cast_skillbook) ---
 		"focus_dump":   # AB-005 — 레인에 적 1명이면 집중 소모(덤프 처형), 여럿이면 빌드/유지
@@ -258,7 +258,7 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 
 ## Anchor 「방벽 충전」 — add a BulwarkCharge; on the 3-stack consume, stun the nearest enemy (capstone).
 func _anchor_stack(member: CharacterBody3D, pos: Vector3) -> void:
-	var b: Dictionary = BindingFixtures.BULWARK
+	var b: Dictionary = BindingOverlays.BULWARK
 	if member.binding_bulwark_add(int(b["stacks_needed"]), float(b["icd_s"])):
 		var e: CharacterBody3D = nearest_enemy_in_range(pos, float(b["radius_m"]))
 		if e != null and e.has_method("apply_stun"):
@@ -271,7 +271,7 @@ func _beacon_mark_threat(member: CharacterBody3D) -> void:
 	var e = member.get_marked_enemy()
 	if e == null:
 		return
-	var t: float = float(BindingFixtures.MARK["threat"])
+	var t: float = float(BindingOverlays.MARK["threat"])
 	if e.has_method("add_threat"):
 		e.add_threat(member, t)
 	if e.has_method("set_threat_floor"):
@@ -286,9 +286,9 @@ func nuker_focus_accumulate(member, enemy) -> float:
 	if enemy == null or not is_instance_valid(enemy):
 		return 1.0
 	if String(member.class_id) != "Nuker" \
-			or not BindingFixtures.identity_focuses(String(member.base_gear_id), String(member.ability_id)):
+			or not BindingOverlays.identity_focuses(String(member.base_gear_id), String(member.ability_id)):
 		return 1.0
-	var f: Dictionary = BindingFixtures.FOCUS
+	var f: Dictionary = BindingOverlays.FOCUS
 	if member.get_focus_enemy() != enemy:
 		member.binding_focus(enemy, float(f["window_s"]))   # 새/다른 대상 → 집중 재설정(스택 0부터 재누적)
 	var stacks: int = member.binding_focus_add(int(f["stack_cap"]), float(f["window_s"]))
@@ -298,7 +298,7 @@ func nuker_focus_accumulate(member, enemy) -> float:
 ## 「집중」 딜링 서브(전격/공허창) — 조준 지점 근접 적(seed_radius_m)을 명중 대상으로 삼아 집중 빌드 후,
 ## 증폭분을 진홍 추가타로 가시화(서브는 discrete 캐스트라 페이오프를 팝업으로 강조). 근처 적 없으면 no-op.
 func _nuker_focus_stack(member: CharacterBody3D, aim: Vector3) -> void:
-	var f: Dictionary = BindingFixtures.FOCUS
+	var f: Dictionary = BindingOverlays.FOCUS
 	var hit: CharacterBody3D = nearest_enemy_in_range(aim, float(f["seed_radius_m"]))
 	if hit == null:
 		return
@@ -311,14 +311,14 @@ func _nuker_focus_stack(member: CharacterBody3D, aim: Vector3) -> void:
 
 ## Mark&Ruin 「집중」 소모 아키타입 — 스택-소모 계열 스킬을 쓰면 쌓인 집중을 모두 소모해 누적 수 비례 폭발.
 ## 캡스톤은 특정 처형 스킬이 아니라 카테고리 규칙(is_focus_spender). 집중 대상은 유지(살아있으면) → 재누적·재소모
-## 가능. 집중이 없거나 누적 0이면 아무 일도 없음(순수 base 스킬만). ref: binding_fixtures.gd FOCUS_SPEND_KINDS.
+## 가능. 집중이 없거나 누적 0이면 아무 일도 없음(순수 base 스킬만). ref: binding_overlays.gd FOCUS_SPEND_KINDS.
 func _nuker_focus_spend(member: CharacterBody3D) -> void:
 	if not member.has_focus():
 		return
 	var e = member.get_focus_enemy()
 	var stacks: int = member.binding_focus_take()   # 누적 소모(0으로) — 집중 대상은 유지
 	if e != null and stacks > 0:
-		var burst: float = float(stacks) * float(BindingFixtures.FOCUS["spend_mult"]) * member.basic_damage
+		var burst: float = float(stacks) * float(BindingOverlays.FOCUS["spend_mult"]) * member.basic_damage
 		deal_damage(e, member, burst)
 		SkillVfx.mark_ruin(self, e.global_position)
 		if e.has_method("popup_status"):   # B+C — 소모 스택 수 + 폭발 피해를 금색 팝업으로(페이오프 가시화)
@@ -332,7 +332,7 @@ func _nuker_focus_spread(member: CharacterBody3D) -> void:
 		return
 	var best: CharacterBody3D = null
 	var best_d: float = INF
-	for e in enemies_in_radius(cur.global_position, float(BindingFixtures.FOCUS["spread_m"])):
+	for e in enemies_in_radius(cur.global_position, float(BindingOverlays.FOCUS["spread_m"])):
 		if e == cur or e == null or not is_instance_valid(e):
 			continue
 		var d: float = e.global_position.distance_to(cur.global_position)
@@ -350,7 +350,7 @@ func _nuker_flank_strike(member: CharacterBody3D, slot_index: int, aim: Vector3)
 	if inst == null:
 		return
 	var band := String(Slice01Data.get_skillbook_master(String(inst.get("base_ability_id", ""))).get("range_band", "Mid"))
-	var fl: Dictionary = BindingFixtures.FLANK
+	var fl: Dictionary = BindingOverlays.FLANK
 	var dmg_pct: float = float(fl["band_dmg"].get(band, 0.0))
 	var cd_pct: float = float(fl["band_cd"].get(band, 0.0))
 	if dmg_pct > 0.0:                                   # 1차: 원거리일수록 큰 추가 피해 → 조준점 근처 주 대상
@@ -373,19 +373,19 @@ func _nuker_flank_dash(member: CharacterBody3D, _slot_index: int, aim: Vector3) 
 	if away.length() < 0.1:
 		away = Vector3(0, 0, -1)
 	var start: Vector3 = member.global_position
-	member.global_position += away.normalized() * float(BindingFixtures.FLANK["dash_m"])
+	member.global_position += away.normalized() * float(BindingOverlays.FLANK["dash_m"])
 	SkillVfx.dash_streak(self, start, member.global_position, Color(0.7, 0.4, 0.5))
 
 
 # ============================================================================
 # DPS Kit Binding — 「초월(Overdrive)」 / 「혈풍(Blood Gale)」. 서브가 애초에 광역(fire 원형·beam 라인·cold 원형)
 # 이라 스플래시 강제 없이 자연 성립. 강화 = 효과 변화(카르마 Mantra식): fire→화상 / beam→끌기 / cold→빙결.
-# 조작/AI 공통(is_controlled 무관). ref: binding_fixtures.gd OVERDRIVE/BLOODGALE · docs/design/dps_binding_kit.md.
+# 조작/AI 공통(is_controlled 무관). ref: binding_overlays.gd OVERDRIVE/BLOODGALE · docs/design/dps_binding_kit.md.
 # ============================================================================
 
 ## 「초월」 서브 델타 — 비발동이면 게이지 충전(명중 적 수 비례, 광역이 빨리 참), 발동 중이면 서브 강화 변형 실행.
 func _dps_overdrive(member: CharacterBody3D, slot_index: int, aim: Vector3) -> void:
-	var od: Dictionary = BindingFixtures.OVERDRIVE
+	var od: Dictionary = BindingOverlays.OVERDRIVE
 	if member.overdrive_is_active():
 		_dps_overdrive_empower(member, slot_index, aim, od)
 		member.overdrive_reset()   # 강화 서브 1회 시전 = 초월 소모(지속시간 없음)
@@ -448,7 +448,7 @@ func _dps_blood_soak(member: CharacterBody3D, slot_index: int, aim: Vector3) -> 
 	var inst = member.get_skillbook(slot_index)
 	if inst == null:
 		return
-	var bg: Dictionary = BindingFixtures.BLOODGALE
+	var bg: Dictionary = BindingOverlays.BLOODGALE
 	var kind := String(inst.params.get("kind", ""))
 	var cost: float = float(bg["hp_cost_pct"]) * member.max_hp
 	var hits: Array = _sub_hit_enemies(member, slot_index, aim)
@@ -494,9 +494,9 @@ func _count_sub_hits(member: CharacterBody3D, slot_index: int, aim: Vector3) -> 
 ## DPS 「초월」 평타 게이지 빌드 — press_line 정체성 평타 명중마다 충전(발동 중엔 무시). combat_controller._resolve_basic 호출.
 func dps_overdrive_on_basic(member: CharacterBody3D) -> void:
 	if String(member.class_id) != "DPS" \
-			or not BindingFixtures.identity_overdrive(String(member.base_gear_id), String(member.ability_id)):
+			or not BindingOverlays.identity_overdrive(String(member.base_gear_id), String(member.ability_id)):
 		return
-	var od: Dictionary = BindingFixtures.OVERDRIVE
+	var od: Dictionary = BindingOverlays.OVERDRIVE
 	member.overdrive_add(float(od["basic_gain"]), float(od["gauge_max"]))
 
 
@@ -550,8 +550,8 @@ func heal_threat(healer: CharacterBody3D, ally: CharacterBody3D, eff: float) -> 
 ## 치유 choke — 즉시 치유. healer가 「지속 치유」(IDA-031) 정체성이면 즉시 회복 대신 HoT로 전환(총량×total_mult, dur초).
 ## 반환 = 위협 계산용 회복량(즉시=실효, HoT=예정 총량). 전환은 기존 apply_regen 재사용(pct=총량/(maxHP·dur)). 신규 상태 없음.
 func deal_heal(target, healer, amount: float) -> float:
-	if healer != null and BindingFixtures.identity_dot_heals(String(healer.base_gear_id), String(healer.ability_id)):
-		var d: Dictionary = BindingFixtures.DOT
+	if healer != null and BindingOverlays.identity_dot_heals(String(healer.base_gear_id), String(healer.ability_id)):
+		var d: Dictionary = BindingOverlays.DOT
 		var total: float = amount * float(d["total_mult"])
 		var dur: float = float(d["dur"])
 		if target != null and target.has_method("apply_regen") and float(target.max_hp) > 0.0:
@@ -572,8 +572,8 @@ func deal_heal(target, healer, amount: float) -> float:
 ## base 와 성역 추가분(bonus)을 분리해 넘긴다 → HoT 틱마다 초록/금색으로 나눠 표기(직관적 파악).
 func deal_regen(target, healer, pct_per_s: float, dur: float) -> void:
 	var p: float = pct_per_s
-	if healer != null and BindingFixtures.identity_dot_heals(String(healer.base_gear_id), String(healer.ability_id)):
-		p *= float(BindingFixtures.DOT["total_mult"])
+	if healer != null and BindingOverlays.identity_dot_heals(String(healer.base_gear_id), String(healer.ability_id)):
+		p *= float(BindingOverlays.DOT["total_mult"])
 	var amped: float = _sanctuary_amp(healer, p)   # 성역 안 시전 → 증폭
 	if target != null and target.has_method("apply_regen"):
 		target.apply_regen(p, dur, amped - p)      # base=p, bonus=성역 추가분(틱마다 금색 분리)
@@ -582,9 +582,9 @@ func deal_regen(target, healer, pct_per_s: float, dur: float) -> void:
 ## 성역(Mend Circle IDA-026) 증폭 — 성역 정체성 + 시전자가 성역 안에 있을 때만 치유값을 amp배. 밖이면 그대로.
 func _sanctuary_amp(healer, value: float) -> float:
 	if healer != null and healer.has_method("in_sanctuary") \
-			and BindingFixtures.identity_sanctuaries(String(healer.base_gear_id), String(healer.ability_id)) \
+			and BindingOverlays.identity_sanctuaries(String(healer.base_gear_id), String(healer.ability_id)) \
 			and healer.in_sanctuary():
-		return value * float(BindingFixtures.SANCT["amp"])
+		return value * float(BindingOverlays.SANCT["amp"])
 	return value
 
 

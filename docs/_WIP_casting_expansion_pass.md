@@ -75,7 +75,7 @@ ENC 내 모든 스킬 컨펌 → §5 진행표 체크 → **다음 ENC**.
 
 ### 2.5 결속 링크 제안 (축4 보강 — Shared/Ally-only 전용)
 
-Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 클래스**마다 이미 확립된 **2개 정체성**(`binding_fixtures.gd` SIGNATURE)이 있다. 스킬별 판정 시 축4(바인딩)에서 다음을 함께 제안·기록한다:
+Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 클래스**마다 이미 확립된 **2개 정체성**(`binding_overlays.gd` SIGNATURE)이 있다. 스킬별 판정 시 축4(바인딩)에서 다음을 함께 제안·기록한다:
 
 1. `equip_classes`로 장착 가능 클래스를 확인.
 2. 그 클래스(들)의 두 정체성 각각에 대해 "이 서브가 그 규약(delta)에 자연스럽게 들어맞는가"를 판단.
@@ -99,7 +99,7 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 `equip_classes`: DPS(main) + Nuker(sub, B1) → 4개 정체성 전부 후보.
 - **Nuker 집중(IDA-025, `focus_stack`):** 같은 kind(`skillbook_bolt`)인 AB-004가 이미 이 델타로 등록돼 있어 동일 패턴으로 자연스럽게 낌(명중 시 집중 대상 지정+누적 추가타). Generic, 코드 변경 없음.
 - **Nuker 잠행(IDA-029, `flank_strike`):** `range_band`="Mid"라 근접화 보상은 중간 수준(`band_dmg.Mid`=0.25, `band_cd.Mid`=0.10) — AB-060(Mid)과 동급 취급 가능. Generic, 코드 변경 없음.
-- **DPS 초월(IDA-024, `overdrive_charge`):** ✅ **결정 + 구현 완료 — 감전 폭주(Silence).** `_dps_overdrive_empower`(`ability_dispatch.gd`)에 `skillbook_bolt` 분기 추가: 초월 중 명중한 적을 `apply_silence(bolt_silence_s=2.0)`로 침묵(AB-044 Hush Ward와 동일 API 재사용, 신규 상태 없음). `OVERLAYS`에 `BIND-PILOT-026`(`gear_ward_dps_press_rod` + IDA-024 + AB-003 @ slot0, AB-053과 슬롯 공유 — 둘 중 하나로 장착 가능) 등록. (기각안: Vulnerable 부여 / 연쇄 감전 / 관통형 — 침묵이 "몰아치는 버스트 창 + 상대 액션 봉쇄"로 더 강한 차별점이라 선택.)
+- **DPS 초월(IDA-024, `overdrive_charge`):** ✅ **결정 + 구현 완료 — 감전 폭주(Silence).** `_dps_overdrive_empower`(`ability_dispatch.gd`)에 `skillbook_bolt` 분기 추가: 초월 중 명중한 적을 `apply_silence(bolt_silence_s=2.0)`로 침묵(AB-044 Hush Ward와 동일 API 재사용, 신규 상태 없음). `OVERLAYS`에 `BIND-026`(`gear_ward_dps_press_rod` + IDA-024 + AB-003 @ slot0, AB-053과 슬롯 공유 — 둘 중 하나로 장착 가능) 등록. (기각안: Vulnerable 부여 / 연쇄 감전 / 관통형 — 침묵이 "몰아치는 버스트 창 + 상대 액션 봉쇄"로 더 강한 차별점이라 선택.)
 - **DPS 혈풍(IDA-027, `blood_soak`):** kind가 `_`(default) 분기(흡수 폭발)로 이미 커버됨 — AB-053과 동일 취급. Generic, 코드 변경 없음.
 
 ---
@@ -124,9 +124,10 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 | AB · 이름 | 모드 결정 | 효과·방향 변경 | 바인딩 영향 | 적 telegraph ↔ 아군 cast_s (대칭/비대칭+이유) | 편집 파일 | 상태 |
 |-----------|-----------|----------------|-------------|-----------------------------------------------|-----------|------|
 | **AB-002** Shield Bash | A 유지(반응형 CC) | 반경 4→8·dmg ×2.5→×1.0·cd 4→2(스팸형 광역 저딜) · 발동 telegraph 링 · **헛스윙도 차지/쿨 소모** | Tank 방벽충전(IDA-020) 스팸 소스 궁합 · 표식(IDA-021) 광역 어그로 | 적 EN-001도 근접 CC(A) — 대칭 | `skillbooks.json` · `sb_strike.gd` | ✅ 완료 |
-| **AB-003** Arc Bolt Volley | A→**B**(cast_s 3.0·cd 2→6·radius 1.6→4.0) | 볼트 연사→광역 캐스트 볼트 | **DPS 초월 감전폭주**(BIND-PILOT-026, bolt→`apply_silence` 2.0s) · Nuker 집중/잠행 generic 후보 | 적 EN-011=필러(§3.6.1 A/0.30) ↔ 아군 B — **비대칭**(아군 볼트를 캐스터화, 적은 필러 유지) | `skillbooks.json` · `binding_fixtures.gd` · `ability_dispatch.gd` | ✅ 완료 |
+| **AB-003** Arc Bolt Volley | A→**B**(cast_s 3.0·cd 2→6·radius 1.6→4.0) | 볼트 연사→광역 캐스트 볼트 | **DPS 초월 감전폭주**(BIND-026, bolt→`apply_silence` 2.0s) · Nuker 집중/잠행 generic 후보 | 적 EN-011=필러(§3.6.1 A/0.30) ↔ 아군 B — **비대칭**(아군 볼트를 캐스터화, 적은 필러 유지) | `skillbooks.json` · `binding_overlays.gd` · `ability_dispatch.gd` | ✅ 완료 |
 | **AB-004** 전격사격(bolt) | A→**B**(cast_s 0.5→4.0) | — | — | (대칭 판정 보류) | `skillbooks.json` | ✅ 완료 |
-| **AB-005** Melee Flurry | A→**B 커밋**(cast_s 3.0·cd 1→10·dmg ×1.0→×3.0·range_band Mid→Melee) | 스팸필러→**드문 커밋 근접 버스트** + **방향성: 자기중심 원형→전방 직사각형 레인**(shape rect·length 5·width 3, `sb_strike` rect 모드+`_enemies_in_rect`+`rect_lane` VFX, targeted **플레이어 조준**(show_beam 레인)/AI 최근접) + **단일대상 +50%**(single_target_mult) + **전방 범위밖 넉백 6m** + **sub_bands 제거→Nuker 적성(메인)** | Nuker **집중**(BIND-027 `focus_dump`: 단일→집중소모 처형/광역→유지·빌드) + **잠행**(BIND-028: 이미근접 generic +15% 합연산, `FLANK.band_dmg.Melee` 0→0.15) | 적 EN-010=빠른 필러라 **통합 안 함** → 규칙5 분기(AB-005 제거·기본평타). abilities.json AB-005=orphan | `skillbooks.json`·`sb_strike.gd`·`combat_controller.gd`·`skill_vfx.gd`·`binding_fixtures.gd`·`enemies.json` | ✅ 완료 |
+| **AB-005** Melee Flurry | A→**B 커밋**(cast_s 3.0·cd 1→10·dmg ×1.0→×3.0·range_band Mid→Melee) | 스팸필러→**드문 커밋 근접 버스트** + **방향성: 자기중심 원형→전방 직사각형 레인**(shape rect·length 5·width 3, `sb_strike` rect 모드+`_enemies_in_rect`+`rect_lane` VFX, targeted **플레이어 조준**(show_beam 레인)/AI 최근접) + **단일대상 +50%**(single_target_mult) + **전방 범위밖 넉백 6m** + **sub_bands 제거→Nuker 적성(메인)** | Nuker **집중**(BIND-027 `focus_dump`: 단일→집중소모 처형/광역→유지·빌드) + **잠행**(BIND-028: 이미근접 generic +15% 합연산, `FLANK.band_dmg.Melee` 0→0.15) | 적 EN-010=빠른 필러라 **통합 안 함** → 규칙5 분기(AB-005 제거·기본평타). abilities.json AB-005=orphan | `skillbooks.json`·`sb_strike.gd`·`combat_controller.gd`·`skill_vfx.gd`·`binding_overlays.gd`·`enemies.json` | ✅ 완료 |
+| **AB-011** Toll Stun | **A 유지**(즉발; role=control→어텐션이코노미 "딜=긴캐" 예외) + **타겟팅 단일**(자기중심 AoE→조준 최근접 1체·선택어시스트 UNIT_AIM) | AoE 강타+기절 → **단일 기절+인터럽트**(sb_stun; targeted r2.5·range9) + equip **Tank 전용**(DPS·sub_bands 제거) | Tank **방벽충전**(BIND-029)+**표식**(BIND-030) generic. DPS 초월(stun kind 미구현)/혈풍=DPS 제거로 제외 | 적 EN-006 tele0.5 ↔ 아군 즉발 — **통합(exec=shared) defer**(control 대칭: 적 tell vs 아군 인터럽트; 스턴 subset 배치) | `skillbooks.json`·`sb_stun.gd`·`aim_controller.gd`·`binding_overlays.gd` | ✅ (통합 defer) |
 | **AB-041** Glacial Bolt(cold) | A→**B**(cast_s 0.8→3.5) | — | 초월 cold→빙결(Rooted) 강화 | 적 EN-007 존/볼트 ↔ 아군 B | `skillbooks.json` | ✅ 완료 |
 | **AB-053** 작열(fire) | A→**B**(cast_s 0.6→3.0) | — | 초월 fire→화상(Ignited) 강화(BIND-019) | (DPS 전용) | `skillbooks.json` | ✅ 완료 |
 | **AB-059** 공허창(bolt) | A→**B**(cast_s 1.5→5.0) | — | — | (Ally-only) | `skillbooks.json` | ✅ 완료 |

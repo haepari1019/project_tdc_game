@@ -454,23 +454,23 @@
 - **감독 결정(2026-07-08):** **AI 누커도 집중 빌드**(스펙 `F-020 §3.3` NC-미적용 이탈). 소모(execute)는 서브 아키타입이라 **조작 시에만**(AI는 서브 미사용) — 빌드/시각화는 AI, 페이오프는 조작.
 - **수정:** 집중 seed/stack을 공용 `nuker_focus_accumulate(member, enemy)`로 통일(**ungated**) — **평타(`_resolve_basic`)·정체성(`mark_ruin`)·서브(`_nuker_focus_stack`) 명중이 모두 호출**, is_controlled 무관. 반환=누적 비례 증폭 배수(1+누적×pct)를 각 명중 딜에 곱(평타/정체성 fold-in, 서브는 진홍 추가타 팝업). `FOCUS.seed_radius_m=3.0`. covenant를 "공격이 명중하면 집중 대상(평타·정체성·서브 공통)"으로 갱신.
 - **스코프 주:** 이 ungate는 **「집중」(focus)만**. 탱커 방벽·표식 / 힐러 성역·지속치유는 **여전히 조작-전용** — 동일 확장은 감독 결정 시 별도.
-- **분류\전파:** 파일럿 로컬(binding_fixtures = CombatContentMap-UNREGISTERED 비정본). rule·scope 변경 — P4a 정본화 시 「집중」 빌드 규칙 + **결속 NC 스코프(`F-020 §3.3`) 재검토**와 함께 OPS_30 전파. 이 레포에서 spec md 편집 금지.
+- **분류\전파:** 파일럿 로컬(binding_overlays = CombatContentMap-UNREGISTERED 비정본). rule·scope 변경 — P4a 정본화 시 「집중」 빌드 규칙 + **결속 NC 스코프(`F-020 §3.3`) 재검토**와 함께 OPS_30 전파. 이 레포에서 spec md 편집 금지.
 - **상태:** 🕒 파일럿 수정. 게임 내 플레이테스트 확인 대기.
 
 ### DRIFT-077 — DPS 결속 「초월(Overdrive)」 / 「혈풍(Blood Gale)」 파일럿 (press_line/arc_weave) 🕒 파일럿 신규 (전파 보류)
 - **감독 설계(2026-07-08):** DPS 두 정체성의 운영 루프를 감독이 직접 지정. **역할 원칙 = 단일표적은 누커, DPS는 애초에 광역** → DPS 공유 3서브를 기본부터 AoE로(작열 폭발 fire 원형 / 절단 광선 beam 라인 / 빙결 파동 cold 원형). 누커 볼트 재탕 금지.
 - **「초월」(press_line/IDA-024):** 스킬·평타 명중마다 게이지↑, 가득 차면 dur초 **강화 변형**. 강화 = **단순 배수 아님, 효과 변화**(ref=LoL 카르마 Mantra): fire→화상(Ignited·**적한정 DoT**, 장판 대신 상태라 아군 무피해) / beam→끌어당김 / cold→빙결(Rooted). 게이지·강화 모두 **조작/AI 공통**([[DRIFT-076]] 스코프) — AI가 게이지를 쌓고, 켜지는 순간 조작 전환해 몰아치는 루프.
 - **「혈풍」(arc_weave/IDA-027):** 서브 시전당 max_hp 12% 소모, **명중 적 1기당 5% 회복**(3기+ 순이득). 서브가 애초에 광역이라 억지 스플래시 없이 성립. 자살 불가(hp_floor 클램프). 적 多=유지 / 적 少=손해 → 누커로 전환 유도.
-- **구현:** `BindingFixtures.OVERDRIVE/BLOODGALE` + BIND-PILOT-019~024(6). party_member 게이지 상태·틱·`blood_soak`, health_bar 초월 게이지 바, overhead_badges 「초월」. dispatch `overdrive_charge`/`blood_soak` 델타 + kind 분기 강화(`_dps_overdrive_empower`) + 명중 집계(radius/cone). 서브 데이터: AB-053/041 cast_s(DRIFT-075), AB-053/054/041 한글명.
+- **구현:** `BindingOverlays.OVERDRIVE/BLOODGALE` + BIND-019~024(6). party_member 게이지 상태·틱·`blood_soak`, health_bar 초월 게이지 바, overhead_badges 「초월」. dispatch `overdrive_charge`/`blood_soak` 델타 + kind 분기 강화(`_dps_overdrive_empower`) + 명중 집계(radius/cone). 서브 데이터: AB-053/041 cast_s(DRIFT-075), AB-053/054/041 한글명.
 - **분류\전파:** 파일럿 로컬(비정본). rule·scope(캐스터 광역·초월 리소스·NC 공통) — P4a 정본화 시 [[DRIFT-075]]/[[DRIFT-076]]와 함께 spec `ROLE-010`/`D-016` 전파. 이 레포에서 spec md 편집 금지.
 - **상태:** 🕒 파일럿 구현(binding_smoke 23 + ci_smoke 대상). 플레이테스트 확인 대기. 설계 정본 = `docs/design/dps_binding_kit.md`.
 
 ### DRIFT-078 — I-006 캐스팅 확장 패스: 캐스터 서브 즉발→캐스트/채널 정합 (엄브렐러) 🔶 impl/tuning (진행 중)
 - **배경(2026-07-09~):** [[DRIFT-075]] 원칙(캐스터=캐스트/채널 중심) 적용 — 캐스터 서브 ~29종 즉발을 스킬 하나씩 샌드박스 핑퐁으로 캐스트/방향/효과 정합. **수치 밸런싱은 스킵**(명백한 파손·방향만). 세부 대칭 원장 = `docs/_WIP_casting_expansion_pass.md` §4(패스 종료 시 삭제, 정본=이 항목). 티어 밴드 A(0~0.4s)/B(3~5s)/C(8~15s).
 - **완료분(cast_s 부여):** AB-041(cold) 0.8→3.5(B) · AB-053(fire 작열) 0.6→3.0(B) · AB-064(channel_heal) 2.0→3.0 · AB-004(bolt) 0.5→4.0(B) · AB-059(bolt) 1.5→5.0(B) · AB-066(channel_heal 궁극) 5.0→10.0(C) · **AB-003(bolt)** +cast_s 3.0·cd 2→6·radius 1.6→4.0(A→B).
-- **효과·결속 변경:** **AB-002 Shield Bash** — 반경 4→8·dmg ×2.5→×1.0·cd 4→2(Anchor 방벽충전 스팸형 궁합) + 발동 프레임 반경 telegraph 링 + **헛스윙도 차지/쿨 소모**(반응형 CC는 명중이 아니라 휘두름이 비용, `sb_strike`). **AB-003 초월 링크** — press_line 초월 중 감전 폭주(`skillbook_bolt`→`apply_silence` 2.0s, AB-044 API 재사용) + `OVERLAYS` `BIND-PILOT-026`(press_rod·IDA-024·AB-003@slot0, AB-053과 슬롯 공유). [[DRIFT-077]] 초월 kind 분기 확장.
+- **효과·결속 변경:** **AB-002 Shield Bash** — 반경 4→8·dmg ×2.5→×1.0·cd 4→2(Anchor 방벽충전 스팸형 궁합) + 발동 프레임 반경 telegraph 링 + **헛스윙도 차지/쿨 소모**(반응형 CC는 명중이 아니라 휘두름이 비용, `sb_strike`). **AB-003 초월 링크** — press_line 초월 중 감전 폭주(`skillbook_bolt`→`apply_silence` 2.0s, AB-044 API 재사용) + `OVERLAYS` `BIND-026`(press_rod·IDA-024·AB-003@slot0, AB-053과 슬롯 공유). [[DRIFT-077]] 초월 kind 분기 확장.
 - **⚡ 어텐션 이코노미 보강(2026-07-12, 사용자 결정 — rule):** 딜 최소주의 — **딜 서브(Nuker/DPS)=긴 캐스트+긴 쿨+큰 한방**("가끔·중요"), Tank=반응형 즉발 OK, Healer 큰 힐=긴 캐스트+쿨, Movement 상시. + **규칙5(통합 refine):** Shared 기본 통합, 진영분기는 **새 적 전용 스킬(신규 ID)** 로만(같은 ID 분기 금지). **rule-level → OPS_30 전파 후보**([[DRIFT-082]]/[[DRIFT-075]] 배치 동반). 세부=WIP §0.
-- **AB-005 Melee Flurry(2026-07-12):** 즉발 스팸필러(cd1)→**커밋 근접 버스트**(cast_s 3.0·cd 10·dmg ×1→×3·range_band Mid→Melee) + Nuker 집중 바인딩(BIND-PILOT-027). 규칙5 적용: EN-010=빠른 rush라 AB-005 제거→기본평타(abilities.json AB-005 orphan).
+- **AB-005 Melee Flurry(2026-07-12):** 즉발 스팸필러(cd1)→**커밋 근접 버스트**(cast_s 3.0·cd 10·dmg ×1→×3·range_band Mid→Melee) + Nuker 집중 바인딩(BIND-027). 규칙5 적용: EN-010=빠른 rush라 AB-005 제거→기본평타(abilities.json AB-005 orphan).
 - **분류\전파:** impl/tuning(cast_s·수치=로깅만). 단 [[DRIFT-075]] castTier 원칙 자체는 P4a에서 OPS_30 전파 대기 — 개별 cast_s 값은 그 하위 튜닝. 이 레포 spec md 편집 금지.
 - **상태:** 🔶 진행 중(위 8 AB + **AB-005** 완료, 잔여 ~20 AB는 ENC 순회). **미커밋**. ci_smoke 7/7. ⚠️ 어텐션 이코노미 rule은 기판정 딜 서브 **쿨 소급 검토** 후보(예: AB-003 cd6이 "가끔"에 아직 잦음).
 
@@ -485,7 +485,7 @@
 - **변경(2026-07-12, 사용자 지시):** [[DRIFT-077]]의 초월을 **지속시간형(dur 6s 창) → 무지속**으로. 게이지 만석=발동 유지, **강화 서브 1회 시전 시 소모**(`overdrive_reset`), **비전투 5초 지속 시 게이지 초기화**. `OVERDRIVE.dur`·party_member `_od_timer_s/_od_dur_s`·physics 드레인 제거.
 - **UI:** 초월 게이지를 오버헤드 HP바 → **캐릭터 시트(controlled_sheet) 체력 바 바로 아래** 금색 게이지 + "초월/초월 준비!" 라벨로 이동(가독성). 초월 DPS 정체성일 때만 표시.
 - **구현:** `party_member`(무지속 유지·`overdrive_reset`·드레인 제거), `ability_dispatch._dps_overdrive`(empower 후 소모·2-arg overdrive_add), `party_controller`(engagement_changed→비전투 5초 one-shot 타이머→전 멤버 `overdrive_reset`), `controlled_sheet`(시트 게이지 바).
-- **분류\전파:** **rule** — 초월 리소스 모델(지속→1회소모·OOC초기화) 변경. P4a 정본화 시 [[DRIFT-077]]/[[DRIFT-075]]와 함께 `ROLE-010`/`dps_binding_kit.md` 전파. `binding_fixtures.OVERDRIVE.dur`=구 지속형 잔재. 이 레포 spec md 편집 금지.
+- **분류\전파:** **rule** — 초월 리소스 모델(지속→1회소모·OOC초기화) 변경. P4a 정본화 시 [[DRIFT-077]]/[[DRIFT-075]]와 함께 `ROLE-010`/`dps_binding_kit.md` 전파. `binding_overlays.OVERDRIVE.dur`=구 지속형 잔재. 이 레포 spec md 편집 금지.
 - **상태:** 🔶 구현(브랜치 커밋 · **미검증**). 플레이테스트 대기. **전파 packet:** [_PROP_PACKET_DRIFT-079-080.md](_PROP_PACKET_DRIFT-079-080.md) (적용 = P4b 배치 시점).
 
 ### DRIFT-081 — 적 상태(버프/디버프) 12시 인스펙트 시트 칩 노출 🔶 impl (전파 불필요)
