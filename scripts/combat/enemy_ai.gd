@@ -1451,7 +1451,7 @@ func _pick_backline_target(nodes: Array) -> CharacterBody3D:
 	return best
 
 
-## 전투 템포 캐스트 페이싱(combat_tempo_overhaul §3 / DRIFT-083). cap-eligible(role=threat/control)
+## 전투 템포 캐스트 페이싱(DRIFT-083). cap-eligible(role=threat/control)
 ## 캐스트만 (B-1) 교전 직후 스태거 창, (B-2) 스쿼드 동시 캐스트 K=1 로 지연된다. 평타·자버프·이동·
 ## 힐·soft debuff(role 비-cap)는 게이트 없음.
 func _cast_gated(enemy: CharacterBody3D, ref: String) -> bool:

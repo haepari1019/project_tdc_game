@@ -53,7 +53,7 @@ var probe_backstep_s: float = 0.0
 ## (damage casts, heal, provoke, dash) fires on its own AB cooldown_s; independent timers so an
 ## enemy with multiple ABs (e.g. EN-001 AB-099+AB-002) doesn't share one clock.
 var ability_cd: Dictionary = {}
-## 전투 템포 B-1(combat_tempo_overhaul §3): 교전 직후 cap-eligible 캐스트 지연 창(초). 0=지연 없음.
+## 전투 템포 B-1(DRIFT-083): 교전 직후 cap-eligible 캐스트 지연 창(초). 0=지연 없음.
 var cast_stagger_s: float = 0.0
 var stagger_armed: bool = false  # 교전 진입 1회 시딩 가드(재교전 시 재시딩)
 ## Dash state (AB-006 gap-close / AB-013 backstab) — a short velocity-takeover lunge after the
@@ -603,7 +603,7 @@ func get_status_list() -> Array:
 	return out
 
 
-## 전투 감속(전투 템포 A / combat_tempo_overhaul §2): 교전 중이면 ×2/3. 비전투(roam/patrol)는 각 상태
+## 전투 감속(전투 템포 A / DRIFT-083): 교전 중이면 ×2/3. 비전투(roam/patrol)는 각 상태
 ## fraction만 적용되어 현행 유지. 아군도 대칭(party_member.move_speed_mult). 유닛별 변별·안티카이팅 비율 유지.
 const COMBAT_MOVE_MULT := 2.0 / 3.0
 

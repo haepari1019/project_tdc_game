@@ -1,6 +1,6 @@
 extends RefCounted
 class_name AbilityRoles
-## 능력 role/exec 중앙 레지스트리 — 전투 템포 개편 인프라 (docs/design/combat_tempo_overhaul.md §5).
+## 능력 role/exec 중앙 레지스트리 — 전투 템포 개편 인프라 (DRIFT-083).
 ## **DRAFT (2026-07-13) — role 표 핑퐁 대상.** ①/③ 경계(hybrid 3종·AB-099)는 미확정(§7).
 ##
 ## 목적: 적 캐스트 페이싱(알파 스트라이크 방지)의 캡을 `kind`(delivery 축, 과부하)가 아니라 **`role`(목적 축)**
