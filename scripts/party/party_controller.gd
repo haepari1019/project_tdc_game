@@ -811,13 +811,13 @@ func _sv1_update_follow(
 		if not planned.has(member):
 			continue  # downed / skipped
 		var target_vel: Vector3 = planned.get(member, Vector3.ZERO)
+		if member.has_method("move_speed_mult"):
+			target_vel *= member.move_speed_mult()  # 전투 감속/오일 — 가속 前에 목표 스케일(조작캐 패턴)
 		if _follower_accel_mps2 > 0.0:
 			member.velocity = member.velocity.move_toward(target_vel, _follower_accel_mps2 * delta)
 		else:
 			member.velocity = target_vel
 		_clamp_fatal(member, delta)
-		if member.has_method("move_speed_mult"):
-			member.velocity *= member.move_speed_mult()  # Oil slick etc.
 		member.move_and_slide()
 		_sv1_store_wall_normals(member)
 	# Pass 3: the anchor. Pass 1/2 skip it (they assume it's the player-driven
@@ -845,13 +845,13 @@ func _sv1_update_follow(
 			var d := to_wp.length()
 			if d > _arrive_distance:
 				av = (to_wp / d) * _follower_move_speed_near
+		if anchor.has_method("move_speed_mult"):
+			av *= anchor.move_speed_mult()  # 가속 前에 목표 스케일(조작캐 패턴)
 		if _follower_accel_mps2 > 0.0:
 			anchor.velocity = anchor.velocity.move_toward(av, _follower_accel_mps2 * delta)
 		else:
 			anchor.velocity = av
 		_clamp_fatal(anchor, delta)
-		if anchor.has_method("move_speed_mult"):
-			anchor.velocity *= anchor.move_speed_mult()
 		anchor.move_and_slide()
 
 

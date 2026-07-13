@@ -35,7 +35,7 @@
 - **아군:** 조작캐 6.0 → **4.0**, 팔로워 6.3~6.6 → **4.2~4.4**. `party_member.move_speed_mult()`에 combat 항 추가.
 - **적:** 교전(engaged) 경로에 ×2/3. 유닛별 4.8~6.5 변별·안티카이팅 관계 **유지**(균일 배율). `enemy_unit.current_move_speed()`에 combat 항. 비전투(roam/patrol fraction)는 현행.
 - **비전투 = 현행(스프린트).** 답답함 해소는 여기서 확보.
-- ⚠️ **리스크:** SteeringV1 팔로워 catch-up/slot damping이 6.x대에 튜닝됨 → 4.x대 재튜닝 필요(고위험 미뤄둔 시스템). `formation.json`·`party_controller._sv1_*`.
+- ✅ **해결(2026-07-13):** "재튜닝"이 아니라 **구조 버그**였음 — 팔로워/앵커가 감속(`move_speed_mult`)을 **가속(`move_toward`) 뒤에** 곱해 평형이 ~2.3m/s로 붕괴(조작캐는 가속 前 target에 스케일=정상). 조작캐 패턴으로 정정(`party_controller` Pass2/3). formation.json 값 불변.
 
 ### A-2. 적 텔레그래프 중 이동 정지 (적만)
 - **핵심:** 지면 AOE가 안 맞는 진짜 원인은 이동속도가 아니라 `aim_controller`의 **박제 타겟팅**(클릭 순간 좌표 고정, 적 추적 안 함). 감속은 비례적으로만 도움.
@@ -128,7 +128,7 @@ AB-013 backstab → {kind: skillbook_strike, role: threat, exec: hybrid}        
 1. **①/③ 경계** — hybrid 3종(AB-013/100/104) 모델링(피해↔대시 분리 지점), AB-099 도발을 캡셋에 넣을지.
 2. **role 분류 적정성** — role/kind가 적절한 규모로 나뉘었는지 유저 관측 후 조정(이번 핑퐁의 목적).
 3. **캡 K** — 1 확정 여부(플레이테스트).
-4. **A 리스크** — SteeringV1 4.x 재튜닝 범위, 전투 종료 후 스프린트 복귀 디바운스 필요 여부(`is_engaged` 자체엔 파티 디바운스 없음).
+4. ~~**A 리스크** — SteeringV1 4.x 재튜닝~~ → ✅ **해결**: 구조 버그(감속을 가속 뒤에 곱함)였음, 조작캐 패턴으로 정정(§2 A-1). 재튜닝 불요. (전투 종료 후 스프린트 복귀 디바운스는 아직 미도입 — `is_engaged`가 적별 6s grace로 자연 스무딩, 필요 시 추가.)
 
 ## 8. 드리프트·프로세스 원장
 
