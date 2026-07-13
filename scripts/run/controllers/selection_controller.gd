@@ -18,7 +18,7 @@ var _dragging: bool = false
 var _press_pos: Vector2 = Vector2.ZERO
 
 
-func setup(party: Node3D, enemy_info: Node, hud: CanvasItem) -> void:
+func setup(party: Node3D, enemy_info: Node, hud: Node) -> void:  # hud = HUD Control 또는 CanvasLayer
 	_party = party
 	_enemy_info = enemy_info
 	_marquee = Panel.new()
