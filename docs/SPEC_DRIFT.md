@@ -499,3 +499,12 @@
 - **프레젠테이션 파리티(부속 변경):** (a) 적 통합 캐스트도 **HP바 위 CastBar**(아군 CastBar 재사용·진행률)+charge_up 구체+sb_bolt 투사체 = 아군과 동일 시각. (b) 아군 캐스트에 **charge_up "전격 모으기" VFX** 확장(`skill_cast` `charge_color`, `lightning:true`만). (c) **캐스트 중 평타 정지**(`combat_controller` `is_channeling()` 게이트, 적 `winding` 직렬화와 **대칭**; 아군 cast_s wind-up만·identity/AB-054 채널 제외).
 - **분류\전파:** **rule/design** — spec `D-016` §3.6.1(적 telegraph 밴드=역할별 배정)과 충돌: 통합 스킬의 telegraph는 **능력 내재**(cast_s), 밴드 배정 아님. + 스킬북 스키마 **`unified` 신규 필드**. OPS_30 전파 4건: (i) unified-skill 개념 + "해소1·프론트엔드2" 모델, (ii) §3.6.1을 **비통합 적 능력** 스코프로 한정, (iii) AB-003 SSOT(`docs/combat/abilities/AB-003`) 통합 표기, (iv) skillbook 스키마 `unified`. **파일럿=AB-003만**; 잔여 대칭 subset(strike/stun/poison/cold) 마이그레이션=follow-on. 이 레포 spec md 편집 금지. 전파 packet: [_PROP_PACKET_DRIFT-082.md](_PROP_PACKET_DRIFT-082.md).
 - **상태:** 🔶 구현·**sandbox 확인(사용자, 2026-07-12)**·커밋(브랜치 `wip/casting-ab054-overdrive-20260712`). ci_smoke **7/7 PASS**. 전파=배치 시점([[DRIFT-079]]/[[DRIFT-080]] 배치와 동반 후보).
+
+### DRIFT-083 — 전투 템포 개편: 능력 role/exec 레지스트리 + 캐스트 페이싱(알파 스트라이크) + 전투 감속 🔶 rule/impl (전파 후보)
+- **배경(2026-07-13, 사용자 결정):** 체감 "급한 AOE → 정제된 MMORPG". 설계 정본 = [combat_tempo_overhaul.md](design/combat_tempo_overhaul.md). 시퀀싱 **(b) 분리**(role+캡 먼저 / 적→shared 이사=[[DRIFT-082]] 병행), 점2 힐러·데미지 defer.
+- **role/exec 레지스트리(impl):** 신규 [ability_roles.gd](../scripts/combat/abilities/ability_roles.gd) — 27 AB를 `{kind, role, exec}` 로 **중앙 등재**(shared·적고유·예외 전부). role(threat/control/**debuff**/support/buff/reposition/utility)=목적 축(**캡 판정=threat·control**), exec(shared/ai_internal/hybrid)=실행 라우팅, kind=delivery(유지). enemy_ai 흩어진 문자열 분기의 SOT화 준비. **경계 핑퐁 1차:** AB-100→control, AB-012→**debuff**(신설·캡X), AB-099=control(캡O), AB-040=utility, AB-002=threat/즉발; hybrid=AB-013/100/104.
+- **캐스트 페이싱(rule, 예정):** 알파 스트라이크 방지 — (B-1) 교전 시 role∈{threat,control} 첫 캐스트 `ability_cd` 난수지연 1.5~3.5s(증원 자동 커버), (B-2) 소프트 동시성 캡 K=1(스쿼드). [[DRIFT-078]] 어텐션 이코노미 rule의 **런타임 실현**. 캡 기준=`kind` 아님 `role`.
+- **전투 감속(수치, 예정):** 교전 시 이동 ×2/3(`is_engaged()` 게이트, 유닛별 변별·안티카이팅 유지), 비전투 현행(스프린트). **적** 텔레그래프 중 이동 정지(아군은 기존).
+- **아군 선택(impl, 예정):** 좌클릭 party-layer(mask 2) 스왑 + 머리 위 번호 배지(1~4 병존).
+- **분류\전파:** role/exec 레지스트리·클릭스왑·전투상태토글 = impl(게임 인코딩, spec 미핀 → 로컬 `ImplDecisionLog`). 캐스트 페이싱(스태거+캡) = **rule → OPS_30 전파 후보**([[DRIFT-078]] 어텐션 이코노미와 동반). 이동 ×2/3·텔레그래프 정지 = 튜닝 수치(로깅만). 이 레포 spec md 편집 금지.
+- **상태:** 🕒 role 레지스트리 초안 구현(**미커밋**, 핑퐁 대상). B/A/C 미착수. 계획 커밋 `ee0207b`.

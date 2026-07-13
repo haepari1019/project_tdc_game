@@ -86,7 +86,7 @@
 **shared든 적고유든 예외든 전부 등재.** enemy_ai에 숨는 분류 0.
 
 - **`kind`** — delivery/effect (유지, 해소·VFX 구동). *delivery dispatch는 부채 아님, 없애지 않음.*
-- **`role`** — 목적 (**신규 축, 캡이 읽음**): `threat` · `control` · `support` · `buff` · `reposition` · `utility`.
+- **`role`** — 목적 (**신규 축, 캡이 읽음**): `threat` · `control` · `debuff`(소프트 감속/약화, 캡X) · `support` · `buff` · `reposition` · `utility`.
 - **`exec`** — 실행 라우팅:
   - `shared` — CastContext 진영flip으로 파티 effect 재사용.
   - `ai_internal` — 거동을 enemy_ai에 위임 (AI 공격성/포지셔닝 결합, 진영대칭 불가).
@@ -103,13 +103,13 @@ AB-013 backstab → {kind: skillbook_strike, role: threat, exec: hybrid}        
 ### 5-3. 캡셋 = `role ∈ {threat, control}`
 **행복한 정렬:** 캡 대상(위협/통제) ≈ shared 이사 대상, 적고유 예외 ≈ 캡 제외(buff/reposition/utility). 마이그레이션과 캡이 서로를 강화.
 
-### 5-4. 잠정 3-버킷 분류 (관측 산출물 초안 — role 표로 확정)
+### 5-4. 분류 SOT = `ability_roles.gd` (관측용)
 
-| 버킷 | 능력 | role | exec | 캡 |
-|---|---|---|---|---|
-| **① 위협/통제** | AB-002·004·005·008·010·011·012·041·106·039 + AB-013/100/104 피해·CC부 + AB-003(이미 shared) | threat·control | shared / hybrid | ✅ |
-| **② 지원/유틸** | AB-098 힐·AB-101 표식·AB-099 도발·지형존(009/036/040/042/043) | support·utility | shared | ❌ |
-| **③ 적고유 예외** | AB-105 격노·AB-006/007 재배치대시·AssassinTransform + AB-013/100/104 대시 이동부 | buff·reposition | ai_internal | ❌ |
+전 능력 `{kind, role, exec}`는 [ability_roles.gd](../../scripts/combat/abilities/ability_roles.gd)에 등재(근거 주석 = 관측 표). 요약:
+- **캡 O** — role ∈ {`threat`, `control`}: 파티 겨냥 예고 피해 / 하드 CC(기절·루트·테더·핀·도발).
+- **캡 X** — `debuff`(소프트 감속/약화) · `support`(힐) · `buff`(자버프) · `reposition`(이동) · `utility`(표식/지형존).
+- **exec** — `shared`(이사 완료/대상) · `ai_internal`(격노·재배치) · `hybrid`(대시=ai·피해=shared: AB-013/100/104).
+- **핑퐁 1차:** AB-100→control, AB-012→**debuff**(신설·캡X), AB-099=control(캡O), AB-040=utility, AB-002=threat/즉발.
 
 **드리프트:** 레지스트리(kind+role+exec 메타) = 로컬 `ImplDecisionLog`. `role`은 **코드측 레지스트리**에 둔다(abilities.json 스키마 필드 X) → 전파 없음. 이사(exec `ai_internal`→`shared` 전환)만 `DRIFT-082` 아크.
 
