@@ -274,7 +274,7 @@ func _ready() -> void:
 	$HUD.add_child(_enemy_info)
 	_selection = SelectionController.new()
 	add_child(_selection)
-	_selection.setup(_party, _enemy_info)
+	_selection.setup(_party, _enemy_info, $HUD)
 	_alert_banner = Label.new()  # UI-006 central separation/MIA warning (icon + text, auto-hide)
 	_alert_banner.visible = false
 	_alert_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -339,12 +339,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _torch.handle_click(event):
 		return
-	# Left-click (not aiming) inspects an enemy in the top-center panel; empty space clears.
-	if event is InputEventMouseButton:
-		var lb := event as InputEventMouseButton
-		if lb.button_index == MOUSE_BUTTON_LEFT and lb.pressed:
-			_selection.handle_click(event)  # 아군 스왑 / 적 인스펙트 (씬 공유)
-			return
+	# 좌클릭/드래그 선택 (씬 공유): 클릭=아군 스왑/적 인스펙트, 드래그=박스 안 좌측 아군 스왑
+	if _selection.handle_input(event):
+		return
 	# Scroll wheel = zoom the camera (WoW-style dolly; keeps the look angle).
 	if event is InputEventMouseButton:
 		var wheel := event as InputEventMouseButton

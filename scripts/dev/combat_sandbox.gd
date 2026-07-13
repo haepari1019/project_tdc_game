@@ -219,7 +219,7 @@ func _build_ui() -> void:
 	layer.add_child(_enemy_info)
 	_selection = SelectionController.new()
 	add_child(_selection)
-	_selection.setup(_party, _enemy_info)
+	_selection.setup(_party, _enemy_info, layer)
 
 
 ## The shipping HUD pieces that show ally skill cooldowns/charges — UI-002 PartySheet (HP + Q/E/R
@@ -1006,10 +1006,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("ui_cancel"):
 			_aim_ctrl.cancel()
 			return
-	# Left-click (not aiming, not over the panel) inspects an enemy in the 12시 panel; empty space clears.
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed \
-			and not _pointer_over_panel():
-		_selection.handle_click(event)  # 아군 스왑 / 적 인스펙트 (씬 공유)
+	# 좌클릭/드래그 선택 (씬 공유). dev 패널 위 좌클릭 프레스는 선택 시작 안 함(패널 우선).
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (event as InputEventMouseButton).pressed and _pointer_over_panel():
+		pass
+	elif _selection.handle_input(event):
 		return
 	# Wheel over the dev panel = scroll it, never zoom the camera. At the scroll boundary the
 	# ScrollContainer stops consuming the wheel so it leaks here — guard on the pointer being over
