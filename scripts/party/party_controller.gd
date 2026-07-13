@@ -208,6 +208,11 @@ func bind_combat(combat: Node) -> void:
 	add_child(_ooc_timer)
 
 
+## 노드 → 파티 인덱스(좌클릭 스왑용, dungeon_run._select_party_under_mouse). 미소속이면 -1.
+func index_of(member: Node) -> int:
+	return _members.find(member)
+
+
 func _on_party_damaged() -> void:
 	_party_damaged = true
 
@@ -219,6 +224,9 @@ func _on_tank_engaged() -> void:
 ## partyInCombat → false (all squads disengaged) clears the damage latch so
 ## followers stop engaging and re-form. Re-arms on the next hit.
 func _on_engagement_changed(engaged: bool) -> void:
+	for m in _members:                                   # 전투 템포 A: 전투 시 이동 ×2/3, 비전투 스프린트
+		if is_instance_valid(m):
+			m.combat_slowed = engaged
 	if not engaged:
 		_party_damaged = false
 		_tank_engaged = false
@@ -643,11 +651,30 @@ func _spawn_party_from_data() -> void:
 		member.downed.connect(_on_member_downed)
 		_members.append(member)
 		_sv1_noise_seed_offset[member] = float(i) * 100.0
+		_add_slot_badge(member, i)  # 전투 템포 C: 머리 위 상시 번호 배지(1~4)
 	if _members.is_empty():
 		push_error("[TDC] Party spawn failed — no identities")
 		return
 	_apply_controlled_move_speeds()
 	_set_controlled_index(0)
+
+
+## 전투 템포 C: 아군 머리 위에 슬롯 번호(1~4)를 상시 표시 — "위치↔번호 혼동" 해소(좌클릭 스왑과 병행).
+## 카메라를 향하는 Label3D. 컨트롤 중인 멤버는 스케일(CONTROLLED_SCALE)로 자연히 조금 커진다.
+const SLOT_BADGE_HEIGHT := 2.0
+
+func _add_slot_badge(member: Node3D, idx: int) -> void:
+	var badge := Label3D.new()
+	badge.name = "SlotBadge"
+	badge.text = str(idx + 1)
+	badge.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	badge.pixel_size = 0.006
+	badge.no_depth_test = true
+	badge.render_priority = 2
+	badge.outline_size = 16
+	badge.outline_modulate = Color(0, 0, 0, 0.9)
+	badge.position = Vector3(0, SLOT_BADGE_HEIGHT, 0)
+	member.add_child(badge)
 
 
 ## Formation front follows the CAMERA (screen-up), not movement direction — so

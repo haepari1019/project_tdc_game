@@ -1322,9 +1322,17 @@ func get_provoke_source() -> Node:
 	return provoke_source
 
 
+## 전투 감속(전투 템포 A): 교전 중이면 ×2/3. party_controller가 engagement_changed로 combat_slowed 토글.
+## controlled(player_controller)·follower(party_controller) 양쪽이 이 배수를 소비 → 한 곳에서 둘 다 커버.
+const COMBAT_MOVE_MULT := 2.0 / 3.0
+var combat_slowed: bool = false
+
 func move_speed_mult() -> float:
 	var m := _slow_factor if _slow_timer > 0.0 else 1.0
-	return m * _outcome.move_mult() * _haste_mult  # slow × elemental outcomes × Haste (AB-069)
+	m *= _outcome.move_mult() * _haste_mult  # slow × elemental outcomes × Haste (AB-069)
+	if combat_slowed:
+		m *= COMBAT_MOVE_MULT  # 비전투는 현행(스프린트), 전투 시 2/3
+	return m
 
 
 ## Apply an elemental OUTCOME status (STATUS-OUTCOME-CORE). WindBuffeted's push is a separate

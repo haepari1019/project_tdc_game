@@ -482,9 +482,9 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 ## Returns the desired velocity (ZERO = plant & attack). Blind (no LOS) is shared: every
 ## profile falls back to a cautious advance toward the last-seen spot so it can re-acquire.
 func _engage_move(enemy: CharacterBody3D, target: CharacterBody3D, dist: float, has_los: bool, delta: float) -> Vector3:
-	# Channeled cast (EN-AI-000 §2): hold position for the wind-up — EN-007 hex 이동금지,
-	# EN-002 charge 제자리, EN-014 pulse 제자리, EN-006 stun(AB-011) 제자리. Non-channel (AB-010) still moves.
-	if enemy.winding and bool(enemy.windup_eff.get("channel", false)):
+	# 전투 템포 A-2: 텔레그래프(wind-up) 중에는 채널 여부와 무관하게 제자리 정지 — 정지한 적이라야 지면
+	# AOE로 맞출 수 있다(아군은 이미 캐스트 중 정지). 비채널 poke(AB-008/010/041)·CC(AB-102/103)도 이제 plant.
+	if enemy.winding:
 		return Vector3.ZERO
 	var spd: float = enemy.current_move_speed()
 	if not has_los:

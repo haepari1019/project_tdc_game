@@ -603,9 +603,16 @@ func get_status_list() -> Array:
 	return out
 
 
+## 전투 감속(전투 템포 A / combat_tempo_overhaul §2): 교전 중이면 ×2/3. 비전투(roam/patrol)는 각 상태
+## fraction만 적용되어 현행 유지. 아군도 대칭(party_member.move_speed_mult). 유닛별 변별·안티카이팅 비율 유지.
+const COMBAT_MOVE_MULT := 2.0 / 3.0
+
 func current_move_speed() -> float:
 	var base := move_speed * slow_factor if slow_timer_s > 0.0 else move_speed
-	return base * _outcome.move_mult()  # fold elemental movement outcomes (Sodden/Chilled/…)
+	var m := base * _outcome.move_mult()  # fold elemental movement outcomes (Sodden/Chilled/…)
+	if engaged:
+		m *= COMBAT_MOVE_MULT  # 교전 시 2/3
+	return m
 
 
 ## Knockback away from a source — spread over KB_TIME so it reads as a push,

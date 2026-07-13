@@ -338,7 +338,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var lb := event as InputEventMouseButton
 		if lb.button_index == MOUSE_BUTTON_LEFT and lb.pressed:
-			_select_enemy_under_mouse()
+			if not _select_party_under_mouse():  # 전투 템포 C: 아군 클릭 → 스왑, 아니면 적 인스펙트
+				_select_enemy_under_mouse()
 			return
 	# Scroll wheel = zoom the camera (WoW-style dolly; keeps the look angle).
 	if event is InputEventMouseButton:
@@ -538,6 +539,26 @@ func _place_loot_chests() -> void:
 			_vision_fog.fog_object(c)
 			placed += 1
 	print("[LOOT] 절차적 상자 %d개 배치 (seed %d)" % [placed, seed_v])
+
+
+## Left-click → ray-pick a party member (collision layer 2) and swap control to it (전투 템포 C).
+## Runs before enemy-inspect; returns true if a member was hit (down/MIA는 try_swap_to가 거른다).
+func _select_party_under_mouse() -> bool:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return false
+	var mouse := get_viewport().get_mouse_position()
+	var from := cam.project_ray_origin(mouse)
+	var to := from + cam.project_ray_normal(mouse) * 1000.0
+	var q := PhysicsRayQueryParameters3D.create(from, to, 2)  # LAYER_PARTY
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return false
+	var idx: int = _party.index_of(hit.collider)
+	if idx < 0:
+		return false
+	_party.try_swap_to(idx)
+	return true
 
 
 ## Left-click → ray-pick an enemy (collision layer 4) for the inspect panel; else clear.
