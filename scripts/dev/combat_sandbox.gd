@@ -120,6 +120,7 @@ var _basic_dd: OptionButton   # 평타(basic) archetype — gear's basic half on
 var _sub_dd: Array = []   # [OptionButton ×3] — Q/E/R sub loadout for the controlled member
 var _gear_dd: OptionButton   # Identity Gear swap (equips onto the matching-role member — F-008)
 var _cam_dragging := false
+var _rmb_accum := 0.0  # 우클릭 드래그 거리 누적(탭=이동 vs 드래그=카메라 orbit 판별)
 
 # Left dev panel — fixed width, viewport-capped height, collapsible + scrollable (was an
 # unbounded VBoxContainer that overflowed the bottom of the screen and widened with long labels).
@@ -1021,8 +1022,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			MOUSE_BUTTON_WHEEL_DOWN:
 				_camera.zoom(-1)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
-		_cam_dragging = event.pressed
+		if event.pressed:
+			_cam_dragging = true
+			_rmb_accum = 0.0
+		else:
+			_cam_dragging = false
+			if _rmb_accum < 8.0 and not _pointer_over_panel():
+				_rmb_move_to_ground()  # 우클릭 탭 → 조종캐 클릭이동
 	if event is InputEventMouseMotion and _cam_dragging:
+		_rmb_accum += absf(event.relative.x) + absf(event.relative.y)
 		_camera.orbit_yaw(event.relative.x)
 		_camera.pitch_by_drag(event.relative.y)
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -1039,6 +1047,35 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_G: _party.toggle_formation_priority()  # 전투우선 ↔ 진형우선 (game parity)
 			KEY_U: _party.toggle_cohesion_mode()       # 파티결속 ↔ 비결속 (F-003 §3.4, game parity)
 			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
+
+
+## 우클릭 탭(드래그 아님) → 조종 캐릭터를 마우스 아래 지면으로 클릭이동(dungeon_run 상호작용의 이동부와 동일).
+func _rmb_move_to_ground() -> void:
+	var ctrl: Node3D = _party.get_controlled()
+	if ctrl == null:
+		return
+	var pc := ctrl.get_node_or_null("Control")
+	if pc == null or not pc.has_method("order_move_to"):
+		return
+	var gp = _ground_under_mouse()
+	if gp != null:
+		pc.order_move_to(gp, Callable(), 0.4)
+
+
+## 마우스 아래 지면점(y=0 평면). 레이가 평면과 거의 평행이면 null.
+func _ground_under_mouse():
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return null
+	var mouse := get_viewport().get_mouse_position()
+	var from := cam.project_ray_origin(mouse)
+	var dir := cam.project_ray_normal(mouse)
+	if absf(dir.y) < 0.0001:
+		return null
+	var t := -from.y / dir.y
+	if t <= 0.0:
+		return null
+	return from + dir * t
 
 
 func _cast_sub(slot: int) -> void:
