@@ -651,30 +651,11 @@ func _spawn_party_from_data() -> void:
 		member.downed.connect(_on_member_downed)
 		_members.append(member)
 		_sv1_noise_seed_offset[member] = float(i) * 100.0
-		_add_slot_badge(member, i)  # 전투 템포 C: 머리 위 상시 번호 배지(1~4)
 	if _members.is_empty():
 		push_error("[TDC] Party spawn failed — no identities")
 		return
 	_apply_controlled_move_speeds()
 	_set_controlled_index(0)
-
-
-## 전투 템포 C: 아군 머리 위에 슬롯 번호(1~4)를 상시 표시 — "위치↔번호 혼동" 해소(좌클릭 스왑과 병행).
-## 카메라를 향하는 Label3D. 컨트롤 중인 멤버는 스케일(CONTROLLED_SCALE)로 자연히 조금 커진다.
-const SLOT_BADGE_HEIGHT := 2.0
-
-func _add_slot_badge(member: Node3D, idx: int) -> void:
-	var badge := Label3D.new()
-	badge.name = "SlotBadge"
-	badge.text = str(idx + 1)
-	badge.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	badge.pixel_size = 0.006
-	badge.no_depth_test = true
-	badge.render_priority = 2
-	badge.outline_size = 16
-	badge.outline_modulate = Color(0, 0, 0, 0.9)
-	badge.position = Vector3(0, SLOT_BADGE_HEIGHT, 0)
-	member.add_child(badge)
 
 
 ## Formation front follows the CAMERA (screen-up), not movement direction — so
