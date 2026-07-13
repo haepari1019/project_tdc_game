@@ -16,6 +16,7 @@ const Torch := preload("res://scripts/world/objects/torch.gd")  # ENT-TORCH — 
 const AimMarker := preload("res://scripts/ui/aim_marker.gd")              # 지면-타겟 서브 조준(던전 parity)
 const AimController := preload("res://scripts/run/controllers/aim_controller.gd")
 const SelectionController := preload("res://scripts/run/controllers/selection_controller.gd")
+const ControlledIndicator := preload("res://scripts/ui/controlled_indicator.gd")
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")  # 평타 archetype 조회(검증 패널)
 
 # ZONE laying (S3b test): medium → spawn defaults. Fire/ToxicGas damage; movement media outcome-only
@@ -221,6 +222,9 @@ func _build_ui() -> void:
 	_selection = SelectionController.new()
 	add_child(_selection)
 	_selection.setup(_party, _enemy_info, layer)
+	var ctrl_ind := ControlledIndicator.new()  # UI-001 조종캐 표시(화살표+발밑 초록원) — dungeon_run 패리티
+	add_child(ctrl_ind)
+	ctrl_ind.setup(_party)
 
 
 ## The shipping HUD pieces that show ally skill cooldowns/charges — UI-002 PartySheet (HP + Q/E/R

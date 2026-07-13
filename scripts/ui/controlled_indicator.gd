@@ -22,7 +22,7 @@ func _ready() -> void:
 	disc.height = 0.05
 	disc_mi.mesh = disc
 	disc_mi.position.y = 0.07
-	disc_mi.material_override = _mat(Color(0.70, 0.95, 1.0, 0.28), false)
+	disc_mi.material_override = _mat(Color(0.25, 0.95, 0.40, 0.35), false)  # 초록 원(조종 표시)
 	add_child(disc_mi)
 	# Floating downward arrow above the head (always visible).
 	_arrow = MeshInstance3D.new()
@@ -33,7 +33,7 @@ func _ready() -> void:
 	_arrow.mesh = cone
 	_arrow.rotation_degrees = Vector3(180, 0, 0)  # apex points down
 	_arrow.position.y = 2.3
-	_arrow.material_override = _mat(Color(0.78, 0.97, 1.0, 0.95), true)
+	_arrow.material_override = _mat(Color(0.35, 1.0, 0.55, 0.95), true)  # 초록 화살표
 	add_child(_arrow)
 
 
