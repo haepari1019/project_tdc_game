@@ -1004,7 +1004,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Left-click (not aiming, not over the panel) inspects an enemy in the 12시 panel; empty space clears.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed \
 			and not _pointer_over_panel():
-		_select_enemy_under_mouse()
+		if not _select_party_under_mouse():  # 전투 템포 C: 아군 클릭 → 스왑
+			_select_enemy_under_mouse()
 		return
 	# Wheel over the dev panel = scroll it, never zoom the camera. At the scroll boundary the
 	# ScrollContainer stops consuming the wheel so it leaks here — guard on the pointer being over
@@ -1034,6 +1035,27 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_G: _party.toggle_formation_priority()  # 전투우선 ↔ 진형우선 (game parity)
 			KEY_U: _party.toggle_cohesion_mode()       # 파티결속 ↔ 비결속 (F-003 §3.4, game parity)
 			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
+
+
+## Left-click → ray-pick a party member (collision layer 2) and swap control to it (전투 템포 C).
+## Mirrors dungeon_run._select_party_under_mouse. down/MIA는 try_swap_to가 거른다.
+func _select_party_under_mouse() -> bool:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return false
+	var mouse := get_viewport().get_mouse_position()
+	var from := cam.project_ray_origin(mouse)
+	var to := from + cam.project_ray_normal(mouse) * 1000.0
+	var q := PhysicsRayQueryParameters3D.create(from, to, 2)  # LAYER_PARTY
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	var n: Node = hit.get("collider") if not hit.is_empty() else null
+	if n == null:
+		return false
+	var idx: int = _party.index_of(n)
+	if idx < 0:
+		return false
+	_party.try_swap_to(idx)
+	return true
 
 
 ## Left-click → ray-pick an enemy (collision layer 4) for the 12시 inspect panel; else clear.
