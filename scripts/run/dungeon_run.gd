@@ -53,6 +53,7 @@ const ReviveController := preload("res://scripts/run/controllers/revive_controll
 const TorchCarryController := preload("res://scripts/run/controllers/torch_carry_controller.gd")
 const Torch := preload("res://scripts/world/objects/torch.gd")
 const AimController := preload("res://scripts/run/controllers/aim_controller.gd")
+const SelectionController := preload("res://scripts/run/controllers/selection_controller.gd")
 const LootService := preload("res://scripts/run/loot_service.gd")
 const RunEndController := preload("res://scripts/run/run_end_controller.gd")
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
@@ -80,6 +81,7 @@ const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 var _aim: MeshInstance3D     # AimMarker (shared aim/throw marker)
 var _aim_ctrl: Node          # AimController (skillbook ground-target modal)
 var _revive: Node3D          # ReviveController (targeted revive)
+var _selection: Node3D       # SelectionController (좌클릭 아군 스왑 / 적 인스펙트, 씬 공유)
 var _torch: Node             # TorchCarryController (ENT-TORCH carry/throw)
 var _loot: Node3D            # LootService (per-kill drops)
 var _run_end: Node           # RunEndController (extraction channel + settlement + wipe)
@@ -270,6 +272,9 @@ func _ready() -> void:
 	# Enemy inspect panel (top-center), shown on left-click of an enemy.
 	_enemy_info = EnemyInfo.new()
 	$HUD.add_child(_enemy_info)
+	_selection = SelectionController.new()
+	add_child(_selection)
+	_selection.setup(_party, _enemy_info)
 	_alert_banner = Label.new()  # UI-006 central separation/MIA warning (icon + text, auto-hide)
 	_alert_banner.visible = false
 	_alert_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -338,8 +343,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var lb := event as InputEventMouseButton
 		if lb.button_index == MOUSE_BUTTON_LEFT and lb.pressed:
-			if not _select_party_under_mouse():  # 전투 템포 C: 아군 클릭 → 스왑, 아니면 적 인스펙트
-				_select_enemy_under_mouse()
+			_selection.handle_click(event)  # 아군 스왑 / 적 인스펙트 (씬 공유)
 			return
 	# Scroll wheel = zoom the camera (WoW-style dolly; keeps the look angle).
 	if event is InputEventMouseButton:
@@ -539,46 +543,6 @@ func _place_loot_chests() -> void:
 			_vision_fog.fog_object(c)
 			placed += 1
 	print("[LOOT] 절차적 상자 %d개 배치 (seed %d)" % [placed, seed_v])
-
-
-## Left-click → ray-pick a party member (collision layer 2) and swap control to it (전투 템포 C).
-## Runs before enemy-inspect; returns true if a member was hit (down/MIA는 try_swap_to가 거른다).
-func _select_party_under_mouse() -> bool:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return false
-	var mouse := get_viewport().get_mouse_position()
-	var from := cam.project_ray_origin(mouse)
-	var to := from + cam.project_ray_normal(mouse) * 1000.0
-	var q := PhysicsRayQueryParameters3D.create(from, to, 2)  # LAYER_PARTY
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	if hit.is_empty():
-		return false
-	var idx: int = _party.index_of(hit.collider)
-	if idx < 0:
-		return false
-	_party.try_swap_to(idx)
-	return true
-
-
-## Left-click → ray-pick an enemy (collision layer 4) for the inspect panel; else clear.
-func _select_enemy_under_mouse() -> void:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return
-	var mouse := get_viewport().get_mouse_position()
-	var from := cam.project_ray_origin(mouse)
-	var to := from + cam.project_ray_normal(mouse) * 1000.0
-	var q := PhysicsRayQueryParameters3D.create(from, to, 4)  # LAYER_ENEMY
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	if hit.is_empty():
-		_enemy_info.clear()
-		return
-	var n: Node = hit.collider
-	if n != null and n.has_method("get_body_color"):
-		_enemy_info.set_enemy(n)
-	else:
-		_enemy_info.clear()
 
 
 ## Floating interaction label (name + key) positioned ABOVE the hovered object by

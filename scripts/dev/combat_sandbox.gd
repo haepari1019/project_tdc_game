@@ -15,6 +15,7 @@ const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")  # S3b
 const Torch := preload("res://scripts/world/objects/torch.gd")  # ENT-TORCH — PAT-003 EN-010 bearer test
 const AimMarker := preload("res://scripts/ui/aim_marker.gd")              # 지면-타겟 서브 조준(던전 parity)
 const AimController := preload("res://scripts/run/controllers/aim_controller.gd")
+const SelectionController := preload("res://scripts/run/controllers/selection_controller.gd")
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")  # 평타 archetype 조회(검증 패널)
 
 # ZONE laying (S3b test): medium → spawn defaults. Fire/ToxicGas damage; movement media outcome-only
@@ -102,6 +103,7 @@ var _combat: Node3D
 var _camera: Node3D
 var _aim: MeshInstance3D       # AimMarker (지면-타겟 서브 조준 디스크)
 var _aim_ctrl: Node            # AimController (조준 모달)
+var _selection: Node          # SelectionController (좌클릭 아군 스왑 / 적 인스펙트, 씬 공유)
 var _enc_dropdown: OptionButton
 var _unit_dropdown: OptionButton
 var _zone_dropdown: OptionButton
@@ -215,6 +217,9 @@ func _build_ui() -> void:
 	# 12시(상단중앙) 적 케릭시트 — 적을 좌클릭하면 표시(게임 dungeon_run parity). mouse-transparent.
 	_enemy_info = EnemyInfo.new()
 	layer.add_child(_enemy_info)
+	_selection = SelectionController.new()
+	add_child(_selection)
+	_selection.setup(_party, _enemy_info)
 
 
 ## The shipping HUD pieces that show ally skill cooldowns/charges — UI-002 PartySheet (HP + Q/E/R
@@ -1004,8 +1009,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Left-click (not aiming, not over the panel) inspects an enemy in the 12시 panel; empty space clears.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed \
 			and not _pointer_over_panel():
-		if not _select_party_under_mouse():  # 전투 템포 C: 아군 클릭 → 스왑
-			_select_enemy_under_mouse()
+		_selection.handle_click(event)  # 아군 스왑 / 적 인스펙트 (씬 공유)
 		return
 	# Wheel over the dev panel = scroll it, never zoom the camera. At the scroll boundary the
 	# ScrollContainer stops consuming the wheel so it leaks here — guard on the pointer being over
@@ -1035,45 +1039,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_G: _party.toggle_formation_priority()  # 전투우선 ↔ 진형우선 (game parity)
 			KEY_U: _party.toggle_cohesion_mode()       # 파티결속 ↔ 비결속 (F-003 §3.4, game parity)
 			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
-
-
-## Left-click → ray-pick a party member (collision layer 2) and swap control to it (전투 템포 C).
-## Mirrors dungeon_run._select_party_under_mouse. down/MIA는 try_swap_to가 거른다.
-func _select_party_under_mouse() -> bool:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return false
-	var mouse := get_viewport().get_mouse_position()
-	var from := cam.project_ray_origin(mouse)
-	var to := from + cam.project_ray_normal(mouse) * 1000.0
-	var q := PhysicsRayQueryParameters3D.create(from, to, 2)  # LAYER_PARTY
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	var n: Node = hit.get("collider") if not hit.is_empty() else null
-	if n == null:
-		return false
-	var idx: int = _party.index_of(n)
-	if idx < 0:
-		return false
-	_party.try_swap_to(idx)
-	return true
-
-
-## Left-click → ray-pick an enemy (collision layer 4) for the 12시 inspect panel; else clear.
-## Mirrors dungeon_run._select_enemy_under_mouse so the sandbox behaves like the real game.
-func _select_enemy_under_mouse() -> void:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null:
-		return
-	var mouse := get_viewport().get_mouse_position()
-	var from := cam.project_ray_origin(mouse)
-	var to := from + cam.project_ray_normal(mouse) * 1000.0
-	var q := PhysicsRayQueryParameters3D.create(from, to, 4)  # LAYER_ENEMY
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	var n: Node = hit.get("collider") if not hit.is_empty() else null
-	if n != null and n.has_method("get_body_color"):
-		_enemy_info.set_enemy(n)
-	else:
-		_enemy_info.clear()
 
 
 func _cast_sub(slot: int) -> void:
