@@ -145,6 +145,20 @@ func _refresh_party_in_combat() -> void:
 ## A combat event on one enemy (it dealt/took damage, or perceived the party):
 ## engage it, refresh its grace, and wake squad-mates within cohesion radius. A
 ## strayed member is outside that radius, so its distant squad stays dormant.
+## 전투 템포 B-2 소프트 동시성 캡(K=1): 같은 스쿼드의 다른 적이 지금 cap-eligible(threat/control)
+## 캐스트를 winding 중인가. 알파 스트라이크/재겹침 방지(combat_tempo_overhaul §3). 평타·비-cap 무제한.
+func squad_cast_busy(caster: CharacterBody3D) -> bool:
+	var sid: int = caster.squad_id
+	for e in _enemies:
+		if e == caster or not is_instance_valid(e):
+			continue
+		if not e.engaged or e.squad_id != sid:
+			continue
+		if e.winding and AbilityRoles.is_cap_eligible(String(e.windup_chosen.get("ref", ""))):
+			return true
+	return false
+
+
 func _engage_enemy(e: CharacterBody3D, target_member: CharacterBody3D = null) -> void:
 	if e == null or not is_instance_valid(e):
 		return

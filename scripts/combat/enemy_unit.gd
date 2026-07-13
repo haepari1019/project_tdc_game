@@ -53,6 +53,9 @@ var probe_backstep_s: float = 0.0
 ## (damage casts, heal, provoke, dash) fires on its own AB cooldown_s; independent timers so an
 ## enemy with multiple ABs (e.g. EN-001 AB-099+AB-002) doesn't share one clock.
 var ability_cd: Dictionary = {}
+## 전투 템포 B-1(combat_tempo_overhaul §3): 교전 직후 cap-eligible 캐스트 지연 창(초). 0=지연 없음.
+var cast_stagger_s: float = 0.0
+var stagger_armed: bool = false  # 교전 진입 1회 시딩 가드(재교전 시 재시딩)
 ## Dash state (AB-006 gap-close / AB-013 backstab) — a short velocity-takeover lunge after the
 ## telegraph, resolved (and AB-013's hit applied) by EnemyAI when dash_timer_s elapses.
 var dashing: bool = false

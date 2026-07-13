@@ -308,6 +308,12 @@ func _is_hostile(enemy: CharacterBody3D, cand) -> bool:
 	return false
 
 
+## B-1 (전투 템포 §3): 교전 직후 cap-eligible(threat/control) 캐스트의 첫 발동을 이 창만큼 난수 지연 →
+## 분대가 접촉 순간 일제히 텔레그래프하는 알파 스트라이크 방지. 증원도 각자 교전 시 자동 적용.
+const CAST_STAGGER_MIN := 1.5
+const CAST_STAGGER_MAX := 3.5
+
+
 func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# Anchor home on the FIRST tick in ANY state — an enemy spawned directly into combat (sandbox,
 	# or aggro'd before ever roaming) must still capture its spawn point, or zone (PT-004) has no
@@ -319,8 +325,12 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# squads mean same-squad never appears here.
 	var hostiles := _hostiles(enemy, targets)
 	if not enemy.engaged:
+		enemy.stagger_armed = false  # 비교전 → 재교전 시 캐스트 스태거 재시딩(전투 템포 B-1)
 		_tick_dormant(enemy, hostiles, delta)
 		return
+	if not enemy.stagger_armed:
+		enemy.stagger_armed = true
+		enemy.cast_stagger_s = randf_range(CAST_STAGGER_MIN, CAST_STAGGER_MAX)  # 교전 첫 틱: cap 캐스트 지연 창
 	enemy.attack_cooldown_s = maxf(0.0, enemy.attack_cooldown_s - delta)
 	enemy.tick_slow(delta)
 	enemy.tick_stun(delta)
@@ -368,6 +378,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# gate. Every cast pass checks its own ability_cd[ref] internally.
 	for r in enemy.ability_cd.keys():
 		enemy.ability_cd[r] = maxf(0.0, float(enemy.ability_cd[r]) - delta)
+	enemy.cast_stagger_s = maxf(0.0, enemy.cast_stagger_s - delta)  # B-1 스태거 창 소진
 	_try_cast_frenzy(enemy)  # AB-105 Bloodlust — self-rage at low HP (instant, no wind-up)
 	if not enemy.winding:
 		_try_cast_signature(enemy)
@@ -1152,6 +1163,8 @@ func _try_cast_provoke(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
 			continue
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue  # AB still on cooldown
+		if _cast_gated(enemy, ref):
+			continue  # 전투 템포: 스태거/스쿼드 캡 (AB-099 도발=control)
 		var r := float(eff.get("zone_radius_m", 4.0))
 		var deg := float(eff.get("zone_deg", 60.0))
 		enemy.face_toward(target.global_position)  # aim the fan at the party it's fighting (cast-start)
@@ -1197,6 +1210,8 @@ func _try_cast_zone(enemy: CharacterBody3D, target: CharacterBody3D) -> bool:
 			continue
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue  # AB still on cooldown
+		if _cast_gated(enemy, ref):
+			continue  # 전투 템포: AB-039 독가스(threat)만 cap; 지형존은 role=utility라 무영향
 		if dist > float(eff.get("range_m", ZONE_CAST_RANGE_M)):
 			continue  # target out of cast range (rangeBand Mid) — don't place across the map
 		var medium := String(eff.get("medium", "Oil"))
@@ -1274,6 +1289,8 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 			continue  # away dash(AB-007 후퇴)는 _try_cast_retreat 소관
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue  # AB still on cooldown
+		if _cast_gated(enemy, ref):
+			continue  # 전투 템포: AB-013/100/104(threat/control)만 cap; AB-006 갭클로즈(reposition) 무영향
 		# Backstab (hit_on_arrival): STRIKE only from the FLANK — perpendicular to the party spine.
 		# If not on the flank arc yet, hold and let REPOSITION circle there first (no head-on dash).
 		if bool(eff.get("flank", false)):  # only flank dashes (AB-013) gate on the party flank axis;
@@ -1434,6 +1451,19 @@ func _pick_backline_target(nodes: Array) -> CharacterBody3D:
 	return best
 
 
+## 전투 템포 캐스트 페이싱(combat_tempo_overhaul §3 / DRIFT-083). cap-eligible(role=threat/control)
+## 캐스트만 (B-1) 교전 직후 스태거 창, (B-2) 스쿼드 동시 캐스트 K=1 로 지연된다. 평타·자버프·이동·
+## 힐·soft debuff(role 비-cap)는 게이트 없음.
+func _cast_gated(enemy: CharacterBody3D, ref: String) -> bool:
+	if not AbilityRoles.is_cap_eligible(ref):
+		return false
+	if enemy.cast_stagger_s > 0.0:
+		return true  # B-1: 교전 직후 첫 캐스트 난수 지연
+	if _combat != null and _combat.squad_cast_busy(enemy):
+		return true  # B-2: 스쿼드 내 다른 적이 cap 캐스트 winding 중
+	return false
+
+
 ## Choose this attack-gate's strike: a ready in-range signature (its AB cooldown elapsed) takes
 ## priority over the basic. Heal/provoke/dash are NOT picked here — they fire via their own cooldown
 ## passes. The chosen signature's cooldown is reset in _begin_enemy_attack when it's committed.
@@ -1449,8 +1479,8 @@ func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
 		var eff: Dictionary = Slice01Data.get_ability(ref)
 		if not gate_kinds.has(String(eff.get("kind", ""))):
 			continue  # heal/provoke/dash → own passes
-		if float(enemy.ability_cd.get(ref, 0.0)) <= 0.0:
-			return {"ref": ref, "trigger": "signature"}  # off cooldown → cast (cd set on commit)
+		if float(enemy.ability_cd.get(ref, 0.0)) <= 0.0 and not _cast_gated(enemy, ref):
+			return {"ref": ref, "trigger": "signature"}  # off cooldown + not tempo-gated → cast
 	# Otherwise the unit's rom_* basic archetype (EN-COR-000 §rom_*).
 	if enemy.basic_attack != "":
 		return {"ref": enemy.basic_attack, "trigger": "basic"}
@@ -1532,6 +1562,8 @@ func _try_cast_third(enemy: CharacterBody3D, target: CharacterBody3D, dist: floa
 			continue
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue
+		if _cast_gated(enemy, ref):
+			continue  # 전투 템포: AB-102 루트/AB-103 테더(control)만 cap; AB-101 표식(utility) 무영향
 		if dist > float(eff.get("range_m", 10.0)):
 			continue
 		# Don't re-apply a status the target already carries (save the cast for fresh prey).
