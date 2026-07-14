@@ -82,6 +82,7 @@ var _reactions: Node3D  # ReactionSystem — destructibles + RX-OIL-FIRE chain
 var _skills: Dictionary = {}  # kind -> skill instance (built from _SKILL_SCRIPTS)
 ## AB-005 focus_dump — 직전 서브 이펙트가 때린 적 수(sb_strike가 report). 단일(1)→집중 소모 / 그외→빌드.
 var _last_hit_count: int = 0
+var _last_hit_target: CharacterBody3D = null   # 직전 서브가 맞춘 주 대상(AB-007 이탈 마무리딜 대상 → 집중 결속이 조회)
 
 
 func setup(combat: Node3D, reactions: Node3D) -> void:
@@ -142,11 +143,17 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	var inst = member.get_skillbook(slot_index)
 	if inst == null:
 		return
+	# 「이탈」 패시브 모드(auto_disengage) — 저HP 자동 발동이라 수동 시전 불가. 액티브(누름·패시브 없음)
+	# 모드는 flag=false. 효과는 동일(마무리딜+후퇴+어그로↓), 발동 방식만 다름 — 스킬트리 택1 예정.
+	if bool(inst.params.get("auto_disengage", false)):
+		return
 	if int(inst.charges) <= 0:
 		print("[SB] %s depleted" % inst.get("display_name", "?"))
 		return
 	if float(inst.cooldown_s) > 0.0:
 		return
+	if member.has_method("break_veil"):
+		member.break_veil()   # 잠행 은신 중 스킬 = 능동 노출 → 은신 해제(첫 스킬 +보너스는 consume_next_hit_bonus로 명중에 적용)
 	# 채널(AB-054) 중 새 스킬을 쓰면 채널을 막지 않고 대신 중단시킨다(이동 중단은 beam_channel이 처리).
 	# 이 시점은 차지/쿨 검증을 통과해 새 시전이 실제로 진행될 때뿐 — 실패한 시도로는 채널을 끊지 않는다.
 	if member.has_method("interrupt_active_channel"):
@@ -165,12 +172,15 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	var cast_s: float = float(p.get("cast_s", 0.0))
 	if cast_s > 0.0:
 		inst.charges = int(inst.charges) - 1   # commit — 캐스트 시작에 선차감(취소면 skill_cast이 환급)
-		inst.cooldown_s = cd
 		var node = _SkillCast.new()
 		add_child(node)
 		var pd: Dictionary = p.duplicate()     # 완료 시점 파라미터 고정
-		node.setup(member, slot_index, cast_s, self,
-			func() -> void: _resolve_sub(member, slot_index, pd, target_pos),
+		# 쿨은 캐스트 '완료' 시점에 시작(취소 시 미발동·환급) — 캐스트 중엔 is_channeling이 재시전을 막는다.
+		# (쿨 시작을 시전에 걸면 캐스트 도중 쿨이 소모돼 cd≈cast_s일 때 '무한쿨'처럼 됨.)
+		var on_done := func() -> void:
+			_resolve_sub(member, slot_index, pd, target_pos)
+			inst.cooldown_s = cd
+		node.setup(member, slot_index, cast_s, self, on_done,
 			float(p.get("cast_range_disc_m", 0.0)), _cast_bar_color(String(p.get("kind", ""))),
 			_cast_charge_color(p))
 		return
@@ -254,6 +264,14 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			# --- DPS arc_weave 「혈풍」: 서브 시전당 HP 대가 + 광역 명중 적 수 비례 회복(3기+ 이득) ---
 		"blood_soak":
 			_dps_blood_soak(member, slot_index, aim)
+			# --- AB-007 이탈 결속(Nuker) ---
+		"disengage_focus":   # 집중 — 이탈 마무리 대상에 집중 1스택 누적(처형 준비)
+			if _last_hit_target != null and is_instance_valid(_last_hit_target):
+				_nuker_focus_stack(member, _last_hit_target.global_position)
+		"disengage_veil":    # 잠행 — 이탈 후 은신 유지(평타 정지) + 은신 첫 스킬 강타
+			var fk: Dictionary = BindingOverlays.FLANK
+			member.apply_veil(float(fk.get("disengage_veil_s", 4.0)), true)
+			member.grant_next_hit_bonus(float(fk.get("disengage_bonus", 0.3)))
 
 
 ## Anchor 「방벽 충전」 — add a BulwarkCharge; on the 3-stack consume, stun the nearest enemy (capstone).
@@ -420,12 +438,15 @@ func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vecto
 				if e.has_method("apply_silence"):
 					e.apply_silence(float(od["bolt_silence_s"]))
 			SkillVfx.telegraph(self, aim, Color(0.62, 0.42, 0.95), r)
-		"skillbook_poison":   # 맹독 폭주 — 초월 중 명중 적에게 독 스택 즉시 다중 적용(DoT 폭증)
+		"skillbook_poison":   # 맹독 폭주 — 초월 중 독 스택 폭증 + 독 zone 잔류(payoff). base/적/비초월엔 zone 없음.
 			var pdps: float = float(inst.params.get("poison_dps", 8.0))
 			var pcap: float = pdps * float(inst.params.get("poison_stack_cap", 5))
 			for e in enemies_in_radius(aim, r):
 				if e.has_method("apply_poison_stack"):
 					e.apply_poison_stack(float(inst.params.get("poison_dur_s", 8.0)), pdps * float(od["poison_overdrive_stacks"]), pcap, pdps)
+			var zttl: float = float(inst.params.get("zone_ttl_s", 0.0))   # 독장판 = 초월 결속 payoff(체류 시 3s마다 스택↑)
+			if zttl > 0.0:
+				spawn_zone("ToxicGas", aim, float(inst.params.get("zone_radius_m", 5.0)), pdps, zttl, member)
 			SkillVfx.telegraph(self, aim, Color(0.4, 0.85, 0.3), r)
 
 
@@ -522,6 +543,10 @@ func report_hit_count(n: int) -> void:
 	_last_hit_count = n
 
 
+func report_hit_target(t: CharacterBody3D) -> void:
+	_last_hit_target = t
+
+
 func enemies_in_radius(pos: Vector3, r: float) -> Array:
 	return _combat._enemies_in_radius(pos, r)
 
@@ -548,6 +573,51 @@ func allies_in_radius(pos: Vector3, r: float) -> Array:
 
 func deal_damage(e: CharacterBody3D, source: CharacterBody3D, dmg: float) -> void:
 	_combat._deal_damage(e, source, dmg)
+
+
+## AB-007 이탈 — 이 시전자의 전 적 위협을 frac만큼 감소(어그로 흘리기). 아군 전용(적 CastContext는 no-op).
+func reduce_threat(caster: CharacterBody3D, frac: float) -> void:
+	var k := clampf(1.0 - frac, 0.0, 1.0)
+	for e in _combat._enemies:
+		if is_instance_valid(e) and e.has_method("scale_threat"):
+			e.scale_threat(caster, k)
+
+
+# AB-007 이탈 auto-trigger(아군) — HP가 trigger_frac 아래로 교차 시 1회 발동(회복 후 재무장). 적은 enemy_ai가 구동.
+var _disengage_armed: Dictionary = {}   # member → 재무장 상태(회복 시 true, 발동 시 false)
+
+## combat_controller가 매 틱 호출 — 저HP 아군의 이탈 서브(skillbook_blink+auto_disengage)를 저절로 발동.
+func tick_ally_disengage(party: Array) -> void:
+	for m in party:
+		if not is_instance_valid(m) or not m.is_alive():
+			continue
+		var slot := _auto_disengage_slot(m)
+		if slot < 0:
+			continue
+		var inst = m.get_skillbook(slot)
+		var frac: float = float(m.hp) / maxf(float(m.max_hp), 1.0)
+		var armed: bool = bool(_disengage_armed.get(m, true))
+		if armed and frac < float(inst.params.get("trigger_frac", 0.4)) \
+				and float(inst.cooldown_s) <= 0.0 and int(inst.charges) > 0:
+			_disengage_armed[m] = false
+			var p: Dictionary = inst.params.duplicate()
+			p["_coeff"] = 1.0
+			p["_slot"] = slot
+			_resolve_sub(m, slot, p, m.global_position)   # 효과 + 결속(집중/잠행) 적용
+			inst.charges = int(inst.charges) - 1
+			inst.cooldown_s = float(inst.params.get("cooldown_s", 8.0))
+		elif not armed and frac > float(inst.params.get("rearm_frac", 0.45)):
+			_disengage_armed[m] = true
+
+
+## 멤버의 auto-disengage 서브 슬롯(skillbook_blink + auto_disengage) — 없으면 -1.
+func _auto_disengage_slot(m: CharacterBody3D) -> int:
+	for i in range(3):
+		var inst = m.get_skillbook(i)
+		if inst != null and String(inst.params.get("kind", "")) == "skillbook_blink" \
+				and bool(inst.params.get("auto_disengage", false)):
+			return i
+	return -1
 
 
 func heal_threat(healer: CharacterBody3D, ally: CharacterBody3D, eff: float) -> void:

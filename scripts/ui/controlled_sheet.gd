@@ -166,14 +166,19 @@ func _process(_delta: float) -> void:
 				s.key.add_theme_color_override("font_color", Color(0.92, 0.92, 0.92))
 				s.radial.tooltip_text = "보조 (%s)\n(빈 슬롯 — 스킬북 장착)" % key
 			else:
+				var passive: bool = bool(inst.params.get("auto_disengage", false))   # 이탈 패시브(007b) — 자동 발동, 누름 불가
 				s.radial.set_empty(false)
-				s.radial.set_icon_color(inst.color)
+				s.radial.set_icon_color(inst.color.darkened(0.35) if passive else inst.color)
 				var cdmax: float = float(inst.params.get("cooldown_s", 0.0))
 				s.radial.set_cd(float(inst.cooldown_s) / cdmax if cdmax > 0.0 else 0.0)
 				var _classes: Array = inst.get("equip_classes", [])
 				var _pen: bool = not _classes.is_empty() and String(m.class_id) != String(_classes[0])
-				s.key.add_theme_color_override("font_color", Color(1.0, 0.5, 0.25) if _pen else Color(0.92, 0.92, 0.92))
-				s.key.text = "%s·%d%s" % [key, int(inst.charges), ("▼" if _pen else "")]
+				if passive:
+					s.key.add_theme_color_override("font_color", Color(0.5, 0.77, 1.0))   # 하늘색 '자동' = 패시브(키 누름 불가)
+					s.key.text = "자동·%d" % int(inst.charges)
+				else:
+					s.key.add_theme_color_override("font_color", Color(1.0, 0.5, 0.25) if _pen else Color(0.92, 0.92, 0.92))
+					s.key.text = "%s·%d%s" % [key, int(inst.charges), ("▼" if _pen else "")]
 				s.radial.tooltip_text = _sub_tip(m, inst, key, cdmax, idx)
 
 
@@ -214,6 +219,8 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 		SkillText.describe(kind, inst.params),
 		"[color=#9aa4b2]탄 %d/%d  ·  쿨 %ss[/color]" % [int(inst.charges), int(inst.charges_max), _num(cdmax)],
 	]
+	if bool(inst.params.get("auto_disengage", false)):   # 이탈 패시브(007b) — 액티브로 누를 수 없음
+		lines.insert(1, "[color=#7fc4ff]⚙ 패시브 · 저HP 시 자동 발동 (직접 사용 불가)[/color]")
 	lines.append_array(SkillText.affix_lines(inst.get("affix", {})))
 	var bp := SkillText.band_pct(String(inst.get("base_ability_id", "")), String(m.class_id))
 	if bp > 0:

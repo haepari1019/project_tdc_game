@@ -13,6 +13,11 @@ extends Node3D
 const TICK_S := 0.2
 const UNIT_GROUPS := ["party_member", "enemy"]
 const OUTCOME_DUR := TICK_S * 2.5   # outcome refresh while inside (~0.5s residual after leaving)
+## ToxicGas 독존(AB-010 병합) — 체류 중 POISON_STACK_S마다 독 스택 +1 + 독 지속 리셋(캡이어도 리셋 → 존 안에선 안 풀림).
+## dps=스택당 dps. AB-010 시전이 즉시 1스택(강화 4) 깔고 남은 zone이 누적. ref: outcome_status Poison.
+const POISON_STACK_S := 3.0     # 독 스택 1 증가 주기(초)
+const POISON_STACK_CAP := 5     # 존이 쌓을 수 있는 최대 스택
+const POISON_STACK_DUR := 8.0   # 스택 지속 = AB-010 poison_dur_s(8) → 존 스택이 독 지속(해제 쿨)을 '전체' 리셋(clock 100%). 나가면 이만큼 잔류
 ## Media that apply a movement OUTCOME each tick (tick even with no dps).
 const MOVEMENT_MEDIA := ["Water", "Ice", "Oil", "Steam", "Wind"]
 ## Medium → outcome status applied to units inside (STATUS-OUTCOME-CORE).
@@ -48,6 +53,7 @@ var _active: bool = true
 var _tick_accum: float = 0.0
 var _age: float = 0.0
 var _inside: Dictionary = {}   # units currently inside (edge detection → EnterZone/ExitZone events)
+var _poison_accum: Dictionary = {}   # ToxicGas: unit → 마지막 스택 이후 체류 시간(주기 도달 시 스택 +1)
 var _mesh: MeshInstance3D
 var _mat: StandardMaterial3D
 var _source: Node = null   # attacker credited for threat when this zone damages enemies
@@ -140,7 +146,8 @@ func _physics_process(delta: float) -> void:
 	_tick_accum += delta
 	if _tick_accum < TICK_S:
 		return
-	var dmg := dps * _tick_accum
+	var dt := _tick_accum
+	var dmg := dps * dt
 	_tick_accum = 0.0
 	# Effects apply for hazardous / movement media. Harmless Smoke/Vegetation still track membership
 	# so EnterZone/ExitZone edges fire for the event bus (RX consumers land in S3d).
@@ -154,10 +161,12 @@ func _physics_process(delta: float) -> void:
 			if not _inside.has(u):
 				_emit_zone_event("EnterZone", u)  # entry edge
 			if apply_fx:
-				_apply_medium(u, dmg, g)
+				_apply_medium(u, dmg, dt, g)
 	for u in _inside:
-		if not now.has(u) and is_instance_valid(u):
-			_emit_zone_event("ExitZone", u)  # exit edge
+		if not now.has(u):
+			_poison_accum.erase(u)   # 존을 나가면 스택 주기 리셋(쌓인 스택은 유닛에 잔류)
+			if is_instance_valid(u):
+				_emit_zone_event("ExitZone", u)  # exit edge
 	_inside = now
 
 
@@ -174,7 +183,7 @@ func _emit_zone_event(kind: String, u: Node) -> void:
 
 
 ## Apply this medium's per-tick outcome to a unit inside (피아무구분, F-021). 매체→결과 디스패치.
-func _apply_medium(u: Node, dmg: float, g: String) -> void:
+func _apply_medium(u: Node, dmg: float, dt: float, g: String) -> void:
 	match status:
 		"Fire":  # 점화 — Ignited DoT (carries dps); raw fallback for units w/o the outcome system
 			if u.has_method("apply_outcome"):
@@ -182,12 +191,17 @@ func _apply_medium(u: Node, dmg: float, g: String) -> void:
 			elif u.has_method("take_damage"):
 				u.take_damage(dmg)
 			_credit(u, dmg, g)
-		"ToxicGas":  # 독기 — Poisoned DoT (party); raw for enemies (no poison status)
-			if u.has_method("apply_poison"):
-				u.apply_poison(OUTCOME_DUR, dps)
-			elif u.has_method("take_damage"):
+		"ToxicGas":  # 독존 — 체류 중 POISON_STACK_S마다 독 스택 +1(누적 DoT). dps=스택당 dps. 피아무구분.
+			if u.has_method("apply_poison_stack"):
+				var acc: float = float(_poison_accum.get(u, 0.0)) + dt
+				if acc >= POISON_STACK_S:
+					acc -= POISON_STACK_S
+					u.apply_poison_stack(POISON_STACK_DUR, dps, dps * float(POISON_STACK_CAP), dps)
+					_credit(u, dps * POISON_STACK_S, g)   # 스택 주기당 어그로(연속 dps와 동률)
+				_poison_accum[u] = acc
+			elif u.has_method("take_damage"):   # 독 시스템 없는 유닛 폴백 = 연속 피해
 				u.take_damage(dmg)
-			_credit(u, dmg, g)
+				_credit(u, dmg, g)
 		"Smoke", "Vegetation":
 			pass  # harmless — Smoke = vision (deferred), Vegetation = flammable only
 		_:

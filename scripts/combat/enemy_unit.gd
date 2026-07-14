@@ -845,6 +845,12 @@ func nav_move_toward(dest: Vector3, speed: float) -> Vector3:
 	return (to_wp / d) * speed
 
 
+## AB-007 이탈 어그로 감소 — 이 유닛의 특정 멤버 위협을 배율 k로 스케일(없으면 no-op).
+func scale_threat(member: CharacterBody3D, k: float) -> void:
+	if threat.has(member):
+		threat[member] = float(threat[member]) * k
+
+
 func add_threat(member: CharacterBody3D, amount: float) -> void:
 	if member == null or amount == 0.0:
 		return

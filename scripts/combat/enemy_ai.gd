@@ -1341,6 +1341,9 @@ func _try_cast_retreat(enemy: CharacterBody3D, target: CharacterBody3D, dist: fl
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
 		enemy.windup_target = target
 		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 7.0))
+		var ps := float(eff.get("parting_shot_mult", 0.0))   # AB-007 이탈 통일 — 후퇴하며 마무리 한 방
+		if ps > 0.0 and target != null and target.has_method("take_damage"):
+			target.take_damage(enemy.basic_damage * ps, enemy)
 		SkillVfx.telegraph(self, enemy.global_position, _dash_color(eff))
 		return true
 	return false

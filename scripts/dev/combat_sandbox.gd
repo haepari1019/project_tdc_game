@@ -59,7 +59,7 @@ const UNIT_VERIFY := {
 	"EN-002": "• 사거리서 hold·안 도망(standoff)\n• 쿨 5s마다 AB-004 1.0s 충전 → 2x 한 방 + Shock 둔화\n• BOSS-001로 띄우면 50%HP에서 충전 빨라짐 + 스턴 저항",
 	"EN-003": "• 측면 arc로 접근(orbit)\n• 갭 생기면 AB-006 [청록] 대시 → 타겟 앞에 직선 갭클로즈(데미지 X, 착지링) → 평타 flurry",
 	"EN-004": "• zone 고수, 타겟이 멀어지면 앵커 복귀(추격 X)\n• 쿨 2.5s마다 AB-008 착탄 splash(주변 파티원도 피해)\n• AB-009 Oil 장판(밟으면 Slippery·인화성) + AB-042 Wind 장판 설치(타겟 발밑 전조→생성)",
-	"EN-005": "• 적 4m 진입 시 후퇴(kite)\n• 쿨 2s마다 AB-010 독(둔화 아님, 도트)\n• AB-039 독안개(ToxicGas) 장판 설치 — Ember로 점화 시 toxic flash",
+	"EN-005": "• 적 4m 진입 시 후퇴(kite)\n• AB-010 독침: 즉시 1스택 + 독 zone 잔류(체류 시 3s마다 스택↑, 존 안에선 독 안 풀림) — Ember로 점화 시 toxic flash",
 	"EN-006": "• 때리고 짧게 빠짐(probe)\n• 쿨 5s마다 AB-011 스턴",
 	"EN-007": "• 사거리 hold(standoff)\n• 쿨 4s마다 AB-012 hex 둔화(보라 룬탄)\n• AB-036 Water·AB-040 Ice·AB-043 Vegetation 장판 설치\n• AB-041 Glacial Bolt(cyan, Chilled) → 자기 Water에 맞히면 Ice 결빙, Veg면 frostbite. Ember(불)면 Water→증기·Veg→점화",
 	"EN-008": "• 치고-빠지는 측면 암살자(통합 루프)\n• REPOSITION: 파티 spine(탱커↔최후열)에 수직인 '옆구리'로 standoff(6m) 유지·근접하면 burst-kite\n• STRIKE: 측면 각도+쿨 차면 AB-013 백스탭(1.5x+넉백, 크림슨) — 정면에선 안 쏨\n• RESET: 찌른 뒤 다시 빠져 측면 복귀",

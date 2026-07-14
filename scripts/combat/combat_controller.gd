@@ -229,6 +229,7 @@ func _physics_process(delta: float) -> void:
 			_enemy_ai.tick(enemy, targets, delta)
 	# Party auto-attack runs always — attacking a foe is what commits the party. (party원만 actor)
 	_tick_party_attacks(party, delta)
+	_ability_dispatch.tick_ally_disengage(party)   # AB-007 이탈 — 저HP 아군 자동 이탈(마무리딜+후퇴+어그로↓)
 	# Per-squad reinforcement ticks while that squad has any engaged member.
 	for squad in _squads:
 		_tick_reinforcement(squad, delta)
@@ -289,6 +290,8 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 			continue
 		m.attack_cooldown_s = maxf(0.0, m.attack_cooldown_s - delta)
 		m.identity_cooldown_s = maxf(0.0, m.identity_cooldown_s - delta)
+		if m.has_method("holds_fire") and m.holds_fire():
+			continue   # 잠행 이탈 은신 중 = 평타 정지(스킬로 능동 해제할 때까지)
 		# Provoked (AB-099): forced basic on the caster only — NO Identity/Sub, no normal target,
 		# bypasses the tank-first gate. Movement toward the caster is driven by the controllers.
 		if m.has_method("is_provoked") and m.is_provoked():

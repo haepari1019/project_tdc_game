@@ -35,9 +35,11 @@
         "range_m": 9,
         "radius_m": 5.0,
         "damage_mult": 0.3,
-        "poison_dps": 8,
+        "poison_dps": 1.35,
         "poison_dur_s": 8,
-        "poison_stack_cap": 5
+        "poison_stack_cap": 5,
+        "zone_radius_m": 5.0,
+        "zone_ttl_s": 6.0
       },
       "tier": "Basic"
     },
@@ -132,30 +134,6 @@
         "medium": "Water",
         "radius_m": 2.0,
         "ttl_s": 8.0
-      },
-      "tier": "Advanced"
-    },
-    {
-      "base_ability_id": "AB-039",
-      "display_name": "Vent Spore Cloud",
-      "equip_classes": [
-        "Nuker",
-        "Healer"
-      ],
-      "sub_bands": {
-        "Nuker": "B3"
-      },
-      "range_band": "Mid",
-      "charges_max": 50,
-      "cast": {
-        "kind": "skillbook_zone",
-        "cooldown_s": 9,
-        "targeted": true,
-        "range_m": 9,
-        "medium": "ToxicGas",
-        "radius_m": 2.0,
-        "ttl_s": 9.0,
-        "dps": 8.0
       },
       "tier": "Advanced"
     },
@@ -747,7 +725,7 @@
       "tier": "Basic"
     },
     {
-      "base_ability_id": "AB-007",
+      "base_ability_id": "AB-007a",
       "display_name": "Retreat Hop",
       "equip_classes": [
         "Nuker"
@@ -756,9 +734,32 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_blink",
-        "cooldown_s": 6,
+        "cooldown_s": 8,
         "away": true,
-        "blink_m": 6.0
+        "blink_m": 6.0,
+        "parting_shot_mult": 1.5,
+        "aggro_reduce": 0.6
+      },
+      "tier": "Basic"
+    },
+    {
+      "base_ability_id": "AB-007b",
+      "display_name": "Retreat Reflex",
+      "equip_classes": [
+        "Nuker"
+      ],
+      "range_band": "Mid",
+      "charges_max": 80,
+      "cast": {
+        "kind": "skillbook_blink",
+        "cooldown_s": 8,
+        "away": true,
+        "blink_m": 6.0,
+        "auto_disengage": true,
+        "trigger_frac": 0.4,
+        "rearm_frac": 0.45,
+        "parting_shot_mult": 1.5,
+        "aggro_reduce": 0.6
       },
       "tier": "Basic"
     },

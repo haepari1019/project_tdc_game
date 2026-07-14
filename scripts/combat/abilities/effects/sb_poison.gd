@@ -13,21 +13,20 @@ func kind() -> String:
 func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var radius := float(p.get("radius_m", 5.0))
 	var center: Vector3 = target_pos if target_pos != Vector3.ZERO else m.global_position   # 논타겟 지면 조준 착탄점(AI/조준없음 = 자기중심)
-	var foes: Array = ctx.enemies_in_radius(center, radius)
-	if foes.is_empty():
-		return false
 	var coeff := float(p.get("_coeff", 1.0))
 	var direct: float = float(p.get("damage_mult", 0.3)) * m.basic_damage * coeff    # 소량 즉발
 	var unit_dps: float = float(p.get("poison_dps", 8.0))                            # 스택 1개의 기본 DoT dps
-	var add_dps: float = unit_dps * coeff                                            # 이번 시전이 얹는 dps(=1스택)
+	var add_dps: float = unit_dps * coeff                                            # 착탄 즉시 얹는 dps(=1스택; 강화는 결속이 +3=4스택)
 	var dur := float(p.get("poison_dur_s", 8.0))
 	var cap: float = unit_dps * float(p.get("poison_stack_cap", 5))                  # 최대 누적(스택 cap 기준)
-	for e in foes:
+	# 착탄 지점 즉시 1스택. 조준이 빗나가도 아래 독 zone은 남으므로 빈 곳도 유효(면적 거부).
+	for e in ctx.enemies_in_radius(center, radius):
 		if direct > 0.0:
 			ctx.deal_damage(e, m, direct)
 		if e.has_method("apply_poison_stack"):
-			e.apply_poison_stack(dur, add_dps, cap, unit_dps)   # 스택 독 디버프(1스택) — unit 기준 표시
+			e.apply_poison_stack(dur, add_dps, cap, unit_dps)
+	# 독 zone은 base가 아니라 「초월(맹독 폭주)」 payoff — ability_dispatch._dps_overdrive_empower가 생성한다.
+	# (그래서 적/비초월 시전 = 즉발 독 스택만, zone 없음. ref: 사용자 결정 — 독장판 = 초월 결속 능력.)
 	ctx.sub_shake(p)
 	SkillVfx.sub_nova(ctx, center, radius)
-	print("[SB] %s Venom Spit — %d foes poisoned" % [m.class_id, foes.size()])
 	return true

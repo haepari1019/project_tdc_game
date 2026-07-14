@@ -330,7 +330,8 @@
       "dash_range_m": 6.0,
       "away": true,
       "hp_below": 0.5,
-      "hit_on_arrival": false
+      "hit_on_arrival": false,
+      "parting_shot_mult": 1.5
     }
   }
 }

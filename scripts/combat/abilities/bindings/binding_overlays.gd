@@ -65,6 +65,7 @@ const FLANK := {
 	"melee_range_m": 2.8, "veil_s": 2.0, "dash_m": 4.0,   # E 이탈 = 짧은 고정 거리(원래 서브 사거리 15m를 그대로 쓰면 너무 멀리 튕김, DRIFT-076)
 	"band_dmg": {"Melee": 0.15, "Mid": 0.25, "Long": 0.5},   # Melee = 이미 근접 → generic +15%(합연산). Mid/Long = 근접화 보상(멀수록 큼)
 	"band_cd": {"Melee": 0.0, "Mid": 0.10, "Long": 0.20},
+	"disengage_veil_s": 4.0, "disengage_bonus": 0.3,   # AB-007 이탈 잠행 결속 — 은신 유지 초 + 은신 첫 스킬 증폭
 }
 # Ward Pulse 자리 재해석 → 지속 치유(가호=보호막 폐지, DRIFT-073). 치유 choke(deal_heal/deal_regen)가 정체성
 # 게이트로 즉시 치유를 HoT로 전환: 총량 = 원래 치유 × total_mult 를 dur초에 걸쳐. 기존 apply_regen 재사용(신규 상태 없음).
@@ -253,13 +254,35 @@ const OVERLAYS := [
 		"identity_ab": "IDA-027", "slot_ab": "AB-010", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak",
 		"payoff": "독 살포 → 흡수 폭발(기본 회복)", "desc_ko": "체력을 대가로 시전하고, 중독시킨 적 수에 비례해 회복한다(3기 이상이면 이득).",
 	},
+	# --- AB-007 이탈 결속(Nuker; 007a/007b 공통, slot 무관 = -1) ---
+	{
+		"id": "BIND-033", "gear": "gear_ward_nuker_ruin_sight",
+		"identity_ab": "IDA-025", "slot_ab": "AB-007a", "slot_index": -1, "theme": "focus", "delta": "disengage_focus",
+		"payoff": "이탈 마무리 → 대상 집중 +1", "desc_ko": "이탈의 마무리 한 방을 맞은 대상에게 집중을 1스택 누적한다(처형 준비).",
+	},
+	{
+		"id": "BIND-034", "gear": "gear_ward_nuker_ruin_sight",
+		"identity_ab": "IDA-025", "slot_ab": "AB-007b", "slot_index": -1, "theme": "focus", "delta": "disengage_focus",
+		"payoff": "이탈 마무리 → 대상 집중 +1", "desc_ko": "이탈의 마무리 한 방을 맞은 대상에게 집중을 1스택 누적한다(처형 준비).",
+	},
+	{
+		"id": "BIND-035", "gear": "gear_ward_nuker_flank_knife",
+		"identity_ab": "IDA-029", "slot_ab": "AB-007a", "slot_index": -1, "theme": "flank", "delta": "disengage_veil",
+		"payoff": "이탈 → 은신 유지 · 은신 첫 스킬 강타", "desc_ko": "이탈 후 은신을 유지한다(은신 중 평타 정지). 은신에서 쓰는 첫 스킬이 추가 피해 — 시전/은신해제 시 종료.",
+	},
+	{
+		"id": "BIND-036", "gear": "gear_ward_nuker_flank_knife",
+		"identity_ab": "IDA-029", "slot_ab": "AB-007b", "slot_index": -1, "theme": "flank", "delta": "disengage_veil",
+		"payoff": "이탈 → 은신 유지 · 은신 첫 스킬 강타", "desc_ko": "이탈 후 은신을 유지한다(은신 중 평타 정지). 은신에서 쓰는 첫 스킬이 추가 피해 — 시전/은신해제 시 종료.",
+	},
 ]
 
 ## resolveEffectiveAbility (F-020 §3.7) — active overlay for a member's slot, or {} (base only). 착용 즉시 활성.
 static func resolve(base_gear_id: String, identity_ab: String, slot_ab: String, slot_index: int) -> Dictionary:
 	for ov in OVERLAYS:
 		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
-				and String(ov["slot_ab"]) == slot_ab and int(ov["slot_index"]) == slot_index:
+				and String(ov["slot_ab"]) == slot_ab \
+				and (int(ov["slot_index"]) == slot_index or int(ov["slot_index"]) == -1):   # -1 = 슬롯 무관(이탈 결속)
 			return ov
 	return {}
 

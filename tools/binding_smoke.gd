@@ -20,9 +20,14 @@ func _init() -> void:
 	if not BindingOverlays.resolve("gear_ward_tank_anchor_bulwark", "IDA-020", "AB-033", 1).is_empty():
 		fails += 1; push_error("[BIND] wrong slotIndex must NOT activate an overlay")
 
-	# All 30 overlays (Tank 001~006/029/030 + Nuker 007~008/027/010~012/028 + Healer 013~018 + DPS 초월 019~021/026/031 + DPS 혈풍 022~024/032).
-	if BindingOverlays.OVERLAYS.size() != 30:
-		fails += 1; push_error("[BIND] expected 30 overlays, got %d" % BindingOverlays.OVERLAYS.size())
+	# All 34 overlays (+ AB-007 이탈 집중 033/034 · 잠행 035/036). Tank 001~006/029/030 + Nuker 007~008/027/010~012/028 + Healer 013~018 + DPS 019~024/026/031/032 + 이탈 033~036.
+	if BindingOverlays.OVERLAYS.size() != 34:
+		fails += 1; push_error("[BIND] expected 34 overlays, got %d" % BindingOverlays.OVERLAYS.size())
+	# 이탈 결속은 slot 무관(-1) — 어느 슬롯에 있어도 resolve.
+	if String(BindingOverlays.resolve("gear_ward_nuker_ruin_sight", "IDA-025", "AB-007a", 2).get("delta", "")) != "disengage_focus":
+		fails += 1; push_error("[BIND] 이탈(AB-007a)+집중 should resolve disengage_focus at any slot")
+	if String(BindingOverlays.resolve("gear_ward_nuker_flank_knife", "IDA-029", "AB-007b", 0).get("delta", "")) != "disengage_veil":
+		fails += 1; push_error("[BIND] 이탈(AB-007b)+잠행 should resolve disengage_veil")
 
 	# 규약(covenant) — identity가 자기완결 규약을 선언(Beacon=표식 / Anchor=방벽 충전).
 	var sig_b := BindingOverlays.signature_for("gear_ward_tank_kite_shield", "IDA-021")

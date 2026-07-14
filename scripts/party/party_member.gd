@@ -126,6 +126,7 @@ var _haste_timer_s: float = 0.0
 # F-009 Veiled (Smoke Veil AB-062) — brief stealth: enemy targeting drops this member while active.
 var _veil_timer_s: float = 0.0
 var _veil_dur: float = 1.0
+var _hold_fire: bool = false   # 잠행 이탈 은신 = 평타 정지(스킬로 능동 해제할 때까지). apply_veil(hold_fire=true) 세팅.
 # F-009 Shadowstep (AB-061) — the NEXT damaging hit by this member is boosted, consumed once.
 var _next_hit_bonus: float = 0.0
 # F-009 Casting (wind-up, skill_cast) — caster occupied; blocks other active casts until the cast
@@ -1019,9 +1020,11 @@ func attack_interval() -> float:
 ## this member (enemy_ai._is_hostile returns false), so threat acquisition lets go for the window.
 ## Movement + the member's own attacks are unaffected. Dims the body for a self-readable cue.
 const _VEIL_COLOR := Color(0.55, 0.6, 0.72, 0.28)   # 은신 반투명 톤(냉회색 + 저알파) — 유령처럼
-func apply_veil(dur: float) -> void:
+func apply_veil(dur: float, hold_fire: bool = false) -> void:
 	if not _alive:
 		return
+	if hold_fire:
+		_hold_fire = true   # 잠행 이탈 — 은신 중 평타 정지(능동 스킬로만 해제)
 	popup_status("은신", Color(0.72, 0.72, 0.78))   # 매 발동(처치)마다 floating — 연속 처치도 재-announce
 	_badge_strip().set_badge("veil", "👻 은신")     # 지속 배지 — 반투명 누커를 따라다니며 「이 유닛이 은신 중」 명시
 	_veil_timer_s = maxf(_veil_timer_s, dur)
@@ -1035,6 +1038,26 @@ func apply_veil(dur: float) -> void:
 
 func is_veiled() -> bool:
 	return _alive and _veil_timer_s > 0.0
+
+
+## 잠행 이탈 은신 중 평타 정지 여부 — combat_controller._tick_party_attacks가 조회.
+func holds_fire() -> bool:
+	return _alive and _veil_timer_s > 0.0 and _hold_fire
+
+
+## 은신 즉시 해제(잠행 이탈 후 스킬 시전 = 능동 노출). 만료와 동일 원복.
+func break_veil() -> void:
+	if _veil_timer_s <= 0.0:
+		return
+	_veil_timer_s = 0.0
+	_hold_fire = false
+	if _body_material:
+		_body_material.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+		_body_material.albedo_color = _base_color
+	if _badges != null:
+		_badges.clear_badge("veil")
+	_apply_controlled_visual(_controlled)
+	_update_status_orb()
 
 
 ## F-009 Shadowstep (AB-061) — boost this member's NEXT damaging hit; consumed once on damage.
@@ -1222,6 +1245,7 @@ func _physics_process(delta: float) -> void:
 	if _veil_timer_s > 0.0:            # F-009 Veiled (stealth) expiry → un-dim + retargetable
 		_veil_timer_s -= delta
 		if _veil_timer_s <= 0.0:
+			_hold_fire = false        # 잠행 은신 만료 → 평타 재개
 			if _body_material:
 				_body_material.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 				_body_material.albedo_color = _base_color

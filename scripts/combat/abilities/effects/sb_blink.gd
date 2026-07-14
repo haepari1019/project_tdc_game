@@ -12,23 +12,36 @@ func kind() -> String:
 
 func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var dist := float(p.get("blink_m", 6.0))
+	var away := bool(p.get("away", false))
 	var to: Vector3
-	if bool(p.get("away", false)):   # AB-007 Retreat Hop — hop away from the nearest threat
-		var foe = ctx.nearest_enemy_in_range(m.global_position, 20.0)
+	var foe = null
+	if away:   # AB-007 이탈 — hop away from the nearest threat
+		foe = ctx.nearest_enemy_in_range(m.global_position, 20.0)
 		to = (m.global_position - foe.global_position) if foe != null else Vector3(0, 0, -1)
 	elif target_pos != Vector3.ZERO and target_pos.distance_to(m.global_position) > 0.3:
 		to = target_pos - m.global_position
 	else:
-		var tgt = ctx.nearest_enemy_in_range(m.global_position, 20.0)
-		to = (tgt.global_position - m.global_position) if tgt != null else Vector3(0, 0, 1)
+		foe = ctx.nearest_enemy_in_range(m.global_position, 20.0)
+		to = (foe.global_position - m.global_position) if foe != null else Vector3(0, 0, 1)
+	# AB-007 이탈 — 후퇴 전 '마무리 한 방'(평타치던 대상 = 최근접 적)
+	var ps := float(p.get("parting_shot_mult", 0.0))
+	if ps > 0.0:
+		var tgt = foe if foe != null else ctx.nearest_enemy_in_range(m.global_position, 20.0)
+		if tgt != null:
+			ctx.deal_damage(tgt, m, m.basic_damage * ps)
+			if ctx.has_method("report_hit_target"):
+				ctx.report_hit_target(tgt)   # 집중 결속이 마무리 대상에 집중 스택을 얹도록
 	to.y = 0.0
 	if to.length() < 0.1:
 		to = Vector3(0, 0, 1)
 	var start: Vector3 = m.global_position
-	m.global_position += to.normalized() * minf(dist, to.length())
+	m.global_position += to.normalized() * (dist if away else minf(dist, to.length()))
 	SkillVfx.dash_streak(ctx, start, m.global_position, Color(0.55, 0.38, 0.78))   # shadow blink trail
+	# AB-007 이탈 — 어그로 감소(아군: 전 적 위협 −frac / 적 ctx: no-op)
+	var ag := float(p.get("aggro_reduce", 0.0))
+	if ag > 0.0 and ctx.has_method("reduce_threat"):
+		ctx.reduce_threat(m, ag)
 	var nhb := float(p.get("next_hit_bonus", 0.0))   # AB-061 Shadowstep — boost the next hit
 	if nhb > 0.0 and m.has_method("grant_next_hit_bonus"):
 		m.grant_next_hit_bonus(nhb)
-	print("[SB] %s Shadowstep — blink %.1fm%s" % [m.class_id, start.distance_to(m.global_position), (" (+%d%% next)" % int(nhb * 100)) if nhb > 0.0 else ""])
 	return true
