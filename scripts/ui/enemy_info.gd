@@ -96,7 +96,9 @@ func _refresh() -> void:
 			var col: Color = st.get("color", Color(0.8, 0.8, 0.8))
 			_status_pips[j].set_icon_color(col)
 			_status_pips[j].set_cd(float(st.get("ratio", 0.0)))
-			_status_labels[j].text = String(st.get("name", "?"))
+			var snm := String(st.get("name", "?"))
+			var sstk := int(st.get("stacks", 0))
+			_status_labels[j].text = (snm + " ×%d" % sstk) if sstk > 1 else snm   # 중독 등 스택형 = 몇 겹
 			_status_labels[j].add_theme_color_override("font_color", col.lightened(0.25))  # 아이콘 색과 통일
 			_status_boxes[j].visible = true
 		else:

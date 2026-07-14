@@ -78,7 +78,7 @@ const SANCT := {"radius_m": 3.0, "dur": 8.0, "amp": 1.4}
 const OVERDRIVE := {
 	"gauge_max": 100.0, "basic_gain": 8.0, "sub_gain": 12.0, "hits_cap": 5, "dur": 6.0,
 	"burn_dur": 4.0, "burn_dps_pct": 0.4, "beam_pull_m": 3.0, "beam_half_deg": 12.0,
-	"cold_root_s": 1.5, "radius_bonus_m": 1.0, "bolt_silence_s": 2.0,
+	"cold_root_s": 1.5, "radius_bonus_m": 1.0, "bolt_silence_s": 2.0, "poison_overdrive_stacks": 3.0,
 }
 # DPS arc_weave 「혈풍(Blood Gale)」 — 서브 시전당 max_hp 소모, 명중 적 수 비례 회복(3기+ 순이득). 서브가
 # 애초에 광역이라 억지 스플래시 없이 자연 성립. 자살 불가(hp_floor 클램프). DRIFT-077.
@@ -241,6 +241,17 @@ const OVERLAYS := [
 		"id": "BIND-024", "gear": "gear_ward_dps_weave_staff",
 		"identity_ab": "IDA-027", "slot_ab": "AB-041", "slot_index": 2, "theme": "bloodgale", "delta": "blood_soak",
 		"payoff": "빙결 파동 → 혈빙(과회복 → 임시 보호막)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다. 최대 체력을 넘긴 과회복분은 임시 보호막이 된다.",
+	},
+	# DPS Venom Spit(AB-010, 스택 독 DoT) — 초월(맹독 폭주: 스택 즉시 폭증) / 혈풍(중독 적 비례 회복).
+	{
+		"id": "BIND-031", "gear": "gear_ward_dps_press_rod",
+		"identity_ab": "IDA-024", "slot_ab": "AB-010", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
+		"payoff": "독 살포 → 초월 충전 / (초월)맹독 폭주: 독 스택 폭증", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「맹독 폭주」로 발동 — 명중한 적에게 독 스택을 한 번에 여러 겹 쌓아 지속딜을 폭증시킨다.",
+	},
+	{
+		"id": "BIND-032", "gear": "gear_ward_dps_weave_staff",
+		"identity_ab": "IDA-027", "slot_ab": "AB-010", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak",
+		"payoff": "독 살포 → 흡수 폭발(기본 회복)", "desc_ko": "체력을 대가로 시전하고, 중독시킨 적 수에 비례해 회복한다(3기 이상이면 이득).",
 	},
 ]
 

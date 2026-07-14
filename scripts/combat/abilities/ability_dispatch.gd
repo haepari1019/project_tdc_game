@@ -383,15 +383,15 @@ func _nuker_flank_dash(member: CharacterBody3D, _slot_index: int, aim: Vector3) 
 # 조작/AI 공통(is_controlled 무관). ref: binding_overlays.gd OVERDRIVE/BLOODGALE · docs/design/dps_binding_kit.md.
 # ============================================================================
 
-## 「초월」 서브 델타 — 비발동이면 게이지 충전(명중 적 수 비례, 광역이 빨리 참), 발동 중이면 서브 강화 변형 실행.
+## 「초월」 서브 델타 — 명중 게이지를 충전(명중 적 수 비례, 광역이 빨리 참)하고, 이번 시전이 게이지를 채웠다면
+## 같은 시전에서 즉시 강화 변형을 실행(충전 완료 = 그 시전이 폭주 — 오프바이원 없음). 조작/AI 공통.
 func _dps_overdrive(member: CharacterBody3D, slot_index: int, aim: Vector3) -> void:
 	var od: Dictionary = BindingOverlays.OVERDRIVE
+	var hits: int = clampi(_count_sub_hits(member, slot_index, aim), 1, int(od["hits_cap"]))
+	member.overdrive_add(float(od["sub_gain"]) * float(hits), float(od["gauge_max"]))
 	if member.overdrive_is_active():
 		_dps_overdrive_empower(member, slot_index, aim, od)
-		member.overdrive_reset()   # 강화 서브 1회 시전 = 초월 소모(지속시간 없음)
-	else:
-		var hits: int = clampi(_count_sub_hits(member, slot_index, aim), 1, int(od["hits_cap"]))
-		member.overdrive_add(float(od["sub_gain"]) * float(hits), float(od["gauge_max"]))
+		member.overdrive_reset()   # 충전을 채운 그 시전 = 강화 1회 = 초월 소모
 
 
 ## 「초월」 강화 변형(발동 중 서브) — kind로 분기. 전부 대상 한정이라 아군 무피해(장판 대신 화상 DoT).
@@ -420,6 +420,13 @@ func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vecto
 				if e.has_method("apply_silence"):
 					e.apply_silence(float(od["bolt_silence_s"]))
 			SkillVfx.telegraph(self, aim, Color(0.62, 0.42, 0.95), r)
+		"skillbook_poison":   # 맹독 폭주 — 초월 중 명중 적에게 독 스택 즉시 다중 적용(DoT 폭증)
+			var pdps: float = float(inst.params.get("poison_dps", 8.0))
+			var pcap: float = pdps * float(inst.params.get("poison_stack_cap", 5))
+			for e in enemies_in_radius(aim, r):
+				if e.has_method("apply_poison_stack"):
+					e.apply_poison_stack(float(inst.params.get("poison_dur_s", 8.0)), pdps * float(od["poison_overdrive_stacks"]), pcap, pdps)
+			SkillVfx.telegraph(self, aim, Color(0.4, 0.85, 0.3), r)
 
 
 ## 중력 광선 — 빔 방향(member→aim) 원뿔 내 적을 각자 빔 축선의 최근접점으로 끌어당긴다(넉백 역방향).

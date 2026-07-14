@@ -37,12 +37,9 @@
     },
     "AB-010": {
       "kind": "enemy_poison",
-      "telegraph_s": 0.4,
-      "cooldown_s": 2.0,
-      "damage_mult": 0.5,
-      "poison_dur_s": 4,
-      "poison_dps": 8,
-      "vfx": "shot_venom"
+      "channel": true,
+      "cooldown_s": 4.0,
+      "unified": true
     },
     "AB-011": {
       "kind": "enemy_stun",

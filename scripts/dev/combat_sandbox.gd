@@ -764,7 +764,7 @@ const _BIND_FIXTURES := {
 	"flank": {"gear": "gear_ward_nuker_flank_knife", "subs": ["AB-004", "AB-059", "AB-060"], "role": "Nuker", "label": "NUKER 잠행"},
 	"dothealer": {"gear": "gear_ward_healer_ward_sigil", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 지속치유"},
 	"sanctuary": {"gear": "gear_ward_healer_mend_lantern", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 성역"},
-	"overdrive": {"gear": "gear_ward_dps_press_rod", "subs": ["AB-053", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 초월(게이지→강화)"},
+	"overdrive": {"gear": "gear_ward_dps_press_rod", "subs": ["AB-010", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 초월(AB-010@Q 맹독폭주 · 게이지→강화)"},
 	"bloodgale": {"gear": "gear_ward_dps_weave_staff", "subs": ["AB-053", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 혈풍(HP대가·광역흡수)"},
 }
 func _on_bind_fixture(which: String) -> void:

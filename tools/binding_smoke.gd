@@ -20,9 +20,9 @@ func _init() -> void:
 	if not BindingOverlays.resolve("gear_ward_tank_anchor_bulwark", "IDA-020", "AB-033", 1).is_empty():
 		fails += 1; push_error("[BIND] wrong slotIndex must NOT activate an overlay")
 
-	# All 28 pilot overlays (Tank 001~006/029(방벽)/030(표식) + Nuker 007~008/027/010~012/028 + Healer 013~018 + DPS 초월 019~021/026 + DPS 혈풍 022~024).
-	if BindingOverlays.OVERLAYS.size() != 28:
-		fails += 1; push_error("[BIND] expected 28 pilot overlays, got %d" % BindingOverlays.OVERLAYS.size())
+	# All 30 overlays (Tank 001~006/029/030 + Nuker 007~008/027/010~012/028 + Healer 013~018 + DPS 초월 019~021/026/031 + DPS 혈풍 022~024/032).
+	if BindingOverlays.OVERLAYS.size() != 30:
+		fails += 1; push_error("[BIND] expected 30 overlays, got %d" % BindingOverlays.OVERLAYS.size())
 
 	# 규약(covenant) — identity가 자기완결 규약을 선언(Beacon=표식 / Anchor=방벽 충전).
 	var sig_b := BindingOverlays.signature_for("gear_ward_tank_kite_shield", "IDA-021")

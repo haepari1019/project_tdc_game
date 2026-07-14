@@ -1243,6 +1243,9 @@ func _physics_process(delta: float) -> void:
 	var burn := _outcome.tick(delta)  # elemental outcome timers + Ignited DoT (bypasses shield)
 	if burn > 0.0:
 		_apply_dot(burn)
+	var pt := _outcome.take_poison_tick()
+	if pt > 0.0:
+		_FloatText.popup(self, str(int(round(pt))), Color(0.72, 0.38, 0.95), 2.4, 0.9)   # 중독 DoT = 보라(우측 빗겨)
 
 
 # --- Status (F-021) ---
@@ -1343,6 +1346,16 @@ func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if not _outcome.has(id) and _FloatText.OUTCOME_KO.has(id):
 		popup_status(_FloatText.OUTCOME_KO[id], Color(1.0, 0.7, 0.55))
 	_outcome.apply(id, dur, mag)
+	_update_status_orb()
+
+
+## AB-010 스택형 독 DoT — 재적용마다 dps 누적(스택↑)·지속 갱신. 두 번 걸면 틱 배증. DoT는 _outcome tick이 굴린다.
+func apply_poison_stack(dur: float, add_dps: float, cap_dps: float, unit_dps: float) -> void:
+	if not _alive:
+		return
+	if not _outcome.has("Poison"):
+		popup_status("중독", Color(0.5, 0.9, 0.4))
+	_outcome.apply_stack("Poison", dur, add_dps, cap_dps, unit_dps)
 	_update_status_orb()
 
 

@@ -309,6 +309,16 @@ func _badge_strip():
 	return _badges
 
 
+## 디버프 아이콘 로우(lazy) — 체력바 위, get_status_list 디버프를 코인 아이콘으로.
+const _OverheadStatusIcons := preload("res://scripts/ui/overhead_status_icons.gd")
+func _status_icon_strip():
+	if _status_icons == null:
+		_status_icons = _OverheadStatusIcons.new()
+		_status_icons.position = Vector3(0, _box_size.y + 1.0, 0)
+		add_child(_status_icons)
+	return _status_icons
+
+
 ## Beacon 「표식」 시각 표시 — 결속 정체성이 표식을 걸/갱신할 때 호출. `dur`s 후 자동으로 사라짐.
 func show_mark(dur: float) -> void:
 	_badge_strip().set_badge("mark", "◈")
@@ -406,6 +416,7 @@ var _dummy_dmg_label: Label3D
 var _dummy_threat_label: Label3D
 # Beacon 「표식」 시각 표시 — 결속 정체성이 표식을 걸면 이 적 위에 "◈ 표식"(자기 만료).
 var _badges = null                 # OverheadBadges 스트립(lazy) — 표식/집중 등 스택 상태를 한 줄로 통합
+var _status_icons = null           # OverheadStatusIcons 로우(lazy) — 디버프 아이콘(색+심볼+시계 타이머)
 var _mark_timer_display: float = 0.0
 var floor_of: Dictionary = {}  # member -> threat floor (§3.5)
 const DEFAULT_FLOOR := 10.0
@@ -465,6 +476,10 @@ func tick_outcome(delta: float) -> void:
 	var burn := _outcome.tick(delta)
 	if burn > 0.0:
 		take_damage(burn)
+	var pt := _outcome.take_poison_tick()
+	if pt > 0.0:
+		_FloatText.popup(self, str(int(round(pt))), Color(0.72, 0.38, 0.95), _box_size.y + 0.3, 0.9)   # 중독 DoT = 보라(우측 빗겨 — 체력바/아이콘 안 가리게)
+	_update_status_badges()   # 디버프 아이콘(체력바 위) 갱신 — 만료/DoT 반영
 
 
 ## Apply an elemental OUTCOME status (STATUS-OUTCOME-CORE). ref: zones / RX (P2-S3).
@@ -474,6 +489,16 @@ func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if not _outcome.has(id) and _FloatText.OUTCOME_KO.has(id):
 		popup_status(_FloatText.OUTCOME_KO[id], Color(0.75, 0.9, 1.0))
 	_outcome.apply(id, dur, mag)
+
+
+## AB-010 스택형 독 DoT — 재적용마다 dps 누적(스택↑)·지속 갱신. 두 번 걸면 틱 배증. DoT는 tick_outcome이 굴린다.
+func apply_poison_stack(dur: float, add_dps: float, cap_dps: float, unit_dps: float) -> void:
+	if hp <= 0.0:
+		return
+	if not _outcome.has("Poison"):
+		popup_status("중독", Color(0.5, 0.9, 0.4))
+	_outcome.apply_stack("Poison", dur, add_dps, cap_dps, unit_dps)
+	_update_status_badges()   # 즉시 갱신(중독 스택 배지)
 
 
 ## Public outcome query (Third-faction targeting reads Scented/Rooted/etc.). ref: DEC-20260621-001.
@@ -601,6 +626,20 @@ func get_status_list() -> Array:
 		})
 	out.append_array(_outcome.status_list())  # 원소 아웃컴(Sodden/Chilled/Ignited/Bloodlust/…)
 	return out
+
+
+## 디버프 아이콘 로우 갱신 — 활성 디버프(버프 제외)를 체력바 위 코인 아이콘으로(색+한글 심볼+시계 타이머).
+## 독 등 스택형은 심볼에 스택 수가 붙는다(예 "독5"). status_list의 {name,color,ratio,stacks}를 그대로 전달.
+func _update_status_badges() -> void:
+	var list: Array = []
+	for s in get_status_list():
+		if not bool(s.get("buff", false)):
+			list.append(s)   # 디버프만
+	if list.is_empty():
+		if _status_icons != null:
+			_status_icons.sync([])
+	else:
+		_status_icon_strip().sync(list)
 
 
 ## 전투 감속(전투 템포 A / DRIFT-083): 교전 중이면 ×2/3. 비전투(roam/patrol)는 각 상태

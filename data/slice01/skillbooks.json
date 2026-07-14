@@ -21,22 +21,23 @@
     {
       "base_ability_id": "AB-010",
       "display_name": "Venom Spit",
+      "unified": true,
       "equip_classes": [
-        "Nuker",
-        "Healer"
+        "DPS"
       ],
-      "sub_bands": {
-        "Nuker": "B2"
-      },
       "range_band": "Mid",
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_poison",
-        "cooldown_s": 6,
+        "cooldown_s": 4,
+        "cast_s": 2.0,
+        "targeted": true,
+        "range_m": 9,
         "radius_m": 5.0,
-        "damage_mult": 0.5,
-        "poison_dur_s": 4,
-        "poison_dps": 8
+        "damage_mult": 0.3,
+        "poison_dps": 8,
+        "poison_dur_s": 8,
+        "poison_stack_cap": 5
       },
       "tier": "Basic"
     },

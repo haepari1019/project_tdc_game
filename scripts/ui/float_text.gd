@@ -16,15 +16,18 @@ const OUTCOME_KO := {
 }
 
 var _t := 0.0
+var _x_off := 0.0   # 화면(카메라) 우측 오프셋(m) — 매 프레임 카메라 오른쪽을 부모 로컬로 환산해 적용
 
 ## `parent` 위 `base_y` 높이에 텍스트를 띄운다. x를 살짝 흩어 동시 다발 효과를 구분.
-static func popup(parent: Node3D, txt: String, color: Color, base_y: float) -> void:
+## x_off: 중앙(체력바·상태 아이콘)을 피해 옆으로 미는 오프셋 — 데미지 수치는 오른쪽으로 빗겨 상단 UI에 안 가리게.
+static func popup(parent: Node3D, txt: String, color: Color, base_y: float, x_off: float = 0.0) -> void:
 	if parent == null or not is_instance_valid(parent):
 		return
 	var ft := FloatText.new()
 	ft.text = txt
 	ft.modulate = color
-	ft.position = Vector3(randf_range(-0.4, 0.4), base_y, 0.0)
+	ft._x_off = x_off + randf_range(-0.2, 0.2)
+	ft.position = Vector3(0.0, base_y, 0.0)   # x/z는 _process가 카메라(화면) 우측으로 세팅
 	parent.add_child(ft)
 
 
@@ -44,6 +47,16 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 	var f := _t / DUR
+	# 화면(카메라) 우측 오프셋 — 카메라 월드 오른쪽(수평)을 부모 로컬로 환산 → 적/카메라 회전 무관하게 항상 화면 우측.
+	var par := get_parent()
+	var cam: Camera3D = get_viewport().get_camera_3d() if is_inside_tree() else null
+	if par is Node3D and cam != null:
+		var cr: Vector3 = cam.global_transform.basis.x
+		cr.y = 0.0
+		if cr.length() > 0.001:
+			var lo: Vector3 = (par as Node3D).global_transform.basis.inverse() * (cr.normalized() * _x_off)
+			position.x = lo.x
+			position.z = lo.z
 	position.y += RISE * delta / DUR                       # 위로 상승
 	if f > FADE_START:                                     # 후반부 페이드아웃
 		var a := 1.0 - (f - FADE_START) / (1.0 - FADE_START)
