@@ -114,6 +114,7 @@ var _unit_dropdown: OptionButton
 var _zone_dropdown: OptionButton
 var _count_spin: SpinBox
 var _engaged_chk: CheckBox
+var _interact_chk: CheckBox   # SINGLE UNIT에 opportunistic 사물 상호작용(배럴 능동 부수기) 켜기 (dev)
 var _third_chk: CheckBox   # 스폰 유닛을 Third 진영으로 (진영전 테스트)
 var _status: Label
 var _formation_lbl: Label
@@ -370,6 +371,10 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	_engaged_chk.text = "spawn engaged (skip perception)"
 	_engaged_chk.button_pressed = true
 	box.add_child(_engaged_chk)
+	_interact_chk = CheckBox.new()
+	_interact_chk.text = "opportunistic 사물 상호작용 (배럴 능동 부수기)"
+	_interact_chk.button_pressed = false
+	box.add_child(_interact_chk)
 	var clear_btn := Button.new()
 	clear_btn.text = "Clear all enemies"
 	clear_btn.pressed.connect(_on_clear)
@@ -611,7 +616,7 @@ func _on_spawn_unit() -> void:
 	if eid == "":
 		return
 	var fac := "Third" if _third_chk.button_pressed else "Dungeon"
-	_combat.debug_spawn_unit(eid, int(_count_spin.value), "SANDBOX", _engaged_chk.button_pressed, fac)
+	_combat.debug_spawn_unit(eid, int(_count_spin.value), "SANDBOX", _engaged_chk.button_pressed, fac, _interact_chk.button_pressed)
 	_status.text = "+%d × %s [%s]" % [int(_count_spin.value), eid, fac]
 
 

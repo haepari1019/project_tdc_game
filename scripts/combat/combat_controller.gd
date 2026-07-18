@@ -643,7 +643,7 @@ func debug_spawn_only(encounter_id: String, room_ref: String, engaged: bool = fa
 
 ## DEBUG (sandbox): ADD `count` of ONE enemy as its own squad (additive — does NOT clear, so
 ## you can build up a group, e.g. several EN-009 for surround). Clear via debug_spawn_only("").
-func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: bool = false, faction: String = "Dungeon") -> void:
+func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: bool = false, faction: String = "Dungeon", interact_objects: bool = false) -> void:
 	if enemy_id.is_empty() or count <= 0:
 		return
 	if _map and _map.has_method("get_spawn_position"):
@@ -654,7 +654,15 @@ func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: b
 	var lane := int(_room_squad_count.get(room_ref, 0))
 	_room_squad_count[room_ref] = lane + 1
 	var center := _squad_spawn_center(room_ref, lane)
+	var before := _enemies.size()
 	_spawn_at(units, center, squad_id, engaged, "Fixed", 1, "all", faction)
+	# DEV: opportunistic 사물 상호작용(배럴 능동 부수기) 관찰용 — SINGLE UNIT은 ENC override(interacts_
+	# with_objects) 경로를 안 타므로 이번 소환분에만 직접 켠다. prespawn 실경로는 ENC override가 담당.
+	if interact_objects:
+		for i in range(before, _enemies.size()):
+			if is_instance_valid(_enemies[i]):
+				_enemies[i].interacts_with_objects = true
+				_enemies[i].interaction_policy = "opportunistic"
 	_squads.append({"id": squad_id, "room_ref": room_ref, "encounter_id": "", "cleared": false, "reinforce": {}, "pending": false, "activated": false, "timer": 0.0, "warned": false})
 
 
