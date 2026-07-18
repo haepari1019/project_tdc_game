@@ -239,6 +239,7 @@
     },
     {
       "base_ability_id": "AB-053",
+      "unified": true,
       "display_name": "작열 폭발",
       "equip_classes": [
         "DPS",

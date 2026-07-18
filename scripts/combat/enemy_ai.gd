@@ -102,6 +102,22 @@ const HUNT_RADIUS_M := 16.0
 const OBJECT_SEEK_RADIUS_M := 16.0   # how far the enemy looks for a usable object
 const OBJECT_REACH_M := 1.6          # close enough to use it
 
+# enemy-usable object CONTRACT + REGISTRY (관측·게이트용, sb_ drop-in과 동형). 거동은 오브젝트가 소유.
+# 필수 = 모든 usable 오브젝트. held형(집어서 무기화)만 enemy_combat_tick(optional 훅)을 추가 구현.
+# 새 usable 오브젝트 = 여기 1줄 + 필수 2메서드 + "interactable" 그룹. object_smoke가 계약 충족 검증.
+const ENEMY_USABLE_REQUIRED := ["enemy_usable", "enemy_use"]
+const ENEMY_USABLE_HELD_HOOK := "enemy_combat_tick"
+const ENEMY_USABLE_OBJECTS := [
+	preload("res://scripts/world/objects/torch.gd"),    # held형 — 집어서 투척(정체성 = priority 정책)
+	preload("res://scripts/world/objects/barrel.gd"),   # 즉발형 — 부수기→oil(어쩌다 = opportunistic 정책)
+]
+
+# opportunistic 상호작용(배럴 부수기 등) — '어쩌다'만 발생시키는 게이트. priority(torch, 항상 최우선)와 달리
+# 우선순위를 낮추고(dash/cast 뒤) 근처 usable + 확률 롤을 통과할 때만 committed 상태로 완주(진동 방지).
+const OBJECT_OPP_CHANCE := 0.15         # 기회마다 결심 확률(어쩌다). 배럴 희소성이 저빈도를 더함
+const OBJECT_OPP_RECHECK_S := 1.5       # 롤 실패 후 재롤 간격(매 틱 롤 방지)
+const OBJECT_OPP_COOLDOWN_S := 8.0      # 완주(부순 뒤) 쿨
+
 # Camera damage feedback (피격, F-012). AB-DEFINED 스킬 피해만 — 평타·접촉뎀 제외.
 # trauma = (dmg/maxHP)*gain, 방향 킥 = 맞은 방향. 비조작 멤버 이벤트는 감쇄.
 const DMG_SHAKE_GAIN := 3.0
@@ -436,7 +452,10 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		enemy.has_search = false                          # consumed into investigate_pos
 	# F-021 §3.1.2 object-priority: a flagged enemy uses nearby objects; a held object runs its
 	# OWN combat behavior (torch → throw). Falls back to normal combat with no usable object.
-	if enemy.interacts_with_objects and _try_object_interaction(enemy, target, has_los, delta):
+	# 정책별 우선순위 — priority(torch): 상호작용이 정체성 → 항상 최우선(여기서 처리·return).
+	# opportunistic(배럴): 우선순위 낮춤 → 아래 dash/cast 뒤에서 '어쩌다'만 발동.
+	if enemy.interacts_with_objects and enemy.interaction_policy == "priority" \
+			and _try_object_interaction(enemy, target, has_los, delta):
 		enemy.move_and_slide()
 		return
 	# Dash signature (AB-006/013): close the gap on the current target (backline for flankers).
@@ -457,6 +476,13 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# telegraphed, applied on resolve. ref: DEC-20260621-001.
 	if not enemy.winding and not enemy.dashing and has_los:
 		_try_cast_third(enemy, target, dist, has_los)
+	# opportunistic 오브젝트 상호작용(배럴 부수기) — priority(torch)와 달리 우선순위 낮음. dash/cast가
+	# 없을 때만, 근처 usable + 확률 롤 통과 시 committed로 완주('어쩌다'). 통과하면 이 틱을 소유·return.
+	if enemy.interacts_with_objects and enemy.interaction_policy == "opportunistic" \
+			and not enemy.winding and not enemy.dashing \
+			and _try_opportunistic_object(enemy, delta):
+		enemy.move_and_slide()
+		return
 	# Per-enemy engaged behavior (EN-AI-000 / PT-###): MOVEMENT is profile-specific
 	# (_engage_move owns velocity incl. ZERO = plant); the ATTACK gate below is shared —
 	# in range + LOS + off cooldown → strike, even while a kiter keeps backpedalling.
@@ -764,6 +790,41 @@ func _try_object_interaction(enemy: CharacterBody3D, target: CharacterBody3D, ha
 	if Vector2(op.x - enemy.global_position.x, op.z - enemy.global_position.z).length() <= OBJECT_REACH_M:
 		obj.enemy_use(enemy)   # the object decides (torch → pick_up + set enemy.held_object)
 		enemy.velocity = Vector3.ZERO
+	else:
+		enemy.face_toward(op)
+		enemy.velocity = _nav_move(enemy, op, enemy.current_move_speed())
+	return true
+
+
+## opportunistic 오브젝트 상호작용('어쩌다') — priority(torch)와 달리 항상 하지 않는다. 게이트:
+## ① 이미 결심(committed)한 대상이 있으면 완주 ② 쿨 중이면 패스 ③ 근처 usable + 확률 롤 통과 시 결심.
+## committed 상태로 잠가 부술 때까지 완주 → 매 틱 롤로 '갔다 말았다' 진동하지 않는다.
+func _try_opportunistic_object(enemy: CharacterBody3D, delta: float) -> bool:
+	var obj = enemy.object_committed
+	if obj != null and is_instance_valid(obj) and obj.has_method("enemy_usable") and obj.enemy_usable():
+		return _drive_to_object(enemy, obj)          # 결심 대상 완주
+	enemy.object_committed = null
+	if enemy.object_interact_cd > 0.0:
+		enemy.object_interact_cd -= delta
+		return false                                 # 쿨 중 → 일반 교전
+	var near := _nearest_usable_object(enemy)
+	if near == null:
+		return false                                 # 근처에 usable 없음
+	if randf() > OBJECT_OPP_CHANCE:
+		enemy.object_interact_cd = OBJECT_OPP_RECHECK_S   # 롤 실패 → 짧은 재롤 간격
+		return false
+	enemy.object_committed = near                    # 결심 → 완주 시작
+	return _drive_to_object(enemy, near)
+
+
+## committed 오브젝트로 접근 → reach 시 enemy_use(즉발) → 쿨 걸고 해제. 아직 멀면 그쪽으로 이동.
+func _drive_to_object(enemy: CharacterBody3D, obj) -> bool:
+	var op: Vector3 = obj.global_position
+	if Vector2(op.x - enemy.global_position.x, op.z - enemy.global_position.z).length() <= OBJECT_REACH_M:
+		obj.enemy_use(enemy)                         # 즉발(배럴 부수기 → oil). held형이면 여기서 held 설정
+		enemy.velocity = Vector3.ZERO
+		enemy.object_committed = null
+		enemy.object_interact_cd = OBJECT_OPP_COOLDOWN_S   # 완주 후 쿨
 	else:
 		enemy.face_toward(op)
 		enemy.velocity = _nav_move(enemy, op, enemy.current_move_speed())
@@ -1472,7 +1533,7 @@ func _cast_gated(enemy: CharacterBody3D, ref: String) -> bool:
 ## passes. The chosen signature's cooldown is reset in _begin_enemy_attack when it's committed.
 func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
 	# Signature kinds that fire as a "special attack" through the attack gate (need in-range + LOS).
-	var gate_kinds := ["enemy_charge", "enemy_splash", "enemy_hex", "enemy_melee", "enemy_stun", "enemy_poison", "enemy_cold", "enemy_execute"]
+	var gate_kinds := ["enemy_charge", "enemy_splash", "enemy_hex", "enemy_melee", "enemy_stun", "enemy_poison", "enemy_cold", "enemy_fire", "enemy_execute"]
 	for ab in enemy.abilities:
 		if typeof(ab) != TYPE_DICTIONARY:
 			continue

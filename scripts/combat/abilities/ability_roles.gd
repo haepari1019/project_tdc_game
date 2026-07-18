@@ -37,6 +37,7 @@ const ROLES := {
 	"AB-010": {"kind": "enemy_poison",  "role": "threat",  "exec": "shared"},      # 독침 + DoT
 	"AB-039": {"kind": "spawn_zone",    "role": "threat",  "exec": "shared"},      # 독가스 존 (dps 8 — 유일한 피해 존)
 	"AB-041": {"kind": "enemy_cold",    "role": "threat",  "exec": "shared"},      # 빙결 볼트 + chill(부수)
+	"AB-053": {"kind": "enemy_fire",    "role": "threat",  "exec": "shared"},      # 작열 폭발(unified) + 배럴 파괴·Oil 점화(RX). EN-015 불 캐스터. DRIFT 프로토타입
 	"AB-106": {"kind": "enemy_execute", "role": "threat",  "exec": "shared"},      # 처형 (저HP x2 + 킬힐)
 
 	# ── ① 위협(threat) · hybrid (대시 딜리버리=ai, 피해=shared strike) ──

@@ -13,6 +13,7 @@ const ControlledSheet := preload("res://scripts/ui/controlled_sheet.gd")  # UI-0
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")              # 12시 적 케릭시트(클릭 인스펙트, 게임 parity)
 const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")  # S3b zone media (test laying)
 const Torch := preload("res://scripts/world/objects/torch.gd")  # ENT-TORCH — PAT-003 EN-010 bearer test
+const Barrel := preload("res://scripts/world/objects/barrel.gd")  # ENT-BARREL — EN-015 fire caster combo test
 const AimMarker := preload("res://scripts/ui/aim_marker.gd")              # 지면-타겟 서브 조준(던전 parity)
 const AimController := preload("res://scripts/run/controllers/aim_controller.gd")
 const SelectionController := preload("res://scripts/run/controllers/selection_controller.gd")
@@ -397,6 +398,10 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	torch_btn.text = "Lay Torch (north) — PAT-003 EN-010 test"
 	torch_btn.pressed.connect(_on_lay_torch)
 	box.add_child(torch_btn)
+	var barrel_btn := Button.new()
+	barrel_btn.text = "Lay Barrel (north) — EN-015 fire combo test"
+	barrel_btn.pressed.connect(_on_lay_barrel)
+	box.add_child(barrel_btn)
 
 	# --- RAMPART (투사체 delivery 흡수 테스트, DRIFT-059) — 앞에 벽 + 북쪽 적 + Q/E 로드아웃 세팅 ---
 	box.add_child(_section("RAMPART (투사체 흡수 테스트)"))
@@ -659,6 +664,15 @@ func _on_lay_torch() -> void:
 	if t.has_method("setup"):
 		t.setup(_combat)  # wires ignite_at so the thrown torch lands as FireDamageHit
 	_status.text = "Torch laid @ north — spawn ENC-PAT-003 (dormant) + 접근 → EN-010 픽업/투척"
+
+
+## Lay a breakable oil barrel (north). A fire caster (EN-015, AB-053) whose AoE catches the barrel
+## breaks it → Oil pool → ignites (RX-OIL-FIRE). ENT-BARREL (F-027). sb_fire owns break+ignite.
+func _on_lay_barrel() -> void:
+	var b := Barrel.new()
+	b.position = _map.get_deep_spawn_position("SANDBOX") + Vector3(-2.0, 0.0, 0.0)
+	_map.add_child(b)
+	_status.text = "Barrel laid @ north — EN-015(불 캐스터) 소환 → AB-053 시전이 배럴 파괴+Oil 점화(RX-OIL-FIRE) 콤보"
 
 
 ## Projectile delivery test (DRIFT-059 Phase 1) — faction-correct: an ENEMY-owned Rampart blocks the

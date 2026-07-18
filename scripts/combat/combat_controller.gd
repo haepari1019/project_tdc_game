@@ -874,6 +874,7 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, plac
 			unit.wake_policy = wake_policy
 			if bool(u.get("interacts_with_objects", false)):
 				unit.interacts_with_objects = true
+				unit.interaction_policy = String(u.get("interaction_policy", "priority"))  # priority(torch)/opportunistic(배럴)
 			unit.engaged = engaged
 			if engaged:
 				unit.engage_grace_s = COMBAT_EXIT_GRACE_S

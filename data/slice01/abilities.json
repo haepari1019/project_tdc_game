@@ -155,6 +155,12 @@
       "zone_radius_m": 4.0,
       "provoke_dur_s": 2.0
     },
+    "AB-053": {
+      "kind": "enemy_fire",
+      "channel": true,
+      "cooldown_s": 5.0,
+      "unified": true
+    },
     "IDA-020": {
       "kind": "shield_pulse",
       "cooldown_s": 8,

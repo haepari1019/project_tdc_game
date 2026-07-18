@@ -393,6 +393,34 @@
       }
     },
     {
+      "enemy_id": "EN-015",
+      "role": "nuker",
+      "display_name": "Cinder Adept",
+      "pattern_ref": "PT-002",
+      "stats": {
+        "hp": 175,
+        "move_speed": 5.0,
+        "contact_damage": 10,
+        "attack_range_m": 9.0,
+        "attack_interval_s": 2.0
+      },
+      "basic_attack": "rom_trash_spit_poke",
+      "_role_note": "FireCaster (프로토타입 — SPEC_DRIFT). AB-053 작열 폭발(unified) → sb_fire가 배럴 파괴 + Oil 점화(RX-OIL-FIRE) 콤보. axis=fire(신규, drift). stats/basic = EN-005 캐스터 참조·재활용. spec 미정본.",
+      "abilities": [
+        {
+          "ref": "AB-053"
+        }
+      ],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "NukerTrash",
+        "bucket": "Specialist",
+        "axis": "fire",
+        "faction": "Monster",
+        "placement_affinity": "Fixed"
+      }
+    },
+    {
       "enemy_id": "EN-3RD-01",
       "role": "elite",
       "display_name": "Stalker",

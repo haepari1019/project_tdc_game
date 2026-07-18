@@ -16,7 +16,24 @@ var _flash_tw: Tween
 
 func _ready() -> void:
 	add_to_group("destructible")
+	add_to_group("interactable")   # 적이 seek 가능(enemy_usable) — F-021 §3.1.2
 	_build()
+
+
+# --- enemy-usable object protocol (F-021 §3.1.2) — 즉발형(INSTANT). torch(held형)와 달리 enemy_use가
+# 즉시 부수고 held_object를 설정하지 않으므로 enemy_combat_tick(held 거동)은 구현하지 않는다(optional 훅).
+# 거동 로직은 오브젝트가 소유(enemy AI는 제네릭하게 호출만). ref: enemy_ai.ENEMY_USABLE_OBJECTS. ---
+
+## 적이 seek + 사용 가능한가(안 부서졌으면). 구현 = "적이 나를 쓸 수 있다" opt-in.
+func enemy_usable() -> bool:
+	return not _broken
+
+
+## 적이 도달 → 즉발 파괴(oil pool 생성). held 안 함 → 다음 틱 적은 일반 교전 복귀.
+func enemy_use(_enemy: Node3D) -> void:
+	if _broken:
+		return
+	_break()   # 재사용(기존 파괴 경로) → oil pool. RX-OIL-FIRE는 불 소스가 닿을 때 별도 점화.
 
 
 ## Damaged by AoE skills (ability_dispatch). Breaks at 0 HP → oil pool.

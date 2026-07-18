@@ -84,5 +84,16 @@ if [ "$bcode" -ne 0 ] || ! grep -qF "BINDING SMOKE PASSED" "$bindlog"; then
   echo "  FAIL: binding smoke (exit=$bcode) —"; grep -nE "FAIL|\[BIND\]|$ERRPAT" "$bindlog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# Enemy-usable object protocol (F-021 §3.1.2): the ENEMY_USABLE_OBJECTS registry — every usable
+# object implements the required contract (enemy_usable/enemy_use); held-form adds enemy_combat_tick.
+# Blocks partial-implementation runtime crashes (ctx parity gate와 동형).
+echo "== object protocol smoke (F-021 §3.1.2) =="
+objlog="/tmp/ci_object_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/object_smoke.gd >"$objlog" 2>&1
+ocode=$?
+if [ "$ocode" -ne 0 ] || ! grep -qF "OBJECT SMOKE PASSED" "$objlog"; then
+  echo "  FAIL: object smoke (exit=$ocode) —"; grep -nE "FAIL|$ERRPAT" "$objlog" | head -8; fail=1
+else echo "  PASS"; fi
+
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi
