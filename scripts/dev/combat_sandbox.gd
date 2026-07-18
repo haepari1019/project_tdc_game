@@ -132,6 +132,7 @@ var _identity_dd: OptionButton
 var _basic_dd: OptionButton   # 평타(basic) archetype — gear's basic half only (OFF = 평타 끔)
 var _spawned_objects: Array = []   # 사물 소환기로 놓은 오브젝트(배럴/토치) — "오브젝트 리셋"이 전체 제거
 var _object_dropdown: OptionButton   # 오브젝트 소환 드롭다운(SPAWNABLE_OBJECTS)
+var _pending_object_idx: int = -1    # 배치 모드 — >=0이면 다음 좌클릭 지면에 SPAWNABLE_OBJECTS[idx] 소환
 var _sub_dd: Array = []   # [OptionButton ×3] — Q/E/R sub loadout for the controlled member
 var _gear_dd: OptionButton   # Identity Gear swap (equips onto the matching-role member — F-008)
 var _cam_dragging := false
@@ -414,7 +415,7 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 		_object_dropdown.add_item(String(obj["label"]))
 	box.add_child(_object_dropdown)
 	var spawn_obj_btn := Button.new()
-	spawn_obj_btn.text = "오브젝트 소환 (중앙)"
+	spawn_obj_btn.text = "오브젝트 소환 (클릭 배치)"
 	spawn_obj_btn.pressed.connect(_on_spawn_object)
 	box.add_child(spawn_obj_btn)
 	var obj_reset_btn := Button.new()
@@ -680,19 +681,24 @@ func _on_spawn_object() -> void:
 	var idx := _object_dropdown.selected
 	if idx < 0 or idx >= SPAWNABLE_OBJECTS.size():
 		return
-	var scr = SPAWNABLE_OBJECTS[idx]["script"]
+	_pending_object_idx = idx
+	_status.text = "%s — 지면을 좌클릭해 배치 (Esc 취소)" % String(SPAWNABLE_OBJECTS[idx]["label"])
+
+
+## 배치 모드: 마우스 아래 지면점에 대기 오브젝트 소환 + 추적. 지면을 못 잡으면(레이 평행) 유지.
+func _place_pending_object() -> void:
+	var gp = _ground_under_mouse()
+	if gp == null:
+		return
+	var scr = SPAWNABLE_OBJECTS[_pending_object_idx]["script"]
 	var o = scr.new()
-	o.position = _map_center()
+	o.position = gp
 	_map.add_child(o)
 	if o.has_method("setup"):
 		o.setup(_combat)
 	_spawned_objects.append(o)
-	_status.text = "%s 소환 @중앙" % String(SPAWNABLE_OBJECTS[idx]["label"])
-
-
-## 사물 소환 위치 = 파티~적 스폰 중점(대략 정중앙).
-func _map_center() -> Vector3:
-	return (_map.get_spawn_position("SANDBOX") + _map.get_deep_spawn_position("SANDBOX")) * 0.5
+	_status.text = "%s 배치" % String(SPAWNABLE_OBJECTS[_pending_object_idx]["label"])
+	_pending_object_idx = -1
 
 
 ## 사물 소환기로 놓은 오브젝트(배럴/토치) 전체 제거.
@@ -1081,6 +1087,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if event.is_action_pressed("ui_cancel"):
 			_aim_ctrl.cancel()
+			return
+	# 오브젝트 배치 모드 — 좌클릭 지면에 소환(aim 모달 다음·selection 전 → 클릭 가로챔). Esc=취소.
+	if _pending_object_idx >= 0:
+		if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (event as InputEventMouseButton).pressed and not _pointer_over_panel():
+			_place_pending_object()
+			return
+		if event.is_action_pressed("ui_cancel"):
+			_pending_object_idx = -1
+			_status.text = "오브젝트 배치 취소"
 			return
 	# 좌클릭/드래그 선택 (씬 공유). dev 패널 위 좌클릭 프레스는 선택 시작 안 함(패널 우선).
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (event as InputEventMouseButton).pressed and _pointer_over_panel():
