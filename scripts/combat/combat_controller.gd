@@ -418,15 +418,29 @@ func _enemies_in_radius(pos: Vector3, r: float, faction: String = "") -> Array:
 
 
 func _enemies_in_cone(pos: Vector3, axis: Vector3, r: float, half_angle: float) -> Array:
+	return _in_cone(_enemies, pos, axis, r, half_angle)
+
+
+## Enemies in a forward RECTANGLE lane — along-axis ∈ [0, length], perpendicular ≤ half_width.
+func _enemies_in_rect(pos: Vector3, axis: Vector3, length: float, half_width: float) -> Array:
+	return _in_rect(_enemies, pos, axis, length, half_width)
+
+
+# --- 진영-무관 순수 공간 필터 (대상 배열 인자) — _enemies(파티→적) / 파티(적→파티) 양쪽이 재사용한다.
+# 적 캐스트(CastContext)가 hostiles=파티를 대상으로 뒤집을 때 이 필터에 _party_members()를 넘긴다.
+# 기존 _enemies_in_cone/rect/nearest 는 이 필터의 얇은 래퍼(동작 불변).
+
+## 순수 콘 필터.
+func _in_cone(units: Array, pos: Vector3, axis: Vector3, r: float, half_angle: float) -> Array:
 	var out: Array = []
 	var r2 := r * r
 	var cos_half := cos(half_angle)
-	for e in _enemies:
+	for e in units:
 		if not is_instance_valid(e):
 			continue
-		var to := e.global_position - pos
+		var to: Vector3 = e.global_position - pos   # units=untyped Array → 원소 타입 명시(추론 불가)
 		to.y = 0.0
-		var d2 := to.length_squared()
+		var d2: float = to.length_squared()
 		if d2 > r2 or d2 < 0.0001:
 			continue
 		if to.normalized().dot(axis) >= cos_half:
@@ -434,10 +448,10 @@ func _enemies_in_cone(pos: Vector3, axis: Vector3, r: float, half_angle: float) 
 	return out
 
 
-## Enemies in a forward RECTANGLE lane — along-axis ∈ [0, length], perpendicular ≤ half_width.
-func _enemies_in_rect(pos: Vector3, axis: Vector3, length: float, half_width: float) -> Array:
+## 순수 렉트(전방 레인) 필터 — along-axis ∈ [0, length], perpendicular ≤ half_width.
+func _in_rect(units: Array, pos: Vector3, axis: Vector3, length: float, half_width: float) -> Array:
 	var out: Array = []
-	for e in _enemies:
+	for e in units:
 		if not is_instance_valid(e):
 			continue
 		var rel: Vector3 = e.global_position - pos
@@ -448,6 +462,25 @@ func _enemies_in_rect(pos: Vector3, axis: Vector3, length: float, half_width: fl
 		if (rel - axis * along).length() <= half_width:
 			out.append(e)
 	return out
+
+
+## 순수 최근접 필터 — 수평(x,z) 거리 기준(파티가 적 위로 떠 있어 3D는 높이차만큼 밀림).
+func _nearest_in_range(units: Array, from: Vector3, range_m: float) -> CharacterBody3D:
+	var best: CharacterBody3D = null
+	var best_d := range_m * range_m
+	for e in units:
+		if not is_instance_valid(e):
+			continue
+		var d: float = Spatial.h_dist2(from, e.global_position)
+		if d <= best_d:
+			best_d = d
+			best = e
+	return best
+
+
+## 파티 멤버 배열 — 적 캐스트(CastContext)가 hostiles=파티를 대상으로 공간쿼리할 때 넘긴다.
+func _party_members() -> Array:
+	return get_tree().get_nodes_in_group("party_member")
 
 
 func _lowest_hp_enemy_in_radius(pos: Vector3, r: float) -> CharacterBody3D:
@@ -478,18 +511,7 @@ func _allies_in_radius(pos: Vector3, r: float) -> Array:
 
 
 func _nearest_enemy_in_range(from: Vector3, range_m: float) -> CharacterBody3D:
-	# Horizontal (x,z) distance only — party floats above enemies, so a 3D check
-	# would push in-range targets out of range by the height gap.
-	var best: CharacterBody3D = null
-	var best_d := range_m * range_m
-	for e in _enemies:
-		if not is_instance_valid(e):
-			continue
-		var d: float = Spatial.h_dist2(from, e.global_position)
-		if d <= best_d:
-			best_d = d
-			best = e
-	return best
+	return _nearest_in_range(_enemies, from, range_m)
 
 
 ## Party→enemy damage with F-022 threat: damage*mult, first-attack bonus,

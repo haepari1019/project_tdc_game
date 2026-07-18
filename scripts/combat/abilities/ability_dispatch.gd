@@ -77,6 +77,17 @@ const BAND_COEFF := {"B0": 1.0, "B1": 0.9, "B2": 0.75, "B3": 0.55}
 const SUB_SHAKE_MULT_REF := 8.0   # 타격감: trauma = sub damage_mult/ref
 const HIT_SHAKE_CAP := 0.6
 
+# ctx 계약 표면 (SSOT) — sb_* effect가 `ctx.` 로 호출하는 파사드 메서드 집합. ctx 구현이 둘(파티=이
+# AbilityDispatch / 적 unified=CastContext)이라, 둘이 이 집합을 모두 구현하는지 party_pool_smoke가
+# 파리티 검증한다(암묵 중복 → 명시 계약). **새 ctx 메서드 추가 시 여기 + CastContext 둘 다 갱신.**
+const CTX_CONTRACT := [
+	"deal_damage", "deal_heal", "deal_regen", "heal_threat", "sub_shake",
+	"enemies_in_radius", "enemies_in_cone", "enemies_in_rect", "nearest_enemy_in_range",
+	"allies_in_radius", "lowest_hp_enemy_in_radius", "reveal_enemies", "reduce_threat",
+	"spawn_projectile", "spawn_zone", "spawn_barrier", "fire_hit", "cold_hit", "lightning_hit",
+	"damage_destructibles", "report_hit_count", "report_hit_target", "nuker_focus_accumulate",
+]
+
 var _combat: Node3D    # CombatController — spatial queries / damage / threat / shake owner
 var _reactions: Node3D  # ReactionSystem — destructibles + RX-OIL-FIRE chain
 var _skills: Dictionary = {}  # kind -> skill instance (built from _SKILL_SCRIPTS)
@@ -97,8 +108,12 @@ func setup(combat: Node3D, reactions: Node3D) -> void:
 ## that ability_id gets the behavior. Returns true if cast. (party auto-attack: Identity first.)
 func try_identity(m: CharacterBody3D) -> bool:
 	var p: Dictionary = m.identity_params
-	var skill = _skills.get(String(p.get("kind", "")))
+	var kind := String(p.get("kind", ""))
+	var skill = _skills.get(kind)
 	if skill == null:
+		# kind="" = 정당한 없음(정체성 미보유). 비어있지 않은데 미등록 = _SKILL_SCRIPTS 누락 버그 → 시끄럽게.
+		if kind != "":
+			push_error("[dispatch] identity kind '%s' 미등록 — _SKILL_SCRIPTS 확인 (ab=%s)" % [kind, m.ability_id])
 		return false
 	# F-008 §3.7 gear potency_mult 옵션 roll → identity 위력(per-cast _coeff). 직전 set이라 공유 dict 순차안전.
 	p["_coeff"] = float(m.identity_potency_mult) if "identity_potency_mult" in m else 1.0
@@ -192,8 +207,14 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 
 ## 서브 발현(즉발/캐스트 완료 공용) — effect 실행 + **결속 델타를 발현 시점에** 적용 + 집중 소모 아키타입. 성공 여부 반환.
 func _resolve_sub(member: CharacterBody3D, slot_index: int, p: Dictionary, target_pos: Vector3) -> bool:
-	var skill = _skills.get(String(p.get("kind", "")))
-	if skill == null or not skill.cast(member, p, target_pos, self):
+	var kind := String(p.get("kind", ""))
+	var skill = _skills.get(kind)
+	if skill == null:
+		# kind="" = 정당한 없음. 비어있지 않은데 미등록 = _SKILL_SCRIPTS 누락 버그 → 시끄럽게.
+		if kind != "":
+			push_error("[dispatch] sub kind '%s' 미등록 — _SKILL_SCRIPTS 확인 (ab=%s)" % [kind, member.ability_id])
+		return false
+	if not skill.cast(member, p, target_pos, self):
 		return false
 	_apply_binding(member, slot_index, target_pos)   # 오버레이 델타(bulwark/mark/focus/flank/…)
 	if BindingOverlays.is_focus_spender(String(p.get("kind", ""))):

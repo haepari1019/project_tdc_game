@@ -43,6 +43,29 @@ func _initialize() -> void:
 		var k := String(m.get("cast", {}).get("kind", ""))
 		_chk("%s kind '%s' has effect" % [ab, k], kinds.has(k))
 
+	# 2b) ctx 계약 파리티 — 파티(AbilityDispatch)·적(CastContext) 두 ctx 구현이 CTX_CONTRACT를 모두
+	#     구현하는가. 암묵 중복 → 명시 계약: 새 ctx 메서드 추가 후 CastContext 갱신을 빠뜨리면 여기서 잡힌다.
+	var CC = load("res://scripts/combat/abilities/cast_context.gd")
+	var ad_ctx = AD.new()
+	var cc_ctx = CC.new()
+	for cm in AD.CTX_CONTRACT:
+		_chk("ctx 계약 dispatch.%s" % cm, ad_ctx.has_method(cm))
+		_chk("ctx 계약 CastContext.%s" % cm, cc_ctx.has_method(cm))
+	ad_ctx.free()
+	cc_ctx.free()
+
+	# 2c) role/exec 전수검증 — enemy가 참조하는 모든 AB가 ability_roles.ROLES에 등록됐는가(미등록 →
+	#     템포 캡 판정이 조용히 누락). exec 값도 유효(shared/ai_internal/hybrid).
+	var ARoles = load("res://scripts/combat/abilities/ability_roles.gd")
+	var VALID_EXEC := {"shared": true, "ai_internal": true, "hybrid": true}
+	for eid in sd.get_enemy_ids():
+		for ab_ref in sd.get_enemy_row(String(eid)).get("abilities", []):
+			var abr := String((ab_ref as Dictionary).get("ref", ""))
+			if abr == "":
+				continue
+			_chk("%s role 등록(%s)" % [abr, eid], ARoles.role_of(abr) != "")
+			_chk("%s exec 유효" % abr, VALID_EXEC.has(ARoles.exec_of(abr)))
+
 	# 3) New B1 ally-only skillbooks resolve with the right kind + key params.
 	var want := {
 		"AB-075": "skillbook_shield", "AB-062": "skillbook_stealth", "AB-054": "skillbook_beam",

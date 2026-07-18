@@ -20,9 +20,85 @@ func setup(combat: Node3D, dispatch, faction: String = "enemy") -> void:
 
 
 # --- faction-specific --------------------------------------------------------
+## 시전자의 적 유닛 배열(공간쿼리 대상): 적 캐스터 → 파티, 파티 캐스터 → 적. 공간 필터의 대상 배열로 넘긴다.
+func _hostiles() -> Array:
+	return _combat._party_members() if _faction == "enemy" else _combat._enemies
+
+
 ## Hostiles of the caster: enemy caster → party members; party caster → enemies.
 func enemies_in_radius(pos: Vector3, r: float) -> Array:
 	return _combat._allies_in_radius(pos, r) if _faction == "enemy" else _combat._enemies_in_radius(pos, r)
+
+
+## 시전자의 적 중 최근접 1체(진영 flip) — sb_strike/sb_stun 등이 조준 어시스트로 씀.
+func nearest_enemy_in_range(pos: Vector3, r: float) -> CharacterBody3D:
+	return _combat._nearest_in_range(_hostiles(), pos, r)
+
+
+## 시전자의 적을 원뿔/전방레인으로(진영 flip) — sb_charge(Reaver)·sb_slow 등.
+func enemies_in_cone(pos: Vector3, axis: Vector3, r: float, half: float) -> Array:
+	return _combat._in_cone(_hostiles(), pos, axis, r, half)
+
+
+func enemies_in_rect(pos: Vector3, axis: Vector3, length: float, half_width: float) -> Array:
+	return _combat._in_rect(_hostiles(), pos, axis, length, half_width)
+
+
+## 시전자의 아군(적 캐스터 → 다른 적) — 힐/버프 대상 검색. 진영 반대로 flip.
+func allies_in_radius(pos: Vector3, r: float) -> Array:
+	return _combat._enemies_in_radius(pos, r) if _faction == "enemy" else _combat._allies_in_radius(pos, r)
+
+
+## 적 캐스터는 mark_ruin(파티 전용 identity)·정찰(AB-032 Healer)을 안 써 미사용 — 게이트 존재 보장용 no-op.
+func lowest_hp_enemy_in_radius(_pos: Vector3, _r: float) -> CharacterBody3D:
+	return null
+
+
+func reveal_enemies(_dur: float) -> void:
+	pass
+
+
+## 적 힐(EN-014 등) — 결속/성역은 파티 전용이라 타지 않는다. 순수 회복만(대상=시전자의 아군).
+func deal_heal(target, _healer, amount: float) -> float:
+	if target == null or not target.has_method("heal"):
+		return 0.0
+	return target.heal(amount)
+
+
+func deal_regen(target, _healer, pct_per_s: float, dur: float) -> void:
+	if target != null and target.has_method("apply_regen"):
+		target.apply_regen(pct_per_s, dur)
+
+
+## 적은 파티 위협 테이블이 없다 → no-op(reduce_threat과 대칭).
+func heal_threat(_healer, _ally, _eff: float) -> void:
+	pass
+
+
+## RX/월드는 진영 무관 → party dispatch로 순수 위임.
+func fire_hit(center: Vector3, r: float, depth: int, source: Node = null) -> void:
+	_dispatch.fire_hit(center, r, depth, source)
+
+
+func cold_hit(center: Vector3, radius: float, source: Node = null) -> void:
+	_dispatch.cold_hit(center, radius, source)
+
+
+func spawn_barrier(caster: CharacterBody3D, pos: Vector3, facing: Vector3, p: Dictionary) -> void:
+	_dispatch.spawn_barrier(caster, pos, facing, p)
+
+
+## 파티 전용(집중 결속·hit 보고) — 적은 결속이 없어 no-op.
+func report_hit_count(_n: int) -> void:
+	pass
+
+
+func report_hit_target(_t: CharacterBody3D) -> void:
+	pass
+
+
+func nuker_focus_accumulate(_member, _enemy) -> float:
+	return 0.0
 
 
 ## Enemy→party damage routes through take_damage (attacker passed → Sentinel reflect); party→enemy
