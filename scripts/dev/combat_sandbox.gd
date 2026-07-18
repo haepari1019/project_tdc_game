@@ -122,6 +122,7 @@ var _info_label: RichTextLabel
 var _enemy_info: EnemyInfo     # 12시 적 케릭시트 — 적 좌클릭 시 표시(빈 공간 클릭=해제)
 var _identity_dd: OptionButton
 var _basic_dd: OptionButton   # 평타(basic) archetype — gear's basic half only (OFF = 평타 끔)
+var _spawned_objects: Array = []   # 사물 소환기로 놓은 오브젝트(배럴/토치) — "오브젝트 리셋"이 전체 제거
 var _sub_dd: Array = []   # [OptionButton ×3] — Q/E/R sub loadout for the controlled member
 var _gear_dd: OptionButton   # Identity Gear swap (equips onto the matching-role member — F-008)
 var _cam_dragging := false
@@ -399,9 +400,13 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	torch_btn.pressed.connect(_on_lay_torch)
 	box.add_child(torch_btn)
 	var barrel_btn := Button.new()
-	barrel_btn.text = "Lay Barrel (north) — EN-015 fire combo test"
+	barrel_btn.text = "배럴 소환 (중앙) — EN-015 fire combo test"
 	barrel_btn.pressed.connect(_on_lay_barrel)
 	box.add_child(barrel_btn)
+	var obj_reset_btn := Button.new()
+	obj_reset_btn.text = "오브젝트 리셋 (소환물 전체 제거)"
+	obj_reset_btn.pressed.connect(_on_reset_objects)
+	box.add_child(obj_reset_btn)
 
 	# --- RAMPART (투사체 delivery 흡수 테스트, DRIFT-059) — 앞에 벽 + 북쪽 적 + Q/E 로드아웃 세팅 ---
 	box.add_child(_section("RAMPART (투사체 흡수 테스트)"))
@@ -663,6 +668,7 @@ func _on_lay_torch() -> void:
 	_map.add_child(t)
 	if t.has_method("setup"):
 		t.setup(_combat)  # wires ignite_at so the thrown torch lands as FireDamageHit
+	_spawned_objects.append(t)
 	_status.text = "Torch laid @ north — spawn ENC-PAT-003 (dormant) + 접근 → EN-010 픽업/투척"
 
 
@@ -670,9 +676,26 @@ func _on_lay_torch() -> void:
 ## breaks it → Oil pool → ignites (RX-OIL-FIRE). ENT-BARREL (F-027). sb_fire owns break+ignite.
 func _on_lay_barrel() -> void:
 	var b := Barrel.new()
-	b.position = _map.get_deep_spawn_position("SANDBOX") + Vector3(-2.0, 0.0, 0.0)
+	b.position = _map_center()
 	_map.add_child(b)
-	_status.text = "Barrel laid @ north — EN-015(불 캐스터) 소환 → AB-053 시전이 배럴 파괴+Oil 점화(RX-OIL-FIRE) 콤보"
+	_spawned_objects.append(b)
+	_status.text = "배럴 소환 @중앙 — EN-015(불 캐스터) 소환 → AB-053 AoE가 배럴 얽으면 파괴+Oil 점화(RX-OIL-FIRE)"
+
+
+## 사물 소환 위치 = 파티~적 스폰 중점(대략 정중앙).
+func _map_center() -> Vector3:
+	return (_map.get_spawn_position("SANDBOX") + _map.get_deep_spawn_position("SANDBOX")) * 0.5
+
+
+## 사물 소환기로 놓은 오브젝트(배럴/토치) 전체 제거.
+func _on_reset_objects() -> void:
+	var n := 0
+	for o in _spawned_objects:
+		if is_instance_valid(o):
+			o.queue_free()
+			n += 1
+	_spawned_objects.clear()
+	_status.text = "소환 오브젝트 %d개 제거" % n
 
 
 ## Projectile delivery test (DRIFT-059 Phase 1) — faction-correct: an ENEMY-owned Rampart blocks the
