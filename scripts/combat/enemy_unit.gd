@@ -92,6 +92,7 @@ var interaction_policy: String = "priority"   # priority(torch·항상 최우선
 var held_object: Node = null
 var object_committed: Node = null             # opportunistic: 현재 부수러 가는 대상(진동 방지)
 var object_interact_cd: float = 0.0           # opportunistic: 다음 기회까지 쿨(완주/롤실패 후)
+var object_cast_s: float = 0.0                # opportunistic: 배럴 앞 부수기 캐스트(윈드업) 잔여(0=미시전)
 # F-028 교전 진영 — 다른 진영끼리 적대(3세력 ↔ 일반 몬스터 ↔ 파티 실시간 교전). 기본 Dungeon.
 # loot는 누가 죽이든 드롭(F-028 clearsRoomLoot:false — 3세력이 정리해도 플레이어 파밍 비차단).
 var faction: String = "Dungeon"

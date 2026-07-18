@@ -117,6 +117,7 @@ const ENEMY_USABLE_OBJECTS := [
 const OBJECT_OPP_CHANCE := 0.15         # 기회마다 결심 확률(어쩌다). 배럴 희소성이 저빈도를 더함
 const OBJECT_OPP_RECHECK_S := 1.5       # 롤 실패 후 재롤 간격(매 틱 롤 방지)
 const OBJECT_OPP_COOLDOWN_S := 8.0      # 완주(부순 뒤) 쿨
+const OBJECT_CAST_S := 1.0              # 배럴 앞 부수기 캐스트(윈드업) — 플레이어 반응 창
 
 # Camera damage feedback (피격, F-012). AB-DEFINED 스킬 피해만 — 평타·접촉뎀 제외.
 # trauma = (dmg/maxHP)*gain, 방향 킥 = 맞은 방향. 비조작 멤버 이벤트는 감쇄.
@@ -802,8 +803,9 @@ func _try_object_interaction(enemy: CharacterBody3D, target: CharacterBody3D, ha
 func _try_opportunistic_object(enemy: CharacterBody3D, delta: float) -> bool:
 	var obj = enemy.object_committed
 	if obj != null and is_instance_valid(obj) and obj.has_method("enemy_usable") and obj.enemy_usable():
-		return _drive_to_object(enemy, obj)          # 결심 대상 완주
+		return _drive_to_object(enemy, obj, delta)   # 결심 대상 완주
 	enemy.object_committed = null
+	enemy.object_cast_s = 0.0                        # 대상 소멸/무효 → 진행 중이던 캐스트 리셋
 	if enemy.object_interact_cd > 0.0:
 		enemy.object_interact_cd -= delta
 		return false                                 # 쿨 중 → 일반 교전
@@ -814,18 +816,27 @@ func _try_opportunistic_object(enemy: CharacterBody3D, delta: float) -> bool:
 		enemy.object_interact_cd = OBJECT_OPP_RECHECK_S   # 롤 실패 → 짧은 재롤 간격
 		return false
 	enemy.object_committed = near                    # 결심 → 완주 시작
-	return _drive_to_object(enemy, near)
+	return _drive_to_object(enemy, near, delta)
 
 
-## committed 오브젝트로 접근 → reach 시 enemy_use(즉발) → 쿨 걸고 해제. 아직 멀면 그쪽으로 이동.
-func _drive_to_object(enemy: CharacterBody3D, obj) -> bool:
+## committed 오브젝트로 접근 → reach 시 캐스팅(OBJECT_CAST_S 윈드업) 후 enemy_use → 쿨. 아직 멀면 이동.
+## 캐스트 중엔 정지 + 윈드업 큐(플레이어 반응 창). 도달 전 이동하면 캐스트 리셋.
+func _drive_to_object(enemy: CharacterBody3D, obj, delta: float) -> bool:
 	var op: Vector3 = obj.global_position
 	if Vector2(op.x - enemy.global_position.x, op.z - enemy.global_position.z).length() <= OBJECT_REACH_M:
-		obj.enemy_use(enemy)                         # 즉발(배럴 부수기 → oil). held형이면 여기서 held 설정
-		enemy.velocity = Vector3.ZERO
-		enemy.object_committed = null
-		enemy.object_interact_cd = OBJECT_OPP_COOLDOWN_S   # 완주 후 쿨
+		enemy.face_toward(op)
+		enemy.velocity = Vector3.ZERO                # 캐스트 중 정지
+		if enemy.object_cast_s <= 0.0:
+			enemy.object_cast_s = OBJECT_CAST_S      # 배럴 앞 도달 → 캐스트 시작(윈드업)
+			SkillVfx.windup_cue(self, enemy.global_position, OBJECT_CAST_S, Color(1.0, 0.6, 0.2))  # 주황 윈드업 큐
+		else:
+			enemy.object_cast_s -= delta
+			if enemy.object_cast_s <= 0.0:
+				obj.enemy_use(enemy)                 # 캐스트 완료 → 부숨(배럴→oil). held형이면 여기서 held 설정
+				enemy.object_committed = null
+				enemy.object_interact_cd = OBJECT_OPP_COOLDOWN_S   # 완주 후 쿨
 	else:
+		enemy.object_cast_s = 0.0                    # 아직 도달 전(이동 중) → 캐스트 리셋
 		enemy.face_toward(op)
 		enemy.velocity = _nav_move(enemy, op, enemy.current_move_speed())
 	return true
