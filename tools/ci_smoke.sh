@@ -95,5 +95,26 @@ if [ "$ocode" -ne 0 ] || ! grep -qF "OBJECT SMOKE PASSED" "$objlog"; then
   echo "  FAIL: object smoke (exit=$ocode) —"; grep -nE "FAIL|$ERRPAT" "$objlog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# Move-order state machine (DRIFT-090): RMB 클릭이동 오더의 NONE/MOVING/HOLD 전이 + cb 유무로
+# 갈리는 도착 거동(순수 이동=HOLD 배치 / 심부름=NONE 복귀) + MIA·도발 취소 + nav 캐시 무효화.
+echo "== move-order smoke (DRIFT-090) =="
+molog="/tmp/ci_move_order_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/move_order_smoke.gd >"$molog" 2>&1
+mcode=$?
+if [ "$mcode" -ne 0 ] || ! grep -qF "MOVE ORDER SMOKE PASSED" "$molog"; then
+  echo "  FAIL: move-order smoke (exit=$mcode) —"; grep -nE "FAIL|$ERRPAT" "$molog" | head -8; fail=1
+else echo "  PASS"; fi
+
+# Drag-box selection coverage (DRIFT-090 후속): 아군 화면 사각형을 SELECT_COVER_MIN 이상 덮어야
+# 선택 후보. 40° 피치에서 원점(발밑)이 사각형 하단 ~86%에 찍히므로, 옛 "원점 한 점" 판정은
+# 발치만 스쳐도 선택됐다 — 카메라 피치를 바꾸면 이 게이트가 먼저 깨진다(의도).
+echo "== drag-box selection smoke (DRIFT-090) =="
+sellog="/tmp/ci_selection_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/selection_smoke.gd >"$sellog" 2>&1
+scode=$?
+if [ "$scode" -ne 0 ] || ! grep -qF "SELECTION SMOKE PASSED" "$sellog"; then
+  echo "  FAIL: selection smoke (exit=$scode) —"; grep -nE "FAIL|$ERRPAT" "$sellog" | head -8; fail=1
+else echo "  PASS"; fi
+
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi

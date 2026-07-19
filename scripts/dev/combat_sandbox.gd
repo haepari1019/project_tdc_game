@@ -8,6 +8,8 @@ const SandboxMap := preload("res://scripts/dev/sandbox_map.gd")
 const PartyController := preload("res://scripts/party/party_controller.gd")
 const CombatController := preload("res://scripts/combat/combat_controller.gd")
 const CameraRig := preload("res://scripts/run/controllers/camera_rig.gd")
+const MovePathOverlay := preload("res://scripts/run/controllers/move_path_overlay.gd")  # 이동 오더 경로 점선 (DRIFT-090)
+const InputTuning := preload("res://scripts/core/input_tuning.gd")  # 해상도 비례 클릭↔드래그 임계
 const PartySheet := preload("res://scripts/ui/party_sheet.gd")          # UI-002 party HP + sub radials
 const ControlledSheet := preload("res://scripts/ui/controlled_sheet.gd")  # UI-003 Identity + Q/E/R cooldowns
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")              # 12시 적 케릭시트(클릭 인스펙트, 게임 parity)
@@ -139,7 +141,13 @@ var _cam_dragging := false
 var _damage_indicator: DamageIndicator  # 피격 화면 가장자리 글로우 (dungeon_run 패리티)
 var _alert_banner: Label                 # 분리/MIA 경고 배너
 var _alert_token: int = 0
-var _rmb_accum := 0.0  # 우클릭 드래그 거리 누적(탭=이동 vs 드래그=카메라 orbit 판별)
+## 탭(=클릭이동) vs 드래그(=카메라 orbit) 판별 — dungeon_run 과 동일 규칙(parity).
+## 누적 이동량이 아니라 **누른 지점으로부터의 최대 직선거리**로 본다(누적은 줄지 않아 손떨림만
+## 으로 오판됐다). orbit 시작(DRAG_START) < 클릭 인정(CLICK_MAX) 이라 둘이 겹친다 — 그 구간
+## 에서는 카메라가 돌면서도 손을 떼면 클릭이 먹는다. 임계는 해상도 비례, InputTuning 이 SSOT.
+var _cam_orbiting := false
+var _rmb_press_pos: Vector2 = Vector2.ZERO
+var _rmb_max_dist: float = 0.0
 
 # Left dev panel — fixed width, viewport-capped height, collapsible + scrollable (was an
 # unbounded VBoxContainer that overflowed the bottom of the screen and widened with long labels).
@@ -198,6 +206,9 @@ func _ready() -> void:
 	_equip_sandbox_subs()
 	_camera.set_follow_target(_party.get_controlled())
 	_party.controlled_changed.connect(func(_m: Node) -> void: _camera.set_follow_target(_party.get_controlled()))
+	var move_path := MovePathOverlay.new()  # RMB 이동 오더 경로 점선 (game parity)
+	add_child(move_path)
+	move_path.setup(_party)
 
 	_build_ui()
 
@@ -493,13 +504,9 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	for slot in 3:
 		var dd := OptionButton.new()
 		dd.custom_minimum_size = Vector2(240, 0)
-		dd.add_item("%s: (none)" % ["Q", "E", "R"][slot])
-		dd.set_item_metadata(0, "")
-		var sb_rows := Slice01Data.get_skillbook_rows()
-		sb_rows.sort_custom(func(a, b): return String(a.get("base_ability_id", "")) < String(b.get("base_ability_id", "")))
-		for row in sb_rows:
-			dd.add_item("%s: %s (%s)" % [["Q", "E", "R"][slot], row.get("display_name", "?"), row.get("base_ability_id", "?")])
-			dd.set_item_metadata(dd.item_count - 1, String(row.get("base_ability_id", "")))
+		# 착용불가 항목은 선택 불가 + 어두운 글자 — 기본 disabled 색이 밝은 테마가 있어 직접 지정.
+		dd.get_popup().add_theme_color_override("font_disabled_color", Color(0.34, 0.34, 0.38))
+		_rebuild_sub_dd(dd, slot, String(_party.get_controlled().get("class_id")) if _party.get_controlled() != null else "")
 		dd.item_selected.connect(_on_sub_changed.bind(slot))
 		box.add_child(dd)
 		_sub_dd.append(dd)
@@ -971,6 +978,43 @@ func _set_all_identity(on: bool) -> void:
 	_status.text = "전체 Identity %s" % ("ON" if on else "OFF")
 
 
+## AB id 오름차순 비교 — 자연 정렬이라 자리수가 안 맞아도(AB-7 vs AB-100) 숫자 순서가 유지되고
+## 접미 변종(AB-007a < AB-007b)도 제자리에 온다.
+func _sub_id_lt(a: Dictionary, b: Dictionary) -> bool:
+	return String(a.get("base_ability_id", "")).naturalnocasecmp_to(String(b.get("base_ability_id", ""))) < 0
+
+
+## 서브 목록을 `cls`(controlled 클래스) 기준으로 다시 채운다 — 메인 → 서브 → 착용불가 순, 그룹
+## 안에서는 AB id 오름차순. 메인/서브 구분 = `sub_bands`(미기재 = 메인 B0, 기재 = 서브 B1~B3,
+## ability_dispatch._band_coeff와 동일 규칙). 착용불가(= equip_classes 밖)는 disabled로 남겨
+## 목록에는 보이되 고를 수는 없게 한다.
+func _rebuild_sub_dd(dd: OptionButton, slot: int, cls: String) -> void:
+	var key: String = ["Q", "E", "R"][slot]
+	dd.clear()
+	dd.add_item("%s: (none)" % key)
+	dd.set_item_metadata(0, "")
+	var mains: Array = []
+	var subs: Array = []
+	var locked: Array = []
+	for row in Slice01Data.get_skillbook_rows():
+		if not (row.get("equip_classes", []) as Array).has(cls):
+			locked.append(row)
+		elif (row.get("sub_bands", {}) as Dictionary).has(cls):
+			subs.append(row)
+		else:
+			mains.append(row)
+	for group in [["메인 클래스", mains, false], ["서브 클래스", subs, false], ["착용 불가", locked, true]]:
+		var rows: Array = group[1]
+		if rows.is_empty():
+			continue
+		rows.sort_custom(_sub_id_lt)
+		dd.add_separator(String(group[0]))
+		for row in rows:
+			dd.add_item("%s: %s (%s)" % [key, row.get("display_name", "?"), row.get("base_ability_id", "?")])
+			dd.set_item_metadata(dd.item_count - 1, String(row.get("base_ability_id", "")))
+			dd.set_item_disabled(dd.item_count - 1, bool(group[2]))
+
+
 func _on_sub_changed(index: int, slot: int) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl == null:
@@ -1009,12 +1053,16 @@ func _refresh_loadout_ui() -> void:
 					b_sel = i
 					break
 		_basic_dd.select(b_sel)
+	# 메인/서브/착용불가 구분은 멤버 클래스에 달렸으니 1-4 스왑마다 목록 자체를 다시 만든다.
+	var cls := String(ctrl.get("class_id"))
 	for slot in 3:
 		var inst = ctrl.get_skillbook(slot)
 		var cur_sub := String(inst.get("base_ability_id", "")) if inst != null else ""
 		var dd: OptionButton = _sub_dd[slot]
+		_rebuild_sub_dd(dd, slot, cls)
 		for i in dd.item_count:
-			if String(dd.get_item_metadata(i)) == cur_sub:
+			var md = dd.get_item_metadata(i)   # 구분선(separator)은 metadata 없음 → skip
+			if md != null and String(md) == cur_sub:
 				dd.select(i)
 				break
 
@@ -1114,13 +1162,22 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		if event.pressed:
 			_cam_dragging = true
-			_rmb_accum = 0.0
+			_cam_orbiting = false
+			_rmb_max_dist = 0.0
+			_rmb_press_pos = get_viewport().get_mouse_position()
 		else:
 			_cam_dragging = false
-			if _rmb_accum < 8.0 and not _pointer_over_panel():
+			_cam_orbiting = false
+			# orbit 이 이미 시작됐더라도 CLICK_MAX 안이면 클릭으로 인정(겹치는 구간).
+			if _rmb_max_dist <= InputTuning.click_max_px(get_viewport()) and not _pointer_over_panel():
 				_rmb_move_to_ground()  # 우클릭 탭 → 조종캐 클릭이동
 	if event is InputEventMouseMotion and _cam_dragging:
-		_rmb_accum += absf(event.relative.x) + absf(event.relative.y)
+		_rmb_max_dist = maxf(_rmb_max_dist,
+				_rmb_press_pos.distance_to(get_viewport().get_mouse_position()))
+		if not _cam_orbiting:
+			if _rmb_max_dist <= InputTuning.drag_start_px(get_viewport()):
+				return          # 아직 데드존 안 — 카메라를 건드리지 않는다.
+			_cam_orbiting = true
 		_camera.orbit_yaw(event.relative.x)
 		_camera.pitch_by_drag(event.relative.y)
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -1136,6 +1193,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_R: _cast_sub(2)
 			KEY_G: _party.toggle_formation_priority()  # 전투우선 ↔ 진형우선 (game parity)
 			KEY_U: _party.toggle_cohesion_mode()       # 파티결속 ↔ 비결속 (F-003 §3.4, game parity)
+			KEY_T: _party.rally()                     # 집합 — 이동 오더 전원 해제 + 진형 복귀 (DRIFT-090)
 			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
 
 

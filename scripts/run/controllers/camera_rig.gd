@@ -27,9 +27,16 @@ const PITCH_STEP := 3.0          # degrees per [ / ] press
 
 # Swap glide — on 1~4 swap the pivot eases to the new char (accel/decel) instead of
 # teleporting; normal follow stays tight (no lag).
+# 좌표계 주의: glide는 **월드 추격이 아니라 타겟 기준 오프셋 감쇠**다. 캐릭터는
+# _physics_process(60Hz)에서만 움직이는데 리그는 _process(렌더 fps)로 도니까, 월드
+# 좌표로 추격하면 물리 틱 계단(= speed/60 m)이 캐릭터↔화면 상대 진동으로 보인다.
+# 오프셋 공간에서 감쇠하면 타겟 항이 매 프레임 정확히 반영돼 진동이 사라지고,
+# 타겟 속도와 무관하게 0으로 수렴하므로 **이동 중에도 glide가 정상 종료**된다
+# (월드 추격일 땐 정상상태 추적거리 speed/GAIN 가 종료조건보다 커서 안 끝났다).
 const SWAP_MAX_SPEED := 60.0     # m/s glide cap
 const SWAP_ACCEL := 320.0        # m/s² velocity ramp (accel in / decel out)
 const SWAP_ARRIVE_GAIN := 6.0    # desired speed = dist*gain (arrive ease-out), capped
+const SWAP_END_DIST := 0.05      # 오프셋이 이보다 작으면 종료(스냅). 수렴이 보장돼 작게 잡음
 
 # Shake (trauma model). 탑다운 원거리 카메라라 위치 흔들림은 거의 안 보여 → 흔들림은
 # **회전(rotational)** 으로(거리 무관 체감), 방향 킥만 위치 오프셋. 진폭 = trauma^1.5.
@@ -42,6 +49,7 @@ const KICK_RETURN := 7.0         # 방향 킥이 0으로 복귀(m/s)
 var _follow_target: Node3D = null
 var _gliding: bool = false
 var _follow_vel: Vector3 = Vector3.ZERO
+var _glide_offset: Vector3 = Vector3.ZERO  # 타겟 기준 잔여 오프셋(glide 중에만 non-zero)
 var _trauma: float = 0.0
 var _kick: Vector3 = Vector3.ZERO          # world XZ; per-frame 화면기준으로 변환 적용
 var _cam_base_pos: Vector3 = Vector3.ZERO  # rig offset to add the directional kick on top of
@@ -85,14 +93,26 @@ func adjust_pitch(delta_deg: float) -> void:
 func set_follow_target(target: Node3D, glide: bool = true) -> void:
 	_follow_target = target
 	if glide:
-		_gliding = true
+		_begin_glide()
+	else:
+		_gliding = false
+		_glide_offset = Vector3.ZERO  # 즉시 스냅 — 이전 glide 잔여 오프셋을 끌고 가지 않는다
 		_follow_vel = Vector3.ZERO
 
 
 ## Re-glide to the current target (covers swap where the target node is unchanged).
 func glide_to_current() -> void:
-	_gliding = true
+	_begin_glide()
+
+
+## Seed the glide from where the pivot currently sits relative to the (new) target.
+## 이후 _advance_glide 가 이 오프셋만 0으로 줄인다 — 타겟 위치는 매 프레임 그대로 더해진다.
+func _begin_glide() -> void:
 	_follow_vel = Vector3.ZERO
+	_glide_offset = Vector3.ZERO
+	if _follow_target and is_instance_valid(_follow_target):
+		_glide_offset = global_position - _follow_target.global_position
+	_gliding = _glide_offset.length() >= SWAP_END_DIST
 
 
 ## RMB-drag horizontal motion → yaw around the controlled char.
@@ -117,25 +137,25 @@ func add_shake(trauma: float, kick_world: Vector3) -> void:
 func _process(delta: float) -> void:
 	if _follow_target and is_instance_valid(_follow_target):
 		if _gliding:
-			_glide(_follow_target.global_position, delta)  # swap transition (accel/decel)
-		else:
-			global_position = _follow_target.global_position  # tight follow
+			_advance_glide(delta)  # swap transition (accel/decel) — 오프셋만 줄인다
+		# 타겟 항은 항상 정확히 반영 → 캐릭터가 화면에 고정(진동 없음).
+		# glide가 아니면 오프셋이 0이라 그대로 tight follow.
+		global_position = _follow_target.global_position + _glide_offset
 	_apply_shake(delta)
 
 
-## Ease the pivot toward `target` with accel + arrive-decel; snap & end on arrival.
-func _glide(target: Vector3, delta: float) -> void:
-	var to: Vector3 = target - global_position
-	var dist := to.length()
-	if dist < 0.2:
-		global_position = target
+## Ease the residual offset toward ZERO with accel + arrive-decel; snap & end on arrival.
+func _advance_glide(delta: float) -> void:
+	var dist := _glide_offset.length()
+	if dist < SWAP_END_DIST:
+		_glide_offset = Vector3.ZERO
 		_follow_vel = Vector3.ZERO
 		_gliding = false
 		return
 	var desired_speed: float = minf(dist * SWAP_ARRIVE_GAIN, SWAP_MAX_SPEED)
-	var desired_vel: Vector3 = (to / dist) * desired_speed
+	var desired_vel: Vector3 = (-_glide_offset / dist) * desired_speed  # 오프셋을 0쪽으로
 	_follow_vel = _follow_vel.move_toward(desired_vel, SWAP_ACCEL * delta)
-	global_position += _follow_vel * delta
+	_glide_offset += _follow_vel * delta
 
 
 ## trauma^1.5 shake + decaying directional kick applied to the camera (not the pivot

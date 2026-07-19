@@ -190,6 +190,23 @@ var _nav_path: PackedVector3Array = PackedVector3Array()
 var _nav_path_idx: int = 0
 var _nav_target: Vector3 = Vector3.ZERO
 
+## RMB 클릭이동 오더 — **멤버 상태**다(컨트롤러 상태가 아님). 스왑해도 유지돼서 각 멤버를
+## 다른 위치로 따로 보낼 수 있다. 조작 중이면 player_controller가, 비조작이면
+## party_controller의 추종 루프가 같은 헬퍼(order_desired_velocity)로 구동한다 —
+## 어느 경로든 멤버당 move_and_slide()는 1회.
+##  MOVING = 오더 이동 중(자동전투 정지 · 진형 추종 제외)
+##  HOLD   = 목적지 도착 후 그 자리 유지(자동전투 재개 · 진형 복귀 안 함).
+##           넉백 등으로 밀려나도 원위치로 되돌아가지 않는다.
+## 상호작용/캐스트 접근처럼 **콜백이 있는** 오더는 "배치 의도"가 아니므로 도착 시 HOLD가
+## 아니라 NONE으로 풀린다(상자 한 번 열 때마다 진형 이탈하는 걸 막는다).
+enum MoveOrder { NONE, MOVING, HOLD }
+var _order_state: int = MoveOrder.NONE
+var _order_target: Vector3 = Vector3.ZERO
+var _order_cb: Callable = Callable()
+var _order_arrive_dist: float = 0.4
+var _order_hold_on_arrive: bool = true
+var _order_stuck_s: float = 0.0
+
 
 ## Spawn a party member from its Identity Gear master (F-008 §3.7): the gear's
 ## bundled_identity_skill_id resolves the identity row that drives stats + skills.
@@ -798,6 +815,22 @@ func set_party_member_collision(enabled: bool) -> void:
 	collision_mask = MASK_PARTY if enabled else MASK_WORLD_ONLY
 
 
+## 선택 판정용 월드 AABB — 드래그 박스가 이 캐릭터를 **얼마나 덮었는지** 재는 데 쓴다.
+## 콜리전 캡슐 기준(역할별 radius/height 가 이미 반영돼 있다). 캡슐은 feet-on-origin 이라
+## 중심을 height/2 만큼 올린다. ref: DRIFT-090 후속 — 박스 선택 커버리지 게이트.
+func selection_aabb() -> AABB:
+	var r := DEFAULT_COLLISION_RADIUS
+	var h := DEFAULT_COLLISION_HEIGHT
+	var col := get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if col != null:
+		var cap := col.shape as CapsuleShape3D
+		if cap != null:
+			r = cap.radius
+			h = cap.height
+	var center := global_position + Vector3(0.0, h * 0.5, 0.0)
+	return AABB(center - Vector3(r, h * 0.5, r), Vector3(r * 2.0, h, r * 2.0))
+
+
 func nav_set_target(target: Vector3) -> void:
 	# Only recompute path when target moved significantly
 	if _nav_target.distance_squared_to(target) < 0.25:
@@ -831,6 +864,118 @@ func nav_get_next_position() -> Vector3:
 
 func nav_has_path() -> bool:
 	return _nav_path.size() > 1 and _nav_path_idx < _nav_path.size()
+
+
+## 아직 지나지 않은 웨이포인트들(캐릭터 Y 높이로 올려서). 이동 경로 점선 오버레이가
+## 경로를 다시 계산하지 않고 이걸 그대로 그린다. ref: DRIFT-090.
+func nav_path_remaining() -> Array:
+	var out: Array = []
+	var i := _nav_path_idx
+	while i < _nav_path.size():
+		var wp: Vector3 = _nav_path[i]
+		out.append(Vector3(wp.x, global_position.y, wp.z))
+		i += 1
+	return out
+
+
+## 다음 nav_set_target 을 무조건 재계산시킨다. nav_set_target 은 목표가 0.5m 이내로만
+## 움직였으면 early-return 하는데, 오더 구동 ↔ 진형 추종처럼 **목표의 의미가 바뀌는**
+## 전환에서는 그 캐시가 이전 경로를 그대로 재사용해 한 박자 엉뚱한 데로 걷게 만든다.
+func nav_invalidate() -> void:
+	_nav_target = Vector3(INF, INF, INF)
+	_nav_path = PackedVector3Array()
+	_nav_path_idx = 0
+
+
+# --- Move order (RMB click-to-move; survives swaps) ---------------------------
+
+## Order this member to walk to `target`. `cb` (optional) fires on arrival — an order WITH a
+## callback is a "go do this" errand and releases to NONE on arrival; a bare move order parks
+## the member (HOLD) so it can be positioned independently of the formation.
+func order_move_to(target: Vector3, cb: Callable = Callable(), arrive_dist: float = 0.4) -> void:
+	if not _alive or _mia:
+		return
+	_order_target = target
+	_order_cb = cb
+	_order_arrive_dist = arrive_dist
+	_order_hold_on_arrive = not cb.is_valid()
+	_order_state = MoveOrder.MOVING
+	_order_stuck_s = 0.0
+	nav_invalidate()      # 진형 추종이 쓰던 캐시 경로를 버리고 오더 목표로 새로 뽑는다
+	nav_set_target(target)
+
+
+## Drop the order entirely (HOLD 포함) — 진형 추종/교전 AI로 복귀한다.
+func cancel_order() -> void:
+	if _order_state == MoveOrder.NONE:
+		return
+	_order_state = MoveOrder.NONE
+	_order_cb = Callable()
+	_order_stuck_s = 0.0
+	nav_invalidate()      # 오더 경로를 진형 추종이 물려받지 않게
+
+
+## 오더 목적지로 이동 중(자동전투 정지 · 진형 추종 제외).
+func has_move_order() -> bool:
+	return _order_state == MoveOrder.MOVING
+
+
+## 오더 목적지에 도착해 그 자리를 지키는 중(자동전투는 정상, 진형 복귀 안 함).
+func is_order_holding() -> bool:
+	return _order_state == MoveOrder.HOLD
+
+
+## 오더가 살아있나(MOVING 또는 HOLD) — 집합키/점선 표시가 이 기준을 쓴다.
+func has_any_order() -> bool:
+	return _order_state != MoveOrder.NONE
+
+
+func order_target() -> Vector3:
+	return _order_target
+
+
+## MOVING 인 멤버의 이번 틱 목표 속도. navmesh 웨이포인트를 따라가고, 도착하면
+## 콜백을 쏜 뒤 HOLD/NONE 으로 전이한다(그 프레임은 ZERO 반환). 조작/비조작 양쪽
+## 구동 경로가 공유한다 — 이동 규칙이 한 벌만 존재하도록.
+func order_desired_velocity(speed: float, delta: float) -> Vector3:
+	if _order_state != MoveOrder.MOVING:
+		return Vector3.ZERO
+	var to_final := _order_target - global_position
+	to_final.y = 0.0
+	if to_final.length() <= _order_arrive_dist:
+		_finish_order()
+		return Vector3.ZERO
+	nav_set_target(_order_target)          # 내부에서 재계산 스로틀링(목표 이동거리 게이트)
+	var wp := nav_get_next_position()
+	var to := wp - global_position
+	to.y = 0.0
+	var dist := to.length()
+	if dist < 0.05:                        # 경로 소진/도달 불가 → 최선 지점에서 종료
+		_finish_order()
+		return Vector3.ZERO
+	# 실제로 못 나아가고 있으면(벽 끼임 등) 오더를 놓아준다 — 무한 밀착 방지.
+	var real := get_real_velocity()
+	real.y = 0.0
+	if real.length() < 0.6:
+		_order_stuck_s += delta
+		if _order_stuck_s > 0.8:
+			_finish_order()
+			return Vector3.ZERO
+	else:
+		_order_stuck_s = 0.0
+	return (to / dist) * speed
+
+
+## 도착/포기 공통 종료 — 콜백을 쏘고 HOLD(순수 이동) 또는 NONE(심부름)으로.
+func _finish_order() -> void:
+	var cb := _order_cb
+	_order_cb = Callable()
+	_order_stuck_s = 0.0
+	_order_state = MoveOrder.HOLD if _order_hold_on_arrive else MoveOrder.NONE
+	if not _order_hold_on_arrive:
+		nav_invalidate()
+	if cb.is_valid():
+		cb.call()
 
 
 func _apply_collision_size(radius: float, height: float) -> void:
@@ -1159,6 +1304,8 @@ func set_mia(on: bool) -> void:
 	if _mia == on:
 		return
 	_mia = on
+	if on:
+		cancel_order()  # MIA = 제자리 대기(F-004 §3.4) — 오더가 이를 덮지 않게
 	if on and _mia_marker == null:
 		_mia_marker = Label3D.new()
 		_mia_marker.text = "⚠ MIA"
@@ -1584,6 +1731,7 @@ func _flash() -> void:
 func _go_down() -> void:
 	_alive = false
 	set_mia(false)  # a downed member is not MIA
+	cancel_order()  # 쓰러진 멤버는 이동 오더를 잃는다(부활 후 옛 목적지로 걸어가지 않게)
 	if _flash_tw and _flash_tw.is_valid():
 		_flash_tw.kill()
 	remove_from_group("party_member")

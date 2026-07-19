@@ -9,12 +9,9 @@ var accel_mps2: float = 90.0
 var decel_mps2: float = 120.0
 
 ## Auto-move order (right-click ground → walk there; an interactable → walk to it + interact).
-## Follows the navmesh path (around walls/carved zones) + a stuck timeout; any WASD cancels it.
-var _move_active: bool = false
-var _move_target: Vector3 = Vector3.ZERO
-var _move_cb: Callable = Callable()
-var _arrive_dist: float = 2.0
-var _stuck_time: float = 0.0
+## 오더 상태·이동 규칙은 **party_member 가 소유**한다(스왑을 넘어 살아남아야 하고, 비조작
+## 멤버는 party_controller 가 같은 규칙으로 구동해야 하므로). 여기서는 조작 중인 멤버에 대해
+## WASD 우선 → 없으면 멤버 오더 소비, 만 한다. 어떤 WASD 입력이든 오더를 취소한다.
 
 ## Directional speed vs facing (= camera-forward): W fastest, A/D normal, S slowest.
 const SLIP_ACCEL_MPS2 := 10.0   # Slippery (oil): low accel/decel — slidey, hard to stop/turn
@@ -30,24 +27,35 @@ func _physics_process(delta: float) -> void:
 	# Downed or stunned (F-021): no input, halt in place.
 	if body.has_method("is_alive") and not body.is_alive():
 		body.velocity = Vector3.ZERO
-		_move_active = false
 		return
 	if body.has_method("is_stunned") and body.is_stunned():
 		body.velocity = Vector3.ZERO
 		body.move_and_slide()
-		_move_active = false
-		return
+		return  # 기절은 일시적 — 오더는 유지(풀리면 이어서 걸어간다)
 	# Provoked (AB-099): movement input is locked — the member is forced toward the caster
 	# (so it gets into basic range; the forced attack itself runs in CombatController).
+	# 오더는 apply_provoke 가 이미 취소했다.
 	if body.has_method("is_provoked") and body.is_provoked():
 		_drive_provoked(body)
-		_move_active = false
 		return
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	if input != Vector2.ZERO:
-		_move_active = false   # manual WASD cancels an auto-move order
-	if _move_active:
-		_drive_to_target(body, delta)
+		body.cancel_order()    # manual WASD cancels an auto-move order (HOLD 포함)
+	elif body.has_move_order():
+		# 캐스팅(윈드업/채널) 중이면 오더 이동을 **일시정지**한다 — 오더는 유지되므로 시전이
+		# 끝나면 목표 지점으로 이어서 걸어간다. WASD 는 위에서 이미 오더를 취소했으니 여기
+		# 오지 않는다(직접 움직이면 시전 취소 = 기존 규칙 유지). 비조작 멤버는
+		# party_controller Pass 1/3 이 채널 분기에서 같은 처리를 이미 한다.
+		# 정지 중엔 order_desired_velocity 를 부르지 않으므로 끼임 타이머도 안 쌓인다.
+		if body.has_method("is_channeling") and body.is_channeling():
+			body.velocity = Vector3.ZERO
+			body.move_and_slide()
+			return
+		_drive_order(body, delta)
+		return
+	elif body.is_order_holding():
+		body.velocity = Vector3.ZERO   # 도착 후 정지 유지(WASD 로만 풀린다)
+		body.move_and_slide()
 		return
 	var v_target := _target_velocity(input)
 	if body.has_method("move_speed_mult"):
@@ -118,65 +126,29 @@ func _target_velocity(input: Vector2) -> Vector3:
 # --- auto-move order (issued by InteractionController on right-click) -----------
 
 ## Walk to `target` (stopping `arrive_dist` short), then invoke `cb`. WASD cancels it.
-## Follows the navmesh path (routes around walls + carved fatal zones) via the member's nav
-## helpers; Identity skills keep auto-firing on cooldown the whole way (combat loop, not gated).
+## 오더 자체는 멤버가 소유한다 — 여기서는 조작 중인 멤버에게 전달만 한다. 스왑해도 살아남아
+## party_controller 가 이어서 구동한다. cb 있는 심부름(상호작용·캐스트 접근)은 도착 시 풀리고,
+## cb 없는 순수 이동 오더는 그 자리에 HOLD 한다.
 func order_move_to(target: Vector3, cb: Callable, arrive_dist: float) -> void:
-	_move_target = target
-	_move_cb = cb
-	_arrive_dist = arrive_dist
-	_stuck_time = 0.0
-	_move_active = true
 	var body := get_parent() as CharacterBody3D
-	if body != null and body.has_method("nav_set_target"):
-		body.nav_set_target(target)  # seed the navmesh path
+	if body != null and body.has_method("order_move_to"):
+		body.order_move_to(target, cb, arrive_dist)
 
 
 func cancel_move() -> void:
-	_move_active = false
+	var body := get_parent() as CharacterBody3D
+	if body != null and body.has_method("cancel_order"):
+		body.cancel_order()
 
 
-func _drive_to_target(body: CharacterBody3D, delta: float) -> void:
-	# Arrive once within tolerance of the FINAL target (XZ).
-	var to_final := _move_target - body.global_position
-	to_final.y = 0.0
-	if to_final.length() <= _arrive_dist:
-		_arrive(body)
-		return
-	# Steer toward the next navmesh waypoint (routes around walls + carved zones); falls back to
-	# a straight line if the body has no nav helper.
-	var wp := _move_target
-	if body.has_method("nav_set_target"):
-		body.nav_set_target(_move_target)        # recompute throttled inside (target-distance gated)
-		wp = body.nav_get_next_position()
-	var to := wp - body.global_position
-	to.y = 0.0
-	var dist := to.length()
-	if dist < 0.05:                              # path exhausted / unreachable → stop at best point
-		_arrive(body)
-		return
-	var v_target := (to / dist) * move_speed
-	if body.has_method("move_speed_mult"):
+## 조작 중인 멤버의 오더 구동. 웨이포인트 추종·도착·끼임 판정은 멤버가 소유하고 여기서는
+## 가속 모델만 얹는다 — 비조작 경로(party_controller Pass 1/3)와 동일 규칙을 쓰기 위해.
+func _drive_order(body: CharacterBody3D, delta: float) -> void:
+	var v_target: Vector3 = body.order_desired_velocity(move_speed, delta)
+	if v_target != Vector3.ZERO and body.has_method("move_speed_mult"):
 		v_target *= body.move_speed_mult()
 	if use_accel_model:
 		body.velocity = body.velocity.move_toward(v_target, accel_mps2 * delta)
 	else:
 		body.velocity = v_target
 	body.move_and_slide()
-	# Truly blocked (shouldn't happen with navmesh routing) → drop the order after a beat.
-	var real := body.get_real_velocity()
-	real.y = 0.0
-	if real.length() < 0.6:
-		_stuck_time += delta
-		if _stuck_time > 0.8:
-			_move_active = false
-	else:
-		_stuck_time = 0.0
-
-
-func _arrive(body: CharacterBody3D) -> void:
-	body.velocity = Vector3.ZERO
-	body.move_and_slide()
-	_move_active = false
-	_stuck_time = 0.0
-	if _move_cb.is_valid():
-		_move_cb.call()

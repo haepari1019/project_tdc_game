@@ -292,6 +292,8 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 		m.identity_cooldown_s = maxf(0.0, m.identity_cooldown_s - delta)
 		if m.has_method("holds_fire") and m.holds_fire():
 			continue   # 잠행 이탈 은신 중 = 평타 정지(스킬로 능동 해제할 때까지)
+		if m.has_method("has_move_order") and m.has_move_order():
+			continue   # RMB 이동 오더 이행 중 = 순수 move(평타·정체성 정지). 도착(HOLD)하면 재개.
 		# Provoked (AB-099): forced basic on the caster only — NO Identity/Sub, no normal target,
 		# bypasses the tank-first gate. Movement toward the caster is driven by the controllers.
 		if m.has_method("is_provoked") and m.is_provoked():

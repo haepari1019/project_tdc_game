@@ -125,6 +125,7 @@ var _sv1_nav_exit_timer: Dictionary = {}
 const _SV1_NAV_EXIT_DELAY_S: float = 0.3
 ## Per-member timer: seconds the member has been wall-separated from anchor
 var _sv1_separated_timer: Dictionary = {}
+var _sv1_was_ordered: Dictionary = {}   # 멤버별 직전 프레임 오더 보유 여부(해제 시 캐시 폐기 트리거)
 const _SV1_REJOIN_AFTER_S: float = 0.8
 
 
@@ -270,6 +271,35 @@ func toggle_cohesion_mode() -> void:
 	cohesion_changed.emit(cohesion_mode)
 	var label := "파티비결속" if cohesion_mode == PartyCohesion.MODE_UNBOUND else "파티결속"
 	print("[TDC] Cohesion -> %s (anchor=%s)" % [label, _get_anchor().name])
+
+
+## 집합(rally, T키) — 흩어진 파티를 다시 뭉치게 한다. 이동 오더와 HOLD 를 전원 해제하고
+## 결속(Controlled 기준 정렬)으로 되돌린다. RMB 오더로 멤버를 개별 배치하면 파티가 점점
+## 흩어지는데, 그걸 한 번에 되돌리는 유일한 명령이라 전투 중 자주 눌리는 키다.
+## 오더가 하나도 없으면 무동작 — 결속 토글(U)과 역할이 겹치지 않게.
+func rally() -> void:
+	var had_order := false
+	for m in _members:
+		if is_instance_valid(m) and m.has_method("has_any_order") and m.has_any_order():
+			had_order = true
+			m.cancel_order()
+		_sv1_forget(m)   # 오더 구동 중 굳은 스티어링 캐시를 버리고 진형 추종을 새로 시작
+	if cohesion_mode != PartyCohesion.MODE_BOUND:
+		cohesion_mode = PartyCohesion.MODE_BOUND
+		cohesion_changed.emit(cohesion_mode)
+	if had_order:
+		print("[TDC] Rally — 이동 오더 전원 해제, 진형 복귀")
+
+
+## 한 멤버의 SteeringV1 캐시 전부 폐기. 오더 구동 중에는 이 상태들이 갱신되지 않아서
+## 진형 추종으로 돌아올 때 옛 방향/모드가 한 박자 남는다.
+func _sv1_forget(member: Node) -> void:
+	_sv1_prev_dir.erase(member)
+	_sv1_w_goal.erase(member)
+	_sv1_wall_normals.erase(member)
+	_sv1_nav_mode.erase(member)
+	_sv1_nav_exit_timer.erase(member)
+	_sv1_separated_timer.erase(member)
 
 
 func spawn_at(world_pos: Vector3) -> void:
@@ -756,6 +786,14 @@ func _sv1_update_follow(
 	peer_slot_targets: Dictionary,
 	delta: float
 ) -> void:
+	# Pass -1: 오더가 방금 풀린 멤버의 스티어링 캐시를 폐기한다. 오더 구동 중에는 _sv1_*
+	# 가 갱신되지 않아, 진형 추종으로 돌아온 첫 프레임에 옛 방향/nav 모드가 되살아난다.
+	# 취소 경로가 여럿(WASD·도착·다운·MIA·도발·집합)이라 상태 전이를 여기서 한 곳으로 관찰한다.
+	for member in _members:
+		var ordered: bool = member.has_method("has_any_order") and member.has_any_order()
+		if _sv1_was_ordered.get(member, false) and not ordered:
+			_sv1_forget(member)
+		_sv1_was_ordered[member] = ordered
 	# Pass 0: project every slot target into the anchor's room — preserve the
 	# anchor→slot DIRECTION, clamp DISTANCE to line-of-sight. Resolved first for
 	# all members so separation/bypass use the in-room peer targets too.
@@ -781,9 +819,25 @@ func _sv1_update_follow(
 		if member.has_method("is_mia") and member.is_mia():
 			member.velocity = Vector3.ZERO
 			continue  # MIA — holds in place for player regroup (F-004 §3.4)
+		# F-021 기절 = 행동 정지. 조작캐는 player_controller 가 이미 멈추는데 여기엔 검사가
+		# 없어서, 같은 기절인데 조작 여부에 따라 거동이 갈렸다(비조작은 계속 걸어감).
+		# 오더는 **취소하지 않고 유지**만 한다 → 기절이 풀리면 목표 지점으로 다시 출발한다.
+		# 도발/오더보다 앞에 둔다: 기절은 강제이동까지 덮는 하드 락.
+		if member.has_method("is_stunned") and member.is_stunned():
+			member.velocity = Vector3.ZERO
+			continue
 		if member.has_method("is_channeling") and member.is_channeling():
 			member.velocity = Vector3.ZERO
 			continue  # 캐스팅(채널) 중 비조작 멤버 — 진형 추종\교전을 멈추고 제자리 유지(스킬 발현까지 진형 깨져도 유지). 조작 중이면 위에서 skip → WASD 이동 시 정상 취소.
+		# RMB 이동 오더 — 진형 추종·교전보다 우선. 스왑으로 조작을 놓은 멤버가 자기 목적지로
+		# 계속 걸어가게 하는 지점이다(각 멤버를 다른 위치로 따로 보내기). 도착 후 HOLD 는
+		# 진형 복귀 없이 그 자리를 지킨다 — 집합키(rally)나 새 오더로만 풀린다.
+		if member.has_move_order():
+			planned[member] = member.order_desired_velocity(_follower_move_speed_near, delta)
+			continue
+		if member.is_order_holding():
+			member.velocity = Vector3.ZERO
+			continue
 		if member.has_method("is_provoked") and member.is_provoked():
 			planned[member] = _provoked_seek_vel(member)  # forced toward the taunt caster (AB-099)
 			continue
@@ -825,8 +879,28 @@ func _sv1_update_follow(
 	# would otherwise stand at the formation origin while everyone else engages, so
 	# drive it into combat here too. Outside combat it holds (the formation reference).
 	if not anchor.is_controlled() and (not anchor.has_method("is_alive") or anchor.is_alive()):
+		# 기절한 비조작 앵커도 정지(팔로워와 동일 규칙). 오더는 유지 → 풀리면 재출발.
+		if anchor.has_method("is_stunned") and anchor.is_stunned():
+			anchor.velocity = Vector3.ZERO
+			return
 		# 채널 중인 비조작 앵커도 제자리 유지(스킬 발현까지 진형 깨져도 유지).
 		if anchor.has_method("is_channeling") and anchor.is_channeling():
+			anchor.velocity = Vector3.ZERO
+			return
+		# 앵커도 이동 오더가 있으면 그게 우선(팔로워와 동일 규칙). 앵커가 HOLD 면 그 자리가
+		# 곧 진형 원점이 되므로 파티가 그 지점에 모인다 — 의도한 배치 동작.
+		if anchor.has_move_order():
+			var ov: Vector3 = anchor.order_desired_velocity(_follower_move_speed_near, delta)
+			if anchor.has_method("move_speed_mult"):
+				ov *= anchor.move_speed_mult()
+			if _follower_accel_mps2 > 0.0:
+				anchor.velocity = anchor.velocity.move_toward(ov, _follower_accel_mps2 * delta)
+			else:
+				anchor.velocity = ov
+			_clamp_fatal(anchor, delta)
+			anchor.move_and_slide()
+			return
+		if anchor.is_order_holding():
 			anchor.velocity = Vector3.ZERO
 			return
 		# A provoked NC anchor is forced to the caster like any other member (AB-099).
