@@ -24,9 +24,10 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 func resolve_at(m: CharacterBody3D, center: Vector3, p: Dictionary, ctx) -> void:
 	var radius := float(p.get("radius_m", 2.0))
 	var dmg: float = float(p.get("damage_mult", 1.2)) * m.basic_damage * float(p.get("_coeff", 1.0))
+	var hits: Array = []
 	for e in ctx.enemies_in_radius(center, radius):
 		ctx.deal_damage(e, m, dmg)
-		if e.has_method("apply_outcome"):
-			e.apply_outcome("Chilled", float(p.get("chill_dur_s", 3.0)))
-	ctx.cold_hit(center, radius, m)  # ColdDamageHit → RX (Water→Ice, Veg→Slowed)
+		hits.append(e)
+	# 속성 seam — 즉시 Chilled + ColdDamageHit RX(Water→Ice, Veg→Slowed). AB의 `element`가 정한다.
+	ctx.element_hit(String(p.get("element", "")), center, radius, m, p, hits)
 	SkillVfx.telegraph(ctx, center, Color(0.6, 0.9, 1.0, 0.45), radius)  # cyan frost impact

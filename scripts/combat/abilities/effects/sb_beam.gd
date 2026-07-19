@@ -32,7 +32,7 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var dmg := float(m.basic_damage) * float(p.get("tick_mult", 0.25)) * coeff
 	var beam = BeamChannel.new()
 	ctx.add_child(beam)
-	beam.setup(m, m.global_position, dir, range_m, half_deg, dmg, ticks, interval, ctx)
+	beam.setup(m, m.global_position, dir, range_m, half_deg, dmg, ticks, interval, ctx, p)
 	# The channel is NOT a move-lock/occupy — the caster stays free to move or cast, but doing either
 	# INTERRUPTS the beam (beam_channel watches caster drift; a new cast calls interrupt_active_channel).
 	# Register the node so a later cast can cancel it. Caster can still be hit; ends on downed/stunned.

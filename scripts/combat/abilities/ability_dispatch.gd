@@ -47,7 +47,7 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_dr.gd"),          # AB-046/047/068 Shield Wall·Aegis·Warding (Tank/Healer)
 	preload("res://scripts/combat/abilities/effects/sb_ally_shield.gd"), # AB-067 Aegis Blessing (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_hot.gd"),         # AB-065 Renewing Tide (Healer)
-	preload("res://scripts/combat/abilities/effects/sb_blink.gd"),       # AB-061 Shadowstep (Nuker)
+	preload("res://scripts/combat/abilities/effects/sb_blink.gd"),       # AB-006 Gap-Close / AB-007a·b (Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_vulnerable.gd"),  # AB-057 Focus Fire (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_haste.gd"),       # AB-069 Swift Grace (Healer)
 	# P2-S6a B1 잔여 — stealth/buff/channel/barrier/purge/silence (AB-075 reuses skillbook_shield).
@@ -85,6 +85,7 @@ const CTX_CONTRACT := [
 	"enemies_in_radius", "enemies_in_cone", "enemies_in_rect", "nearest_enemy_in_range",
 	"allies_in_radius", "lowest_hp_enemy_in_radius", "reveal_enemies", "reduce_threat",
 	"spawn_projectile", "spawn_zone", "spawn_barrier", "fire_hit", "cold_hit", "lightning_hit",
+	"element_hit",
 	"damage_destructibles", "report_hit_count", "report_hit_target", "nuker_focus_accumulate",
 ]
 
@@ -146,6 +147,14 @@ func try_identity(m: CharacterBody3D) -> bool:
 ## main class (not listed) → ×1.0 (B0); sub class → its band's coeff. ref: D-016 §3.2 · D-012 §2.4.
 func _band_coeff(cid: String, sub_bands: Dictionary) -> float:
 	return float(BAND_COEFF.get(String(sub_bands.get(cid, "B0")), 1.0))
+
+
+## 이 서브가 멤버 클래스의 **주력**인가 — `sub_bands`에 그 클래스가 없으면 main(B0). 결속 변형 게이트로
+## 쓴다(비주력 = 밴드 피해 패널티 + 정체성 payoff 없음). ref: D-016 §3.2 · DRIFT-087.
+func _is_main_class_sub(member: CharacterBody3D, inst) -> bool:
+	var bands: Dictionary = Slice01Data.get_skillbook_master(
+			String(inst.get("base_ability_id", ""))).get("sub_bands", {})
+	return String(bands.get(String(member.class_id), "B0")) == "B0"
 
 
 ## Player-cast a sub skillbook from slot Q/E/R. Charges + cooldown gated; on success
@@ -230,7 +239,7 @@ func _cast_bar_color(kind: String) -> Color:
 ## 캐스트 「전격 모으기」 차징 VFX 색 — 전격(lightning) 계열만 charge_up 표시(적 enemy_charge와 동일 톤).
 ## 그 외(힐·냉기·화염 등)는 투명 → 미표시. ref: skill_cast.charge_color.
 func _cast_charge_color(p: Dictionary) -> Color:
-	return Color(0.4, 0.7, 1.0, 0.55) if bool(p.get("lightning", false)) else Color(0, 0, 0, 0)
+	return Color(0.4, 0.7, 1.0, 0.55) if String(p.get("element", "")) == "lightning" else Color(0, 0, 0, 0)
 
 
 # ============================================================================
@@ -244,7 +253,7 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	var inst = member.get_skillbook(slot_index)
 	if inst == null:
 		return
-	var ov: Dictionary = BindingOverlays.resolve(
+	var ov: Dictionary = BindingOverlays.resolve_effective(
 		String(member.base_gear_id), String(member.ability_id),
 		String(inst.get("base_ability_id", "")), slot_index)
 	if ov.is_empty():
@@ -281,10 +290,10 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			_nuker_flank_dash(member, slot_index, aim)
 			# --- DPS press_line 「초월」: 서브 명중 시 게이지 충전(비발동) / 초월 중이면 서브 강화 변형(겁화·중력·절대영도) ---
 		"overdrive_charge":
-			_dps_overdrive(member, slot_index, aim)
+			_dps_overdrive(member, slot_index, aim, ov)
 			# --- DPS arc_weave 「혈풍」: 서브 시전당 HP 대가 + 광역 명중 적 수 비례 회복(3기+ 이득) ---
 		"blood_soak":
-			_dps_blood_soak(member, slot_index, aim)
+			_dps_blood_soak(member, slot_index, aim, ov)
 			# --- AB-007 이탈 결속(Nuker) ---
 		"disengage_focus":   # 집중 — 이탈 마무리 대상에 집중 1스택 누적(처형 준비)
 			if _last_hit_target != null and is_instance_valid(_last_hit_target):
@@ -424,42 +433,50 @@ func _nuker_flank_dash(member: CharacterBody3D, _slot_index: int, aim: Vector3) 
 
 ## 「초월」 서브 델타 — 명중 게이지를 충전(명중 적 수 비례, 광역이 빨리 참)하고, 이번 시전이 게이지를 채웠다면
 ## 같은 시전에서 즉시 강화 변형을 실행(충전 완료 = 그 시전이 폭주 — 오프바이원 없음). 조작/AI 공통.
-func _dps_overdrive(member: CharacterBody3D, slot_index: int, aim: Vector3) -> void:
+func _dps_overdrive(member: CharacterBody3D, slot_index: int, aim: Vector3, ov: Dictionary) -> void:
 	var od: Dictionary = BindingOverlays.OVERDRIVE
 	var hits: int = clampi(_count_sub_hits(member, slot_index, aim), 1, int(od["hits_cap"]))
 	member.overdrive_add(float(od["sub_gain"]) * float(hits), float(od["gauge_max"]))
-	if member.overdrive_is_active():
-		_dps_overdrive_empower(member, slot_index, aim, od)
-		member.overdrive_reset()   # 충전을 채운 그 시전 = 강화 1회 = 초월 소모
+	# **소모는 강화가 실제로 발현됐을 때만**(사용자 결정 2026-07-20, DRIFT-087). 예전엔 무조건 reset이라
+	# 비주력 서브·변형 미저작 서브가 아무 이득 없이 초월을 날렸다("소모했는데 아무 일도 안 일어남").
+	if member.overdrive_is_active() and _dps_overdrive_empower(member, slot_index, aim, od, ov):
+		member.overdrive_reset()   # 강화 1회 = 초월 소모
 
 
-## 「초월」 강화 변형(발동 중 서브) — kind로 분기. 전부 대상 한정이라 아군 무피해(장판 대신 화상 DoT).
-func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vector3, od: Dictionary) -> void:
+## 「초월」 강화 변형(발동 중 서브) — **BIND 항목의 `variant`로 분기(AB 단 지정)**. kind로 분기하면 같은 kind의
+## 두 번째 AB를 등록하는 순간 구분이 불가능해진다(볼트 8종·존 5종 등) — 원형/변형 체계와 충돌. DRIFT-085.
+## 전부 대상 한정이라 아군 무피해(장판 대신 화상 DoT).
+## **반환 = 강화가 실제로 발현됐나** — false면 호출부가 초월을 소모하지 않는다(비주력·변형 미저작).
+func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vector3, od: Dictionary, ov: Dictionary) -> bool:
 	var inst = member.get_skillbook(slot_index)
 	if inst == null:
-		return
-	var kind := String(inst.params.get("kind", ""))
+		return false
+	# 비주력(서브 클래스) 서브에는 강화 변형을 붙이지 않는다 — 게이지는 차되 폭주 시 base 그대로(사용자
+	# 결정 2026-07-19, DRIFT-087). 밴드 패널티(피해 −%)에 더해 "정체성 payoff 자체가 없다"는 2차 벽.
+	if not _is_main_class_sub(member, inst):
+		return false   # 초월 미소모 — 발현이 없으니 아껴 뒀다가 주력 서브에 쓴다
+	var variant := String(ov.get("variant", ""))
 	var r: float = float(inst.params.get("radius_m", 2.5)) + float(od["radius_bonus_m"])
-	match kind:
-		"skillbook_fire":     # 겁화 — 명중 적에게 화상(Ignited) 지속딜(장판 아님 = 아군 무피해)
+	match variant:
+		"burn":               # 겁화 — 명중 적에게 화상(Ignited) 지속딜(장판 아님 = 아군 무피해)
 			var dps: float = float(od["burn_dps_pct"]) * member.basic_damage
 			for e in enemies_in_radius(aim, r):
 				if e.has_method("apply_outcome"):
 					e.apply_outcome("Ignited", float(od["burn_dur"]), dps)
 			SkillVfx.telegraph(self, aim, Color(1.0, 0.35, 0.1), r)
-		"skillbook_cold":     # 절대영도 — 감속(Chilled)을 빙결(Rooted)로 격상 + 반경 확대
+		"freeze":             # 절대영도 — 감속(Chilled)을 빙결(Rooted)로 격상 + 반경 확대
 			for e in enemies_in_radius(aim, r):
 				if e.has_method("apply_outcome"):
 					e.apply_outcome("Rooted", float(od["cold_root_s"]))
 			SkillVfx.telegraph(self, aim, Color(0.6, 0.9, 1.0), r)
-		"skillbook_beam":     # 중력 광선 — 빔 원뿔 내 적을 빔 중심선으로 끌어당김(군집화)
+		"gravity":            # 중력 광선 — 빔 원뿔 내 적을 빔 중심선으로 끌어당김(군집화)
 			_dps_overdrive_beam_pull(member, aim, od)
-		"skillbook_bolt":     # 감전 폭주 — 명중 적을 침묵(액티브 캐스트 봉쇄). AB-044 Hush Ward와 동일 API 재사용.
+		"silence":            # 감전 폭주 — 명중 적을 침묵(액티브 캐스트 봉쇄). AB-044 Hush Ward와 동일 API 재사용.
 			for e in enemies_in_radius(aim, r):
 				if e.has_method("apply_silence"):
 					e.apply_silence(float(od["bolt_silence_s"]))
 			SkillVfx.telegraph(self, aim, Color(0.62, 0.42, 0.95), r)
-		"skillbook_poison":   # 맹독 폭주 — 초월 중 독 스택 폭증 + 독 zone 잔류(payoff). base/적/비초월엔 zone 없음.
+		"venom":              # 맹독 폭주 — 초월 중 독 스택 폭증 + 독 zone 잔류(payoff). base/적/비초월엔 zone 없음.
 			var pdps: float = float(inst.params.get("poison_dps", 8.0))
 			var pcap: float = pdps * float(inst.params.get("poison_stack_cap", 5))
 			for e in enemies_in_radius(aim, r):
@@ -469,6 +486,13 @@ func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vecto
 			if zttl > 0.0:
 				spawn_zone("ToxicGas", aim, float(inst.params.get("zone_radius_m", 5.0)), pdps, zttl, member)
 			SkillVfx.telegraph(self, aim, Color(0.4, 0.85, 0.3), r)
+		"":                   # 기본 델타(GENERIC) = 게이지 충전만 — 강화 변형 저작 전. 정상 상태(DRIFT-087).
+			return false      # 초월 미소모
+		_:                    # OVERLAYS 항목인데 variant가 미구현 = 저작 버그 → 시끄럽게(DRIFT-084 규약)
+			push_error("[binding] 초월 variant '%s' 미구현 — BIND=%s ab=%s"
+					% [variant, String(ov.get("id", "?")), String(inst.get("base_ability_id", "?"))])
+			return false
+	return true
 
 
 ## 중력 광선 — 빔 방향(member→aim) 원뿔 내 적을 각자 빔 축선의 최근접점으로 끌어당긴다(넉백 역방향).
@@ -493,12 +517,12 @@ func _dps_overdrive_beam_pull(member: CharacterBody3D, aim: Vector3, od: Diction
 
 ## 「혈풍」 서브 델타 — HP 대가 소모 + 명중 적 수 비례 회복(3기+ 순이득). **서브별 변형**(kind 분기, 초월과 대칭):
 ## fire=흡수 폭발(기본 회복) / beam=흡혈 광선(채널 사이펀 → 회복 증폭) / cold=혈빙(과회복분 임시 보호막).
-func _dps_blood_soak(member: CharacterBody3D, slot_index: int, aim: Vector3) -> void:
+func _dps_blood_soak(member: CharacterBody3D, slot_index: int, aim: Vector3, ov: Dictionary) -> void:
 	var inst = member.get_skillbook(slot_index)
 	if inst == null:
 		return
 	var bg: Dictionary = BindingOverlays.BLOODGALE
-	var kind := String(inst.params.get("kind", ""))
+	var variant := String(ov.get("variant", ""))   # AB 단 지정(BIND 항목) — kind 분기 아님. DRIFT-085.
 	var cost: float = float(bg["hp_cost_pct"]) * member.max_hp
 	var hits: Array = _sub_hit_enemies(member, slot_index, aim)
 	var base_refund: float = float(bg["refund_pct"]) * member.max_hp * float(hits.size())
@@ -510,13 +534,17 @@ func _dps_blood_soak(member: CharacterBody3D, slot_index: int, aim: Vector3) -> 
 				srcs.append(e.global_position)
 		if not srcs.is_empty():
 			SkillVfx.blood_siphon(self, srcs, member.global_position)
-	match kind:
-		"skillbook_beam":   # 흡혈 광선 — 채널 사이펀: 회복 증폭
+	match variant:
+		"siphon":           # 흡혈 광선 — 채널 사이펀: 회복 증폭
 			member.blood_soak(cost, base_refund * float(bg["beam_refund_mult"]), float(bg["hp_floor"]))
-		"skillbook_cold":   # 혈빙 — 과회복(max_hp 초과)분을 임시 보호막으로
+		"iceblood":         # 혈빙 — 과회복(max_hp 초과)분을 임시 보호막으로
 			member.blood_soak(cost, base_refund, float(bg["hp_floor"]), float(bg["shield_dur"]))
-		_:                  # 작열(fire) 등 — 흡수 폭발(기본 회복)
+		"burst":            # 흡수 폭발 — 기본 회복(작열·독 살포)
 			member.blood_soak(cost, base_refund, float(bg["hp_floor"]))
+		_:                  # variant 미구현 — 기본 회복으로 살리되 시끄럽게(DRIFT-084 규약).
+			member.blood_soak(cost, base_refund, float(bg["hp_floor"]))   # GENERIC 기본은 "burst"라 여기 안 옴
+			push_error("[binding] 혈풍 variant '%s' 미구현 — BIND=%s ab=%s"
+					% [variant, String(ov.get("id", "?")), String(inst.get("base_ability_id", "?"))])
 
 
 ## 서브가 실제로 때린 적 목록 — fire/cold는 명중점 반경, beam은 원뿔 근사. 초월 충전량/혈풍 회복·흡혈 VFX 공용.
@@ -717,6 +745,42 @@ func cold_hit(center: Vector3, radius: float, source: Node = null) -> void:
 ## Emit a LightningHit at a point (party Rending Beam, AB-054) → Shock RX (Water/Steam conduct).
 func lightning_hit(center: Vector3, radius: float, source: Node = null) -> void:
 	_reactions.emit_event("LightningHit", {"position": center, "radius": radius, "source": source})
+
+
+## **속성 타격 seam (DRIFT-088)** — AB의 `element`가 타격 시점에 두 가지를 한다:
+##   ① **즉시 효과**: 맞은 대상에게 속성 상태를 직접 부여(무조건).
+##   ② **RX 이벤트**: 반응계로 넘긴다 → **조건부** 효과는 거기서만 발현(예: fire는 여기서 Ignited를
+##      걸지 않고, 가연 대상에서 RX가 점화시킨다).
+## 표에 없는 속성(slag·void 등)은 둘 다 없음 = 무반응(의도). `targets` = 이번 타격이 실제로 때린 적들.
+func element_hit(element: String, center: Vector3, radius: float, source: Node, p: Dictionary, targets: Array = []) -> void:
+	var e: Dictionary = Elements.of(element)
+	if e.is_empty():
+		return
+	var oc := String(e.get("outcome", ""))          # ① 즉시 효과
+	if oc != "":
+		var dur := float(p.get(String(e.get("dur_key", "")), float(e.get("dur_default", 0.0))))
+		if dur > 0.0:
+			for t in targets:
+				if t != null and is_instance_valid(t) and t.has_method("apply_outcome"):
+					t.apply_outcome(oc, dur)
+	var rx := String(e.get("rx", ""))               # ② RX — 조건부 효과의 입구
+	if rx == "":
+		return
+	if String(e.get("scope", "area")) == "per_target":
+		var pr := float(e.get("per_target_radius_m", 1.2))   # 대상 발치마다 → 전도 판정이 개별 성립
+		for t in targets:
+			if t != null and is_instance_valid(t):
+				_emit_element_rx(rx, t.global_position, pr, source)
+	else:
+		_emit_element_rx(rx, center, radius, source)
+
+
+## RX 이벤트 발신 — 불만 전용 진입점(`fire_hit`)이 기름 연쇄 depth를 다루므로 그쪽으로 위임한다.
+func _emit_element_rx(rx: String, pos: Vector3, radius: float, source: Node) -> void:
+	if rx == "FireDamageHit":
+		fire_hit(pos, radius, 0, source)
+	else:
+		_reactions.emit_event(rx, {"position": pos, "radius": radius, "source": source})
 
 
 ## Spawn a Rampart Barrier (AB-034) — a destructible forward wall. Parented under the dispatch node

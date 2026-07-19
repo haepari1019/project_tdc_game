@@ -68,7 +68,7 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	var kind := String(p.get("kind", ""))
 	_range = float(p.get("range_m", 10.0))
 	# Flank Collapse 「잠행」 — 링크된 스킬은 근접 사거리로만 시전(붙어야 함). 원래 range_m를 melee로 대체 → 링도 좁게.
-	if String(BindingOverlays.resolve(String(member.base_gear_id), String(member.ability_id), String(inst.get("base_ability_id", "")), slot_index).get("delta", "")) == "flank_strike":
+	if String(BindingOverlays.resolve_effective(String(member.base_gear_id), String(member.ability_id), String(inst.get("base_ability_id", "")), slot_index).get("delta", "")) == "flank_strike":
 		_range = float(BindingOverlays.FLANK["melee_range_m"])
 	# 직선 빔(AB-054 절단 광선) / 전방 직사각형(AB-005 rect) — 원형이 아니라 시전자→마우스 직선 레인으로
 	# 조준(적 커서). 확정 시 그 방향으로 즉시 시전(사거리까지 걷지 않음).

@@ -480,9 +480,10 @@ func tick_outcome(delta: float) -> void:
 	var burn := _outcome.tick(delta)
 	if burn > 0.0:
 		take_damage(burn)
-	var pt := _outcome.take_poison_tick()
-	if pt > 0.0:
-		_FloatText.popup(self, str(int(round(pt))), Color(0.72, 0.38, 0.95), _box_size.y + 0.3, 0.9)   # 중독 DoT = 보라(우측 빗겨 — 체력바/아이콘 안 가리게)
+	# DoT 피해 표기 — 종류 무관 동일 규격(카메라 기준 우측 빗겨 · 체력바/아이콘 안 가리게). 색만 종류별.
+	for t in _outcome.take_dot_ticks():
+		_FloatText.popup(self, str(int(round(float(t["dmg"])))),
+				OutcomeStatus.dot_color(String(t["id"])), _box_size.y + 0.3, 0.9)
 	_update_status_badges()   # 디버프 아이콘(체력바 위) 갱신 — 만료/DoT 반영
 
 

@@ -517,8 +517,8 @@ func _nearest_enemy_in_range(from: Vector3, range_m: float) -> CharacterBody3D:
 ## Party→enemy damage with F-022 threat: damage*mult, first-attack bonus,
 ## group-pull propagation, and first-aggressor floor.
 func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float) -> void:
-	# Shadowstep (AB-061) — the caster's NEXT hit is boosted, consumed here (basic OR sub; threat
-	# below reflects the boosted damage). No-op for members without a pending bonus.
+	# Next-hit bonus (AB-006 Gap-Close · 잠행 결속 disengage_veil) — the caster's NEXT hit is boosted,
+	# consumed here (basic OR sub; threat below reflects it). No-op without a pending bonus.
 	if attacker != null and attacker.has_method("consume_next_hit_bonus"):
 		dmg *= 1.0 + attacker.consume_next_hit_bonus()
 	# AB-012 HEX-WEAK — a hexed attacker deals reduced outgoing damage (basic OR sub; the threat

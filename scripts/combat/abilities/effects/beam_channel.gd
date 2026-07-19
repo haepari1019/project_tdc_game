@@ -20,6 +20,7 @@ var _dmg: float             # per-tick damage
 var _interval: float
 var _ticks_left: int
 var _ctx
+var _params: Dictionary = {}   # 속성 seam(element_hit)이 읽는 원본 cast params. DRIFT-088.
 var _t: float = 0.0
 var _bar                    # CastBar (depleting) over the caster
 var _elapsed: float = 0.0
@@ -28,7 +29,7 @@ var _finished: bool = false
 
 
 func setup(caster: CharacterBody3D, origin: Vector3, dir: Vector3, range_m: float, half_deg: float,
-		dmg_per_tick: float, ticks: int, interval: float, ctx) -> void:
+		dmg_per_tick: float, ticks: int, interval: float, ctx, params: Dictionary = {}) -> void:
 	_caster = caster
 	_origin = origin
 	_dir = dir
@@ -38,6 +39,7 @@ func setup(caster: CharacterBody3D, origin: Vector3, dir: Vector3, range_m: floa
 	_ticks_left = ticks
 	_interval = interval
 	_ctx = ctx
+	_params = params
 	# 첫 틱은 즉발(t=0), 마지막 틱은 (ticks-1)*interval에 발사 → 그 시점에 채널 종료.
 	# 바가 정확히 그때 0에 닿도록 총 지속을 (ticks-1)*interval로 잡는다.
 	_total_dur = maxf(float(ticks - 1) * interval, 0.001)
@@ -89,8 +91,11 @@ func _finish() -> void:
 func _do_tick() -> void:
 	_ticks_left -= 1
 	var end: Vector3 = _origin + _dir * _range
+	var hits: Array = []
 	for e in _ctx.enemies_in_cone(_origin, _dir, _range, _half):
 		if e != null and is_instance_valid(e) and e.has_method("take_damage"):
 			_ctx.deal_damage(e, _caster, _dmg)
-			_ctx.lightning_hit(e.global_position, 1.2, _caster)  # → Shock RX on conductive media
+			hits.append(e)
+	# 속성 seam(DRIFT-088) — 예전엔 여기서 lightning_hit을 **하드코딩**했다. 이제 AB의 `element`가 정한다.
+	_ctx.element_hit(String(_params.get("element", "")), _origin, _range, _caster, _params, hits)
 	SkillVfx.lightning_bolt(_ctx, _origin, end, Color(0.70, 0.85, 1.0))

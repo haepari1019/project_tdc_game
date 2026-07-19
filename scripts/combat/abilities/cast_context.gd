@@ -138,5 +138,10 @@ func lightning_hit(center: Vector3, radius: float, source: Node = null) -> void:
 	_dispatch.lightning_hit(center, radius, source)
 
 
+## 속성 타격 seam — 즉시 효과 + RX(조건부 효과의 입구). 진영 무관이라 그대로 위임. ref: DRIFT-088.
+func element_hit(element: String, center: Vector3, radius: float, source: Node, p: Dictionary, targets: Array = []) -> void:
+	_dispatch.element_hit(element, center, radius, source, p, targets)
+
+
 func damage_destructibles(pos: Vector3, r: float, dmg: float) -> bool:
 	return _dispatch.damage_destructibles(pos, r, dmg)

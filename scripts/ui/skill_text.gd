@@ -10,6 +10,14 @@ const _BAND_COEFF := {"B0": 1.0, "B1": 0.9, "B2": 0.75, "B3": 0.55}   # D-016 §
 ## 스킬 한 줄 설명 — prose(kind별) + 핵심 수치(피해/반경/지속). 색 없음(본문).
 static func describe(kind: String, params: Dictionary) -> String:
 	var prose := Slice01Data.get_skill_desc(kind)
+	# 「광역 투사체」 원형 = skillbook_bolt(AB-008 Slag Spit). 나머지 볼트는 여기서 갈라지는 변형이라
+	# 문장을 params로 조립한다 — 원형 문장(kind desc)에 실제로 가진 것만 덧붙어 스킬마다 참이 된다.
+	# 집중(cast_s) = 원형이 물려주는 시전 감각 · 전격(lightning) = AB-003 계열이 얹는 속성. DRIFT-085.
+	if kind == "skillbook_bolt":
+		if float(params.get("cast_s", 0.0)) > 0.0:
+			prose = "에너지를 집중한 뒤 " + prose
+		if String(params.get("element", "")) == "lightning":
+			prose += " 전격 속성이 더해져 맞은 대상을 감전시킨다."
 	var stm := float(params.get("single_target_mult", 1.0))
 	if stm > 1.0:   # AB-005 — 범위 내 단일 대상이면 피해 증폭(param 있는 스킬만)
 		prose += " 범위 내 적이 단일 개체라면 피해를 %d%% 증폭한다." % int(round((stm - 1.0) * 100.0))

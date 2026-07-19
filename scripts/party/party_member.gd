@@ -127,8 +127,16 @@ var _haste_timer_s: float = 0.0
 var _veil_timer_s: float = 0.0
 var _veil_dur: float = 1.0
 var _hold_fire: bool = false   # 잠행 이탈 은신 = 평타 정지(스킬로 능동 해제할 때까지). apply_veil(hold_fire=true) 세팅.
-# F-009 Shadowstep (AB-061) — the NEXT damaging hit by this member is boosted, consumed once.
+# F-009 next-hit bonus (AB-006 Gap-Close · 잠행 결속) — this member's NEXT damaging hit is boosted.
 var _next_hit_bonus: float = 0.0
+# AB-007b 이탈 자동시전 — "지금 싸우고 있는 상대"의 반대로 튀기 위한 두 신호(DRIFT-085).
+# 존/트랩은 take_damage를 attacker 없이 호출하므로(hazard_zone) 자연히 _last_attacker가 안 잡힌다
+# → 그 경우엔 마지막 이동 방향의 반대로 후퇴한다.
+const ENGAGED_ATTACKER_S := 3.0       # 이 안에 나를 때린 적 = "교전 중인 상대"
+const MOVE_DIR_EPS := 0.05            # 이 이하 속도는 정지로 취급(마지막 방향 유지)
+var _last_attacker: Node = null
+var _last_attacker_s: float = 0.0     # 남은 유효시간(교전 중 판정) — 0이면 "싸우던 상대 없음"
+var _last_move_dir: Vector3 = Vector3.ZERO   # 마지막으로 실제 이동하던 수평 방향(정지해도 유지)
 # F-009 Casting (wind-up, skill_cast) — caster occupied; blocks other active casts until the cast
 # resolves. NOTE: AB-054 Rending Beam is a CHANNEL, not a wind-up cast — it does NOT set this (it no
 # longer occupies/roots; instead moving or casting interrupts it via _active_channel below).
@@ -167,7 +175,7 @@ var _sanctuary_ring: MeshInstance3D = null   # 지면 링(top_level — 시전�
 var _od_gauge: float = 0.0            # DPS press_line 「초월」 게이지(0.._od_gauge_max). 가득 차면 발동 상태로 유지
 var _od_gauge_max: float = 100.0      # (지속시간 없음) — 강화 서브 1회 시전 시 소모, 비전투 5초면 초기화(party_controller)
 var _od_active: bool = false          # 초월 발동 상태(다음 서브 1회가 강화 변형) — ability_dispatch가 조회·소모
-var _status_orb: MeshInstance3D
+var _status_icons = null           # OverheadStatusIcons 로우(lazy) — 디버프 아이콘(색+심볼+시계 타이머)
 var _flash_heal_tw: Tween
 
 var _controlled: bool = false
@@ -723,7 +731,7 @@ func debug_reset() -> void:
 	if _hp_bar:
 		_hp_bar.set_ratio(1.0)
 		_hp_bar.set_shield_ratio(0.0)
-	_update_status_orb()
+	_update_status_icons()
 	_apply_controlled_visual(_controlled)
 
 
@@ -863,6 +871,10 @@ func _apply_controlled_visual(active: bool) -> void:
 func take_damage(amount: float, attacker: Node = null) -> void:
 	if not _alive:
 		return
+	# AB-007b — "지금 싸우고 있는 상대" 기록. 존/트랩 피해는 attacker=null이라 여기서 안 잡힌다(의도).
+	if attacker != null and is_instance_valid(attacker):
+		_last_attacker = attacker
+		_last_attacker_s = ENGAGED_ATTACKER_S
 	# F-008 Sentinel Form (IDA-052) — reflect a fraction of the incoming hit back to the attacker
 	# (melee 근사: any direct attacker-sourced hit while the stance holds; pre-mitigation amount).
 	if _sentinel_reflect > 0.0 and _sentinel_timer_s > 0.0 and attacker != null \
@@ -1033,7 +1045,7 @@ func apply_veil(dur: float, hold_fire: bool = false) -> void:
 		_body_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_body_material.albedo_color = _VEIL_COLOR      # 반투명 + 냉회색 톤 → 은신 느낌
 		_body_material.emission_enabled = false        # 발광 끄기(조작 발광이 반투명을 덮지 않게)
-	_update_status_orb()
+	_update_status_icons()
 
 
 func is_veiled() -> bool:
@@ -1057,10 +1069,10 @@ func break_veil() -> void:
 	if _badges != null:
 		_badges.clear_badge("veil")
 	_apply_controlled_visual(_controlled)
-	_update_status_orb()
+	_update_status_icons()
 
 
-## F-009 Shadowstep (AB-061) — boost this member's NEXT damaging hit; consumed once on damage.
+## F-009 next-hit bonus (AB-006 · 잠행 결속) — boost the NEXT damaging hit; consumed once on damage.
 func grant_next_hit_bonus(b: float) -> void:
 	_next_hit_bonus = maxf(_next_hit_bonus, b)
 
@@ -1070,6 +1082,19 @@ func consume_next_hit_bonus() -> float:
 	var b := _next_hit_bonus
 	_next_hit_bonus = 0.0
 	return b
+
+
+## AB-007b — 지금 교전 중인 상대(최근 ENGAGED_ATTACKER_S 안에 나를 때린 적). 없으면 null
+## (= 존/트랩 피해였다는 뜻 → 호출부는 last_move_dir 역방향으로 후퇴한다).
+func engaged_attacker() -> Node:
+	if _last_attacker_s <= 0.0 or not is_instance_valid(_last_attacker):
+		return null
+	return _last_attacker
+
+
+## AB-007b — 마지막으로 이동하던 수평 방향(정지 중에도 유지). 한 번도 안 움직였으면 ZERO.
+func last_move_dir() -> Vector3:
+	return _last_move_dir
 
 
 ## F-009 Channeling (AB-054 Rending Beam) — mark the caster occupied for `dur` (blocks other sub casts).
@@ -1190,6 +1215,14 @@ func _physics_process(delta: float) -> void:
 		if s != null and float(s.cooldown_s) > 0.0:
 			s.cooldown_s = float(s.cooldown_s) - delta
 	_tick_binding(delta)   # P4a Kit Binding — bulwark ICD + BIND-006 recycle window
+	# AB-007b 이탈 신호 — 교전 상대 만료 + 마지막 이동 방향 추적(속도는 컨트롤러가 매 틱 세팅).
+	if _last_attacker_s > 0.0:
+		_last_attacker_s -= delta
+		if _last_attacker_s <= 0.0 or not is_instance_valid(_last_attacker):
+			_last_attacker = null
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	if flat.length() > MOVE_DIR_EPS:
+		_last_move_dir = flat.normalized()
 	if shield_timer_s > 0.0:
 		shield_timer_s -= delta
 		if shield_timer_s <= 0.0:
@@ -1252,7 +1285,7 @@ func _physics_process(delta: float) -> void:
 			if _badges != null:
 				_badges.clear_badge("veil")
 			_apply_controlled_visual(_controlled)   # 발광/스케일 원복(조작 중이면 재발광)
-			_update_status_orb()
+			_update_status_icons()
 	if _slow_timer > 0.0:
 		_slow_timer -= delta
 		if _slow_timer <= 0.0:
@@ -1267,9 +1300,13 @@ func _physics_process(delta: float) -> void:
 	var burn := _outcome.tick(delta)  # elemental outcome timers + Ignited DoT (bypasses shield)
 	if burn > 0.0:
 		_apply_dot(burn)
-	var pt := _outcome.take_poison_tick()
-	if pt > 0.0:
-		_FloatText.popup(self, str(int(round(pt))), Color(0.72, 0.38, 0.95), 2.4, 0.9)   # 중독 DoT = 보라(우측 빗겨)
+	# DoT 피해 표기 — 종류 무관 동일 규격(카메라 기준 우측 빗겨). 색만 종류별(중독=보라/점화=주황).
+	for t in _outcome.take_dot_ticks():
+		_FloatText.popup(self, str(int(round(float(t["dmg"])))),
+				OutcomeStatus.dot_color(String(t["id"])), 2.4, 0.9)
+	# 상태 오브는 이벤트(apply_*)에서만 갱신돼, `_outcome.tick`이 **만료**시킨 건 반영되지 않았다
+	# → 점화가 끝나도 빨간 오브가 남던 버그. 매 틱 재평가한다(active 아니면 숨김).
+	_update_status_icons()
 
 
 # --- Status (F-021) ---
@@ -1281,7 +1318,7 @@ func apply_stun(duration: float) -> void:
 		popup_status("기절", Color(1.0, 0.9, 0.3))
 	stun_timer_s = maxf(stun_timer_s, duration)
 	_stun_dur = maxf(_stun_dur, stun_timer_s)
-	_update_status_orb()
+	_update_status_icons()
 
 
 func apply_poison(duration: float, dps: float) -> void:
@@ -1292,7 +1329,7 @@ func apply_poison(duration: float, dps: float) -> void:
 	poison_timer_s = maxf(poison_timer_s, duration)
 	_poison_dur = maxf(_poison_dur, poison_timer_s)
 	poison_dps = maxf(poison_dps, dps)
-	_update_status_orb()
+	_update_status_icons()
 
 
 ## Movement slow (e.g. Oil slick) — multiplies move speed while active (피아무구분).
@@ -1329,10 +1366,11 @@ func apply_provoke(source: Node, duration: float) -> void:
 		return
 	if provoked_timer_s <= 0.0:
 		popup_status("도발", Color(1.0, 0.6, 0.3))
+	cancel_order()  # AB-099 강제이동이 위치 의도를 덮는다 — 풀린 뒤 옛 목적지로 재출발하지 않게
 	provoke_source = source
 	provoked_timer_s = maxf(provoked_timer_s, duration)
 	_provoke_dur = maxf(_provoke_dur, provoked_timer_s)
-	_update_status_orb()
+	_update_status_icons()
 
 
 ## Provoked AND able to act on it. False while stunned — Stunned suppresses Provoked's
@@ -1370,7 +1408,7 @@ func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if not _outcome.has(id) and _FloatText.OUTCOME_KO.has(id):
 		popup_status(_FloatText.OUTCOME_KO[id], Color(1.0, 0.7, 0.55))
 	_outcome.apply(id, dur, mag)
-	_update_status_orb()
+	_update_status_icons()
 
 
 ## AB-010 스택형 독 DoT — 재적용마다 dps 누적(스택↑)·지속 갱신. 두 번 걸면 틱 배증. DoT는 _outcome tick이 굴린다.
@@ -1380,7 +1418,7 @@ func apply_poison_stack(dur: float, add_dps: float, cap_dps: float, unit_dps: fl
 	if not _outcome.has("Poison"):
 		popup_status("중독", Color(0.5, 0.9, 0.4))
 	_outcome.apply_stack("Poison", dur, add_dps, cap_dps, unit_dps)
-	_update_status_orb()
+	_update_status_icons()
 
 
 ## Public outcome query (Third-faction Scent/Root targeting reads this). ref: DEC-20260621-001.
@@ -1398,42 +1436,49 @@ func get_status_list() -> Array:
 	var out: Array = []
 	if shield > 0.0:  # buff
 		out.append({
+			"name": "보호막",
 			"color": Color(0.36, 0.66, 1.0),
 			"ratio": 1.0 - clampf(shield_timer_s / maxf(_shield_dur, 0.01), 0.0, 1.0),
 			"buff": true,
 		})
 	if is_veiled():  # buff (Veiled — Smoke Veil AB-062 stealth)
 		out.append({
+			"name": "은신",
 			"color": Color(0.55, 0.62, 0.70),
 			"ratio": 1.0 - clampf(_veil_timer_s / maxf(_veil_dur, 0.01), 0.0, 1.0),
 			"buff": true,
 		})
 	if is_stunned():  # debuff
 		out.append({
+			"name": "기절",
 			"color": Color(1.0, 0.85, 0.2),
 			"ratio": 1.0 - clampf(stun_timer_s / maxf(_stun_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
 	if poison_timer_s > 0.0:  # debuff (DoT — poison / fire / toxic gas)
 		out.append({
+			"name": "중독",
 			"color": Color(0.36, 0.9, 0.32),
 			"ratio": 1.0 - clampf(poison_timer_s / maxf(_poison_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
 	if _slow_timer > 0.0:  # debuff (slow — Oil slick etc.)
 		out.append({
+			"name": "둔화",
 			"color": Color(0.40, 0.78, 1.0),
 			"ratio": 1.0 - clampf(_slow_timer / maxf(_slow_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
 	if _hexweak_timer_s > 0.0:  # debuff (Hex-Weak — reduced outgoing damage, AB-012)
 		out.append({
+			"name": "취약",
 			"color": Color(0.6, 0.35, 0.85),
 			"ratio": 1.0 - clampf(_hexweak_timer_s / maxf(_hexweak_dur, 0.01), 0.0, 1.0),
 			"buff": false,
 		})
 	if provoked_timer_s > 0.0:  # debuff (Provoked — forced taunt, AB-099)
 		out.append({
+			"name": "도발",
 			"color": Color(0.95, 0.35, 0.2),
 			"ratio": 1.0 - clampf(provoked_timer_s / maxf(_provoke_dur, 0.01), 0.0, 1.0),
 			"buff": false,
@@ -1471,7 +1516,7 @@ func _tick_status(delta: float) -> void:
 			provoke_source = null
 			changed = true
 	if changed:
-		_update_status_orb()
+		_update_status_icons()
 
 
 func _apply_dot(amount: float) -> void:
@@ -1484,36 +1529,28 @@ func _apply_dot(amount: float) -> void:
 		_go_down()
 
 
-## Small overhead orb signalling active status (stun = yellow, poison = green).
-func _update_status_orb() -> void:
-	var active := is_stunned() or poison_timer_s > 0.0 or provoked_timer_s > 0.0 or _outcome.any()
-	if not active:
-		if _status_orb:
-			_status_orb.visible = false
-		return
-	if _status_orb == null:
-		_status_orb = MeshInstance3D.new()
-		var s := SphereMesh.new()
-		s.radius = 0.16
-		s.height = 0.32
-		_status_orb.mesh = s
-		_status_orb.position = Vector3(0, 2.0, 0)
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.no_depth_test = true
-		_status_orb.material_override = mat
-		add_child(_status_orb)
-	var col: Color = Color(0.35, 0.9, 0.3)  # poison (default)
-	if is_stunned():
-		col = Color(1.0, 0.85, 0.2)            # stun (yellow, highest display priority)
-	elif provoked_timer_s > 0.0:
-		col = Color(0.95, 0.35, 0.2)           # provoked (red-orange)
-	elif poison_timer_s <= 0.0:
-		var oc = _outcome.orb_color()           # elemental outcome (fire/shock/chill/…)
-		if oc != null:
-			col = oc
-	(_status_orb.material_override as StandardMaterial3D).albedo_color = col
-	_status_orb.visible = true
+## 머리 위 상태 표시 — **적(enemy_unit)과 동일한 아이콘 로우**(색 코인 + 한글 심볼 + 시계방향 부채꼴로
+## 잔여시간). 예전엔 단색 구슬 하나라 ① 남은 시간을 알 수 없었고 ② 우선순위 1개만 보였다(DRIFT-089).
+## 디버프만 표시(버프는 목록에서 제외 — 적 규칙과 동일).
+const _OverheadStatusIcons := preload("res://scripts/ui/overhead_status_icons.gd")
+func _status_icon_strip():
+	if _status_icons == null:
+		_status_icons = _OverheadStatusIcons.new()
+		_status_icons.position = Vector3(0, 2.2, 0)
+		add_child(_status_icons)
+	return _status_icons
+
+
+func _update_status_icons() -> void:
+	var list: Array = []
+	for st in get_status_list():
+		if not bool(st.get("buff", false)):
+			list.append(st)
+	if list.is_empty():
+		if _status_icons != null:
+			_status_icons.sync([])
+	else:
+		_status_icon_strip().sync(list)
 
 
 func _heal_flash() -> void:

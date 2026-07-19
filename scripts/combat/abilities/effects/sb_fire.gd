@@ -24,8 +24,12 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 func resolve_at(m: CharacterBody3D, center: Vector3, p: Dictionary, ctx) -> void:
 	var radius := float(p.get("radius_m", 3.0))
 	var dmg: float = float(p.get("damage_mult", 1.8)) * m.basic_damage * float(p.get("_coeff", 1.0))
+	var hits: Array = []
 	for e in ctx.enemies_in_radius(center, radius):
 		ctx.deal_damage(e, m, dmg)
+		hits.append(e)
 	ctx.damage_destructibles(center, radius, dmg)
-	ctx.fire_hit(center, radius, 0, m)  # FireDamageHit → ignite any Oil here (RX-OIL-FIRE)
+	# 속성 seam — 불은 **즉시 효과가 없다**(Ignited를 직접 걸지 않음). FireDamageHit만 쏘고, 가연 대상
+	# (Oil 장판 등)에서 반응이 성립할 때만 RX가 점화로 발현시킨다 = "조건부 효과는 RX" 규약의 표준 사례.
+	ctx.element_hit(String(p.get("element", "")), center, radius, m, p, hits)
 	SkillVfx.telegraph(ctx, center, Color(1.0, 0.45, 0.1), radius)  # orange fire impact

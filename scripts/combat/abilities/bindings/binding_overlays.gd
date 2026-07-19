@@ -89,6 +89,32 @@ const BLOODGALE := {
 	"shield_dur": 5.0,          # 혈빙(빙결) — 과회복(max_hp 초과)분을 임시 보호막으로, 이 시간동안
 }
 
+# ── 정체성 기본 델타 (GENERIC) — DRIFT-087 ────────────────────────────────────────────────────
+# 결속은 이제 **정체성 착용만으로 장착한 모든 서브에 기본 델타가 적용된다**(등록 불요). OVERLAYS 항목은
+# **변주/특수만** 담는다(초월·혈풍 variant · 슬롯 변주 · 이탈 결속). 이유: generic 델타의 등록 항목은
+# 정보를 담지 않아(BIND-001/002/003은 세 줄이 완전히 동일) 순수 비용이었고, **누락 = 조용한 기능 상실**
+# 이었다(AB-008이 미등록이라 결속 델타 0이던 사례). 「정체성별 동일 3서브」 평가 패리티 제약은 검증
+# 완료로 해제(사용자, 2026-07-19).
+#   · Healer(IDA-031/026)는 애초에 identity 단위 — `identity_dot_heals`/`identity_sanctuaries`가 치유
+#     choke를 게이트하므로 여기 등재 불요(delta 경로를 안 탄다).
+#   · IDA-024 초월 = 기본은 **게이지 충전만**(variant ""), 강화 변형은 AB 단 등록분만. 미등록 서브도
+#     게이지는 쌓이되 폭주 시 변형이 없다 — 저작 전 상태이지 버그가 아니다.
+#   · IDA-027 혈풍 = 기본 `burst`(흡수 폭발). beam/cold만 OVERLAYS가 특수 변형으로 덮어쓴다.
+const GENERIC := {
+	"IDA-020": {"delta": "bulwark_charge", "theme": "bulwark",
+		"desc_ko": "방벽을 한 겹 쌓는다."},
+	"IDA-021": {"delta": "beacon_mark", "theme": "mark",
+		"desc_ko": "표식 대상에게 추가 위협 효과를 부여한다."},
+	"IDA-025": {"delta": "focus_stack", "theme": "focus",
+		"desc_ko": "명중한 적을 집중 대상으로 새기고 집중을 한 겹 쌓아, 쌓인 만큼 추가 피해를 준다. 다른 적을 명중하면 집중이 그 적으로 옮겨가며 초기화된다."},
+	"IDA-029": {"delta": "flank_strike", "theme": "flank",
+		"desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다."},
+	"IDA-024": {"delta": "overdrive_charge", "variant": "", "theme": "overdrive",
+		"desc_ko": "명중 시 초월 게이지를 채운다."},
+	"IDA-027": {"delta": "blood_soak", "variant": "burst", "theme": "bloodgale",
+		"desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다(3기 이상이면 이득)."},
+}
+
 # `theme` = 시그니처(bulwark/mark). `delta` = 서브가 규약에 기여하는 방식(공통). `desc_ko` = 서브 툴팁 줄글.
 # Anchor 서브: 전부 방벽 +1(공통 버프). Beacon 서브: 전부 표식 대상 조건부 위협(공통), R은 표식 갱신 추가.
 const OVERLAYS := [
@@ -209,49 +235,49 @@ const OVERLAYS := [
 	# 강화는 kind로 분기(fire→화상 / beam→끌어당김 / cold→빙결 / bolt→감전 폭주) — _dps_overdrive. delta 공통 overdrive_charge.
 	{
 		"id": "BIND-019", "gear": "gear_ward_dps_press_rod",
-		"identity_ab": "IDA-024", "slot_ab": "AB-053", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
+		"identity_ab": "IDA-024", "slot_ab": "AB-053", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge", "variant": "burn",
 		"payoff": "작열 폭발 → 초월 충전 / (초월)겁화: 화상 DoT", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「겁화」로 발동 — 명중한 적에게 화상 지속딜을 남긴다.",
 	},
 	{
 		"id": "BIND-026", "gear": "gear_ward_dps_press_rod",
-		"identity_ab": "IDA-024", "slot_ab": "AB-003", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
+		"identity_ab": "IDA-024", "slot_ab": "AB-003", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge", "variant": "silence",
 		"payoff": "Arc Bolt Volley → 초월 충전 / (초월)감전 폭주: 침묵", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「감전 폭주」로 발동 — 명중한 적을 침묵시켜 액티브 스킬을 봉쇄한다.",
 	},
 	{
 		"id": "BIND-020", "gear": "gear_ward_dps_press_rod",
-		"identity_ab": "IDA-024", "slot_ab": "AB-054", "slot_index": 1, "theme": "overdrive", "delta": "overdrive_charge",
+		"identity_ab": "IDA-024", "slot_ab": "AB-054", "slot_index": 1, "theme": "overdrive", "delta": "overdrive_charge", "variant": "gravity",
 		"payoff": "절단 광선 → 초월 충전 / (초월)중력광선: 끌어당김", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「중력 광선」으로 발동 — 빔에 맞은 적을 중심선으로 끌어당긴다.",
 	},
 	{
 		"id": "BIND-021", "gear": "gear_ward_dps_press_rod",
-		"identity_ab": "IDA-024", "slot_ab": "AB-041", "slot_index": 2, "theme": "overdrive", "delta": "overdrive_charge",
+		"identity_ab": "IDA-024", "slot_ab": "AB-041", "slot_index": 2, "theme": "overdrive", "delta": "overdrive_charge", "variant": "freeze",
 		"payoff": "빙결 파동 → 초월 충전 / (초월)절대영도: 빙결", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「절대영도」로 발동 — 감속이 빙결(속박)로 격상된다.",
 	},
 	# DPS arc_weave 「혈풍」 링크 서브(광역 3종): 시전당 HP 소모 + 명중 적 수 비례 회복(3기+ 이득). delta 공통 blood_soak.
 	{
 		"id": "BIND-022", "gear": "gear_ward_dps_weave_staff",
-		"identity_ab": "IDA-027", "slot_ab": "AB-053", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak",
+		"identity_ab": "IDA-027", "slot_ab": "AB-053", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak", "variant": "burst",
 		"payoff": "작열 폭발 → 흡수 폭발(기본 회복)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다(3기 이상이면 이득).",
 	},
 	{
 		"id": "BIND-023", "gear": "gear_ward_dps_weave_staff",
-		"identity_ab": "IDA-027", "slot_ab": "AB-054", "slot_index": 1, "theme": "bloodgale", "delta": "blood_soak",
+		"identity_ab": "IDA-027", "slot_ab": "AB-054", "slot_index": 1, "theme": "bloodgale", "delta": "blood_soak", "variant": "siphon",
 		"payoff": "절단 광선 → 흡혈 광선(채널 사이펀·회복 증폭)", "desc_ko": "체력을 대가로 시전하는 흡혈 광선. 채널로 빨아들여 맞춘 적 수 대비 더 많이 회복한다(사이펀).",
 	},
 	{
 		"id": "BIND-024", "gear": "gear_ward_dps_weave_staff",
-		"identity_ab": "IDA-027", "slot_ab": "AB-041", "slot_index": 2, "theme": "bloodgale", "delta": "blood_soak",
+		"identity_ab": "IDA-027", "slot_ab": "AB-041", "slot_index": 2, "theme": "bloodgale", "delta": "blood_soak", "variant": "iceblood",
 		"payoff": "빙결 파동 → 혈빙(과회복 → 임시 보호막)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다. 최대 체력을 넘긴 과회복분은 임시 보호막이 된다.",
 	},
 	# DPS Venom Spit(AB-010, 스택 독 DoT) — 초월(맹독 폭주: 스택 즉시 폭증) / 혈풍(중독 적 비례 회복).
 	{
 		"id": "BIND-031", "gear": "gear_ward_dps_press_rod",
-		"identity_ab": "IDA-024", "slot_ab": "AB-010", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge",
+		"identity_ab": "IDA-024", "slot_ab": "AB-010", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge", "variant": "venom",
 		"payoff": "독 살포 → 초월 충전 / (초월)맹독 폭주: 독 스택 폭증", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「맹독 폭주」로 발동 — 명중한 적에게 독 스택을 한 번에 여러 겹 쌓아 지속딜을 폭증시킨다.",
 	},
 	{
 		"id": "BIND-032", "gear": "gear_ward_dps_weave_staff",
-		"identity_ab": "IDA-027", "slot_ab": "AB-010", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak",
+		"identity_ab": "IDA-027", "slot_ab": "AB-010", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak", "variant": "burst",
 		"payoff": "독 살포 → 흡수 폭발(기본 회복)", "desc_ko": "체력을 대가로 시전하고, 중독시킨 적 수에 비례해 회복한다(3기 이상이면 이득).",
 	},
 	# --- AB-007 이탈 결속(Nuker; 007a/007b 공통, slot 무관 = -1) ---
@@ -285,6 +311,22 @@ static func resolve(base_gear_id: String, identity_ab: String, slot_ab: String, 
 				and (int(ov["slot_index"]) == slot_index or int(ov["slot_index"]) == -1):   # -1 = 슬롯 무관(이탈 결속)
 			return ov
 	return {}
+
+
+## **결속 해소 SSOT** — OVERLAYS 변주가 있으면 그것을, 없으면 정체성 **기본 델타**(GENERIC)를 돌려준다.
+## 호출부는 전부 이쪽을 쓴다(`_apply_binding`·조준 사거리·툴팁). 기본 델타 결과에는 `generic: true`가
+## 붙어, "저작 전(변주 미등록)"과 "등록 버그"를 호출부가 구분할 수 있다. ref: DRIFT-087.
+static func resolve_effective(base_gear_id: String, identity_ab: String, slot_ab: String, slot_index: int) -> Dictionary:
+	var ov: Dictionary = resolve(base_gear_id, identity_ab, slot_ab, slot_index)
+	if not ov.is_empty():
+		return ov
+	var g: Dictionary = GENERIC.get(identity_ab, {})
+	if g.is_empty():
+		return {}
+	var out: Dictionary = g.duplicate()
+	out["id"] = "GEN-%s" % identity_ab
+	out["generic"] = true
+	return out
 
 
 ## 이 gear+identity가 「표식」 킷(Beacon)인가 — identity가 시전 시 대상에 표식을 남기는지.

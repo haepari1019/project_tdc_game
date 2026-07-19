@@ -28,12 +28,9 @@
     },
     "AB-008": {
       "kind": "enemy_splash",
-      "telegraph_s": 0.4,
-      "cooldown_s": 2.5,
-      "damage_mult": 0.8,
-      "splash_radius_m": 1.5,
-      "splash_frac": 0.6,
-      "vfx": "shot_slag"
+      "channel": true,
+      "cooldown_s": 5.0,
+      "unified": true
     },
     "AB-010": {
       "kind": "enemy_poison",

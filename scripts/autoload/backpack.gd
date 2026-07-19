@@ -63,14 +63,15 @@ func _seed() -> void:
 	if _seeded:
 		return
 	_seeded = true
-	# F-009 §3.1.1 Hub Starter Skillbooks (StarterGrant) — 역할별 핵심 유틸 1권(Healer 2권), 분석 불요·
+	# F-009 §3.1.1 Hub Starter Skillbooks (StarterGrant) — 역할별 1권(Healer 2권), 분석 불요·
+	# DPS 자리는 AB-008 Slag Spit = 「광역 투사체」 원형(다른 볼트 6종이 여기서 갈라지는 변형, DRIFT-085).
 	# 즉시 장착 가능. + 부활 소비. Gear는 equipped, haul은 런 중 드롭. (구 데모 Ember 스타터 → 스펙 정렬)
 	# 스킬북 탄환수는 PIN하지 않음 — 로드 시 add_skillbook_to_backpack가 master(skillbooks.json charges_max,
 	# 현재 50~80)로 채움. (구 하드코딩 6/8/5가 새 값을 덮어쓰던 버그 수정. Slice01Data는 autoload 순서상
 	# _seed 시점엔 미준비 → 여기서 조회 불가, 그래서 charges 생략으로 master 위임.)
 	loose = [
 		{"id": "Intercept Step", "kind": "skillbook", "base_ability_id": "AB-033", "w": 1, "h": 1, "at_risk": true},
-		{"id": "Guard Break Rhythm", "kind": "skillbook", "base_ability_id": "AB-028", "w": 1, "h": 1, "at_risk": true},
+		{"id": "Slag Spit", "kind": "skillbook", "base_ability_id": "AB-008", "w": 1, "h": 1, "at_risk": true},
 		{"id": "Voltaic Interrupt", "kind": "skillbook", "base_ability_id": "AB-030", "w": 1, "h": 1, "at_risk": true},
 		{"id": "Hush Ward", "kind": "skillbook", "base_ability_id": "AB-044", "w": 1, "h": 1, "at_risk": true},
 		{"id": "Lifeline", "kind": "skillbook", "base_ability_id": "AB-045", "w": 1, "h": 1, "at_risk": true},

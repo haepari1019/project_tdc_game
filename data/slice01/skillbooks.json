@@ -29,6 +29,7 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_poison",
+        "element": "poison",
         "cooldown_s": 4,
         "cast_s": 2.0,
         "targeted": true,
@@ -76,6 +77,7 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_fire",
+        "element": "fire",
         "cooldown_s": 5,
         "targeted": true,
         "range_m": 12,
@@ -213,13 +215,11 @@
         "DPS",
         "Nuker"
       ],
-      "sub_bands": {
-        "DPS": "B2"
-      },
       "range_band": "Long",
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_cold",
+        "element": "cold",
         "cooldown_s": 5.5,
         "cast_s": 3.5,
         "targeted": true,
@@ -252,6 +252,7 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_fire",
+        "element": "fire",
         "cooldown_s": 5,
         "cast_s": 3.0,
         "targeted": true,
@@ -303,6 +304,7 @@
       "charges_max": 70,
       "cast": {
         "kind": "skillbook_cold",
+        "element": "cold",
         "cooldown_s": 7,
         "targeted": true,
         "range_m": 13,
@@ -461,28 +463,6 @@
       "tier": "Basic"
     },
     {
-      "base_ability_id": "AB-061",
-      "display_name": "Shadowstep",
-      "equip_classes": [
-        "Nuker",
-        "DPS"
-      ],
-      "sub_bands": {
-        "DPS": "B2"
-      },
-      "range_band": "Mid",
-      "charges_max": 80,
-      "cast": {
-        "kind": "skillbook_blink",
-        "cooldown_s": 6,
-        "targeted": true,
-        "range_m": 12,
-        "blink_m": 6.0,
-        "next_hit_bonus": 0.2
-      },
-      "tier": "Basic"
-    },
-    {
       "base_ability_id": "AB-057",
       "display_name": "Focus Fire",
       "equip_classes": [
@@ -564,6 +544,7 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_beam",
+        "element": "lightning",
         "cooldown_s": 6,
         "targeted": true,
         "range_m": 14,
@@ -645,13 +626,13 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
+        "element": "lightning",
         "cooldown_s": 6,
         "cast_s": 3.0,
         "targeted": true,
         "range_m": 11,
         "radius_m": 4.0,
         "damage_mult": 1.0,
-        "lightning": true,
         "shock_s": 2.0,
         "delivery": "projectile",
         "speed_mps": 24.0
@@ -672,17 +653,14 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_bolt",
+        "element": "lightning",
         "cooldown_s": 5,
         "cast_s": 4.0,
         "targeted": true,
         "range_m": 14,
         "radius_m": 1.2,
         "damage_mult": 2.0,
-        "lightning": true,
-        "shock_s": 2.0,
-        "arc_vfx": true,
-        "delivery": "projectile",
-        "speed_mps": 26.0
+        "shock_s": 2.0
       },
       "tier": "Advanced"
     },
@@ -721,7 +699,8 @@
         "cooldown_s": 4,
         "targeted": true,
         "range_m": 10,
-        "blink_m": 7.0
+        "blink_m": 7.0,
+        "next_hit_bonus": 0.2
       },
       "tier": "Basic"
     },
@@ -737,6 +716,9 @@
         "kind": "skillbook_blink",
         "cooldown_s": 8,
         "away": true,
+        "targeted": true,
+        "range_m": 10,
+        "radius_m": 2.5,
         "blink_m": 6.0,
         "parting_shot_mult": 1.5,
         "aggro_reduce": 0.6
@@ -767,6 +749,7 @@
     {
       "base_ability_id": "AB-008",
       "display_name": "Slag Spit",
+      "unified": true,
       "equip_classes": [
         "DPS",
         "Nuker"
@@ -778,7 +761,9 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
-        "cooldown_s": 2.5,
+        "element": "slag",
+        "cooldown_s": 5,
+        "cast_s": 3.0,
         "targeted": true,
         "range_m": 10,
         "radius_m": 2.0,
@@ -925,12 +910,12 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
+        "element": "lightning",
         "cooldown_s": 4,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.2,
         "damage_mult": 1.2,
-        "lightning": true,
         "delivery": "projectile",
         "speed_mps": 22.0
       },
@@ -951,12 +936,12 @@
       "charges_max": 50,
       "cast": {
         "kind": "skillbook_bolt",
+        "element": "lightning",
         "cooldown_s": 8,
         "targeted": true,
         "range_m": 10,
         "radius_m": 3.0,
         "damage_mult": 2.5,
-        "lightning": true,
         "shock_s": 2.0,
         "delivery": "projectile",
         "speed_mps": 18.0
@@ -1046,12 +1031,12 @@
       "charges_max": 50,
       "cast": {
         "kind": "skillbook_bolt",
+        "element": "lightning",
         "cooldown_s": 10,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.4,
         "damage_mult": 3.5,
-        "lightning": true,
         "shock_s": 2.0,
         "delivery": "projectile",
         "speed_mps": 24.0

@@ -13,6 +13,11 @@ extends Node3D
 const TICK_S := 0.2
 const UNIT_GROUPS := ["party_member", "enemy"]
 const OUTCOME_DUR := TICK_S * 2.5   # outcome refresh while inside (~0.5s residual after leaving)
+## Fire 존은 **두 가지를 따로** 건다(DRIFT-089): ① `Scorched` = "불 위에 서 있다"는 **존 체류 표식**
+## (다른 매체와 동일하게 OUTCOME_DUR로 갱신 → 나오면 ~0.5s 내 소멸) ② `Ignited` = **점화 DoT**로,
+## 자체 지속을 갖고 **존을 나와도 끝날 때까지 남는다**(머리 위 아이콘의 시계방향 잔여시간이 여기서 읽힌다).
+## 예전엔 둘을 Ignited 하나로 뭉쳐 OUTCOME_DUR(0.5s)을 물려, 나오는 즉시 꺼져 잔여시간이 안 보였다.
+const IGNITE_DUR := 5.0   # 점화 DoT 지속 — spec APPLY-IGNITED-…-5S / reaction_system.IGNITE_DUR와 동일
 ## ToxicGas 독존(AB-010 병합) — 체류 중 POISON_STACK_S마다 독 스택 +1 + 독 지속 리셋(캡이어도 리셋 → 존 안에선 안 풀림).
 ## dps=스택당 dps. AB-010 시전이 즉시 1스택(강화 4) 깔고 남은 zone이 누적. ref: outcome_status Poison.
 const POISON_STACK_S := 3.0     # 독 스택 1 증가 주기(초)
@@ -187,7 +192,8 @@ func _apply_medium(u: Node, dmg: float, dt: float, g: String) -> void:
 	match status:
 		"Fire":  # 점화 — Ignited DoT (carries dps); raw fallback for units w/o the outcome system
 			if u.has_method("apply_outcome"):
-				u.apply_outcome("Ignited", OUTCOME_DUR, dps)
+				u.apply_outcome("Scorched", OUTCOME_DUR)         # 존 체류 표식 — 나가면 즉시 해제
+				u.apply_outcome("Ignited", IGNITE_DUR, dps)      # 점화 DoT — 나가도 자체 지속만큼 남음
 			elif u.has_method("take_damage"):
 				u.take_damage(dmg)
 			_credit(u, dmg, g)

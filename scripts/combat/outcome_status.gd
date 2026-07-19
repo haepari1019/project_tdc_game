@@ -1,4 +1,5 @@
 extends RefCounted
+class_name OutcomeStatus
 ## STATUS-OUTCOME-CORE — elemental outcome statuses (F-021/F-027), shared by party_member AND
 ## enemy_unit so both carry the same zone outcomes. One container per unit. ref: STATUS-OUTCOME-CORE.
 ##
@@ -22,6 +23,7 @@ const COLOR := {
 	"Sodden": Color(0.40, 0.62, 0.95), "Chilled": Color(0.62, 0.86, 1.0),
 	"SteamHaze": Color(0.80, 0.85, 0.90), "Shock": Color(0.60, 0.80, 1.0),
 	"Slippery": Color(0.72, 0.60, 0.32), "Ignited": Color(1.0, 0.50, 0.20),
+	"Scorched": Color(1.0, 0.72, 0.30),   # 화염존 체류 표식(점화 DoT와 별개 — 나가면 즉시 해제)
 	"WindBuffeted": Color(0.70, 1.0, 0.86),
 	# Third faction (DEC-20260621-001): Scented(추적 마크)·Rooted(이동봉쇄)·Pinned(짧은 고정)·
 	# Tethered(거리 끈)·Bloodlust(저HP 자가 rage).
@@ -37,19 +39,26 @@ const COLOR := {
 # (adds Tethered/Bloodlust). Unknown ids fall back to the raw id.
 const KO := {
 	"Sodden": "침수", "Chilled": "냉각", "SteamHaze": "증기", "Shock": "감전",
-	"Slippery": "빙판", "Ignited": "점화", "WindBuffeted": "돌풍",
+	"Slippery": "빙판", "Ignited": "점화", "WindBuffeted": "돌풍", "Scorched": "화염",
 	"Scented": "혈향", "Rooted": "속박", "Pinned": "고정", "Tethered": "포박",
 	"Bloodlust": "광폭", "Vulnerable": "취약", "Poison": "중독",
 }
 const DEFAULT_IGNITE_DPS := 8.0
-const POISON_TICK_S := 0.5    # 독 DoT 틱 주기(초) — 이 리듬으로 보라 팝업
+# ── 지속피해(DoT) 공통 규격 (DRIFT-089) ──────────────────────────────────────────────────────
+# **모든 DoT는 같은 리듬·같은 표기**로 뜬다(중독이 기준, 점화도 동일). 예전엔 점화만 "누적 1HP마다
+# take_damage" 라 팝업이 아예 없었고(피해가 조용히 들어감) 중독만 0.5s 팝업이 있었다.
+const DOT_TICK_S := 0.5                      # 틱 주기 — 이 리듬으로 피해 + 팝업
+const DOT_IDS := ["Poison", "Ignited"]       # 틱형 DoT (새 DoT는 여기 + DOT_COLOR에 추가)
+const DOT_COLOR := {                         # 팝업 색 — 상태 오브 색과 별개(가독성 우선)
+	"Poison": Color(0.72, 0.38, 0.95),       # 보라
+	"Ignited": Color(1.0, 0.55, 0.15),       # 주황
+}
 
 var _t: Dictionary = {}    # id -> remaining seconds
 var _mag: Dictionary = {}  # id -> magnitude (Ignited: dps)
 var _dur: Dictionary = {}  # id -> full duration (for overlay arc)
-var _ignite_accum: float = 0.0
-var _poison_accum: float = 0.0   # AB-010 독 틱 타이머(POISON_TICK_S 주기)
-var _last_poison: float = 0.0    # 직전 독 틱 피해(보라 팝업; take_poison_tick으로 소비)
+var _dot_accum: Dictionary = {}   # id -> 경과 시간(DOT_TICK_S 주기 타이머)
+var _dot_ticks: Array = []        # [{id, dmg}] 직전 틱들 — 유닛이 take_dot_ticks()로 소비해 팝업
 var _stacks: Dictionary = {}     # id -> 스택 수(누적 표시용; apply_stack이 갱신)
 
 
@@ -81,26 +90,33 @@ func tick(delta: float) -> float:
 			_mag.erase(id)
 			_dur.erase(id)
 			_stacks.erase(id)
+	# DoT — 종류 무관 **동일 리듬**(DOT_TICK_S)으로 피해를 넣고 팝업 큐에 쌓는다.
 	var dmg := 0.0
-	if _t.has("Ignited"):
-		_ignite_accum += float(_mag.get("Ignited", DEFAULT_IGNITE_DPS)) * delta
-		if _ignite_accum >= 1.0:
-			dmg = floorf(_ignite_accum)
-			_ignite_accum -= dmg
-	if _t.has("Poison"):                              # AB-010 스택형 독 DoT — POISON_TICK_S 간격 틱(보라 팝업)
-		_poison_accum += delta
-		if _poison_accum >= POISON_TICK_S:
-			_poison_accum -= POISON_TICK_S
-			_last_poison = float(_mag.get("Poison", 0.0)) * POISON_TICK_S   # 이 틱 독 피해
-			dmg += _last_poison
+	for id in DOT_IDS:
+		if not _t.has(id):
+			_dot_accum.erase(id)
+			continue
+		_dot_accum[id] = float(_dot_accum.get(id, 0.0)) + delta
+		if float(_dot_accum[id]) < DOT_TICK_S:
+			continue
+		_dot_accum[id] = float(_dot_accum[id]) - DOT_TICK_S
+		var per := float(_mag.get(id, DEFAULT_IGNITE_DPS if id == "Ignited" else 0.0)) * DOT_TICK_S
+		if per > 0.0:
+			dmg += per
+			_dot_ticks.append({"id": id, "dmg": per})
 	return dmg
 
 
-## 직전 독 틱에 들어간 피해(보라 팝업용). 읽으면 0으로 리셋 — 유닛이 매 tick 후 조회해 팝업.
-func take_poison_tick() -> float:
-	var v := _last_poison
-	_last_poison = 0.0
-	return v
+## 직전 틱들 [{id, dmg}] — 읽으면 비운다. 유닛이 매 tick 후 조회해 **DoT별 색으로 팝업**한다.
+func take_dot_ticks() -> Array:
+	var out: Array = _dot_ticks
+	_dot_ticks = []
+	return out
+
+
+## DoT 팝업 색 — 종류별 고정(중독=보라 / 점화=주황).
+static func dot_color(id: String) -> Color:
+	return DOT_COLOR.get(id, Color(1.0, 1.0, 1.0))
 
 
 func has(id: String) -> bool:
@@ -157,9 +173,8 @@ func clear() -> void:
 	_t.clear()
 	_mag.clear()
 	_dur.clear()
-	_ignite_accum = 0.0
-	_poison_accum = 0.0
-	_last_poison = 0.0
+	_dot_accum.clear()
+	_dot_ticks.clear()
 	_stacks.clear()
 
 

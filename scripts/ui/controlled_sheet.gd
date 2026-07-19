@@ -227,7 +227,7 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 		lines.append(SkillText.band_line(bp))
 	# 결속(Kit Binding) — 장착 gear + identity + 이 슬롯 AB가 triple-match면 identity 연동으로 추가되는
 	# 효과(오버레이)를 base와 구분되는 색으로 표기. 이 슬롯이 triple-match 아니면 resolve()={} → 표시 없음(base only).
-	var ov: Dictionary = BindingOverlays.resolve(
+	var ov: Dictionary = BindingOverlays.resolve_effective(
 		String(m.base_gear_id), String(m.ability_id), String(inst.get("base_ability_id", "")), idx)
 	if not ov.is_empty():
 		var idnm := Slice01Data.get_identity_display(String(m.identity_skill_id))
@@ -236,7 +236,13 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 		# 라벨(정체성 · 시그니처)은 base와 같은 회색으로 일관되게, 결속으로 추가되는 효과만 황금색.
 		# 한 정체성의 모든 슬롯 스킬이 같은 시그니처(방벽 충전 / 표식)로 읽힌다.
 		lines.append("[color=#9aa4b2]✦ %s 결속 · %s[/color]" % [idnm, signm])
-		lines.append("[color=#f0b64a]%s[/color]" % String(ov.get("desc_ko", ov.get("payoff", ""))))
+		# 비주력(밴드 패널티) 서브는 초월 강화 변형을 받지 못한다(DRIFT-087) — 등록된 변형 설명을
+		# 그대로 띄우면 거짓말이 된다. 기본 델타(게이지 충전만) 설명으로 내리고 사유를 붙인다.
+		var _muted: bool = bp > 0 and String(ov.get("theme", "")) == "overdrive"
+		var _desc: String = String(BindingOverlays.GENERIC.get(String(m.ability_id), {}).get("desc_ko", "")) 				if _muted else String(ov.get("desc_ko", ov.get("payoff", "")))
+		lines.append("[color=#f0b64a]%s[/color]" % _desc)
+		if _muted:
+			lines.append("[color=#9aa4b2]  ┗ 비주력 적성 — 강화 변형 없음[/color]")
 	elif BindingOverlays.identity_focuses(String(m.base_gear_id), String(m.ability_id)) and BindingOverlays.is_focus_spender(kind):
 		# 소모 아키타입 — 슬롯 오버레이가 아니라 카테고리 규칙(is_focus_spender)으로 집중을 소모. 특정 처형 스킬에 묶지 않음.
 		var idnm := Slice01Data.get_identity_display(String(m.identity_skill_id))
