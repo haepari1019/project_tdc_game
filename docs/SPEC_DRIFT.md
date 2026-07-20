@@ -479,7 +479,7 @@
 - **UI:** 채널 진행을 **감소형 바**(캐스팅바가 좌→우 차오르는 것과 반대로 우→좌 소진·청록색)로 표시 — "속박" 상태 텍스트/오브 제거. 조준은 원형 원판→**직선 레인**(시전자→마우스, 길이=사거리·너비=빔폭).
 - **구현:** `beam_channel`(감소바+이동/중단 감시+`cancel_channel`), `sb_beam`(Rooted/begin_channel 제거→`set_active_channel`), `party_member`(`_active_channel`+`interrupt_active_channel`), `ability_dispatch.cast_skillbook`(새 시전 시 채널 중단), `aim_marker.show_beam`/`aim_controller`(직선 조준+방향 즉시 시전). `begin_channel`/`is_channeling`은 wind-up 캐스트(skill_cast)용으로 유지.
 - **분류\전파:** **rule** — 스펙 `D-016` `rootDuringCast`/`castTier`(채널 성격)와 직접 충돌. [[DRIFT-075]] 캐스터 원칙 전파 시 함께 OPS_30(채널=인터럽트형·비점유 모델) 전파 후보. `ImplDecisionLog.md`의 "Beam=cone+Rooted move-lock" 노트 outdated → 갱신 필요. 이 레포 spec md 편집 금지.
-- **상태:** 🔶 구현(브랜치 `wip/casting-ab054-overdrive-20260712` 커밋 · **미검증** — godot 헤드리스 부재). 플레이테스트 대기. **전파 packet:** [_PROP_PACKET_DRIFT-079-080.md](_PROP_PACKET_DRIFT-079-080.md) (적용 = P4b 배치 시점).
+- **상태:** ✅ **전파 완료**(spec `751097a`, `DEC-20260720-002` — 채널=비잠금 인터럽트형 → `D-016` §3.6 + `STATUS-ACTOR-CORE` `Channeling` 정정). packet(079부분) 소진. **080은 클러스터2(결속) 대기** → packet 유지.
 
 ### DRIFT-080 — DPS 「초월」 운영 개편: 지속형 → 강화 1회 소모 + 비전투 초기화 🔶 rule (전파 후보, [[DRIFT-077]] 개정)
 - **변경(2026-07-12, 사용자 지시):** [[DRIFT-077]]의 초월을 **지속시간형(dur 6s 창) → 무지속**으로. 게이지 만석=발동 유지, **강화 서브 1회 시전 시 소모**(`overdrive_reset`), **비전투 5초 지속 시 게이지 초기화**. `OVERDRIVE.dur`·party_member `_od_timer_s/_od_dur_s`·physics 드레인 제거.
@@ -498,7 +498,7 @@
 - **구현(AB-003 파일럿):** 신규 [cast_context.gd](../scripts/combat/abilities/cast_context.gd) 진영-flip 파사드 — 진영별 분기 3개(`enemies_in_radius`→적이면 party, `deal_damage`→적이면 `take_damage`, `spawn_projectile`→caster 마스크+self ctx); shake/lightning/destructibles는 party dispatch 위임. `enemy_unit` `basic_damage`/`class_id` 읽기 별칭(=contact_damage/enemy_id)+`windup_unified`. `combat_controller.resolve_unified_cast`+`_enemy_cast_ctx` 마운트. `ability_dispatch.skill_for(kind)`. `enemy_ai._unified_cast`(skillbook `unified:true` 감지)→윈드업=cast_s(아군 동일)→resolve를 **공유 `sb_bolt`** 로 라우팅(투사체가 벽/차폐 처리→LOS 게이트 없음=아군 동일). **데이터 단일화:** skillbooks.json AB-003 `unified:true` / abilities.json AB-003=selection 스텁(kind+channel+cooldown만; drift나던 telegraph 0.7·mult 1.3·vfx **제거**).
 - **프레젠테이션 파리티(부속 변경):** (a) 적 통합 캐스트도 **HP바 위 CastBar**(아군 CastBar 재사용·진행률)+charge_up 구체+sb_bolt 투사체 = 아군과 동일 시각. (b) 아군 캐스트에 **charge_up "전격 모으기" VFX** 확장(`skill_cast` `charge_color`, `lightning:true`만). (c) **캐스트 중 평타 정지**(`combat_controller` `is_channeling()` 게이트, 적 `winding` 직렬화와 **대칭**; 아군 cast_s wind-up만·identity/AB-054 채널 제외).
 - **분류\전파:** **rule/design** — spec `D-016` §3.6.1(적 telegraph 밴드=역할별 배정)과 충돌: 통합 스킬의 telegraph는 **능력 내재**(cast_s), 밴드 배정 아님. + 스킬북 스키마 **`unified` 신규 필드**. OPS_30 전파 4건: (i) unified-skill 개념 + "해소1·프론트엔드2" 모델, (ii) §3.6.1을 **비통합 적 능력** 스코프로 한정, (iii) AB-003 SSOT(`docs/combat/abilities/AB-003`) 통합 표기, (iv) skillbook 스키마 `unified`. **파일럿=AB-003만**; 잔여 대칭 subset(strike/stun/poison/cold) 마이그레이션=follow-on. 이 레포 spec md 편집 금지. 전파 packet: [_PROP_PACKET_DRIFT-082.md](_PROP_PACKET_DRIFT-082.md).
-- **상태:** 🔶 구현·**sandbox 확인(사용자, 2026-07-12)**·커밋(브랜치 `wip/casting-ab054-overdrive-20260712`). ci_smoke **7/7 PASS**. 전파=배치 시점([[DRIFT-079]]/[[DRIFT-080]] 배치와 동반 후보).
+- **상태:** ✅ **전파 완료**(spec `751097a`, `DEC-20260720-001` — `D-016` §2 `unified` 필드 + §3.6.1 밴드 예외). ci_smoke 검증분. packet `_PROP_PACKET_DRIFT-082.md` 소진(삭제).
 
 ### DRIFT-083 — 전투 템포 개편: 능력 role/exec 레지스트리 + 캐스트 페이싱(알파 스트라이크) + 전투 감속 🔶 rule/impl (전파 후보)
 - **배경(2026-07-13, 사용자 결정):** 체감 "급한 AOE → 정제된 MMORPG". (설계 계획 문서는 IN-scope 완료 후 제거 — 기록 = 본 DRIFT-083 + 커밋 `ee0207b`~`c141e10`.) 시퀀싱 **(b) 분리**(role+캡 먼저 / 적→shared 이사=[[DRIFT-082]] 병행), 점2 힐러·데미지 defer.
@@ -516,7 +516,7 @@
 - **사물 상호작용 프로토콜 확장(impl, F-021 §3.1.2):** enemy-usable 오브젝트 계약 명시화 — `ENEMY_USABLE_REQUIRED`(enemy_usable·enemy_use 필수) + optional `enemy_combat_tick`(held형) + `ENEMY_USABLE_OBJECTS` 코드 배열 레지스트리 + `object_smoke` 게이트(부분구현 크래시 차단, ctx 게이트와 동형). barrel `enemy_usable`(즉발형). **`interaction_policy` = priority(torch·항상 최우선)/opportunistic(배럴·'어쩌다': 우선순위↓ + 근처 usable + 확률 롤 + `object_committed` 완주).**
 - **ctx 계약 게이트(impl, 별도 커밋 `1972618`):** ctx 이중 facade(AbilityDispatch/CastContext) 파리티 — `CTX_CONTRACT` SSOT + `party_pool_smoke` 파리티 게이트, CastContext 갭 **15개**(fire_hit/cold_hit 포함) 메움, kind/role 조용한실패 `push_error` 승격 + role 전수검증. combat_controller 공간쿼리 순수필터 추출. [[DRIFT-082]] 통합의 안전 확장(strike/stun/cold subset unified 시 throw 제거).
 - **분류\전파:** `enemy_fire` enum·EN-015 스코프 = **rule → OPS_30 전파 후보**([[DRIFT-082]] 배치와 동반). 사물 상호작용·ctx 게이트·`interaction_policy` = impl(로컬 [ImplDecisionLog](impl_decisions/ImplDecisionLog.md)). 이 레포 spec md 편집 금지.
-- **상태:** 🔶 구현·ci_smoke **8/8 PASS**(`object_smoke` 신설 포함, ctx 파리티 46·role 25). 샌드박스 체감(EN-015 fire telegraph·배럴 콤보) + AB-053 스킬단위 판정 대기.
+- **상태:** 🔶 구현·ci_smoke **8/8 PASS**(`object_smoke` 신설 포함, ctx 파리티 46·role 25). ✅ **부분 전파**(spec `751097a`, `DEC-20260720-004` — `EN-015` Cinder Adept 신규 + `AB-053` `usable_by_enemy=true`). ⚠️ **`enemy_fire` kind enum·적 `axis` 필드 = impl 잔류**(전파 안 함 — 주로 라우팅, 감독 결정). EN-015 fire telegraph·배럴 콤보 샌드박스 체감 대기.
 
 ### DRIFT-085 — 이동(blink/dash) 계열 정리: AB-061→AB-006 통합 · AB-013=AB-006 발전형 · 이동스킬 무캐스팅 🔶 rule/scope (전파 후보)
 - **배경(2026-07-19, 사용자 결정):** [[DRIFT-078]] Phase A 스킬 전수 핑퐁의 AB-006 차례. 실사 결과 아군 blink 3종(AB-006·AB-061·AB-007a/b)이 같은 `skillbook_blink` kind에 벡터·페이로드만 다른 변주였고, **AB-006 = AB-061 − next_hit_bonus**(완전 하위집합)로 확인됨. 사용자 판정: *"퇴각이 아닌 이동기는 탱커 돌진 빼면 불필요, 특히 DPS는 이동기가 하자"*.
@@ -532,7 +532,7 @@
 - **AB-006 적측 무변경:** EN-003 `exec: ai_internal`(`enemy_dash`, `hit_on_arrival:false`) 존치 — 게임 내 **유일한 무피해 리포지션 대시**이자 `_is_hit_run_flanker` stick/hit-run 분기와 teal/crimson 시각 언어의 한 축. AB-013으로의 교체안은 **기각**(EN-003이 EN-008의 상위 사본이 되고 근접 flurry 평타와 킷이 충돌).
 - **⚠️ 선행 미로깅 발견:** [[DRIFT-078]] HARD-001에서 신설된 **AB-007a/AB-007b ID 2종**이 `id_registry.json:124-125`에 등재됐으나 **본 문서에 드리프트 항목이 없다.** 신규 ID + "스킬트리 택1" 구조 = rule/scope 전파 대상 → **소급 로깅·전파 처리 필요**(사용자 판단 대기).
 - **분류\전파:** AB-061 폐기(아군 풀 스코프)·AB-013 승급 계열 = **rule/scope → OPS_30 전파 후보**([[DRIFT-078]] 패스 확정분과 동반 배치). 이동 무캐스팅 = [[DRIFT-078]] §0 rule의 스킬단위 확정(동반). `next_hit_bonus` 이전 = 필드 이동(스키마 변경 없음). 이 레포 spec md 편집 금지.
-- **상태:** 🔶 구현·ci_smoke **8/8 PASS**. ✅ **샌드박스 체감 확인 완료(사용자, 2026-07-20)** — AB-006 접근+다음타 · 007a 적 조준 이탈(대상 없으면 시전 거부) · 007b 교전상대/트랩 분기 전부 정상.
+- **상태:** ✅ **전파 완료**(spec `751097a`, `DEC-20260720-001/002/004` — 이동밴드=A(`D-016` §3.6) · `AB-061` 폐기→`AB-006` 흡수 · `AB-007`→`007a`/`007b` 분할). 샌드박스 체감 확인 완료(2026-07-20).
 
 ### DRIFT-086 — 결속 발현 축을 kind→**AB 단(`variant`)**으로 + 속성 `element` 필드 신설 · AB-008 unified 🔶 rule/schema (전파 후보)
 - **배경(2026-07-19, 사용자 결정):** [[DRIFT-085]] ⑤에서 AB-008을 「광역 투사체」 원형으로 승격하며 드러난 구조 문제. 사용자 판정: *"속성은 AB단에서 저장 · bind로 강화/변형되는 것도 AB단에서 지정 · kind는 bind와 묶일 이유가 없음."*
@@ -543,7 +543,7 @@
 - **④ AB-008 unified(rule — [[DRIFT-082]] subset 4번째):** `skillbooks.json` `unified: true` + `abilities.json`을 스텁으로 축소(`{enemy_splash, channel, cooldown_s 5.0, unified}`). 적 EN-004가 아군과 **같은 정의**로 시전 — `_unified_cast`가 스킬북 `cast`를 읽어 윈드업을 굴리고 공유 `sb_bolt`로 해소. `enemy_splash`는 이미 `gate_kinds` 등재라 enum 추가 불요. **거동 변화: 적 시전 0.4s → 3.0s, splash 1.5m+60%감쇠 → radius 2.0m 균일.** ⚠️ **밸런스 영향이 크다** — [[DRIFT-078]] §8.3 "적 3s가 tele 0.4 대비 굼뜬가" 체감 항목이 이걸 직접 묻는다(fodder EN-011 3초 OK 선례 있음).
 - **분류\전파:** `element` **신규 스키마 필드** + AB-008 unified = **rule/schema → OPS_30 전파 후보**(`D-016` 스킬북 스키마 · [[DRIFT-082]] unified subset과 동반). `variant` = OVERLAYS 키인데 **binding_overlays.gd는 게임이 SSOT**(IMPL-DEC-20260709-001)라 전파 압력 낮음 — P4b 결속 정본화 배치에 동반. 이 레포 spec md 편집 금지.
   - ⚠️ **배치 트리거 발동:** "스키마 필드가 또 하나 늘어나면 그 시점에 배치"(전파 보류 결정 시 합의한 체크포인트)에 `element`가 해당한다 — **전파 시점 재판단 대상**.
-- **상태:** 🔶 구현·ci_smoke **8/8 PASS**(binding_smoke 포함 = variant 리팩터 무손상). ✅ **샌드박스 체감 확인 완료(사용자, 2026-07-20)** — AB-008 3초 캐스트 · **EN-004 적 시전 3.0s** · 원형/변형 툴팁 전부 정상. ⚠️ 스타터 시드 교체는 샌드박스 경로 밖(허브 `reset_to_seed` 필요) → **미확인 잔여**.
+- **상태:** ✅ **부분 전파**(spec `751097a`, `DEC-20260720-001` — `element` 필드·`AB-008` unified → `D-016`). ⚠️ **`variant`(결속 발현축)=클러스터2(결속 정본화) 대기.** 샌드박스 체감 확인 완료(2026-07-20). ⚠️ 스타터 시드 교체는 샌드박스 경로 밖(허브 `reset_to_seed` 필요) → **미확인 잔여**.
 
 ### DRIFT-087 — 결속을 whitelist→**정체성 기본 델타(GENERIC)**로 전환: 등록 없이 장착 서브 전부 적용 🔶 rule/design (전파 후보, [[DRIFT-077]] 파일럿 스코프 개정)
 - **배경(2026-07-19, 사용자 결정):** [[DRIFT-086]] ①의 후속. 사용자 제안 — *"identity에 직접 연결되는 generic형 변형은 AB마다 추가하기보다 identity가 어떤 스킬에든 generic하게 적용되도록"*. **「정체성별 동일 3서브」 평가 패리티 제약은 검증 완료로 해제**(사용자: "이제 필요없어").
@@ -571,7 +571,7 @@
   - **현황 표(Phase A 판정 재료)** — bolt/fire/cold 12종 중 `instant`는 **AB-004·AB-072 둘뿐**, 나머지 10종이 `projectile`. 계열 일괄 부여의 잔재로 보이므로 **각 스킬 판정 때 delivery도 축으로 볼 것**(원거리 탄 = projectile / 즉시 내리꽂힘·범위 개시 = instant).
 - **잔여(사용자 방침 — Phase A 진행하며 채움):** 타격계 중 element 미부여 = **AB-055 산탄 · AB-059 공허창** 2종. 미부여 = 무속성(즉시효과·RX 모두 없음)이라 **동작은 안전**하고, 각 스킬 판정 때 부여한다. `poison`은 스택 누적이 즉시효과라 `sb_poison`이 자체 처리(TABLE 비등재·RX 없음).
 - **분류\전파:** 스킬북 스키마에서 **`lightning` 필드 제거 + `element`로 대체** = [[DRIFT-086]] ③의 완결 → **rule → OPS_30 전파 후보**(`D-016` 스킬북 스키마, 086과 한 packet). `element_hit`·`Elements` 테이블 = impl(로컬 ImplDecisionLog). RX 규약("즉시=element / 조건부=RX")은 **설계 규칙 → 전파 후보**(`F-021` 반응계 서술과 정합 확인 필요). 이 레포 spec md 편집 금지.
-- **상태:** 🔶 구현·ci_smoke **8/8 PASS**(`reaction_smoke`·`party_pool_smoke` 포함 = RX 경로와 ctx 파리티 무손상). ✅ **샌드박스 체감 확인 완료(사용자, 2026-07-20)** — 전격 전도·기름 점화 연쇄·냉기 Chilled+RX·빔 Shock·투사체색·차징 VFX 전부 정상(표기 이슈 2건은 [[DRIFT-089]]에서 해소).
+- **상태:** ✅ **전파 완료**(spec `751097a`, `DEC-20260720-001/003` — `element` 필드(`D-016` §3) + 속성 부여 규약(`F-021` §3.4 즉시=element/조건부=RX) + `EVENT-CORE` §5). `lightning` 플래그 폐지는 게임 전용(spec엔 애초 없음). 샌드박스 체감 확인 완료(2026-07-20).
 
 ### DRIFT-089 — DoT 표기 규격 통일(점화 팝업 누락) + 상태 오브 만료 미갱신 버그 🔶 impl (전파 불필요)
 - **배경(2026-07-19, 샌드박스 A2 체감 — 사용자 보고):** 기름 점화 RX 자체는 정상인데 **① 점화 피해가 화면에 안 뜨고 ② 머리 위 빨간 오브가 DoT 종료 후에도 남았다.** 사용자 지시: *"모든 딜링은 독 DoT처럼 카메라 기준 캐릭터 오른쪽에 비스듬히 나와야 하고, 점화에도 걸려야 한다. 빨간 표식이 해소되지 않는 건 오류."*
@@ -589,7 +589,7 @@
   - **구현:** 호버 판정·팝업을 `overhead_status_icons.gd`가 **자체 처리** → 씬별 배선 0(던전·샌드박스 자동 동일, [[sandbox-input-parity]] 회피). 판정 = 코인 중심과 가장자리를 각각 `unproject_position`으로 화면에 투영해 **화면상 반지름** 비교(줌/거리 무관) + `is_position_behind` 제외. 팝업은 기존 [`RichTooltip.make()`](../scripts/ui/rich_tooltip.gd) 재사용, **전 유닛 공유 CanvasLayer 1개**(static, 지연 생성)라 유닛마다 레이어가 늘지 않는다. 커서 기준 배치 + 화면 밖이면 반대편 접힘. `_exit_tree`/타일 소멸 시 팝업 해제.
   - 효과 문구는 `DESC`(표시명 키) 신설 — 상태 원본 id가 없는 레거시 타이머 항목(기절·둔화·도발 등)도 같은 경로로 읽히게 하려는 의도.
 - **분류\전파:** 표기 규격·버그 수정·아이콘 UX = **impl(전파 불필요)**. DoT 틱 주기 0.5s·`IGNITE_DUR` 5s는 튜닝 수치(로깅만). ⚠️ 예외 = **`Scorched` 신규 outcome enum**(위 ④) = OPS_30 전파 후보. 이 레포 spec md 편집 금지.
-- **상태:** 🔶 구현·ci_smoke **8/8 PASS**. ✅ **샌드박스 체감 확인 완료(사용자, 2026-07-20)** — DoT 팝업 규격 통일 · 존/DoT 상태 분리(화염↔점화) · 글자 제거 코인 + 호버 팝업 전부 정상.
+- **상태:** ✅ **부분 전파**(spec `751097a`, `DEC-20260720-003` — 신규 outcome `Scorched`(화염존 체류 표식) + `RX-FIRE-ENTER-001`/`ZONE-FIRE-001`/`EFFECT-CORE` 배선, 존↔DoT 분리). 나머지(DoT 팝업 규격·코인·호버 팝업)=impl(전파 불필요). 샌드박스 확인 완료(2026-07-20).
 
 ### DRIFT-090 — 클릭이동을 **멤버별 이동 오더**로: F-003 §3.5 Leader Move Ping 스코프 확장 + 집합(rally)키 🔶 rule/design (전파 후보, 5축 이격)
 - **배경(2026-07-19, 사용자 결정):** 요청 — *"클릭이동(RMB)시 목표지점까지 점선으로 예상 path를 이어주고, 전투시나 비결속시에는 캐릭을 스왑하더라도 클릭이동의 path는 그대로 유지해서 각각을 원하는 위치로 따로 보낼 수 있도록"* + *"기본적으로는 항상 같이 결속처럼 움직이다가 ... 다시 뭉쳐야하면 집합키"*. 참조 = 스타크래프트 등 RTS.
