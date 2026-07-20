@@ -479,14 +479,14 @@
 - **UI:** 채널 진행을 **감소형 바**(캐스팅바가 좌→우 차오르는 것과 반대로 우→좌 소진·청록색)로 표시 — "속박" 상태 텍스트/오브 제거. 조준은 원형 원판→**직선 레인**(시전자→마우스, 길이=사거리·너비=빔폭).
 - **구현:** `beam_channel`(감소바+이동/중단 감시+`cancel_channel`), `sb_beam`(Rooted/begin_channel 제거→`set_active_channel`), `party_member`(`_active_channel`+`interrupt_active_channel`), `ability_dispatch.cast_skillbook`(새 시전 시 채널 중단), `aim_marker.show_beam`/`aim_controller`(직선 조준+방향 즉시 시전). `begin_channel`/`is_channeling`은 wind-up 캐스트(skill_cast)용으로 유지.
 - **분류\전파:** **rule** — 스펙 `D-016` `rootDuringCast`/`castTier`(채널 성격)와 직접 충돌. [[DRIFT-075]] 캐스터 원칙 전파 시 함께 OPS_30(채널=인터럽트형·비점유 모델) 전파 후보. `ImplDecisionLog.md`의 "Beam=cone+Rooted move-lock" 노트 outdated → 갱신 필요. 이 레포 spec md 편집 금지.
-- **상태:** ✅ **전파 완료**(spec `751097a`, `DEC-20260720-002` — 채널=비잠금 인터럽트형 → `D-016` §3.6 + `STATUS-ACTOR-CORE` `Channeling` 정정). packet(079부분) 소진. **080은 클러스터2(결속) 대기** → packet 유지.
+- **상태:** ✅ **전파 완료·푸시**(spec `751097a` origin/staging, `DEC-20260720-002` — 채널=비잠금 인터럽트형 → `D-016` §3.6 + `STATUS-ACTOR-CORE` `Channeling` 정정). **080도 클러스터2 `DEC-20260720-005`로 전파 완료** → `_PROP_PACKET_DRIFT-079-080.md` 소진(삭제).
 
 ### DRIFT-080 — DPS 「초월」 운영 개편: 지속형 → 강화 1회 소모 + 비전투 초기화 🔶 rule (전파 후보, [[DRIFT-077]] 개정)
 - **변경(2026-07-12, 사용자 지시):** [[DRIFT-077]]의 초월을 **지속시간형(dur 6s 창) → 무지속**으로. 게이지 만석=발동 유지, **강화 서브 1회 시전 시 소모**(`overdrive_reset`), **비전투 5초 지속 시 게이지 초기화**. `OVERDRIVE.dur`·party_member `_od_timer_s/_od_dur_s`·physics 드레인 제거.
 - **UI:** 초월 게이지를 오버헤드 HP바 → **캐릭터 시트(controlled_sheet) 체력 바 바로 아래** 금색 게이지 + "초월/초월 준비!" 라벨로 이동(가독성). 초월 DPS 정체성일 때만 표시.
 - **구현:** `party_member`(무지속 유지·`overdrive_reset`·드레인 제거), `ability_dispatch._dps_overdrive`(empower 후 소모·2-arg overdrive_add), `party_controller`(engagement_changed→비전투 5초 one-shot 타이머→전 멤버 `overdrive_reset`), `controlled_sheet`(시트 게이지 바).
 - **분류\전파:** **rule** — 초월 리소스 모델(지속→1회소모·OOC초기화) 변경. P4a 정본화 시 [[DRIFT-077]]/[[DRIFT-075]]와 함께 `ROLE-010`/`dps_binding_kit.md` 전파. `binding_overlays.OVERDRIVE.dur`=구 지속형 잔재. 이 레포 spec md 편집 금지.
-- **상태:** 🔶 구현(브랜치 커밋 · **미검증**). 플레이테스트 대기. **전파 packet:** [_PROP_PACKET_DRIFT-079-080.md](_PROP_PACKET_DRIFT-079-080.md) (적용 = P4b 배치 시점).
+- **상태:** ✅ **전파 완료·푸시**(spec `fb4f16c` origin/staging, `DEC-20260720-005` — `IDA-024` §Keystone "6초 지속창→강화 1회 준비·시전 시 소모·비전투 5초 초기화" + `ROLE-000` §C-4). 샌드박스 체감 확인분(DRIFT-087 세션). packet `_PROP_PACKET_DRIFT-079-080.md` 소진(삭제).
 
 ### DRIFT-081 — 적 상태(버프/디버프) 12시 인스펙트 시트 칩 노출 🔶 impl (전파 불필요)
 - **변경(2026-07-12):** 적 좌클릭 인스펙트 패널(enemy_info, 12시)에 **버프/디버프 칩**(아이콘+한글명 상자)을 체력 아래에 나열. 적이 스스로 상태를 노출하도록 `enemy_unit.get_status_list()` 신설(stun/slow/silence + 원소 아웃컴, party_member와 동일 `{name,color,ratio,buff}` 스키마), `outcome_status`에 한글명(`KO`) 맵 추가. 샌드박스도 동일 패널 재사용(적 클릭 시 표시).
@@ -543,7 +543,7 @@
 - **④ AB-008 unified(rule — [[DRIFT-082]] subset 4번째):** `skillbooks.json` `unified: true` + `abilities.json`을 스텁으로 축소(`{enemy_splash, channel, cooldown_s 5.0, unified}`). 적 EN-004가 아군과 **같은 정의**로 시전 — `_unified_cast`가 스킬북 `cast`를 읽어 윈드업을 굴리고 공유 `sb_bolt`로 해소. `enemy_splash`는 이미 `gate_kinds` 등재라 enum 추가 불요. **거동 변화: 적 시전 0.4s → 3.0s, splash 1.5m+60%감쇠 → radius 2.0m 균일.** ⚠️ **밸런스 영향이 크다** — [[DRIFT-078]] §8.3 "적 3s가 tele 0.4 대비 굼뜬가" 체감 항목이 이걸 직접 묻는다(fodder EN-011 3초 OK 선례 있음).
 - **분류\전파:** `element` **신규 스키마 필드** + AB-008 unified = **rule/schema → OPS_30 전파 후보**(`D-016` 스킬북 스키마 · [[DRIFT-082]] unified subset과 동반). `variant` = OVERLAYS 키인데 **binding_overlays.gd는 게임이 SSOT**(IMPL-DEC-20260709-001)라 전파 압력 낮음 — P4b 결속 정본화 배치에 동반. 이 레포 spec md 편집 금지.
   - ⚠️ **배치 트리거 발동:** "스키마 필드가 또 하나 늘어나면 그 시점에 배치"(전파 보류 결정 시 합의한 체크포인트)에 `element`가 해당한다 — **전파 시점 재판단 대상**.
-- **상태:** ✅ **부분 전파**(spec `751097a`, `DEC-20260720-001` — `element` 필드·`AB-008` unified → `D-016`). ⚠️ **`variant`(결속 발현축)=클러스터2(결속 정본화) 대기.** 샌드박스 체감 확인 완료(2026-07-20). ⚠️ 스타터 시드 교체는 샌드박스 경로 밖(허브 `reset_to_seed` 필요) → **미확인 잔여**.
+- **상태:** ✅ **전파 완료·푸시**(element = spec `751097a` `DEC-20260720-001` / **variant = spec `fb4f16c` `DEC-20260720-006`** — 결속 변형 발현축 kind→AB단, `IDA-024`/`027` §Keystone + `ROLE-020` §4.5). 샌드박스 체감 확인 완료(2026-07-20). ⚠️ 스타터 시드 교체는 샌드박스 경로 밖(허브 `reset_to_seed` 필요) → **미확인 잔여**.
 
 ### DRIFT-087 — 결속을 whitelist→**정체성 기본 델타(GENERIC)**로 전환: 등록 없이 장착 서브 전부 적용 🔶 rule/design (전파 후보, [[DRIFT-077]] 파일럿 스코프 개정)
 - **배경(2026-07-19, 사용자 결정):** [[DRIFT-086]] ①의 후속. 사용자 제안 — *"identity에 직접 연결되는 generic형 변형은 AB마다 추가하기보다 identity가 어떤 스킬에든 generic하게 적용되도록"*. **「정체성별 동일 3서브」 평가 패리티 제약은 검증 완료로 해제**(사용자: "이제 필요없어").
@@ -556,7 +556,7 @@
 - **비주력(서브 클래스) = 초월 강화 변형 없음(rule, 사용자 결정 2026-07-19):** `_dps_overdrive_empower` 진입부에 `_is_main_class_sub()` 게이트 — `sub_bands`에 멤버 클래스가 있으면(B1~B3) **게이지는 차되 폭주 시 변형이 없다**(base 그대로). 판정 소스 = 기존 밴드 계수와 동일(`sub_bands.get(class_id, "B0")`). 의미: 밴드 피해 패널티(−%)에 더해 **"정체성 payoff 자체가 없다"는 2차 벽** — 비주력 서브로 정체성 킷을 채우는 걸 막는다. 툴팁도 연동(비주력+초월이면 등록 변형 설명 대신 **기본 델타 설명 + `┗ 비주력 적성 — 강화 변형 없음`**; 안 그러면 툴팁이 거짓말).
 - **⚠️ 파생 — AB-041 「빙결 파동」 밴드 수정:** 위 규칙 적용 시 AB-041이 `sub_bands {DPS: "B2"}`라 **BIND-021 「절대영도」가 영구 미발동**이 된다(초월 킷 R 슬롯 payoff 상실). 사용자 판정(안 ㄴ) = **AB-041을 DPS·Nuker 양쪽 주력으로 변경** → `sub_bands` 제거. ⚠️ **선례 없음** — 다중 클래스인데 `sub_bands`가 없는(= 전 클래스 주력) **최초 스킬**이다. 스키마상 합법(`_note`: "미기재 클래스 = main(B0 full)")이나, 이 스킬만 밴드 특화 압력에서 벗어난다 → **후속 스킬 판정의 선례가 됨**(같은 냉기인 AB-072는 `{Nuker: B2}` 유지).
 - **분류\전파:** **파일럿 스코프 변경**([[DRIFT-077]]/[[DRIFT-073]]/[[DRIFT-074]]/[[DRIFT-076]] 계열) — 결속 성립 규칙이 triple-match **필수**에서 **선택적 변주**로 바뀌므로 `F-020 §3.7 resolveEffectiveAbility` 서술과 SIGNATURE covenant 문구("링크된 스킬")가 개정 대상. **rule/design → OPS_30 전파 후보**(P4b 결속 정본화 배치와 동반). `binding_overlays.gd`는 게임이 SSOT(IMPL-DEC-20260709-001)라 구현 자체는 로컬 권한. 이 레포 spec md 편집 금지.
-- **상태:** 🔶 구현·ci_smoke **8/8 PASS**(binding_smoke 포함). ✅ **샌드박스 체감 확인 완료(사용자, 2026-07-20)** — generic 기본 델타(미등록 서브 포함) · **잠행 전-서브 근접강제** · 비주력 차단 · AB-041 절대영도 복구 전부 정상.
+- **상태:** ✅ **전파 완료·푸시**(spec `fb4f16c`, `DEC-20260720-007` — 결속 whitelist→generic 기본 델타 + 비주력 초월 제외·미소모 → `F-020` §3.7 + `D-016` §3.6.3 + bindings README + `ROLE-010` §4.5). 샌드박스 체감 확인 완료(2026-07-20). ⚠️ **잔여 딥오소링(2-D): 개별 `BIND-###` 정본·`D-###` 결속 스키마 = spec TODO**(generic 위에서, 미착수).
 
 ### DRIFT-088 — 속성 통합: `lightning` 플래그 폐기 → `element` 단일화 + **속성 타격 seam**(`element_hit`) 🔶 rule/impl (전파 후보)
 - **배경(2026-07-19, 사용자 결정):** [[DRIFT-086]] ③이 `element`를 신설하며 `lightning: true`와 **병존**하는 중복을 남겼다. 사용자 설계 — *"AB에서는 element로 속성을 판단하고, 타격 시점에 element가 맞는 대상에게 속성을 전달한 후 RX로 이어질 수 있으면 이어지는 식"*. + **부여 규칙 통일**: *"즉시 효과는 element가 직접, 조건부 효과는 RX가 처리."*
