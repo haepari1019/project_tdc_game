@@ -150,7 +150,14 @@ func _drive_order(body: CharacterBody3D, delta: float) -> void:
 	var v_target: Vector3 = body.order_desired_velocity(move_speed, delta)
 	if v_target != Vector3.ZERO and body.has_method("move_speed_mult"):
 		v_target *= body.move_speed_mult()
-	if use_accel_model:
+	if body.has_method("is_slippery") and body.is_slippery():
+		# 관성(OilSlick 기름 / IceGlide 빙판): WASD와 동일하게 오더 이동도 미끄러져야 한다.
+		# (기존엔 이 분기가 없어 우클릭 이동 시 oil/ice 관성이 안 먹던 버그 — 2026-07-21.)
+		var acc := SLIP_ACCEL_MPS2
+		if body.has_method("inertia_scale"):
+			acc *= body.inertia_scale()
+		body.velocity = body.velocity.move_toward(v_target, acc * delta)
+	elif use_accel_model:
 		body.velocity = body.velocity.move_toward(v_target, accel_mps2 * delta)
 	else:
 		body.velocity = v_target
