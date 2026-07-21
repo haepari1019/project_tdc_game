@@ -214,8 +214,10 @@ func _remove_origin(id: int) -> void:
 func _expire(dt: float) -> void:
 	for key in _cells.keys():
 		var c: Cell = _cells[key]
+		if c.ttl <= 0.0:
+			continue   # 지속형(Oil/Vegetation 등) — age 누적 안 함(나중 Fire 변환 시 ttl 오판 방지)
 		c.age += dt
-		if c.ttl > 0.0 and c.age >= c.ttl:
+		if c.age >= c.ttl:
 			_cells.erase(key)
 
 
@@ -384,6 +386,7 @@ func fire_hits_fuel(center: Vector3, radius: float, fuel: String) -> bool:
 			c.medium = "Fire"
 			c.dps = FIRE_CREEP_DPS
 			c.ttl = FIRE_CREEP_TTL
+			c.age = 0.0            # ⚠️ 필수: 기존 연료 셀의 누적 age를 안 지우면 ttl 즉시 초과 → 불이 안 남고 사라짐
 			c.lethal = true
 			c.origin_id = 0
 			any = true

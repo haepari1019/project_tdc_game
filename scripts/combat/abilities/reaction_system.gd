@@ -198,8 +198,6 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 	if cell_fuel:
 		var oil_hit: bool = _combat.surface_grid_fire_hits_fuel(center, radius, "Oil")
 		var veg_hit: bool = _combat.surface_grid_fire_hits_fuel(center, radius, "Vegetation")   # veg는 폭발 없이 붙어 번짐
-		# 진단(임시 2026-07-22): 착탄 위치·반경과 실제 어느 연료가 닿았는지 — Ember Lance 2연료 버그 원인 확인용.
-		print("[RX] FireHit @(%.1f,%.1f) r%.1f — oil=%s veg=%s" % [center.x, center.z, radius, str(oil_hit), str(veg_hit)])
 		if oil_hit:
 			_explosion(center, minf(radius + 0.5, 2.5), EXPLOSION_DMG, source)   # oil만 점화 폭발
 			_clear_fuel_zones(center, radius, "Oil")

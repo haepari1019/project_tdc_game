@@ -206,10 +206,13 @@ func _run() -> void:
 	get_root().add_child(ozv); ozv.global_position = Vector3(4.0, 0.0, 0.0)   # oil과 안 겹침(거리4 > 1+1)
 	g5._stamp_zones()
 	_chk(_count_medium(g5, "Oil") > 0 and _count_medium(g5, "Vegetation") > 0, "ember: oil+veg stamp(안 겹침)")
+	for ka in g5._cells:   # 지속 연료가 오래 살아 age 누적된 실게임 상황 재현
+		(g5._cells[ka] as SurfaceGrid.Cell).age = 20.0
 	rs5._on_fire_damage_hit({"position": Vector3(2.0, 0.0, 0.0), "radius": 3.0, "depth": 0, "source": null})   # 둘 다 덮음
 	_chk(_count_medium(g5, "Fire") > 0, "ember: 점화됨")
-	_chk(_count_medium(g5, "Oil") == 0, "ember: oil 점화됨(둘 다)")
-	_chk(_count_medium(g5, "Vegetation") == 0, "ember: veg 점화됨(둘 다)")
+	_chk(_count_medium(g5, "Oil") == 0 and _count_medium(g5, "Vegetation") == 0, "ember: oil+veg 둘 다 점화")
+	g5._expire(0.1)   # ⚠️ 변환 시 age 리셋 안 하면 여기서 즉시 소멸(기름만 사라지고 불 안 남던 버그)
+	_chk(_count_medium(g5, "Fire") > 0, "ember: 점화 후 Fire 유지(age 리셋 — 즉시 소멸 안 함)")
 	rs5.free(); mc5.free(); g5.free()
 
 	if _ok:
