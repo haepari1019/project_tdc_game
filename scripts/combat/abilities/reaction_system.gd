@@ -197,14 +197,16 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 	# detach된 연료도 재점화. 실제로 닿았을 때만 겹친 연료 존 정리(passive 재트리거 방지·나머지 셀 detach→creep).
 	if cell_fuel:
 		var oil_hit: bool = _combat.surface_grid_fire_hits_fuel(center, radius, "Oil")
+		var oil_ig: Vector3 = _combat.surface_grid_last_ignite_center()   # 실제 기름이 탄 셀들 중심(연기·폭발 배치)
+		var oil_ir: float = _combat.surface_grid_last_ignite_radius()
 		var veg_hit: bool = _combat.surface_grid_fire_hits_fuel(center, radius, "Vegetation")   # veg는 폭발 없이 붙어 번짐
 		if oil_hit:
-			_explosion(center, minf(radius + 0.5, 2.5), EXPLOSION_DMG, source)   # oil만 점화 폭발
+			_explosion(oil_ig, minf(oil_ir + 1.0, 3.0), EXPLOSION_DMG, source)   # 폭발도 탄 자리에
 			_clear_fuel_zones(center, radius, "Oil")
-			var smoke_h := HazardZone.new()   # RX-OIL-FIRE 연소 연기(무해·분위기/시야) — passive 경로와 일관
-			smoke_h.setup(minf(radius, 2.5) * 0.7 + 0.5, 0.0, 0.0, "Smoke", false, SMOKE_TTL)
+			var smoke_h := HazardZone.new()   # RX-OIL-FIRE 연소 연기(무해·분위기/시야) — **점화된 자리**에
+			smoke_h.setup(oil_ir + 0.8, 0.0, 0.0, "Smoke", false, SMOKE_TTL)
 			add_child(smoke_h)
-			smoke_h.global_position = center
+			smoke_h.global_position = oil_ig
 		if veg_hit:
 			_clear_fuel_zones(center, radius, "Vegetation")
 	var zones := _zones_overlapping(center, radius)
@@ -432,12 +434,14 @@ func _ignite_oil(oil: Node, depth: int, source: Node = null, hit_pos = null, hit
 		var hp: Vector3 = hit_pos if hit_pos != null else pos
 		var hr: float = float(hit_radius) if hit_radius != null else r
 		if _combat.surface_grid_fire_hits_fuel(hp, hr, "Oil"):
-			_explosion(hp, minf(hr + 0.5, 2.5), EXPLOSION_DMG, source, fsafe, sfac)   # 점화 순간 국소 폭발
+			var ig: Vector3 = _combat.surface_grid_last_ignite_center()   # 실제 탄 자리
+			var ir: float = _combat.surface_grid_last_ignite_radius()
+			_explosion(ig, minf(ir + 1.0, 3.0), EXPLOSION_DMG, source, fsafe, sfac)   # 점화 순간 국소 폭발(탄 자리)
 			_combat.surface_grid_detach_zone_cells(oil)     # 나머지 oil 셀 detach → creep이 태움/재점화 가능
 			var smoke_l := HazardZone.new()
-			smoke_l.setup(r * 0.6 + 0.5, 0.0, 0.0, "Smoke", false, SMOKE_TTL)
+			smoke_l.setup(ir + 0.8, 0.0, 0.0, "Smoke", false, SMOKE_TTL)
 			add_child(smoke_l)
-			smoke_l.global_position = hp
+			smoke_l.global_position = ig   # 점화된 자리에 연기
 			oil.clear_zone()   # 존 제거(passive 재트리거 방지; 셀은 detach돼 생존)
 			print("[RX] Oil ignited @hit (depth %d) — cell footprint, creep spreads (RX-OIL-FIRE-001)" % depth)
 		return   # 불이 oil 셀에 안 닿았으면 존 유지(다음 시도 가능)

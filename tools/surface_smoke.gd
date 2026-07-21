@@ -38,6 +38,10 @@ class MockCombat extends Node3D:
 		return grid.fire_hits_fuel(center, radius, fuel)
 	func surface_grid_detach_zone_cells(oil) -> void:
 		grid.detach_zone_cells(oil)
+	func surface_grid_last_ignite_center() -> Vector3:
+		return grid.get_last_ignite_center()
+	func surface_grid_last_ignite_radius() -> float:
+		return grid.get_last_ignite_radius()
 
 
 func _initialize() -> void:

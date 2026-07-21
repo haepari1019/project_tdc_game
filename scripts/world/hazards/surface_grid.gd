@@ -79,6 +79,8 @@ var _quad: QuadMesh                  # 공유 flat quad(XZ 평면) — lazy(_mak
 var _cells: Dictionary = {}          # key:int -> Cell (소유)
 var _stamped: Dictionary = {}        # zone instance_id -> [radius, lethal] (신규/변화 감지)
 var _poison_accum: Dictionary = {}   # ToxicGas: unit → 스택 주기 누적(가스 밖 나가면 리셋)
+var _last_ignite_center: Vector3 = Vector3.ZERO   # 마지막 fire_hits_fuel이 실제 점화한 셀들의 중심(연기/폭발 배치용)
+var _last_ignite_radius: float = 0.0              # 그 점화 영역 반경(셀 수→면적)
 
 
 # ── world↔cell 수학 ──────────────────────────────────────────────────────────
@@ -380,6 +382,9 @@ func fire_hits_fuel(center: Vector3, radius: float, fuel: String) -> bool:
 	var seed := {}
 	stamp_circle(center, maxf(radius, IGNITE_SEED_R), seed)   # 최소 IGNITE_SEED_R 보장
 	var any := false
+	var sx := 0.0
+	var sz := 0.0
+	var n := 0
 	for key in seed:
 		var c: Cell = _cells.get(key)
 		if c != null and c.medium == fuel:
@@ -390,7 +395,23 @@ func fire_hits_fuel(center: Vector3, radius: float, fuel: String) -> bool:
 			c.lethal = true
 			c.origin_id = 0
 			any = true
+			var iz: int = (key & 0xFFFF) - 32768   # 실제 점화 셀 중심 누적(연기/폭발을 탄 자리에 두기 위해)
+			var ix: int = ((key >> 16) & 0xFFFF) - 32768
+			sx += cell_center(ix)
+			sz += cell_center(iz)
+			n += 1
+	if n > 0:
+		_last_ignite_center = Vector3(sx / float(n), center.y, sz / float(n))
+		_last_ignite_radius = sqrt(float(n) * CELL_M * CELL_M / PI)   # 셀 수 → 등가 반경
 	return any
+
+
+func get_last_ignite_center() -> Vector3:
+	return _last_ignite_center
+
+
+func get_last_ignite_radius() -> float:
+	return _last_ignite_radius
 
 
 ## oil 존의 남은 셀을 detach(origin→0) → 존이 clear돼도 셀 생존(creep이 태움·hit로 재점화). 재스탬프 금지.

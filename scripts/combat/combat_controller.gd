@@ -426,6 +426,15 @@ func surface_grid_detach_zone_cells(oil: Node) -> void:
 		_surface.detach_zone_cells(oil)
 
 
+## 마지막 fire_hits_fuel이 실제 점화한 셀들의 중심/반경 — 연기·폭발을 조준중심이 아닌 **탄 자리**에 두려고.
+func surface_grid_last_ignite_center() -> Vector3:
+	return _surface.get_last_ignite_center() if _surface != null else Vector3.ZERO
+
+
+func surface_grid_last_ignite_radius() -> float:
+	return _surface.get_last_ignite_radius() if _surface != null else 0.0
+
+
 ## Enemies within radius. `faction` != "" → only that faction (F-028: 힐/지원은 같은 진영만).
 func _enemies_in_radius(pos: Vector3, r: float, faction: String = "") -> Array:
 	var out: Array = []
