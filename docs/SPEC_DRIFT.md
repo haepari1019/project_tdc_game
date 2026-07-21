@@ -705,3 +705,9 @@
 - **분류/전파:** **rule → OPS_30 전파 후보.** spec `EVENT-CORE`/`F-021 §3.2`(RX)에 **passive 존 중첩 반응** 개념 신설. 게임 편집·체감 후 역전파.
 - **게이트:** ci_smoke 11/11 PASS.
 - **상태:** 🔶 LOGGED (전파 후보·미전파). ⚠️ 체감 — Oil+Fire 자동폭발 · Fire+Water 증기+소진 · 폭주/성능(O(n²)·Steam 생성 빈도) · 확산 근사(축소) 자연스러운가.
+- **➡️ 후속(2026-07-21, 사용자 승인): 셀 그리드화 착수 — 이 "원 단위 근사"의 정식 해소.** 설계 확정 = **Target A**(셀=substrate,
+  원=저작; `spawn_zone`/`radius_m` 저작 불변, 내부 래스터화). 예정 기능(퍼짐·바람 밀림)의 토대. 설계·단계·마이그레이션
+  정본 = [docs/design/surface_grid.md](design/surface_grid.md) · 결정 = [[IMPL-DEC-20260721-001]]. 단계: **S0**(shadow 렌더·무침습)
+  착수 → S1(셀 권위화) → **S2에서 본 DRIFT-096 정식 종결**(중점/shrink 근사 제거, 셀 내 공존매질 해소) → S3(확산 CA).
+  전파는 Target A라 최소(`INT-002 §6.1`/`EVENT-CORE §3` "타일=셀" 명료화; `ZONE-CORE`/`EFFECT-CORE` 지오메트리 불변,
+  **수렴**) — S1/S2 체감 후 OPS_30.

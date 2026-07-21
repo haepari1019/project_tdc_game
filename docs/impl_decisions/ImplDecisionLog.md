@@ -6,6 +6,14 @@
 
 ---
 
+### IMPL-DEC-20260721-001 — 환경 존 셀 그리드화 = **Target A**(셀=substrate, 원=저작). 단계적, shadow-first
+- **결정(2026-07-21, 사용자 승인):** 환경 surface(존)를 `center+radius` 원 단위 → **셀 그리드 substrate**로 전환한다. DRIFT-096의 "원 단위 근사"(교집합=중점 Steam·확산=반경 축소) 정식 해소 + 예정 기능(퍼짐·바람 밀림) 토대. 채택안 = **Target A**: `spawn_zone(medium,pos,radius,…)`·`radius_m`·`shape:Circle` **저작 그대로**, 내부에서 원을 셀로 **래스터화**. 셀이 상태·반응·확산 소유.
+- **이유:** spec은 이미 하이브리드(지오메트리=원 `radius_m`·`ZONE-CORE`/`EFFECT-CORE`, RX 해상도="타일" `INT-002 §6.1`/`EVENT-CORE §3`). 런타임 비원형화(퍼짐·바람)는 **substrate 층(셀 CA) 성질**이라 저작 단위와 직교 — A/B가 동일 제공. A/B 차이는 **seed 저작 단위**뿐이고, seed는 실제로 모양(조준점 원·배럴 슬릭)이라 `radius_m` 저작이 자연스럽고 `radius_m`=초기 스폰범위(불변식 아님). → A는 spec "타일" 어휘를 literally 참으로 만드는 **수렴**이고 지오메트리 SSOT 불변, 전파 최소.
+- **대안(기각):** (B) `radius_m`/`shape:Circle` → 셀 footprint 저작 = 지오메트리 SSOT 대규모 변경(DEC-20260617-007 impact set 전체). 런타임 모양은 A와 동일한데 저작만 바꿔 큰 전파 비용 — 이득 적음(DOS2도 shape 저작→래스터화). 비원형/스플래터 seed는 A가 `stamp_box`/`stamp_polygon`+노이즈 스탬프(엔진 내부, SSOT 불변)로 커버.
+- **위험 통제:** 어댑터 — 신규 `SurfaceGrid`(CombatController 자식, sandbox 패리티)가 셀+렌더+틱 소유. 저작 8곳·모든 스킬 effect **무수정**, **소비 4곳만** 그리드 쿼리 이주(RX `_zones_overlapping`/`_zone_reaction_tick` · `party_controller._clamp_fatal` · `map_demo_layout._carve_zone` · outcome틱). `USE_SURFACE_GRID` 플래그로 원 경로 폴백. **shadow-first**: S0은 `ground_zone` 옵저버 래스터화(원이 권위, 무침습) → S1에서 권위 전환.
+- **단계/전파:** S0(shadow)→S1(셀 권위화·고위험 nav+회피)→**S2(셀 경계반응=DRIFT-096 종결)**→S3(확산 CA). 설계·단계·마이그레이션 정본 = [docs/design/surface_grid.md](../design/surface_grid.md). spec 전파(S1/S2 체감 후)=`INT-002 §6.1`/`EVENT-CORE §3` "타일=셀" OPS_30 명료화, 지오메트리 SSOT 불변. 관련: DRIFT-096·[[refactor-risk-preference]].
+- **영향 파일:** (신규) `scripts/world/hazards/surface_grid.gd`. S0: `combat_controller`(자식·facade)·`combat_sandbox`/`dungeon_run`(디버그키). 후속 S1~S3: `hazard_zone`·`reaction_system`·`party_controller`·`map_demo_layout`. 문서: `docs/design/surface_grid.md`·`SPEC_DRIFT.md`(DRIFT-096)·`ARCHITECTURE.md`.
+
 ### IMPL-DEC-20260712-003 — Shared 스킬 적↔아군 통합 아키텍처: "해소 1개 + 프론트엔드 2개"(CastContext) — AB-003 파일럿
 - **결정:** Shared 스킬(적도 사용)을 두 정의(skillbooks.json 아군 / abilities.json 적)로 나누지 않고 **단일 정의에서 양측 동일 발현**. 진영-agnostic `cast_context.gd`(CastContext)를 도입해 **하나의 sb_* 이펙트**가 아군/적 모두 구동. AB-003이 파일럿.
 - **이유:** "같은 ID인데 시전자에 따라 딴 거동"은 공유 정체성의 혼란 + 이중유지 비용(0.7 vs 3.0·mult 1.3 vs 1.0 실제 드리프트)만 있고 이득 없음(사용자 판정). "해소(효과·VFX·캐스트시간·mult)=통합, 선택·조준(플레이어 vs AI)=진영별"로 분리하면 진영 의존면이 실제로 `enemies_in_radius`/`deal_damage`/projectile-mask **3개뿐** → 파사드로 흡수.

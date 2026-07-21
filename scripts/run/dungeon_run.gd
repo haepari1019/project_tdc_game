@@ -384,6 +384,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if kc == KEY_B:
 			_vision_fog.toggle_world_fog()   # F-011: A/B toggle the 3D world fog
 			return
+		if kc == KEY_N:
+			_combat.surface_grid_cycle_debug()   # S0: 환경 존 셀 오버레이 A/B(원+셀→셀만→원만)
+			return
 	# RMB: drag = camera orbit; a click (negligible drag) = interact the nearest object.
 	# (E is reserved for a future sub-skill, so world interaction uses the right mouse.)
 	if event is InputEventMouseButton:

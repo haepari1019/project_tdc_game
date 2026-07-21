@@ -62,6 +62,16 @@ if [ "$rxcode" -ne 0 ] || ! grep -qF "REACTION SMOKE PASSED" "$rxlog"; then
   echo "  FAIL: reaction smoke (exit=$rxcode) —"; grep -nE "FAIL|$ERRPAT" "$rxlog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# Surface-grid substrate (S0, IMPL-DEC-20260721-001): world↔cell 수학 + stamp_circle 커버리지 +
+# MultiMesh 렌더 경로 무크래시. dungeon_run 부팅엔 존이 없어 래스터/렌더 경로가 안 도므로 별도 게이트.
+echo "== surface-grid smoke (S0 / DRIFT-096) =="
+surflog="/tmp/ci_surface_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/surface_smoke.gd >"$surflog" 2>&1
+surfcode=$?
+if [ "$surfcode" -ne 0 ] || ! grep -qF "SURFACE SMOKE PASSED" "$surflog"; then
+  echo "  FAIL: surface smoke (exit=$surfcode) —"; grep -nE "FAIL|\[SURF\]|$ERRPAT" "$surflog" | head -8; fail=1
+else echo "  PASS"; fi
+
 # Party ability pool (P2-S6a, DRIFT-057): every skillbook cast.kind has a drop-in effect, band
 # penalty (D-016/D-012 §2.4) resolves, B1 ally-only ABs (034/044/054/062/070/075) + Veiled/Silenced/
 # Purge statuses behave.

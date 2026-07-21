@@ -54,6 +54,11 @@ const RENDER_ORDER := {
 	"Water": 3, "Ice": 2, "Vegetation": 1,               # 지면 액체/고체 — 아래
 }
 
+## S1 — 셀 substrate 권위 플래그. true면 이 존은 mesh·outcome 틱을 SurfaceGrid에 위임(관측→셀 렌더+효과)하고
+## 자신은 lifetime(ttl/telegraph/clear)·geometry(radius/contains_point)·group 멤버십만 유지. false = 기존 원
+## 자기완결(mesh+자기틱). A/B 폴백 스위치. ref: docs/design/surface_grid.md · IMPL-DEC-20260721-001.
+const USE_SURFACE_GRID := true
+
 var radius: float = 3.0
 var dps: float = 0.0
 var slow_factor: float = 0.0   # >0 = slows units inside (e.g. Oil slick); refreshed per tick
@@ -110,6 +115,15 @@ func is_active() -> bool:
 ## Credit an attacker (e.g. the torch thrower) for threat when this zone damages enemies.
 func set_source(s: Node) -> void:
 	_source = s
+
+
+## SurfaceGrid outcome 틱이 읽는 발신원/치명(telegraph 해제) 상태 — S1 셀 권위판 게터.
+func get_source() -> Node:
+	return _source
+
+
+func is_lethal() -> bool:
+	return _lethal
 
 
 ## 초월 「아군 안심 기름」 표식(DRIFT-094) — 이 존을 지정 진영에 무해로 만들고, 매질 색은 그대로 두되
@@ -191,6 +205,9 @@ func clear_zone() -> void:
 	if impassable:
 		remove_from_group("fatal_zone")
 		get_tree().call_group("navmap", "rebake_navigation")
+	if _mesh == null or _mat == null:
+		queue_free()   # S1: mesh 없는 존(SurfaceGrid 권위) — 트윈 없이 즉시 해제
+		return
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(_mat, "albedo_color:a", 0.0, 0.4)
@@ -207,6 +224,8 @@ func _physics_process(delta: float) -> void:
 		if _age >= ttl:
 			clear_zone()
 			return
+	if USE_SURFACE_GRID:
+		return   # S1: 효과·멤버십은 SurfaceGrid._tick_outcomes가 중앙 1틱으로 담당
 	if not _lethal:
 		return  # telegraph phase — no membership / effect yet
 	_tick_accum += delta
@@ -299,6 +318,8 @@ func _apply_color(warn: bool) -> void:
 
 
 func _build() -> void:
+	if USE_SURFACE_GRID:
+		return   # S1: 존별 개별 mesh 은퇴 — SurfaceGrid MultiMesh가 그린다
 	_mesh = MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = radius

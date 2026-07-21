@@ -31,6 +31,7 @@ const EnemyAI := preload("res://scripts/combat/enemy_ai.gd")
 const AbilityDispatch := preload("res://scripts/combat/abilities/ability_dispatch.gd")
 const ReactionSystem := preload("res://scripts/combat/abilities/reaction_system.gd")
 const CastContext := preload("res://scripts/combat/abilities/cast_context.gd")   # PILOT — enemy 통합 캐스트 ctx
+const SurfaceGrid := preload("res://scripts/world/hazards/surface_grid.gd")       # 환경 존 셀 substrate(S0 shadow)
 
 ## D-010 §4.2 combat_exit_grace_s — an engaged enemy with no combat event and no
 ## line of sight to the party for this long disengages (전투중 → dormant). Tuning.
@@ -97,6 +98,8 @@ var _reactions: ReactionSystem
 ## PILOT — enemy-faction cast context: runs UNIFIED skillbook effects for enemy casters (one skill
 ## definition, two casting front-ends). ref: cast_context.gd · AB-003 파일럿.
 var _enemy_cast_ctx: CastContext
+## 환경 존 셀 substrate (S0 shadow: ground_zone 관측→셀 렌더, 원이 권위·무침습). ref: surface_grid.gd · DRIFT-096.
+var _surface: SurfaceGrid
 
 
 func setup(party: Node3D, map: Node3D) -> void:
@@ -114,6 +117,8 @@ func setup(party: Node3D, map: Node3D) -> void:
 	_enemy_cast_ctx = CastContext.new()
 	add_child(_enemy_cast_ctx)
 	_enemy_cast_ctx.setup(self, _ability_dispatch, "enemy")
+	_surface = SurfaceGrid.new()
+	add_child(_surface)   # S0 shadow — self-inits, 관측 렌더만(원 권위)
 
 
 ## partyInCombat: true while ANY enemy is engaged. Drives HUD + follower re-form.
@@ -403,6 +408,11 @@ func ignite_at(center: Vector3, radius: float, source: Node = null) -> void:
 ## Spawn a medium ground zone (AB-009/036/039/040/042/043 — enemy/lootable). ref: F-027 ZONE-*.
 func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null) -> void:
 	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source)
+
+
+## 환경 존 셀 오버레이 A/B 디버그 순환(원+셀 → 셀만 → 원만). S0 검증용. returns 상태 라벨.
+func surface_grid_cycle_debug() -> String:
+	return _surface.cycle_debug() if _surface != null else ""
 
 
 ## Enemies within radius. `faction` != "" → only that faction (F-028: 힐/지원은 같은 진영만).

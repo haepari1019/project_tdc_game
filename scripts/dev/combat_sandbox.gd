@@ -1195,6 +1195,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_U: _party.toggle_cohesion_mode()       # 파티결속 ↔ 비결속 (F-003 §3.4, game parity)
 			KEY_T: _party.rally()                     # 집합 — 이동 오더 전원 해제 + 진형 복귀 (DRIFT-090)
 			KEY_Z: _on_lay_zone()   # lay selected medium zone @ controlled
+			KEY_N: _status.text = "surface: %s" % _combat.surface_grid_cycle_debug()  # S0 셀 오버레이 A/B
 
 
 ## 우클릭 탭(드래그 아님) → 조종 캐릭터를 마우스 아래 지면으로 클릭이동(dungeon_run 상호작용의 이동부와 동일).
