@@ -632,3 +632,76 @@
   - ⚠️ 판정 기준이 **콜리전 캡슐**이라 시각 메시가 캡슐보다 크면 체감과 어긋날 수 있다(현재 placeholder 실린더는 대체로 일치). 메시 교체(A2) 시 재확인 대상.
 - **회귀 게이트:** 신규 [`tools/selection_smoke.gd`](../tools/selection_smoke.gd) — 원점이 사각형 하단부라는 **전제 자체**를 먼저 검증하고(카메라 피치를 바꾸면 이 게이트가 먼저 깨진다 = 의도), 발치 박스 탈락 · 85% 통과 · 임계 경계 방향성. `ci_smoke.sh` 편입. 신규 [`tools/move_order_smoke.gd`](../tools/move_order_smoke.gd) — 상태 전이(NONE/MOVING/HOLD) · **cb 유무로 갈리는 도착 거동** · MIA·도발 취소 · **기절은 유지** · `nav_invalidate`. 실거동(점선·`T`키·전투 우선 체감·마우스 손맛)은 커버 못 함 = F5 플레이테스트 몫.
 - **상태:** ✅ **전파 완료·푸시**(spec `2da700d` origin/staging, `DEC-20260721-001` — `F-003` §3.5 계열 전면 재작성: 멤버별 오더·`MoveOrder{NONE,MOVING,HOLD}`·항상·이동우선·집합 `T`키·멤버별 점선 + §3.4/§3.6/§3.11 정합 + `UI-007` Deprecated + F-006/D-010 참조 정정). impl/튜닝(소유권 이전·스왑 미리셋·기절 정지·시전중 일시정지·입력 판별·드래그박스) = 비-전파. ⚠️ `F-002` §3.2.1(Left Ctrl+RMB 휠 예외)=Locked 후속. ci_smoke 10/10. **샌드박스 체감 대기**(①전투 중 오더 우선 ②HOLD 방치 ③점선 가독성 ④기절 정지 난이도).
+
+### DRIFT-091 — AB-009 Spawn Oil Patch 존 클래스 재배정: `[Nuker,Healer]→[DPS,Healer]` (메인=DPS·서브=Healer) 🔶 rule/scope (전파 후보)
+- **배경(2026-07-21, 사용자 결정 — I-006 캐스팅 패스 §8 AB-009 판정 축2):** 존 서브를 **DPS 메인**으로 승격. §8.5에서 짚은 *"존 equip=Nuker/Healer vs 초월=DPS 클래스 축 불일치"* 를 해소해 존을 **DPS 정체성(초월/혈풍)에 결속** 가능하게 하는 방향(§8.2-2안). 사용자 지시 = *"nuker 빼고 healer 서브로"*.
+- **⚠️ spec 대비 불일치 — 이 변경 전부터 게임이 이미 drift 상태였다:**
+  | 소스 | mainClasses(메인) | subClasses(서브) |
+  |------|-------------------|------------------|
+  | **spec 정본**([AB-009_SpawnOilPatch.md](../../project_tdc_spec/docs/combat/abilities/AB-009_SpawnOilPatch.md)) | `[]` | `[DPS, Nuker]` |
+  | 게임(변경 전) | Healer(`sub_bands` 미기재=메인) | Nuker(B3) |
+  | **게임(변경 후·본 드리프트)** | **DPS** | **Healer(B3)** |
+  - spec은 AB-009에 **Healer가 없고 Nuker가 subClass**. 게임은 이전부터 `[Nuker,Healer]`로 어긋나 있었으나 **개별 로깅이 없던 선재 drift**(DRIFT-029의 "서브 페널티" 일반 항목에만 묻혀 있었음). 본 변경으로 게임은 spec에서 **더 멀어진다**(Nuker 제거·Healer 유지·DPS 메인 승격).
+- **변경(`data/slice01/skillbooks.json` AB-009):** `equip_classes ["Nuker","Healer"]→["DPS","Healer"]` · `sub_bands {"Nuker":"B3"}→{"Healer":"B3"}`. 시스템 규약상 `sub_bands` **미기재=메인(B0 ×1.0)** ([ability_dispatch.gd:72](../scripts/combat/abilities/ability_dispatch.gd#L72))이라 DPS=메인, Healer=서브. 밴드 B3는 **기존 Nuker 서브밴드 승계**(밸런싱 §0 스킵 — 값 재산정은 Phase B).
+- **⚠️ 존 5쌍둥이 대칭 미정합(후속 판정 대상):** AB-036/040/042/043은 아직 게임 `[Nuker,Healer]`. spec은 제각각(036=main[Healer]/sub[DPS,Nuker] · 040=main[Healer]/sub[Nuker] · 042·043=main[]/sub[DPS,Nuker]). AB-009만 선행 재배정 → **존 계열 클래스 정책이 아직 통일 안 됨**. §8 존 정책 확정 시 나머지 4종 일괄 판정 예정(§5.3 "존 정책 상속").
+- **분류/전파:** **rule/scope → OPS_30 전파 후보.** 개정 대상 = spec `AB-009_SpawnOilPatch.md` `mainClasses`/`subClasses`. AB-041 `sub_bands` 변경([[DRIFT-087]])과 **동형 경로**. 사용자 방침 = 먼저 게임 편집·체감 후 존 정책 클러스터로 일괄 역전파. 이 레포 spec md 편집 금지.
+- **⚠️ 축3 시전모드(2026-07-21 확정): A(즉발) 유지 — 데이터 변경 0.** 무피해 `role:utility`라 §0/§1 캐스트 상향 비대상(딜·힐 공격형만 대상). Oil=RX 점화 콤보 씨앗이라 빠른 셋업이 정체성. 선례 AB-011·AB-002 A유지 정합.
+- **⚠️ 축1 효과 튜닝(병기·`tuning`·로깅만·전파금지): Oil 미끄럼 관성 강화.** 사용자 지시 "관성 이동 효과를 더 키워라". Slippery(=Oil 전용 상태)의 velocity 수렴 가속률을 절반으로: `player_controller.SLIP_ACCEL_MPS2 10.0→5.0` · `enemy_ai.SLIP_ACCEL 3.0→1.5`(피아 대칭). 감속 배율(MOVE_MULT ×0.85)은 불변 — "관성"만. **피아무구분이라 파티도 더 미끄러짐 → 즉발(축3 A유지)의 비용↑**(축1 방향과 합치). 값은 체감 후 재조정 가능. 효과 자체는 파손 없음(Wind와 대조 — Slippery·RX 정상 가동).
+- **게이트:** ci_smoke 11/11 PASS (클래스 편집·관성 편집 후 각각 재확인 모두 통과).
+- **상태:** 🔶 LOGGED (전파 후보·미전파 = 클래스 rule/scope / 관성 = tuning 로깅만). AB-009 판정 **진행 중** — 축2 클래스·축3 시전모드·축1 효과 확정. 남음: 축4 바인딩(DPS 초월/혈풍 bespoke — Oil 무피해라 신규코드 필요·§9 Stop-line) + 축1 샌드박스 체감.
+
+### DRIFT-092 — 이동상태 모델 확장(STATUS-OUTCOME-CORE): `move_mult` 곱연산+양방향 · 관성 일반화 · Oil/Ice 상태 분리 · AB-069 `Hastened` 통합 🔶 rule/schema (전파 후보)
+- **배경(2026-07-21, 사용자 결정 — AB-009 축4 전 Oil↔Ice 구분):** 장판 매질을 성향으로 구분 — **기름=끈적(느림)+관성 · 얼음=질주(빠름)+관성**. 기존엔 Oil=Slippery(×0.85+관성)·Ice=Chilled(×0.6, **관성 없음**)로 오히려 반대였다. "kind로 안 묶고 개별 성향으로"([[DRIFT-091]] §8 zone 통합정책 폐기)의 첫 적용.
+- **변경 5축(`outcome_status.gd` 중심):**
+  1. **`move_mult()` `minf`→곱연산 + 1.0 초과 허용.** 여러 이동상태 겹치면 전부 곱해진다(감속×부스트 양방향). ⚠️ **파급:** 감속 중첩이 더 세짐 — 예 `Sodden(0.7)×Shock(0.55)=0.385`(기존 `min`=0.55). 전 이동상태 조합에 영향(사용자 승인).
+  2. **`Slippery`→개념명 승격.** 특정 상태 `Slippery` 폐기 → **관성 개념**(`is_slippery()`/`INERTIA` 집합)으로. Oil 장판 = **`OilSlick`**(×0.85 + 관성 scale 1.0) · Ice 장판 = 신설 **`IceGlide`**(×1.5 부스트 + 관성 scale 0.7=더 미끄럼). `Chilled`(×0.6)는 **냉기공격 전용으로 유지**(AB-041/072 · RX-Veg-Cold · 절대영도) — Ice 장판과 분리해 빙결 둔화가 안 뒤집힘.
+  3. **관성 일반화 + 상태별 강도.** `INERTIA={OilSlick:1.0, IceGlide:0.7}` → `inertia_scale()`. 컨트롤러(`player_controller`·`enemy_ai`)가 base `SLIP_ACCEL`(5.0/1.5)에 곱 → 빙판이 더 미끄럽다. `is_slippery()`는 집합 판정으로 확장.
+  4. **AB-069 Swift Grace → `Hastened` outcome 통합.** 별도 `_haste_mult`/`_haste_timer` **제거** → 이동=`move_mult`(×(1+mag))·공격속도=`attack_interval`(basic/(1+mag))·만료=`_outcome.tick`. mag=pct, strongest wins(max 갱신). move_mult 단일창구화(사용자 지시 "AB069도 move_mult 사용").
+  5. **medium→상태 매핑**(`hazard_zone` MEDIUM_OUTCOME): Oil→OilSlick · Ice→IceGlide. RX-OIL-PHYSICAL(넉백)도 OilSlick.
+- **KO 표기 정리:** `OilSlick`="기름" · `IceGlide`="빙판"(기존 Slippery가 "빙판"으로 오표기되던 것 해소) · `Hastened`="가속".
+- **파일(9):** outcome_status · hazard_zone · reaction_system · party_member · enemy_unit · player_controller · enemy_ai · float_text · combat_sandbox.
+- **분류/전파:** **rule/schema → OPS_30 전파 후보.** 개정 대상 = spec `STATUS-OUTCOME-CORE`(겹침규칙 곱연산 · 신규 outcome enum `OilSlick`/`IceGlide`/`Hastened` · 관성 일반화). 게임 편집·체감 후 역전파. 이 레포 spec md 편집 금지.
+- **게이트:** ci_smoke 11/11 PASS.
+- **상태:** 🔶 LOGGED (전파 후보·미전파). ⚠️ **샌드박스 체감 대기** — ①빙판 질주+관성 손맛 ②곱연산 감속중첩 체감 ③AB-069 haste 통합 회귀(이동·공격속도 정상). 값(IceGlide 1.5 · inertia 0.7)은 체감 후 재조정.
+
+### DRIFT-093 — 원소 RX(fire·cold·lightning): primaryMedium 1개 → **겹친 모든 medium 각 반응**(EVENT-CORE §3 개정) 🔶 rule (전파 후보)
+- **배경(2026-07-21, 사용자 발견·결정):** Oil+Ice 중첩 장판에 Ember(FireDamageHit) 시전 시 **Oil만 폭발하고 Ice는 안 녹던** 현상. 원인 = `_on_fire_damage_hit`이 `_primary_medium_of`로 **우선순위 1개 매체만** 골라 RX 하나만 발동(RX_PRIORITY: Oil>…>Ice). spec `EVENT-CORE §3` "ONE combo RX per tile" 설계였으나, 겹친 매질이 **각각 반응**하는 게 자연스럽다는 판단 → 전부 반응(옵션 a). **3개 원소 RX 전부 통일**(사용자 후속 결정 1).
+- **변경(`reaction_system`):** `_on_fire_damage_hit`·`_on_cold_damage_hit`·`_on_lightning_hit` 3핸들러 모두 primaryMedium 단일선택 → 겹친 zone의 **고유 medium마다 각 RX** 호출. (fire 예: Oil 폭발 + Ice→Water + Water→Steam + Veg→Fire + ToxicGas→flash 동시.)
+  - **연쇄 폭주 방지 2장치:** ① fire의 Oil은 `_ignite_oil`이 `fire_hit` 재귀(인접 연쇄)라 **비-Oil 먼저 처리 후 Oil 마지막** → 다른 medium은 먼저 소비돼 재귀 중복 회피(cold/lightning은 재귀 없어 순서 무관). ② Ice→Water·Fire→Steam 등 **변환물은 새 zone**(현재 스냅샷 `zones`에 없음)이라 같은 틱에 재반응 안 함(연쇄 폭주 차단).
+  - **`_primary_medium_of`·RX_PRIORITY 유지:** 프로덕션 코드에선 이제 미사용(orphan)이나 `reaction_smoke`(EVENT-CORE §3 resolver 단위테스트)가 직접 호출 → 삭제 안 함.
+- **분류/전파:** **rule → OPS_30 전파 후보.** 개정 대상 = spec `EVENT-CORE §3`("ONE combo RX per tile" → "겹친 매질 각각 반응") / `INT-002 §6.1`. fire·cold·lightning 3축 일관. 게임 편집·체감 후 역전파. 이 레포 spec md 편집 금지.
+- **게이트:** ci_smoke 11/11 PASS (reaction_smoke 포함 — primaryMedium resolver 함수 유지로 단위테스트 무영향).
+- **상태:** 🔶 LOGGED (전파 후보·미전파). ⚠️ 체감 대기 — ①Oil+Ice 동시반응(fire) ②Water+Veg 동시반응(cold)·Water+Steam(lightning) ③연쇄 폭주 없는지(Oil 인접연쇄 + 변환물 재반응 차단).
+
+### DRIFT-094 — AB-009 축4 결속 「아군 안심 기름」(safeslick): 초월 Oil이 아군 무해 — **F-021 §3.3.1 피아무구분 예외**(결속이 환경 근본규칙을 뒤집는 첫 사례) 🔶 rule (전파 후보)
+- **배경(2026-07-21, 사용자 결정 — AB-009 축4 바인딩):** DPS 초월(IDA-024)에 AB-009 결속. **자동 폭발(컨셉 A)은 "화염존을 앞당긴 것"이라 Oil 컨셉을 지운다**는 판단으로 기각 → **Oil의 유일한 비용(피아무구분)을 제거하는 payoff**로 선회. 딜을 더하지 않고 "안심하고 깔 수 있는 기름"으로 컨셉 유지. 결속 후보 4개 중 **초월만** 결속(혈풍=무피해라 흡수 0 / Healer 지속치유·성역=서브+무치유 → 결속 없음).
+- **변경(5파일):**
+  - `hazard_zone`: `friendly_safe`/`safe_faction` 속성 + `set_friendly_safe(faction)` + tick 효과 면제(`safe_faction` 유닛은 미끄럼·피해 **전부** 스킵) + 시각 청록 이미시브 구분.
+  - `reaction_system`: `_explosion`에 면제 파라미터 + `_ignite_oil`이 oil의 flag를 **직후 파생(폭발·Fire존)에만** 상속(인접 연쇄는 상속 안 함).
+  - `ability_dispatch`: `_dps_overdrive_empower` variant `safeslick` — 초월 중 aim에 깐 Oil zone을 `set_friendly_safe(시전자 진영)`.
+  - `binding_overlays`: BIND-027(`gear_ward_dps_press_rod` + IDA-024 + AB-009 @ slot0, variant safeslick).
+  - `binding_smoke`: 카운트 34→35 + BIND-027 resolve 검증.
+- **사용자 결정 3축:** ① 면제 범위 = **전부**(미끄럼+피해) ② 시각 = **청록빛 구분** ③ 상속 = **직후 RX만**.
+- **⚠️ 무게 — 결속이 환경 근본규칙을 뒤집는 첫 사례:** `F-021 §3.3.1` "존은 피아무구분"은 정본 규칙. 이 결속은 거기에 조건부 예외(초월 + source 진영)를 뚫는다. 단순 kit 확장(kind/variant payoff)이 아니라 **환경 RX 시스템에 진영 개념을 부분 도입**. 전파 시 spec F-021에 "결속 예외" 항 신설 필요.
+- **함의:** AB-009는 무명중(무피해 존)이라 **초월 게이지 충전 기여 0** — 충전은 볼트/광역 딜 슬롯 몫, 이 슬롯은 발현(초월 소모) 전용. desc_ko에 명시.
+- **분류/전파:** **rule → OPS_30 전파 후보.** 개정 대상 = spec `F-021 §3.3.1`(피아무구분 + 결속 예외 신설) · `D-016` DPS 초월 kit(AB-009 safeslick variant). 게임 편집·체감 후 역전파. 이 레포 spec md 편집 금지.
+- **⚠️ 체감 수정(2026-07-21, F5): 청록 미표시 2원인.** ① 샌드박스 초월 픽스처가 `subs`에 AB-009 미포함(AB-010@Q) → safeslick 발현 불가. 픽스처 Q를 AB-009로 교체(비정본). ② Oil zone은 `SHADING_MODE_UNSHADED`라 **emission만으론 색이 안 바뀜**(albedo가 표시색) → 청록 albedo 병행. 층서(DRIFT-095)는 F5 정상 확인. **③ 색 구분이 "기름 같지 않다"는 피드백** → 색 override **폐기**, 매질색 통일 + **청록 파티클 오버레이**(`CPUParticles3D`, 위로 떠오름, Oil·직후 Fire 공통)로 표기 전환. ⚠️ 파티클은 헤드리스 미실행(런타임 `set_friendly_safe`) → **F5에서 첫 실제 검증**.
+- **게이트:** ci_smoke 11/11 PASS (binding_smoke 카운트/resolve 갱신 포함).
+- **상태:** 🔶 LOGGED (전파 후보·미전파). **AB-009 4축 확정·닫음(2026-07-21)**. ✅ F5 체감 확인 — safeslick 아군무해 · 청록 파티클 표기(매질색 통일) · 겹친 존 층서. 잔여 체감은 별개 DRIFT 몫(092 관성/곱연산 · 093 RX 전부반응). 인접 연쇄는 여전히 피아무구분(상속 직후만).
+
+### DRIFT-095 — 겹친 반투명 존 render 층서(깜빡임 수정) 🔷 impl (전파 불필요)
+- **배경(2026-07-21, 사용자 발견):** zone 여러 개 겹치면 상단 노출 순서가 원칙 없이 **매 프레임 뒤집혀 반짝임**. 예: 기름 폭발 시 같은 자리에 Fire+Smoke가 깔리는데 붉은 빛이 연기에 가려졌다 안 가려졌다 함.
+- **원인:** `hazard_zone._build`에서 Oil(opaque) 외 반투명 존이 **전부 `render_priority=2`·`y=0.4` 동일** → 겹치면(특히 `_ignite_oil`의 Fire/Smoke 동일 pos) draw order tie-break가 없어 카메라 거리로 매 프레임 재정렬 → 깜빡.
+- **수정:** 매체별 `RENDER_ORDER`(현실 물리 층서 — 상승 기체 Smoke/Steam/Wind/ToxicGas 위 > 지면 화염 Fire/Fatal > 지면 액체·고체 Water/Ice/Vegetation). `render_priority = 2 + order`(시야콘 위 유지 + 매체 고정순) + `y = 0.4 + order*0.01`(연기가 실제로 더 높이 + z-fighting 방지). Oil은 opaque(y 0.07)라 별개.
+- **분류:** **impl(렌더링) — 전파 불필요, 로깅만.** spec 무관(시각 표현). §0 "명백한 파손" 스코프.
+- **게이트:** ci_smoke 11/11 PASS. ⚠️ 체감 = 겹친 존 깜빡 사라졌나 + 층서 자연스러운가(연기가 불 위).
+
+### DRIFT-096 — passive 존 쌍 반응(Oil+Fire→폭발 · Fire+Water→Steam): Hit 없이 겹침만으로 RX 🔶 rule (전파 후보)
+- **배경(2026-07-21, 사용자):** 불존과 물존이 나란히 겹쳐 있어도 아무 반응 없이 공존 = 비물리적(몰입↓). 겹친 존은 물리적으로 반응해야(예: oil존에 fire존 겹치면 터짐). 기존 RX는 **Hit 이벤트(FireDamageHit 등) 기반**이라 passive 중첩엔 트리거가 없었다.
+- **변경(`reaction_system` + `hazard_zone`):** `_zone_reaction_tick`(0.4s 주기, 활성 존 쌍 O(n²) 순회, spread 자식 제외) 신설 → `_resolve_zone_pair`:
+  - **Oil+Fire** 겹침 → `_ignite_oil`(기존 재사용: 폭발+Ignited+Fire존+인접 연쇄, Oil 소비).
+  - **Fire+Water** 겹침 → 교집합 중점에 Steam + 양쪽 `hazard_zone.shrink`(반경 감소, 0.4 미만이면 소멸) → 겹침 해소될 때까지 서서히 소진.
+- **⚠️ 아키텍처 한계(교집합·확산 = 원 단위 근사):** 사용자 이상 = "교집합만 반응 + 서서히 확산"(DOS2/BG3 surface = **셀 그리드**). 우리 존은 `center+radius` **원 하나**라 부분 반응이 구조적으로 없음 → 교집합="중점 Steam", 확산="반경 축소"로 **근사**. 완전한 셀 그리드 surface는 전투 시스템 **대공사** = 별도 spec 과제로 **defer**(사용자와 [[refactor-risk-preference]] 논의).
+- **분류/전파:** **rule → OPS_30 전파 후보.** spec `EVENT-CORE`/`F-021 §3.2`(RX)에 **passive 존 중첩 반응** 개념 신설. 게임 편집·체감 후 역전파.
+- **게이트:** ci_smoke 11/11 PASS.
+- **상태:** 🔶 LOGGED (전파 후보·미전파). ⚠️ 체감 — Oil+Fire 자동폭발 · Fire+Water 증기+소진 · 폭주/성능(O(n²)·Steam 생성 빈도) · 확산 근사(축소) 자연스러운가.

@@ -14,7 +14,7 @@ var decel_mps2: float = 120.0
 ## WASD 우선 → 없으면 멤버 오더 소비, 만 한다. 어떤 WASD 입력이든 오더를 취소한다.
 
 ## Directional speed vs facing (= camera-forward): W fastest, A/D normal, S slowest.
-const SLIP_ACCEL_MPS2 := 10.0   # Slippery (oil): low accel/decel — slidey, hard to stop/turn
+const SLIP_ACCEL_MPS2 := 5.0    # 관성 base accel (기름 기준). inertia_scale로 빙판은 더 낮게 = 더 미끄럼 (관성 2026-07-21)
 const FORWARD_SPEED_MULT := 1.0
 const STRAFE_SPEED_MULT := 0.75
 const BACK_SPEED_MULT := 0.65
@@ -61,8 +61,11 @@ func _physics_process(delta: float) -> void:
 	if body.has_method("move_speed_mult"):
 		v_target *= body.move_speed_mult()  # Oil slick etc.
 	if body.has_method("is_slippery") and body.is_slippery():
-		# Slippery (oil): low accel/decel → slides, hard to start/stop or change direction.
-		body.velocity = body.velocity.move_toward(v_target, SLIP_ACCEL_MPS2 * delta)
+		# 관성(OilSlick 기름 / IceGlide 빙판): low accel/decel → slides. inertia_scale이 낮을수록(빙판 0.7) 더 미끄럽다.
+		var acc := SLIP_ACCEL_MPS2
+		if body.has_method("inertia_scale"):
+			acc *= body.inertia_scale()
+		body.velocity = body.velocity.move_toward(v_target, acc * delta)
 	elif use_accel_model:
 		var a: float = accel_mps2 if v_target.length_squared() > 0.01 else decel_mps2
 		body.velocity = body.velocity.move_toward(v_target, a * delta)

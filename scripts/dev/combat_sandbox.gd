@@ -68,7 +68,7 @@ const UNIT_VERIFY := {
 	"EN-001": "• 전선 hold\n• 쿨 3s마다 AB-002 방패치기(넉백)\n• 전방 4m 파티 있으면 AB-099 도발(조작 멤버 이동·Q/E/R 잠김 + 강제 평타 + 스왑 탈출)\n• 도발 채널을 Toll Stun으로 끊으면 취소",
 	"EN-002": "• 사거리서 hold·안 도망(standoff)\n• 쿨 5s마다 AB-004 1.0s 충전 → 2x 한 방 + Shock 둔화\n• BOSS-001로 띄우면 50%HP에서 충전 빨라짐 + 스턴 저항",
 	"EN-003": "• 측면 arc로 접근(orbit)\n• 갭 생기면 AB-006 [청록] 대시 → 타겟 앞에 직선 갭클로즈(데미지 X, 착지링) → 평타 flurry",
-	"EN-004": "• zone 고수, 타겟이 멀어지면 앵커 복귀(추격 X)\n• 쿨 2.5s마다 AB-008 착탄 splash(주변 파티원도 피해)\n• AB-009 Oil 장판(밟으면 Slippery·인화성) + AB-042 Wind 장판 설치(타겟 발밑 전조→생성)",
+	"EN-004": "• zone 고수, 타겟이 멀어지면 앵커 복귀(추격 X)\n• 쿨 2.5s마다 AB-008 착탄 splash(주변 파티원도 피해)\n• AB-009 Oil 장판(밟으면 OilSlick 감속+관성·인화성) + AB-042 Wind 장판 설치(타겟 발밑 전조→생성)",
 	"EN-005": "• 적 4m 진입 시 후퇴(kite)\n• AB-010 독침: 즉시 1스택 + 독 zone 잔류(체류 시 3s마다 스택↑, 존 안에선 독 안 풀림) — Ember로 점화 시 toxic flash",
 	"EN-006": "• 때리고 짧게 빠짐(probe)\n• 쿨 5s마다 AB-011 스턴",
 	"EN-007": "• 사거리 hold(standoff)\n• 쿨 4s마다 AB-012 hex 둔화(보라 룬탄)\n• AB-036 Water·AB-040 Ice·AB-043 Vegetation 장판 설치\n• AB-041 Glacial Bolt(cyan, Chilled) → 자기 Water에 맞히면 Ice 결빙, Veg면 frostbite. Ember(불)면 Water→증기·Veg→점화",
@@ -822,7 +822,7 @@ const _BIND_FIXTURES := {
 	"flank": {"gear": "gear_ward_nuker_flank_knife", "subs": ["AB-004", "AB-059", "AB-060"], "role": "Nuker", "label": "NUKER 잠행"},
 	"dothealer": {"gear": "gear_ward_healer_ward_sigil", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 지속치유"},
 	"sanctuary": {"gear": "gear_ward_healer_mend_lantern", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 성역"},
-	"overdrive": {"gear": "gear_ward_dps_press_rod", "subs": ["AB-010", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 초월(AB-010@Q 맹독폭주 · 게이지→강화)"},
+	"overdrive": {"gear": "gear_ward_dps_press_rod", "subs": ["AB-009", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 초월(AB-009@Q 아군안심기름 · E/R로 게이지 충전 후 초월 중 Q)"},
 	"bloodgale": {"gear": "gear_ward_dps_weave_staff", "subs": ["AB-053", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 혈풍(HP대가·광역흡수)"},
 }
 func _on_bind_fixture(which: String) -> void:

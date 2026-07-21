@@ -26,6 +26,9 @@ const SPREAD_PER_GUST := 2
 const SPREAD_CAP := 6
 const SPREAD_STEP_M := 1.6
 const SPREAD_TTL := 4.0
+## passive 존 쌍 반응(사용자 2026-07-21) — 두 존이 그냥 겹쳐 있으면 물리적으로 반응(Hit 없이).
+const ZONE_RX_CADENCE_S := 0.4    # 겹침 검사 주기
+const ZONE_SHRINK_STEP := 0.5     # Fire↔Water 상호 소진 시 틱당 반경 감소(원 단위 확산 근사)
 const SPREADABLE_MEDIA := ["Oil", "Water", "Fire", "Ice", "Vegetation", "ToxicGas"]
 ## EVENT-CORE §3 primaryMedium priority (high→low) — resolver picks ONE combo RX per Hit tile.
 const RX_PRIORITY := ["Oil", "ToxicGas", "Water", "Fire", "Steam", "Smoke", "Ice", "Vegetation", "Wind"]
@@ -54,10 +57,14 @@ func setup(combat: Node3D) -> void:
 
 
 var _spread_accum: float = 0.0
+var _rx_zone_accum: float = 0.0
 
-## B7: WindGust spread tick (S3e). Every SPREAD_CADENCE_S an active Wind zone blows overlapping
-## spreadable media one step downwind (small child zone), bounded by per-gust + global caps.
+## B7: WindGust spread tick (S3e) + passive 존 쌍 반응(Oil+Fire·Fire+Water). 각자 자기 cadence로 구동.
 func _physics_process(delta: float) -> void:
+	_rx_zone_accum += delta
+	if _rx_zone_accum >= ZONE_RX_CADENCE_S:
+		_rx_zone_accum = 0.0
+		_zone_reaction_tick()
 	_spread_accum += delta
 	if _spread_accum < SPREAD_CADENCE_S:
 		return
@@ -91,6 +98,41 @@ func _spread_tick() -> void:
 			child.global_position = z.global_position + dir * SPREAD_STEP_M
 			child.add_to_group("spread_zone")
 			seeded += 1
+
+
+## passive 존 쌍 반응(사용자 2026-07-21) — Hit 없이 **겹쳐 있기만 하면** 물리적으로 반응. 활성 존 쌍을
+## O(n²) 순회(실전 존 수 적음). Oil+Fire=점화(폭발) · Fire+Water=교집합 Steam + 양쪽 소진(원 단위 확산 근사).
+func _zone_reaction_tick() -> void:
+	var zs: Array = []
+	for z in get_tree().get_nodes_in_group("ground_zone"):
+		if z.is_active() and not z.is_in_group("spread_zone"):
+			zs.append(z)   # spread 자식은 제외(폭주 방지)
+	for i in range(zs.size()):
+		for j in range(i + 1, zs.size()):
+			_resolve_zone_pair(zs[i], zs[j])
+
+
+## 겹친 존 한 쌍의 passive 반응. 겹침 없으면 무시.
+func _resolve_zone_pair(a: Node, b: Node) -> void:
+	if not (a.is_active() and b.is_active()):
+		return
+	var dx: float = a.global_position.x - b.global_position.x
+	var dz: float = a.global_position.z - b.global_position.z
+	if sqrt(dx * dx + dz * dz) > float(a.radius) + float(b.radius):
+		return   # 안 겹침
+	var sa := String(a.status)
+	var sb := String(b.status)
+	# Oil + Fire → 점화(기존 _ignite_oil 재사용: 폭발 + Ignited + Fire존 + 인접 연쇄). Oil 소비.
+	if (sa == "Oil" and sb == "Fire") or (sa == "Fire" and sb == "Oil"):
+		_ignite_oil(a if sa == "Oil" else b, 0, null)
+		return
+	# Fire + Water → 교집합에 Steam + 양쪽 반경 소진(서서히 사라짐 = 원 단위 확산 근사).
+	if (sa == "Fire" and sb == "Water") or (sa == "Water" and sb == "Fire"):
+		var mid: Vector3 = (a.global_position + b.global_position) * 0.5
+		var sr: float = minf(float(a.radius), float(b.radius)) * 0.6
+		spawn_zone("Steam", mid, maxf(sr, 0.6), 0.0, STEAM_TTL, null)
+		a.shrink(ZONE_SHRINK_STEP)
+		b.shrink(ZONE_SHRINK_STEP)
 
 
 ## Central event bus (EVENT-CORE). Skills/zones/entities emit; RX handlers dispatch here. For now
@@ -128,8 +170,10 @@ func fire_hit(center: Vector3, radius: float, depth: int, source: Node = null) -
 	emit_event("FireDamageHit", {"position": center, "radius": radius, "depth": depth, "source": source})
 
 
-## FireDamageHit → resolve the tile's primaryMedium (EVENT-CORE §3) → ONE combo RX. Oil→explosion,
-## Water→Steam, Vegetation→burn, ToxicGas→toxic flash. (Fire/Smoke/Ice/Wind primary → no combo.)
+## FireDamageHit → **겹친 모든 medium이 각각 반응**(DRIFT-093, EVENT-CORE §3 primaryMedium 개정). Oil→explosion,
+## Water→Steam, Vegetation→burn, ToxicGas→toxic flash, Ice→Water melt. (Fire/Smoke/Wind → no combo.)
+## Oil은 _ignite_oil이 fire_hit 재귀(인접 연쇄)라 **마지막**에 처리 — 다른 medium은 먼저 소비돼 재귀 중복을 피한다.
+## Ice→Water 변환물은 새 zone(현재 스냅샷 zones에 없음)이라 이번 틱엔 재반응하지 않는다(연쇄 폭주 방지).
 func _on_fire_damage_hit(p: Dictionary) -> void:
 	var center: Vector3 = p.get("position", Vector3.ZERO)
 	var radius: float = float(p.get("radius", 1.0))
@@ -138,20 +182,22 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 	var zones := _zones_overlapping(center, radius)
 	if zones.is_empty():
 		return  # no environment medium → skill damage only
-	match String(RX_FIRE_MATRIX.get(_primary_medium_of(zones), "")):
-		"oil_fire":
-			for z in zones:
-				if String(z.status) == "Oil":
-					_ignite_oil(z, depth, source)
-					return
-		"fire_water":
-			_rx_fire_water(zones, source)
-		"fire_vegetation":
-			_rx_fire_vegetation(zones, source)
-		"toxicgas_fire":
-			_rx_toxicgas_fire(zones, source)
-		"fire_ice":
-			_rx_fire_ice(zones, source)
+	var media := {}
+	for z in zones:
+		media[String(z.status)] = true
+	for med in media:                        # 비-Oil RX 먼저(재귀 없음). 각 핸들러가 zones에서 자기 medium을 소비.
+		if med == "Oil":
+			continue
+		match String(RX_FIRE_MATRIX.get(med, "")):
+			"fire_water":      _rx_fire_water(zones, source)
+			"fire_vegetation": _rx_fire_vegetation(zones, source)
+			"toxicgas_fire":   _rx_toxicgas_fire(zones, source)
+			"fire_ice":        _rx_fire_ice(zones, source)
+	if media.has("Oil"):                     # Oil 마지막 — _ignite_oil이 인접 Oil 연쇄(fire_hit 재귀, depth cap)
+		for z in zones:
+			if String(z.status) == "Oil" and z.is_active():
+				_ignite_oil(z, depth, source)
+				break
 
 
 ## Active ground zones overlapping a hit point (within radius + zone radius).
@@ -239,15 +285,15 @@ func _on_cold_damage_hit(p: Dictionary) -> void:
 	var zones := _zones_overlapping(center, radius)
 	if zones.is_empty():
 		return
-	match String(RX_COLD_MATRIX.get(_primary_medium_of(zones), "")):
-		"cold_water":
-			_rx_cold_water(zones, p.get("source"))
-		"vegetation_cold":
-			_rx_vegetation_cold(zones)
-		"cold_fire":
-			_rx_cold_fire(zones, p.get("source"))
-		"cold_steam":
-			_rx_cold_steam(zones, p.get("source"))
+	var media := {}                          # 겹친 매질 각각 반응(DRIFT-093 통일). cold는 재귀 없음 → 순서 무관.
+	for z in zones:
+		media[String(z.status)] = true
+	for med in media:                        # 변환물(Water→Ice·Fire→Steam 등)은 새 zone이라 같은 틱 재반응 안 함.
+		match String(RX_COLD_MATRIX.get(med, "")):
+			"cold_water":      _rx_cold_water(zones, p.get("source"))
+			"vegetation_cold": _rx_vegetation_cold(zones)
+			"cold_fire":       _rx_cold_fire(zones, p.get("source"))
+			"cold_steam":      _rx_cold_steam(zones, p.get("source"))
 
 
 ## RX-COLD-WATER-001 — Water freezes → Ice (consume Water, spawn Ice). out: Ice (ENV).
@@ -277,26 +323,30 @@ func _on_lightning_hit(p: Dictionary) -> void:
 	var zones := _zones_overlapping(p.get("position", Vector3.ZERO), float(p.get("radius", 1.5)))
 	if zones.is_empty():
 		return
-	match String(RX_LIGHTNING_MATRIX.get(_primary_medium_of(zones), "")):
-		"lightning_water":
-			_rx_outcome_in(zones, "Water", "Shock", 2.0)
-			_rx_burst(zones, "Water", "electrify")
-			print("[RX] LightningHit + Water → Shock (RX-LIGHTNING-WATER-001)")
-		"steam_lightning":
-			_rx_outcome_in(zones, "Steam", "Shock", 1.0)
-			_rx_burst(zones, "Steam", "electrify")
-			print("[RX] LightningHit + Steam → Shock weak (RX-STEAM-LIGHTNING-001)")
+	var media := {}                          # 겹친 매질 각각 반응(DRIFT-093 통일).
+	for z in zones:
+		media[String(z.status)] = true
+	for med in media:
+		match String(RX_LIGHTNING_MATRIX.get(med, "")):
+			"lightning_water":
+				_rx_outcome_in(zones, "Water", "Shock", 2.0)
+				_rx_burst(zones, "Water", "electrify")
+				print("[RX] LightningHit + Water → Shock (RX-LIGHTNING-WATER-001)")
+			"steam_lightning":
+				_rx_outcome_in(zones, "Steam", "Shock", 1.0)
+				_rx_burst(zones, "Steam", "electrify")
+				print("[RX] LightningHit + Steam → Shock weak (RX-STEAM-LIGHTNING-001)")
 
 
-## PhysicalImpact → Oil-Physical: knocked onto a slick → Slippery (RX-OIL-PHYSICAL-001).
+## PhysicalImpact → Oil-Physical: knocked onto a slick → OilSlick (RX-OIL-PHYSICAL-001).
 func _on_physical_impact(p: Dictionary) -> void:
 	var zones := _zones_overlapping(p.get("position", Vector3.ZERO), float(p.get("radius", 1.5)))
 	if zones.is_empty():
 		return
 	if String(RX_PHYSICAL_MATRIX.get(_primary_medium_of(zones), "")) == "oil_physical":
-		_rx_outcome_in(zones, "Oil", "Slippery", 3.0)
+		_rx_outcome_in(zones, "Oil", "OilSlick", 3.0)
 		_rx_burst(zones, "Oil", "slick")
-		print("[RX] PhysicalImpact + Oil → Slippery (RX-OIL-PHYSICAL-001)")
+		print("[RX] PhysicalImpact + Oil → OilSlick (RX-OIL-PHYSICAL-001)")
 
 
 ## Apply an outcome to every unit standing in zones of the given medium (피아무구분).
@@ -337,14 +387,18 @@ func _ignite_oil(oil: Node, depth: int, source: Node = null) -> void:
 	var parent := oil.get_parent()
 	var pos: Vector3 = oil.global_position
 	var r: float = float(oil.radius)
+	var fsafe: bool = bool(oil.friendly_safe)   # 초월 아군안심 기름 → 직후 RX(폭발·Fire존)만 상속(DRIFT-094)
+	var sfac: String = String(oil.safe_faction)
 	oil.clear_zone()  # consume the oil (removed from group immediately → no re-ignite)
-	_explosion(pos, r + 1.0, EXPLOSION_DMG, source)
+	_explosion(pos, r + 1.0, EXPLOSION_DMG, source, fsafe, sfac)
 	var fire := HazardZone.new()
 	fire.setup(r, FIRE_DPS, 0.0, "Fire", false, FIRE_TTL)  # residual fire → Ignited (hazard_zone)
 	fire.position = pos
 	parent.add_child(fire)
 	if source != null:
 		fire.set_source(source)
+	if fsafe:
+		fire.set_friendly_safe(sfac)   # 직후 파생 Fire존만 아군 면제(인접 연쇄는 상속 안 함 = 사용자 결정)
 	var smoke := HazardZone.new()
 	smoke.setup(r + 1.5, 0.0, 0.0, "Smoke", false, SMOKE_TTL)  # 연소 연기 — 무해(시야), 독 아님
 	smoke.position = pos
@@ -355,8 +409,10 @@ func _ignite_oil(oil: Node, depth: int, source: Node = null) -> void:
 
 
 ## AoE explosion — damage ALL units (피아무구분, F-021 §3.3.1) + destructibles + shake.
-func _explosion(pos: Vector3, radius: float, dmg: float, source: Node = null) -> void:
+func _explosion(pos: Vector3, radius: float, dmg: float, source: Node = null, friendly_safe: bool = false, safe_faction: String = "") -> void:
 	for g in ["party_member", "enemy"]:
+		if friendly_safe and g == safe_faction:
+			continue   # 초월 아군안심 기름 파생 폭발 = safe_faction 면제(F-021 예외·DRIFT-094)
 		for u in get_tree().get_nodes_in_group(g):
 			if u is Node3D and u.has_method("take_damage"):
 				var d := Vector2(u.global_position.x - pos.x, u.global_position.z - pos.z)

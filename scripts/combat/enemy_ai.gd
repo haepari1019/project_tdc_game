@@ -33,7 +33,7 @@ const CHASE_BLIND_SPEED_FRAC := 0.55
 const MELEE_THREAT_M := 4.0        # kite: flee when a target closes inside this (EN-014 §1 = 4m)
 const RETREAT_STEP_M := 3.0        # how far ahead to aim a retreat/backstep destination
 const RETREAT_SPEED_FRAC := 1.0    # flee at full speed (being chased)
-const SLIP_ACCEL := 3.0            # Slippery (oil): velocity lerp rate — low = slidey/inertial
+const SLIP_ACCEL := 1.5            # 관성 base lerp rate (기름 기준). inertia_scale로 빙판은 더 낮게 = 더 미끄럼 (관성 2026-07-21)
 const ZONE_CAST_RANGE_M := 9.0     # spawn_zone (rangeBand Mid): max dist to place a zone at target
 const ENGAGE_LEASH_M := 18.0       # kite/zone: don't stray past this from spawn anchor (§3 default)
 const RETURN_ARRIVE_M := 1.5       # B6: within this of home_pos → done returning, resume idle
@@ -498,8 +498,11 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 			enemy.attack_cooldown_s = enemy.attack_interval_now()  # Bloodlust haste folds in
 			if String(enemy.engage_profile.get("engage", "")) == "probe":
 				enemy.probe_backstep_s = PROBE_BACKSTEP_S  # hit landed → back off (EN-006)
-	if enemy.is_slippery():  # Slippery (oil): inertial — can't change/stop velocity instantly
-		enemy.velocity = enemy.velocity.lerp(move_vel, SLIP_ACCEL * delta)
+	if enemy.is_slippery():  # 관성(OilSlick/IceGlide): 즉시 방향/정지 불가. 빙판은 inertia_scale이 낮아 더 미끄럼.
+		var acc := SLIP_ACCEL
+		if enemy.has_method("inertia_scale"):
+			acc *= enemy.inertia_scale()
+		enemy.velocity = enemy.velocity.lerp(move_vel, acc * delta)
 	else:
 		enemy.velocity = move_vel
 	enemy.move_and_slide()

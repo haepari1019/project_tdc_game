@@ -97,11 +97,11 @@
       "base_ability_id": "AB-009",
       "display_name": "Spawn Oil Patch",
       "equip_classes": [
-        "Nuker",
+        "DPS",
         "Healer"
       ],
       "sub_bands": {
-        "Nuker": "B3"
+        "Healer": "B3"
       },
       "range_band": "Mid",
       "charges_max": 60,

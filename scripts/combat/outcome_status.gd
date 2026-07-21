@@ -3,8 +3,9 @@ class_name OutcomeStatus
 ## STATUS-OUTCOME-CORE — elemental outcome statuses (F-021/F-027), shared by party_member AND
 ## enemy_unit so both carry the same zone outcomes. One container per unit. ref: STATUS-OUTCOME-CORE.
 ##
-## - Movement statuses (Sodden/Chilled/SteamHaze/Shock/Slippery) fold into ONE speed multiplier —
-##   strongest slow wins. Slippery ALSO flags inertial movement (the mover lerps velocity).
+## - Movement statuses fold into ONE speed multiplier by **곱연산**(모든 배율을 곱한다) — 감속(<1.0)과
+##   부스트(>1.0, IceGlide·Hastened) 양방향. `Slippery`(is_slippery) = **관성 개념명**: INERTIA 집합
+##   (OilSlick 기름·IceGlide 빙판)의 상태가 관성 이동(the mover lerps velocity)을 유발한다.
 ## - Ignited is a DoT, polled each tick (whole-HP ticks, like poison) and applied by the unit.
 ## - WindBuffeted is a one-shot impulse (the source applies a knockback) + a brief display tag here.
 ## DEMO PH magnitudes (SPEC_DRIFT) — real RX→status mapping/numbers land in P2-S3d.
@@ -13,16 +14,21 @@ class_name OutcomeStatus
 # Rooted/Pinned (STATUS-ACTOR-CORE CC, AB-102/AB-100) = full move LOCK (0.0) but the unit can still
 # act — they only zero movement, unlike Stunned which freezes the whole AI. ref: DEC-20260621-001.
 const MOVE_MULT := {
-	"Sodden": 0.7, "Chilled": 0.6, "SteamHaze": 0.85, "Shock": 0.55, "Slippery": 0.85,
+	"Sodden": 0.7, "Chilled": 0.6, "SteamHaze": 0.85, "Shock": 0.55,
+	"OilSlick": 0.85, "IceGlide": 1.5,   # 기름=끈적(감속)+관성 · 빙판=질주(부스트)+관성. 둘 다 INERTIA
 	"Rooted": 0.0, "Pinned": 0.0,
 }
+# 관성(inertial) 이동 상태 → accel scale(낮을수록 관성 큼). 컨트롤러가 SLIP_ACCEL × 이 값으로 미끄럼 강도 조절.
+# `Slippery`(is_slippery)는 이 집합을 가리키는 개념명. 기름=1.0(기준), 빙판=0.7(마찰 더 없음 → 관성 살짝 더 큼).
+const INERTIA := { "OilSlick": 1.0, "IceGlide": 0.7 }
 # Buff outcomes (drawn green-ish / flagged buff in the overlay). Bloodlust = AB-105 self-rage.
-const BUFF := { "Bloodlust": true }
+const BUFF := { "Bloodlust": true, "IceGlide": true, "Hastened": true }   # 부스트류 = buff 표시
 # Status orb / overlay colour per outcome.
 const COLOR := {
 	"Sodden": Color(0.40, 0.62, 0.95), "Chilled": Color(0.62, 0.86, 1.0),
 	"SteamHaze": Color(0.80, 0.85, 0.90), "Shock": Color(0.60, 0.80, 1.0),
-	"Slippery": Color(0.72, 0.60, 0.32), "Ignited": Color(1.0, 0.50, 0.20),
+	"OilSlick": Color(0.72, 0.60, 0.32), "IceGlide": Color(0.62, 0.90, 1.0), "Hastened": Color(0.85, 1.0, 0.45),
+	"Ignited": Color(1.0, 0.50, 0.20),
 	"Scorched": Color(1.0, 0.72, 0.30),   # 화염존 체류 표식(점화 DoT와 별개 — 나가면 즉시 해제)
 	"WindBuffeted": Color(0.70, 1.0, 0.86),
 	# Third faction (DEC-20260621-001): Scented(추적 마크)·Rooted(이동봉쇄)·Pinned(짧은 고정)·
@@ -39,7 +45,7 @@ const COLOR := {
 # (adds Tethered/Bloodlust). Unknown ids fall back to the raw id.
 const KO := {
 	"Sodden": "침수", "Chilled": "냉각", "SteamHaze": "증기", "Shock": "감전",
-	"Slippery": "빙판", "Ignited": "점화", "WindBuffeted": "돌풍", "Scorched": "화염",
+	"OilSlick": "기름", "IceGlide": "빙판", "Hastened": "가속", "Ignited": "점화", "WindBuffeted": "돌풍", "Scorched": "화염",
 	"Scented": "혈향", "Rooted": "속박", "Pinned": "고정", "Tethered": "포박",
 	"Bloodlust": "광폭", "Vulnerable": "취약", "Poison": "중독",
 }
@@ -129,19 +135,36 @@ func mag(id: String) -> float:
 
 
 func is_slippery() -> bool:
-	return _t.has("Slippery")
+	for id in _t.keys():
+		if INERTIA.has(id):
+			return true
+	return false
+
+
+## 활성 관성 상태 중 가장 센 것(가장 낮은 accel scale). 관성 없으면 1.0. 컨트롤러가 SLIP_ACCEL에 곱한다.
+func inertia_scale() -> float:
+	var s := 1.0
+	var found := false
+	for id in _t.keys():
+		if INERTIA.has(id):
+			s = minf(s, float(INERTIA[id]))
+			found = true
+	return s if found else 1.0
 
 
 func any() -> bool:
 	return not _t.is_empty()
 
 
-## Strongest movement slow currently active (1.0 = none).
+## 곱연산 속도 배율(감속 × 부스트, 1.0 = none). 여러 이동상태가 겹치면 전부 곱해진다(min 아님).
+## Hastened(AB-069)는 고정배율이 아니라 mag(pct) 기반이라 별도로 (1+mag)를 곱한다.
 func move_mult() -> float:
 	var m := 1.0
 	for id in _t.keys():
 		if MOVE_MULT.has(id):
-			m = minf(m, float(MOVE_MULT[id]))
+			m *= float(MOVE_MULT[id])
+	if _t.has("Hastened"):
+		m *= 1.0 + mag("Hastened")
 	return m
 
 
@@ -162,7 +185,7 @@ func status_list() -> Array:
 ## The highest-priority active outcome colour (for the single overhead orb), or null if none.
 func orb_color():
 	# fire > shock > the rest, roughly by threat readability.
-	for id in ["Ignited", "Shock", "Chilled", "Sodden", "Slippery", "SteamHaze", "WindBuffeted",
+	for id in ["Ignited", "Shock", "Chilled", "Sodden", "OilSlick", "IceGlide", "Hastened", "SteamHaze", "WindBuffeted",
 			"Rooted", "Pinned", "Scented", "Tethered", "Bloodlust", "Vulnerable"]:
 		if _t.has(id):
 			return COLOR[id]

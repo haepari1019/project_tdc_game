@@ -434,7 +434,7 @@ var slow_timer_s: float = 0.0
 var slow_factor: float = 1.0
 var _slow_dur: float = 0.0     # 슬로우 총 지속(적 인스펙트 패널 arc용)
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE) — shared container with party_member. Ticked
-## via tick_outcome() from EnemyAI; folds into current_move_speed; Slippery flags inertia in EnemyAI.
+## via tick_outcome() from EnemyAI; folds into current_move_speed; INERTIA(OilSlick·IceGlide) flags inertia in EnemyAI.
 var _outcome = preload("res://scripts/combat/outcome_status.gd").new()
 
 # --- Status: stun / interrupt (party Toll Stun etc.) — freezes the enemy AND cancels any
@@ -553,6 +553,11 @@ func contact_damage_mult() -> float:
 
 func is_slippery() -> bool:
 	return hp > 0.0 and _outcome.is_slippery()
+
+
+## 관성 강도 배율(OilSlick 1.0 / IceGlide 0.7) — EnemyAI가 SLIP_ACCEL에 곱해 미끄럼 정도를 조절.
+func inertia_scale() -> float:
+	return _outcome.inertia_scale()
 
 
 ## Stun / interrupt (EN-AI-000 §2). Freezes the enemy; EnemyAI cancels any channel/dash in

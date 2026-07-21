@@ -10,7 +10,7 @@ const FADE_START := 0.45   # 이 수명 비율을 지나면 페이드 시작
 
 ## 원소 OUTCOME id → 유저 표시명(팝업용). STATUS-OUTCOME-CORE.
 const OUTCOME_KO := {
-	"Sodden": "침수", "Chilled": "냉각", "SteamHaze": "증기", "Slippery": "빙판",
+	"Sodden": "침수", "Chilled": "냉각", "SteamHaze": "증기", "OilSlick": "기름", "IceGlide": "빙판", "Hastened": "가속",
 	"Shock": "감전", "Ignited": "점화", "WindBuffeted": "돌풍", "Vulnerable": "취약",
 	"Rooted": "속박", "Pinned": "고정", "Scented": "혈향",
 }

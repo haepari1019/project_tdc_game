@@ -476,6 +476,18 @@ func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vecto
 				if e.has_method("apply_silence"):
 					e.apply_silence(float(od["bolt_silence_s"]))
 			SkillVfx.telegraph(self, aim, Color(0.62, 0.42, 0.95), r)
+		"safeslick":          # 아군 안심 기름 — 초월 중 aim에 깐 Oil zone을 아군 무해로(미끄럼·피해 전부 + 직후 RX). F-021 예외(DRIFT-094).
+			var faction := "party_member" if member.is_in_group("party_member") else "enemy"
+			var tagged := false
+			for z in get_tree().get_nodes_in_group("ground_zone"):
+				if z.is_active() and String(z.status) == "Oil" and z.has_method("set_friendly_safe"):
+					var d := Vector2(z.global_position.x - aim.x, z.global_position.z - aim.z)
+					if d.length() <= r:
+						z.set_friendly_safe(faction)
+						tagged = true
+			if not tagged:
+				return false   # aim에 Oil 없음(장판 미형성) → 초월 미소모
+			SkillVfx.telegraph(self, aim, Color(0.25, 0.95, 0.85), r)
 		"venom":              # 맹독 폭주 — 초월 중 독 스택 폭증 + 독 zone 잔류(payoff). base/적/비초월엔 zone 없음.
 			var pdps: float = float(inst.params.get("poison_dps", 8.0))
 			var pcap: float = pdps * float(inst.params.get("poison_stack_cap", 5))
