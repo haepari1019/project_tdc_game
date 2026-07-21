@@ -34,8 +34,8 @@ class MockUnit extends Node3D:
 class MockCombat extends Node3D:
 	signal camera_shake(trauma: float, kick: Vector3)
 	var grid = null
-	func surface_grid_fire_hits_oil(center: Vector3, radius: float) -> bool:
-		return grid.fire_hits_oil(center, radius)
+	func surface_grid_fire_hits_fuel(center: Vector3, radius: float, fuel: String) -> bool:
+		return grid.fire_hits_fuel(center, radius, fuel)
 	func surface_grid_detach_zone_cells(oil) -> void:
 		grid.detach_zone_cells(oil)
 
@@ -142,6 +142,15 @@ func _run() -> void:
 	g2._fire_creep()
 	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Oil") == 0, "S3 fire creep: Oil 인접 → Fire 전환")
 
+	# 9b) Vegetation도 연료 — Fire 인접 Vegetation → Fire(veg creep).
+	g2._cells.clear()
+	var fcv = SurfaceGrid.Cell.new(); fcv.medium = "Fire"; fcv.ttl = -1.0; fcv.origin_id = 1
+	g2._cells[g2.cell_key(0, 0)] = fcv
+	var vcv = SurfaceGrid.Cell.new(); vcv.medium = "Vegetation"; vcv.ttl = -1.0; vcv.origin_id = 2
+	g2._cells[g2.cell_key(1, 0)] = vcv
+	g2._fire_creep()
+	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Vegetation") == 0, "S3 fire creep: Vegetation 인접 → Fire")
+
 	# 10) S3 Wind push — Wind 존 인근 기체 셀이 downwind(존 밖)로 이동.
 	g2._cells.clear()
 	var wz = HZ.new(); wz.setup(2.0, 0.0, 0.0, "Wind", false, -1.0)
@@ -162,7 +171,7 @@ func _run() -> void:
 	g3._stamp_zones()
 	var oil_n0 := _count_medium(g3, "Oil")
 	_chk(oil_n0 > 0, "국소점화: Oil stamp")
-	_chk(g3.fire_hits_oil(Vector3(2.8, 0.0, 0.0), 0.8), "셀점화: 가장자리 footprint가 oil에 닿음")   # +x 가장자리
+	_chk(g3.fire_hits_fuel(Vector3(2.8, 0.0, 0.0), 0.8, "Oil"), "셀점화: 가장자리 footprint가 oil에 닿음")   # +x 가장자리
 	_chk(_count_medium(g3, "Fire") > 0, "셀점화: 닿은 oil 셀 → Fire")
 	_chk(_count_medium(g3, "Oil") > 0 and _count_medium(g3, "Fire") < oil_n0, "셀점화: 전체 아닌 닿은 부분만, 나머지 Oil")
 	g3.detach_zone_cells(oz)   # 나머지 oil 셀 detach(존 제거돼도 생존 → creep/재점화)

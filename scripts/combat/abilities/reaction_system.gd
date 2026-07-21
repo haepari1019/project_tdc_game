@@ -182,34 +182,44 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 	var radius: float = float(p.get("radius", 1.0))
 	var depth: int = int(p.get("depth", 0))
 	var source: Node = p.get("source")
-	var cell_oil: bool = HazardZone.USE_SURFACE_GRID and _combat != null and _combat.has_method("surface_grid_fire_hits_oil")
-	# 셀판 oil 점화(flag ON): 불 footprint의 oil 셀(zone-owned·detach 무관)을 Fire로 → zone 없는 detach된 oil도
-	# 재점화. 실제로 닿았을 때만 폭발 + 겹친 oil 존 정리(passive 재트리거 방지, 나머지 셀 detach→creep).
-	if cell_oil and _combat.surface_grid_fire_hits_oil(center, radius):
-		_explosion(center, minf(radius + 0.5, 2.5), EXPLOSION_DMG, source)
-		for z in _zones_overlapping(center, radius):
-			if String(z.status) == "Oil" and z.is_active():
-				_combat.surface_grid_detach_zone_cells(z)
-				z.clear_zone()
+	var cell_fuel: bool = HazardZone.USE_SURFACE_GRID and _combat != null and _combat.has_method("surface_grid_fire_hits_fuel")
+	# 셀판 연료 점화(flag ON): 불 footprint의 연료 셀(Oil/Vegetation, zone-owned·detach 무관)을 Fire로 → zone 없는
+	# detach된 연료도 재점화. 실제로 닿았을 때만 겹친 연료 존 정리(passive 재트리거 방지·나머지 셀 detach→creep).
+	if cell_fuel:
+		if _combat.surface_grid_fire_hits_fuel(center, radius, "Oil"):
+			_explosion(center, minf(radius + 0.5, 2.5), EXPLOSION_DMG, source)   # oil만 점화 폭발
+			_clear_fuel_zones(center, radius, "Oil")
+		if _combat.surface_grid_fire_hits_fuel(center, radius, "Vegetation"):    # veg는 폭발 없이 붙어 번짐
+			_clear_fuel_zones(center, radius, "Vegetation")
 	var zones := _zones_overlapping(center, radius)
 	if zones.is_empty():
 		return  # no environment medium → skill damage only
 	var media := {}
 	for z in zones:
 		media[String(z.status)] = true
-	for med in media:                        # 비-Oil RX 먼저(재귀 없음). 각 핸들러가 zones에서 자기 medium을 소비.
+	for med in media:                        # 비-연료 RX(각 핸들러가 zones에서 자기 medium 소비). 연료는 셀판(위)에서.
 		if med == "Oil":
 			continue
+		if cell_fuel and med == "Vegetation":
+			continue                          # flag ON은 위 셀판이 처리(flag OFF는 아래 fire_vegetation)
 		match String(RX_FIRE_MATRIX.get(med, "")):
 			"fire_water":      _rx_fire_water(zones, source)
 			"fire_vegetation": _rx_fire_vegetation(zones, source)
 			"toxicgas_fire":   _rx_toxicgas_fire(zones, source)
 			"fire_ice":        _rx_fire_ice(zones, source)
-	if media.has("Oil") and not cell_oil:    # 원판 whole 점화 — flag ON은 위 셀판이 처리
+	if media.has("Oil") and not cell_fuel:    # 원판 whole 점화 — flag ON은 위 셀판이 처리
 		for z in zones:
 			if String(z.status) == "Oil" and z.is_active():
 				_ignite_oil(z, depth, source, center, radius)
 				break
+
+
+## 불 footprint(center, radius)에 겹친 fuel 존을 정리 — 남은 셀 detach(존 clear돼도 생존→creep) + clear(재트리거 방지).
+func _clear_fuel_zones(center: Vector3, radius: float, fuel: String) -> void:
+	for z in _zones_overlapping(center, radius):
+		if String(z.status) == fuel and z.is_active():
+			_combat.surface_grid_detach_zone_cells(z)
+			z.clear_zone()
 
 
 ## Active ground zones overlapping a hit point (within radius + zone radius).
@@ -402,10 +412,10 @@ func _ignite_oil(oil: Node, depth: int, source: Node = null, hit_pos = null, hit
 	var sfac: String = String(oil.safe_faction)
 	# 셀판 점화(flag ON): 불의 실제 footprint(hit_pos, hit_radius)의 oil 셀만 Fire로 → 맞힌 자리부터. 실제로
 	# oil에 닿았을 때만 폭발+존정리(안 닿으면 존 유지). 나머지 oil은 detach돼 Fire creep이 번져 태운다.
-	if HazardZone.USE_SURFACE_GRID and _combat != null and _combat.has_method("surface_grid_fire_hits_oil"):
+	if HazardZone.USE_SURFACE_GRID and _combat != null and _combat.has_method("surface_grid_fire_hits_fuel"):
 		var hp: Vector3 = hit_pos if hit_pos != null else pos
 		var hr: float = float(hit_radius) if hit_radius != null else r
-		if _combat.surface_grid_fire_hits_oil(hp, hr):
+		if _combat.surface_grid_fire_hits_fuel(hp, hr, "Oil"):
 			_explosion(hp, minf(hr + 0.5, 2.5), EXPLOSION_DMG, source, fsafe, sfac)   # 점화 순간 국소 폭발
 			_combat.surface_grid_detach_zone_cells(oil)     # 나머지 oil 셀 detach → creep이 태움/재점화 가능
 			var smoke_l := HazardZone.new()

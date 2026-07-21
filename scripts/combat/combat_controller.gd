@@ -415,9 +415,9 @@ func surface_grid_cycle_debug() -> String:
 	return _surface.cycle_debug() if _surface != null else ""
 
 
-## 불이 닿은 영역(center, radius)의 oil 셀을 Fire로 전환(zone-owned·detach 무관). return: 점화됐나.
-func surface_grid_fire_hits_oil(center: Vector3, radius: float) -> bool:
-	return _surface.fire_hits_oil(center, radius) if _surface != null else false
+## 불이 닿은 영역(center, radius)의 연료 셀(fuel=Oil/Vegetation)을 Fire로 전환(zone-owned·detach 무관). return: 점화됐나.
+func surface_grid_fire_hits_fuel(center: Vector3, radius: float, fuel: String) -> bool:
+	return _surface.fire_hits_fuel(center, radius, fuel) if _surface != null else false
 
 
 ## oil 존의 남은 셀 detach(존 clear돼도 셀 생존 → creep/재점화). ref: reaction_system._ignite_oil.

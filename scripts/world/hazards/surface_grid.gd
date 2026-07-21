@@ -45,9 +45,9 @@ const RX_PRIORITY := ["Oil", "ToxicGas", "Water", "Fire", "Steam", "Smoke", "Ice
 ## S3 확산 CA — owned cells 위 frontier(경계 셀만). 사용자 결정(2026-07-22): 연료 위 Fire creep + 기체·불
 ## 바람 밀림, 속도 조금 빠르게. gas 확산·intensity 알파는 S5. ref: RX-FIRE-VEGETATION · RX-WIND-* · SPREAD-ZONE-*.
 const _NEI4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
-const FIRE_FUEL := ["Oil", "Vegetation"]     # A: Fire는 연료 위에서만 번짐(무한확산·성능 방지)
-const FIRE_CREEP_RINGS := 1                  # grid tick당 Fire 전진 셀-링. 매 tick(0.06s) 1셀 = 부드러운 진행
-const IGNITE_SEED_R := 0.6                   # Fire가 Oil 명중 시 최소 점화 반경(불의 footprint가 더 크면 그쪽 사용)
+## 연료별 grid tick(0.06s)당 Fire 전진 셀-링(속도). Oil 2 = Vegetation 1의 2배(사용자 2026-07-22). 연료 없으면 안 번짐.
+const FIRE_CREEP := {"Oil": 2, "Vegetation": 1}
+const IGNITE_SEED_R := 0.6                   # Fire가 연료 명중 시 최소 점화 반경(불의 footprint가 더 크면 그쪽 사용)
 const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
 const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)
 const WIND_PUSHABLE := ["Smoke", "Steam", "ToxicGas", "Fire"]   # B: 기체 + 불이 바람에 밀림(액체·기름 고착)
@@ -305,7 +305,13 @@ func _spread_cells() -> void:
 ## Fire가 인접 연료(Oil/Vegetation) 셀로 번진다 → 그 셀을 Fire로 전환. 연료 없으면 안 번짐(무한확산 방지).
 ## FIRE_CREEP_RINGS만큼 셀-링 전진(속도). 순회 중 dict 수정 방지 → 링별로 수집 후 일괄 적용.
 func _fire_creep() -> void:
-	for _ring in FIRE_CREEP_RINGS:
+	for fuel in FIRE_CREEP:
+		_creep_fuel(String(fuel), int(FIRE_CREEP[fuel]))
+
+
+## 지정 연료(Oil/Vegetation) 셀을 인접 Fire가 rings 셀-링만큼 태운다(그 셀 → Fire). 링별 수집 후 일괄 적용.
+func _creep_fuel(fuel: String, rings: int) -> void:
+	for _r in rings:
 		var convert := {}
 		for key in _cells:
 			if (_cells[key] as Cell).medium != "Fire":
@@ -315,7 +321,7 @@ func _fire_creep() -> void:
 			for d in _NEI4:
 				var nkey := cell_key(ix + d.x, iz + d.y)
 				var nc: Cell = _cells.get(nkey)
-				if nc != null and FIRE_FUEL.has(nc.medium):
+				if nc != null and nc.medium == fuel:
 					convert[nkey] = true
 		if convert.is_empty():
 			return
@@ -365,16 +371,16 @@ func _wind_push() -> void:
 				break
 
 
-## 불이 닿은 영역(center, 반경 radius)의 **oil 셀을 Fire로 전환**(origin→0). 존 소속 무관 — zone-owned·detach된
-## oil 모두(medium="Oil") 잡는다(재점화 가능). 불의 실제 footprint로 점화 = **맞힌 자리부터**. 나머지 oil은
-## Fire creep이 이 불에서 번져 태운다. return: 하나라도 점화했나. ref: RX-OIL-FIRE-001(셀판) · S2.
-func fire_hits_oil(center: Vector3, radius: float) -> bool:
+## 불이 닿은 영역(center, 반경 radius)의 **연료 셀(fuel=Oil/Vegetation)을 Fire로 전환**(origin→0). 존 소속 무관 —
+## zone-owned·detach된 연료 모두 잡는다(재점화 가능). 불의 실제 footprint로 점화 = **맞힌 자리부터**. 나머지 연료는
+## Fire creep이 이 불에서 번져 태운다. return: 하나라도 점화했나. ref: RX-OIL-FIRE / RX-FIRE-VEGETATION(셀판) · S2.
+func fire_hits_fuel(center: Vector3, radius: float, fuel: String) -> bool:
 	var seed := {}
 	stamp_circle(center, maxf(radius, IGNITE_SEED_R), seed)   # 최소 IGNITE_SEED_R 보장
 	var any := false
 	for key in seed:
 		var c: Cell = _cells.get(key)
-		if c != null and c.medium == "Oil":
+		if c != null and c.medium == fuel:
 			c.medium = "Fire"
 			c.dps = FIRE_CREEP_DPS
 			c.ttl = FIRE_CREEP_TTL
