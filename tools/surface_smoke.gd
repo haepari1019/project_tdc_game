@@ -196,6 +196,22 @@ func _run() -> void:
 	_chk(_count_medium(g4, "Fire") > 0, "통합점화: reaction._ignite_oil → facade → grid Fire 셀 + 재점화 가능")
 	rs.free(); mc.free(); g4.free()
 
+	# 13) Ember Lance 재현 — 한 hit(center, r3)이 안 겹친 oil+veg 둘 다 덮으면 **둘 다** 점화(버그 재현).
+	var g5 = SurfaceGrid.new(); get_root().add_child(g5)
+	var mc5 = MockCombat.new(); mc5.grid = g5; get_root().add_child(mc5)
+	var rs5 = RS.new(); get_root().add_child(rs5); rs5.setup(mc5)
+	var ozo = HZ.new(); ozo.setup(1.0, 0.0, 0.0, "Oil", false, -1.0)
+	get_root().add_child(ozo); ozo.global_position = Vector3(0.0, 0.0, 0.0)
+	var ozv = HZ.new(); ozv.setup(1.0, 0.0, 0.0, "Vegetation", false, -1.0)
+	get_root().add_child(ozv); ozv.global_position = Vector3(4.0, 0.0, 0.0)   # oil과 안 겹침(거리4 > 1+1)
+	g5._stamp_zones()
+	_chk(_count_medium(g5, "Oil") > 0 and _count_medium(g5, "Vegetation") > 0, "ember: oil+veg stamp(안 겹침)")
+	rs5._on_fire_damage_hit({"position": Vector3(2.0, 0.0, 0.0), "radius": 3.0, "depth": 0, "source": null})   # 둘 다 덮음
+	_chk(_count_medium(g5, "Fire") > 0, "ember: 점화됨")
+	_chk(_count_medium(g5, "Oil") == 0, "ember: oil 점화됨(둘 다)")
+	_chk(_count_medium(g5, "Vegetation") == 0, "ember: veg 점화됨(둘 다)")
+	rs5.free(); mc5.free(); g5.free()
+
 	if _ok:
 		print("SURFACE SMOKE PASSED")
 		quit(0)

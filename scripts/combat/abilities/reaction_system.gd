@@ -196,10 +196,14 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 	# 셀판 연료 점화(flag ON): 불 footprint의 연료 셀(Oil/Vegetation, zone-owned·detach 무관)을 Fire로 → zone 없는
 	# detach된 연료도 재점화. 실제로 닿았을 때만 겹친 연료 존 정리(passive 재트리거 방지·나머지 셀 detach→creep).
 	if cell_fuel:
-		if _combat.surface_grid_fire_hits_fuel(center, radius, "Oil"):
+		var oil_hit: bool = _combat.surface_grid_fire_hits_fuel(center, radius, "Oil")
+		var veg_hit: bool = _combat.surface_grid_fire_hits_fuel(center, radius, "Vegetation")   # veg는 폭발 없이 붙어 번짐
+		# 진단(임시 2026-07-22): 착탄 위치·반경과 실제 어느 연료가 닿았는지 — Ember Lance 2연료 버그 원인 확인용.
+		print("[RX] FireHit @(%.1f,%.1f) r%.1f — oil=%s veg=%s" % [center.x, center.z, radius, str(oil_hit), str(veg_hit)])
+		if oil_hit:
 			_explosion(center, minf(radius + 0.5, 2.5), EXPLOSION_DMG, source)   # oil만 점화 폭발
 			_clear_fuel_zones(center, radius, "Oil")
-		if _combat.surface_grid_fire_hits_fuel(center, radius, "Vegetation"):    # veg는 폭발 없이 붙어 번짐
+		if veg_hit:
 			_clear_fuel_zones(center, radius, "Vegetation")
 	var zones := _zones_overlapping(center, radius)
 	if zones.is_empty():
