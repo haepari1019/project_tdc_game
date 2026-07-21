@@ -78,6 +78,27 @@ func _run() -> void:
 	_outcome_case(grid, HZ, "Fire", 8.0, false, 0.2, "Ignited")     # Fire → 점화
 	_outcome_case(grid, HZ, "Fatal", 20.0, true, 0.2, "_damage")   # Fatal → raw 피해
 	_outcome_case(grid, HZ, "ToxicGas", 6.0, false, HZ.POISON_STACK_S, "_poison")  # 가스(주기) → 스택
+
+	# 6) owned cell 수명 — stamp→존재, ttl 만료→소멸, 존 소멸→origin 셀 제거.
+	var zt = HZ.new()
+	zt.setup(1.0, 5.0, 0.0, "Fire", false, 1.0)   # ttl 1.0s
+	get_root().add_child(zt)
+	zt.global_position = Vector3(500.0, 0.0, 0.0)
+	grid._stamp_zones()
+	_chk(_count_medium(grid, "Fire") > 0, "owned cell: stamp → 셀 존재")
+	grid._expire(1.2)   # ttl 초과 → 만료
+	_chk(_count_medium(grid, "Fire") == 0, "owned cell: ttl 만료 → 소멸")
+	zt.free()
+	var zc = HZ.new()
+	zc.setup(1.0, 0.0, 0.0, "Water", false, -1.0)
+	get_root().add_child(zc)
+	zc.global_position = Vector3(600.0, 0.0, 0.0)
+	grid._stamp_zones()
+	_chk(_count_medium(grid, "Water") > 0, "owned cell: Water stamp 존재")
+	zc.free()
+	grid._stamp_zones()   # 존 소멸 감지 → origin 셀 제거
+	_chk(_count_medium(grid, "Water") == 0, "owned cell: 존 소멸 → origin 셀 제거")
+
 	grid.free()
 
 	if _ok:
@@ -100,6 +121,7 @@ func _outcome_case(grid, HZ, medium: String, dps: float, impassable: bool, dt: f
 	get_root().add_child(u)
 	u.add_to_group("enemy")
 	u.global_position = at
+	grid._stamp_zones()      # owned 셀 채움(존→셀)
 	grid._tick_outcomes(dt)
 	match want:
 		"_damage": _chk(u.damage > 0.0, "S1 outcome: %s 존 → raw damage" % medium)
@@ -107,6 +129,14 @@ func _outcome_case(grid, HZ, medium: String, dps: float, impassable: bool, dt: f
 		_: _chk(u.outcomes.has(want), "S1 outcome: %s 존 → %s" % [medium, want])
 	z.free()
 	u.free()
+
+
+func _count_medium(grid, medium: String) -> int:
+	var n := 0
+	for key in grid._cells:
+		if (grid._cells[key] as SurfaceGrid.Cell).medium == medium:
+			n += 1
+	return n
 
 
 func _chk(cond: bool, label: String) -> void:
