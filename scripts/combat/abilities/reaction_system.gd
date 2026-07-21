@@ -194,10 +194,10 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 			"fire_vegetation": _rx_fire_vegetation(zones, source)
 			"toxicgas_fire":   _rx_toxicgas_fire(zones, source)
 			"fire_ice":        _rx_fire_ice(zones, source)
-	if media.has("Oil"):                     # Oil 마지막 — _ignite_oil이 인접 Oil 연쇄(fire_hit 재귀, depth cap)
+	if media.has("Oil"):                     # Oil 점화 — 명중 지점(center) 전달 → 셀판은 그 자리부터 creep, 원판은 whole
 		for z in zones:
 			if String(z.status) == "Oil" and z.is_active():
-				_ignite_oil(z, depth, source)
+				_ignite_oil(z, depth, source, center)
 				break
 
 
@@ -384,12 +384,26 @@ func _rx_burst(zones: Array, medium: String, kind: String) -> void:
 
 ## RX-OIL-FIRE-001 — consume the oil → explosion (+Ignited) + Fire zone + harmless Smoke (NOT
 ## ToxicGas; spec: 연소 연기·무해), then chain to adjacent oil (depth-limited; F-021 §3.2.1).
-func _ignite_oil(oil: Node, depth: int, source: Node = null) -> void:
-	var parent := oil.get_parent()
+func _ignite_oil(oil: Node, depth: int, source: Node = null, hit_pos = null) -> void:
 	var pos: Vector3 = oil.global_position
 	var r: float = float(oil.radius)
-	var fsafe: bool = bool(oil.friendly_safe)   # 초월 아군안심 기름 → 직후 RX(폭발·Fire존)만 상속(DRIFT-094)
+	var fsafe: bool = bool(oil.friendly_safe)   # 초월 아군안심 기름 → 직후 RX(폭발)만 상속(DRIFT-094)
 	var sfac: String = String(oil.safe_faction)
+	# 셀판 국소 점화(flag ON): 명중 지점 인근만 불씨 → Fire creep이 나머지 oil 셀을 태운다 = 맞힌 자리부터 확산.
+	# 존 전체 즉시점화(옛 원 모델)를 대체. 인접 연쇄도 creep이 담당(재귀 fire_hit 불요).
+	if HazardZone.USE_SURFACE_GRID and _combat != null and _combat.has_method("surface_grid_ignite_oil"):
+		var hp: Vector3 = hit_pos if hit_pos != null else pos
+		_combat.surface_grid_ignite_oil(oil, hp)
+		_explosion(hp, minf(r, 2.5), EXPLOSION_DMG, source, fsafe, sfac)   # 점화 순간 국소 폭발
+		var smoke_l := HazardZone.new()
+		smoke_l.setup(r * 0.6 + 0.5, 0.0, 0.0, "Smoke", false, SMOKE_TTL)
+		add_child(smoke_l)
+		smoke_l.global_position = hp
+		oil.clear_zone()   # 존 제거(셀은 detach돼 생존 — creep이 태움)
+		print("[RX] Oil ignited LOCAL @hit (depth %d) — creep from hit point (RX-OIL-FIRE-001, cell)" % depth)
+		return
+	# flag OFF: 기존 whole-oil 즉시 점화(원 모델).
+	var parent := oil.get_parent()
 	oil.clear_zone()  # consume the oil (removed from group immediately → no re-ignite)
 	_explosion(pos, r + 1.0, EXPLOSION_DMG, source, fsafe, sfac)
 	var fire := HazardZone.new()

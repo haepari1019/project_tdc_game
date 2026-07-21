@@ -144,6 +144,25 @@ func _run() -> void:
 	wz.free()
 	g2.free()
 
+	# 11) 국소 점화 — Oil 존 가장자리 명중 → 명중 인근만 Fire, 나머지 Oil 생존+detach(존 제거돼도 살아 creep).
+	var g3 = SurfaceGrid.new()
+	get_root().add_child(g3)
+	var oz = HZ.new(); oz.setup(3.0, 0.0, 0.0, "Oil", false, -1.0)
+	get_root().add_child(oz); oz.global_position = Vector3.ZERO
+	g3._stamp_zones()
+	var oil_n0 := _count_medium(g3, "Oil")
+	_chk(oil_n0 > 0, "국소점화: Oil stamp")
+	g3.ignite_oil_local(oz, Vector3(2.8, 0.0, 0.0))   # +x 가장자리 명중
+	_chk(_count_medium(g3, "Fire") > 0, "국소점화: 명중 인근 Fire 씨드")
+	_chk(_count_medium(g3, "Oil") > 0 and _count_medium(g3, "Fire") < oil_n0, "국소점화: 전체 아닌 국소만, 나머지 Oil 생존")
+	var all_detached := true
+	for k3 in g3._cells:
+		if (g3._cells[k3] as SurfaceGrid.Cell).origin_id != 0:
+			all_detached = false
+	_chk(all_detached, "국소점화: 잔여 셀 detach(origin 0) → 존 제거돼도 생존")
+	oz.free()
+	g3.free()
+
 	if _ok:
 		print("SURFACE SMOKE PASSED")
 		quit(0)

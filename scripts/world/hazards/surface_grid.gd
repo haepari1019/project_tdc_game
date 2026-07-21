@@ -44,10 +44,11 @@ const RX_PRIORITY := ["Oil", "ToxicGas", "Water", "Fire", "Steam", "Smoke", "Ice
 
 ## S3 확산 CA — owned cells 위 frontier(경계 셀만). 사용자 결정(2026-07-22): 연료 위 Fire creep + 기체·불
 ## 바람 밀림, 속도 조금 빠르게. gas 확산·intensity 알파는 S5. ref: RX-FIRE-VEGETATION · RX-WIND-* · SPREAD-ZONE-*.
-const SPREAD_CADENCE_S := 0.12       # 확산 틱 주기(빠르게)
+const SPREAD_CADENCE_S := 0.13       # 확산 틱 주기
 const _NEI4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 const FIRE_FUEL := ["Oil", "Vegetation"]     # A: Fire는 연료 위에서만 번짐(무한확산·성능 방지)
-const FIRE_CREEP_RINGS := 3                  # 확산 틱당 Fire 전진 셀-링(속도 — 빠르게)
+const FIRE_CREEP_RINGS := 2                  # 확산 틱당 Fire 전진 셀-링(속도 — 명중 지점부터 번짐이 보이게 완화)
+const IGNITE_SEED_R := 1.0                   # Fire가 Oil 명중 시 즉시 불씨가 되는 반경(나머지는 creep이 태움)
 const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
 const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)
 const WIND_PUSHABLE := ["Smoke", "Steam", "ToxicGas", "Fire"]   # B: 기체 + 불이 바람에 밀림(액체·기름 고착)
@@ -367,6 +368,29 @@ func _wind_push() -> void:
 					_cells.erase(key)
 					moved += 1
 				break
+
+
+## Fire가 Oil에 명중(hit_pos) — 옛 원 모델의 "존 전체 즉시 점화" 대신 **국소 점화**: 그 존의 oil 셀을 detach
+## (존과 분리 → 존 제거돼도 셀 생존)하고 hit_pos 인근(IGNITE_SEED_R)만 Fire 씨드. 나머지 oil 셀은 Fire creep이
+## 그 씨드에서 번져 태운다 = **맞힌 지점부터 확산**. ref: RX-OIL-FIRE-001(셀판) · S2 첫 조각.
+func ignite_oil_local(oil, hit_pos: Vector3) -> void:
+	var oil_id: int = (oil as Object).get_instance_id()
+	var seed_r2 := IGNITE_SEED_R * IGNITE_SEED_R
+	for key in _cells.keys():
+		var c: Cell = _cells[key]
+		if c.origin_id != oil_id or c.medium != "Oil":
+			continue
+		c.origin_id = 0        # detach → oil.clear_zone()로 존 사라져도 셀 생존
+		var iz: int = (key & 0xFFFF) - 32768
+		var ix: int = ((key >> 16) & 0xFFFF) - 32768
+		var dx := cell_center(ix) - hit_pos.x
+		var dz := cell_center(iz) - hit_pos.z
+		if dx * dx + dz * dz <= seed_r2:   # 명중 인근 = 즉시 Fire 씨드
+			c.medium = "Fire"
+			c.dps = FIRE_CREEP_DPS
+			c.ttl = FIRE_CREEP_TTL
+			c.lethal = true
+	_stamped.erase(oil_id)     # 존 제거 예정 — 재스탬프 금지
 
 
 # ── 렌더 ─────────────────────────────────────────────────────────────────────
