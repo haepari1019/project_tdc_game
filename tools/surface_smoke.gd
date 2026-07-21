@@ -30,6 +30,14 @@ class MockUnit extends Node3D:
 		pass
 
 
+## reaction_system._ignite_oil 통합 테스트용 목 combat(camera_shake 신호 + surface_grid facade).
+class MockCombat extends Node3D:
+	signal camera_shake(trauma: float, kick: Vector3)
+	var grid = null
+	func surface_grid_ignite_oil(oil, hp: Vector3) -> void:
+		grid.ignite_oil_local(oil, hp)
+
+
 func _initialize() -> void:
 	process_frame.connect(_run)   # 첫 프레임 = tree 가동 후 → 노드 get_tree() 유효
 
@@ -162,6 +170,19 @@ func _run() -> void:
 	_chk(all_detached, "국소점화: 잔여 셀 detach(origin 0) → 존 제거돼도 생존")
 	oz.free()
 	g3.free()
+
+	# 12) 통합 점화 — reaction_system._ignite_oil → facade → grid.ignite_oil_local(실게임 경로).
+	var g4 = SurfaceGrid.new(); get_root().add_child(g4)
+	var mc = MockCombat.new(); mc.grid = g4; get_root().add_child(mc)
+	var RS = load("res://scripts/combat/abilities/reaction_system.gd")
+	var rs = RS.new(); get_root().add_child(rs); rs.setup(mc)
+	var oz2 = HZ.new(); oz2.setup(3.0, 0.0, 0.0, "Oil", false, -1.0)
+	get_root().add_child(oz2); oz2.global_position = Vector3.ZERO
+	g4._stamp_zones()
+	_chk(_count_medium(g4, "Oil") > 0, "통합점화: oil stamp")
+	rs._ignite_oil(oz2, 0, null, Vector3(2.8, 0.0, 0.0))
+	_chk(_count_medium(g4, "Fire") > 0, "통합점화: reaction._ignite_oil → facade → grid Fire 셀")
+	rs.free(); mc.free(); g4.free()
 
 	if _ok:
 		print("SURFACE SMOKE PASSED")

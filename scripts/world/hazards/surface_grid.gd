@@ -375,22 +375,31 @@ func _wind_push() -> void:
 ## 그 씨드에서 번져 태운다 = **맞힌 지점부터 확산**. ref: RX-OIL-FIRE-001(셀판) · S2 첫 조각.
 func ignite_oil_local(oil, hit_pos: Vector3) -> void:
 	var oil_id: int = (oil as Object).get_instance_id()
-	var seed_r2 := IGNITE_SEED_R * IGNITE_SEED_R
+	# 1) 이 존의 oil 셀을 detach(origin→0) → oil.clear_zone()로 존 사라져도 셀 생존(creep이 태움).
+	var oil_cells := 0
 	for key in _cells.keys():
 		var c: Cell = _cells[key]
-		if c.origin_id != oil_id or c.medium != "Oil":
-			continue
-		c.origin_id = 0        # detach → oil.clear_zone()로 존 사라져도 셀 생존
-		var iz: int = (key & 0xFFFF) - 32768
-		var ix: int = ((key >> 16) & 0xFFFF) - 32768
-		var dx := cell_center(ix) - hit_pos.x
-		var dz := cell_center(iz) - hit_pos.z
-		if dx * dx + dz * dz <= seed_r2:   # 명중 인근 = 즉시 Fire 씨드
-			c.medium = "Fire"
-			c.dps = FIRE_CREEP_DPS
-			c.ttl = FIRE_CREEP_TTL
-			c.lethal = true
+		if c.origin_id == oil_id and c.medium == "Oil":
+			c.origin_id = 0
+			oil_cells += 1
 	_stamped.erase(oil_id)     # 존 제거 예정 — 재스탬프 금지
+	# 2) 명중 지점에 Fire 씨드 — oil 셀 유무/타이밍과 무관하게 **항상** 불이 붙는다(로버스트). oil·빈·fire 셀만 덮음
+	#    (다른 우선순위 매질은 존중). 나머지 detach된 oil 셀은 Fire creep이 이 씨드에서 번져 태운다.
+	var seed := {}
+	stamp_circle(hit_pos, IGNITE_SEED_R, seed)
+	var seeded := 0
+	for key in seed:
+		var ex: Cell = _cells.get(key)
+		if ex == null or ex.medium == "Oil" or ex.medium == "Fire":
+			var f := Cell.new()
+			f.medium = "Fire"
+			f.dps = FIRE_CREEP_DPS
+			f.ttl = FIRE_CREEP_TTL
+			f.lethal = true
+			f.origin_id = 0
+			_cells[key] = f
+			seeded += 1
+	print("[SURF] ignite_oil_local oil_cells=%d seeded=%d total=%d" % [oil_cells, seeded, _cells.size()])
 
 
 # ── 렌더 ─────────────────────────────────────────────────────────────────────
