@@ -99,6 +99,28 @@ func _run() -> void:
 	grid._stamp_zones()   # 존 소멸 감지 → origin 셀 제거
 	_chk(_count_medium(grid, "Water") == 0, "owned cell: 존 소멸 → origin 셀 제거")
 
+	# 7) 점화 순서 — Oil 소비 자리에 Fire가 남아야(우선순위로 막히면 빈 칸 = 화염바닥 사라짐 버그). 실버그 재현.
+	var oil = HZ.new()
+	oil.setup(2.0, 0.0, 0.0, "Oil", false, -1.0)
+	get_root().add_child(oil)
+	oil.global_position = Vector3(700.0, 0.0, 0.0)
+	grid._stamp_zones()
+	_chk(_count_medium(grid, "Oil") > 0, "ignite순서: Oil stamp")
+	oil.clear_zone()   # 소비(ground_zone 이탈)
+	var fire = HZ.new()
+	fire.setup(2.0, 8.0, 0.0, "Fire", false, 4.0)
+	get_root().add_child(fire)
+	fire.global_position = Vector3(700.0, 0.0, 0.0)
+	grid._stamp_zones()   # 사라진 Oil 먼저 제거 → Fire stamp 통과
+	_chk(_count_medium(grid, "Fire") > 0, "ignite순서: Oil 소비 자리에 Fire 셀 남음")
+	_chk(_count_medium(grid, "Oil") == 0, "ignite순서: Oil 셀 제거됨")
+
+	# 8) render 경로 — _render_cells가 MultiMesh를 채운다(smoke가 이전엔 안 태우던 경로).
+	grid._render_cells()
+	var fmmi = grid._mm.get("Fire")
+	_chk(fmmi != null and fmmi.multimesh.instance_count > 0, "render: _render_cells → Fire MultiMesh 채움")
+	fire.free()
+
 	grid.free()
 
 	if _ok:

@@ -136,15 +136,25 @@ func _grid_tick(dt: float) -> void:
 
 
 ## 활성 존을 셀로 stamp — 신규 존, 또는 radius/lethal이 바뀐 존만(재스탬프). 사라진 존은 origin 셀 제거.
+## ⚠️ 순서 중요: **사라진 존 정리를 먼저** 해야, 방금 소비된 존(예: 점화된 Oil)의 셀이 같은 자리에 새로 깔리는
+## 존(Fire)의 stamp를 우선순위로 막지 않는다(안 그러면 Oil 소비 자리가 빈 칸이 됨 = 화염바닥 사라짐 버그).
 func _stamp_zones() -> void:
+	# pass 1: 살아있는 존 수집(id → node)
 	var alive := {}
 	for z in get_tree().get_nodes_in_group("ground_zone"):
 		if not (z is Node3D) or not z.has_method("is_active") or not z.is_active():
 			continue
 		if not MEDIUM_COLOR.has(String(z.status)):
 			continue
-		var id := z.get_instance_id()
-		alive[id] = true
+		alive[z.get_instance_id()] = z
+	# pass 2: 사라진 존의 셀 먼저 제거(위 ⚠️).
+	for id in _stamped.keys():
+		if not alive.has(id):
+			_remove_origin(id)
+			_stamped.erase(id)
+	# pass 3: 신규/변화 존 stamp.
+	for id in alive:
+		var z = alive[id]
 		var r := float(z.radius)
 		var lethal: bool = (not z.has_method("is_lethal")) or z.is_lethal()
 		var prev = _stamped.get(id)
@@ -155,10 +165,6 @@ func _stamp_zones() -> void:
 			_remove_origin(id)     # radius/lethal 변화 → 재스탬프(반응 前이라 덮어도 안전)
 			_stamp_zone(z, id)
 			_stamped[id] = [r, lethal]
-	for id in _stamped.keys():
-		if not alive.has(id):      # 존 소멸(freed/clear) → 그 존이 깐 셀 제거
-			_remove_origin(id)
-			_stamped.erase(id)
 
 
 ## 한 존의 원을 셀로 칠한다(priority-merge: 더 높은 우선순위 매질이 셀을 차지).
