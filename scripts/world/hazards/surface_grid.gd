@@ -16,9 +16,9 @@ const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")
 
 const CELL_M := 0.1                 # 셀 한 변(m). 미세 셀(사용자 2026-07-21) — 부드러운 표면.
                                     # 비용 = (1/CELL)² 스케일. CA는 frontier로 O(perimeter) 유지(surface_bench 참조).
-const GRID_TICK_S := 0.1            # 셀 stamp/수명/(S2·S3 반응·확산) 주기
+const GRID_TICK_S := 0.06           # 셀 stamp/수명/확산 주기 — 짧게(매틱 1셀 확산) → 부드러운 진행
 const OUTCOME_TICK_S := 0.2         # 유닛 outcome 주기(hazard_zone.TICK_S와 동일)
-const RENDER_CADENCE_S := 0.1       # 렌더 버퍼 업로드 주기
+const RENDER_CADENCE_S := 0.06      # 렌더 버퍼 업로드 주기(grid tick과 동기 = 확산 끊김 완화)
 
 ## 매질별 render 층서(hazard_zone.RENDER_ORDER 미러 — 상승 기체 위 > 지면 화염 > 지면 액체/고체).
 const RENDER_ORDER := {
@@ -44,11 +44,10 @@ const RX_PRIORITY := ["Oil", "ToxicGas", "Water", "Fire", "Steam", "Smoke", "Ice
 
 ## S3 확산 CA — owned cells 위 frontier(경계 셀만). 사용자 결정(2026-07-22): 연료 위 Fire creep + 기체·불
 ## 바람 밀림, 속도 조금 빠르게. gas 확산·intensity 알파는 S5. ref: RX-FIRE-VEGETATION · RX-WIND-* · SPREAD-ZONE-*.
-const SPREAD_CADENCE_S := 0.13       # 확산 틱 주기
 const _NEI4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 const FIRE_FUEL := ["Oil", "Vegetation"]     # A: Fire는 연료 위에서만 번짐(무한확산·성능 방지)
-const FIRE_CREEP_RINGS := 2                  # 확산 틱당 Fire 전진 셀-링(속도 — 명중 지점부터 번짐이 보이게 완화)
-const IGNITE_SEED_R := 1.0                   # Fire가 Oil 명중 시 즉시 불씨가 되는 반경(나머지는 creep이 태움)
+const FIRE_CREEP_RINGS := 1                  # grid tick당 Fire 전진 셀-링. 매 tick(0.06s) 1셀 = 부드러운 진행
+const IGNITE_SEED_R := 0.6                   # Fire가 Oil 명중 시 최소 점화 반경(불의 footprint가 더 크면 그쪽 사용)
 const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
 const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)
 const WIND_PUSHABLE := ["Smoke", "Steam", "ToxicGas", "Fire"]   # B: 기체 + 불이 바람에 밀림(액체·기름 고착)
@@ -75,7 +74,6 @@ var _debug_mode: int = 0
 var _render_accum: float = 0.0
 var _grid_accum: float = 0.0
 var _outcome_accum: float = 0.0
-var _spread_accum: float = 0.0       # S3 확산 틱 누적(SPREAD_CADENCE_S)
 var _mm: Dictionary = {}             # medium:String -> MultiMeshInstance3D (매질당 1개)
 var _quad: QuadMesh                  # 공유 flat quad(XZ 평면) — lazy(_make_medium_mesh)
 var _cells: Dictionary = {}          # key:int -> Cell (소유)
@@ -142,10 +140,7 @@ func _physics_process(delta: float) -> void:
 func _grid_tick(dt: float) -> void:
 	_stamp_zones()
 	_expire(dt)
-	_spread_accum += dt
-	if _spread_accum >= SPREAD_CADENCE_S:
-		_spread_cells()      # S3 확산(Fire creep + Wind push). S2 경계 반응도 여기 얹힐 예정.
-		_spread_accum = 0.0
+	_spread_cells()          # S3 확산(Fire creep + Wind push) — grid tick(0.06s)마다 1셀 = 부드러운 진행
 	_outcome_accum += dt
 	if _outcome_accum >= OUTCOME_TICK_S:
 		_tick_outcomes(_outcome_accum)
@@ -370,36 +365,33 @@ func _wind_push() -> void:
 				break
 
 
-## Fire가 Oil에 명중(hit_pos) — 옛 원 모델의 "존 전체 즉시 점화" 대신 **국소 점화**: 그 존의 oil 셀을 detach
-## (존과 분리 → 존 제거돼도 셀 생존)하고 hit_pos 인근(IGNITE_SEED_R)만 Fire 씨드. 나머지 oil 셀은 Fire creep이
-## 그 씨드에서 번져 태운다 = **맞힌 지점부터 확산**. ref: RX-OIL-FIRE-001(셀판) · S2 첫 조각.
-func ignite_oil_local(oil, hit_pos: Vector3) -> void:
-	var oil_id: int = (oil as Object).get_instance_id()
-	# 1) 이 존의 oil 셀을 detach(origin→0) → oil.clear_zone()로 존 사라져도 셀 생존(creep이 태움).
-	var oil_cells := 0
-	for key in _cells.keys():
-		var c: Cell = _cells[key]
-		if c.origin_id == oil_id and c.medium == "Oil":
-			c.origin_id = 0
-			oil_cells += 1
-	_stamped.erase(oil_id)     # 존 제거 예정 — 재스탬프 금지
-	# 2) 명중 지점에 Fire 씨드 — oil 셀 유무/타이밍과 무관하게 **항상** 불이 붙는다(로버스트). oil·빈·fire 셀만 덮음
-	#    (다른 우선순위 매질은 존중). 나머지 detach된 oil 셀은 Fire creep이 이 씨드에서 번져 태운다.
+## 불이 닿은 영역(center, 반경 radius)의 **oil 셀을 Fire로 전환**(origin→0). 존 소속 무관 — zone-owned·detach된
+## oil 모두(medium="Oil") 잡는다(재점화 가능). 불의 실제 footprint로 점화 = **맞힌 자리부터**. 나머지 oil은
+## Fire creep이 이 불에서 번져 태운다. return: 하나라도 점화했나. ref: RX-OIL-FIRE-001(셀판) · S2.
+func fire_hits_oil(center: Vector3, radius: float) -> bool:
 	var seed := {}
-	stamp_circle(hit_pos, IGNITE_SEED_R, seed)
-	var seeded := 0
+	stamp_circle(center, maxf(radius, IGNITE_SEED_R), seed)   # 최소 IGNITE_SEED_R 보장
+	var any := false
 	for key in seed:
-		var ex: Cell = _cells.get(key)
-		if ex == null or ex.medium == "Oil" or ex.medium == "Fire":
-			var f := Cell.new()
-			f.medium = "Fire"
-			f.dps = FIRE_CREEP_DPS
-			f.ttl = FIRE_CREEP_TTL
-			f.lethal = true
-			f.origin_id = 0
-			_cells[key] = f
-			seeded += 1
-	print("[SURF] ignite_oil_local oil_cells=%d seeded=%d total=%d" % [oil_cells, seeded, _cells.size()])
+		var c: Cell = _cells.get(key)
+		if c != null and c.medium == "Oil":
+			c.medium = "Fire"
+			c.dps = FIRE_CREEP_DPS
+			c.ttl = FIRE_CREEP_TTL
+			c.lethal = true
+			c.origin_id = 0
+			any = true
+	return any
+
+
+## oil 존의 남은 셀을 detach(origin→0) → 존이 clear돼도 셀 생존(creep이 태움·hit로 재점화). 재스탬프 금지.
+func detach_zone_cells(oil) -> void:
+	var oil_id: int = (oil as Object).get_instance_id()
+	for key in _cells:
+		var c: Cell = _cells[key]
+		if c.origin_id == oil_id:
+			c.origin_id = 0
+	_stamped.erase(oil_id)
 
 
 # ── 렌더 ─────────────────────────────────────────────────────────────────────

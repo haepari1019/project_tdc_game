@@ -34,8 +34,10 @@ class MockUnit extends Node3D:
 class MockCombat extends Node3D:
 	signal camera_shake(trauma: float, kick: Vector3)
 	var grid = null
-	func surface_grid_ignite_oil(oil, hp: Vector3) -> void:
-		grid.ignite_oil_local(oil, hp)
+	func surface_grid_fire_hits_oil(center: Vector3, radius: float) -> bool:
+		return grid.fire_hits_oil(center, radius)
+	func surface_grid_detach_zone_cells(oil) -> void:
+		grid.detach_zone_cells(oil)
 
 
 func _initialize() -> void:
@@ -160,14 +162,15 @@ func _run() -> void:
 	g3._stamp_zones()
 	var oil_n0 := _count_medium(g3, "Oil")
 	_chk(oil_n0 > 0, "국소점화: Oil stamp")
-	g3.ignite_oil_local(oz, Vector3(2.8, 0.0, 0.0))   # +x 가장자리 명중
-	_chk(_count_medium(g3, "Fire") > 0, "국소점화: 명중 인근 Fire 씨드")
-	_chk(_count_medium(g3, "Oil") > 0 and _count_medium(g3, "Fire") < oil_n0, "국소점화: 전체 아닌 국소만, 나머지 Oil 생존")
+	_chk(g3.fire_hits_oil(Vector3(2.8, 0.0, 0.0), 0.8), "셀점화: 가장자리 footprint가 oil에 닿음")   # +x 가장자리
+	_chk(_count_medium(g3, "Fire") > 0, "셀점화: 닿은 oil 셀 → Fire")
+	_chk(_count_medium(g3, "Oil") > 0 and _count_medium(g3, "Fire") < oil_n0, "셀점화: 전체 아닌 닿은 부분만, 나머지 Oil")
+	g3.detach_zone_cells(oz)   # 나머지 oil 셀 detach(존 제거돼도 생존 → creep/재점화)
 	var all_detached := true
 	for k3 in g3._cells:
 		if (g3._cells[k3] as SurfaceGrid.Cell).origin_id != 0:
 			all_detached = false
-	_chk(all_detached, "국소점화: 잔여 셀 detach(origin 0) → 존 제거돼도 생존")
+	_chk(all_detached, "셀점화: detach_zone_cells 후 잔여 셀 detach(존 제거돼도 생존)")
 	oz.free()
 	g3.free()
 
@@ -180,8 +183,8 @@ func _run() -> void:
 	get_root().add_child(oz2); oz2.global_position = Vector3.ZERO
 	g4._stamp_zones()
 	_chk(_count_medium(g4, "Oil") > 0, "통합점화: oil stamp")
-	rs._ignite_oil(oz2, 0, null, Vector3(2.8, 0.0, 0.0))
-	_chk(_count_medium(g4, "Fire") > 0, "통합점화: reaction._ignite_oil → facade → grid Fire 셀")
+	rs._ignite_oil(oz2, 0, null, Vector3(2.8, 0.0, 0.0), 1.0)
+	_chk(_count_medium(g4, "Fire") > 0, "통합점화: reaction._ignite_oil → facade → grid Fire 셀 + 재점화 가능")
 	rs.free(); mc.free(); g4.free()
 
 	if _ok:

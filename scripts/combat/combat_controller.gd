@@ -415,10 +415,15 @@ func surface_grid_cycle_debug() -> String:
 	return _surface.cycle_debug() if _surface != null else ""
 
 
-## Fire가 Oil 존에 명중 — 셀판 국소 점화(명중 지점부터 Fire creep 확산). ref: reaction_system._ignite_oil.
-func surface_grid_ignite_oil(oil: Node, hit_pos: Vector3) -> void:
+## 불이 닿은 영역(center, radius)의 oil 셀을 Fire로 전환(zone-owned·detach 무관). return: 점화됐나.
+func surface_grid_fire_hits_oil(center: Vector3, radius: float) -> bool:
+	return _surface.fire_hits_oil(center, radius) if _surface != null else false
+
+
+## oil 존의 남은 셀 detach(존 clear돼도 셀 생존 → creep/재점화). ref: reaction_system._ignite_oil.
+func surface_grid_detach_zone_cells(oil: Node) -> void:
 	if _surface != null:
-		_surface.ignite_oil_local(oil, hit_pos)
+		_surface.detach_zone_cells(oil)
 
 
 ## Enemies within radius. `faction` != "" → only that faction (F-028: 힐/지원은 같은 진영만).
