@@ -213,6 +213,8 @@ func _run() -> void:
 	_chk(_count_medium(g5, "Oil") == 0 and _count_medium(g5, "Vegetation") == 0, "ember: oil+veg 둘 다 점화")
 	g5._expire(0.1)   # ⚠️ 변환 시 age 리셋 안 하면 여기서 즉시 소멸(기름만 사라지고 불 안 남던 버그)
 	_chk(_count_medium(g5, "Fire") > 0, "ember: 점화 후 Fire 유지(age 리셋 — 즉시 소멸 안 함)")
+	g5._stamp_zones()   # 점화가 만든 Smoke 존을 셀로 stamp
+	_chk(_count_medium(g5, "Smoke") > 0, "ember: oil 점화 시 연소 연기(Smoke) 생성 — passive와 일관")
 	rs5.free(); mc5.free(); g5.free()
 
 	if _ok:

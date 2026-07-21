@@ -201,6 +201,10 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 		if oil_hit:
 			_explosion(center, minf(radius + 0.5, 2.5), EXPLOSION_DMG, source)   # oil만 점화 폭발
 			_clear_fuel_zones(center, radius, "Oil")
+			var smoke_h := HazardZone.new()   # RX-OIL-FIRE 연소 연기(무해·분위기/시야) — passive 경로와 일관
+			smoke_h.setup(minf(radius, 2.5) * 0.7 + 0.5, 0.0, 0.0, "Smoke", false, SMOKE_TTL)
+			add_child(smoke_h)
+			smoke_h.global_position = center
 		if veg_hit:
 			_clear_fuel_zones(center, radius, "Vegetation")
 	var zones := _zones_overlapping(center, radius)
