@@ -129,6 +129,16 @@ func _resolve_zone_pair(a: Node, b: Node) -> void:
 		var fire_z: Node = b if sa == "Oil" else a
 		_ignite_oil(oil_z, 0, null, fire_z.global_position, float(fire_z.radius))
 		return
+	# Fire + Vegetation → 점화(폭발 없이). 셀판(flag ON): Fire footprint의 veg 셀 점화 + veg존 detach+clear → creep 확산.
+	# (oil은 위에서 passive 점화되는데 veg는 안 돼서 "동시 발화 시 veg만 안 붙던" 문제 해소 — 2026-07-22.)
+	if (sa == "Fire" and sb == "Vegetation") or (sa == "Vegetation" and sb == "Fire"):
+		if HazardZone.USE_SURFACE_GRID and _combat != null and _combat.has_method("surface_grid_fire_hits_fuel"):
+			var veg_z: Node = a if sa == "Vegetation" else b
+			var vfire_z: Node = b if sa == "Vegetation" else a
+			if _combat.surface_grid_fire_hits_fuel(vfire_z.global_position, float(vfire_z.radius), "Vegetation"):
+				_combat.surface_grid_detach_zone_cells(veg_z)
+				veg_z.clear_zone()
+		return
 	# Fire + Water → 교집합에 Steam + 양쪽 반경 소진(서서히 사라짐 = 원 단위 확산 근사).
 	if (sa == "Fire" and sb == "Water") or (sa == "Water" and sb == "Fire"):
 		var mid: Vector3 = (a.global_position + b.global_position) * 0.5

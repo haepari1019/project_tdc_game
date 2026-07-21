@@ -45,8 +45,8 @@ const RX_PRIORITY := ["Oil", "ToxicGas", "Water", "Fire", "Steam", "Smoke", "Ice
 ## S3 확산 CA — owned cells 위 frontier(경계 셀만). 사용자 결정(2026-07-22): 연료 위 Fire creep + 기체·불
 ## 바람 밀림, 속도 조금 빠르게. gas 확산·intensity 알파는 S5. ref: RX-FIRE-VEGETATION · RX-WIND-* · SPREAD-ZONE-*.
 const _NEI4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
-## 연료별 grid tick(0.06s)당 Fire 전진 셀-링(속도). Oil 2 = Vegetation 1의 2배(사용자 2026-07-22). 연료 없으면 안 번짐.
-const FIRE_CREEP := {"Oil": 2, "Vegetation": 1}
+## 연료별 grid tick(0.06s)당 Fire 전진 셀-링(속도). Oil 6 = Vegetation 1의 6배(사용자 2026-07-22, oil 대폭↑). 연료 없으면 안 번짐.
+const FIRE_CREEP := {"Oil": 6, "Vegetation": 1}
 const IGNITE_SEED_R := 0.6                   # Fire가 연료 명중 시 최소 점화 반경(불의 footprint가 더 크면 그쪽 사용)
 const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
 const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)

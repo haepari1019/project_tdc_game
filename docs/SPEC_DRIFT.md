@@ -716,3 +716,6 @@
   비활성. spec `SPREAD-ZONE-*-{n}TILES`·`max_tiles_per_gust`·`max_spreads_per_room`의 **"타일"이 우리 셀(0.1m)과 스케일이
   달라 재조정 필요**(spec 1타일 ≈ 우리 10셀). 이 tile↔cell 재정합 + 확산 모델(연료 한정·바람 대상)이 OPS_30 전파
   대상(S2/S3 체감 후 `INT-002 §6.1`/`EVENT-CORE §3`/`SPREAD-ZONE-*` 묶어서). 게임 상수(rings/cadence)는 튜닝수치=로깅만.
+- **➡️ S2 셀 연료 점화(2026-07-22):** RX-OIL-FIRE·RX-FIRE-VEGETATION을 셀판(footprint 점화+creep)으로 구현. **신규 규칙:
+  Fire+Vegetation passive 점화**(존 겹침만으로 — 기존 spec은 Hit RX만) = OPS_30 전파 후보. `RX-FIRE-VEGETATION`에 passive
+  트리거 추가 + 연료 creep 모델. 위 S3 전파 묶음에 포함.
