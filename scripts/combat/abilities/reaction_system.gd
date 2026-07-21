@@ -69,7 +69,8 @@ func _physics_process(delta: float) -> void:
 	if _spread_accum < SPREAD_CADENCE_S:
 		return
 	_spread_accum = 0.0
-	_spread_tick()
+	if not HazardZone.USE_SURFACE_GRID:
+		_spread_tick()   # WindGust 원-확산(자식 원). flag ON은 SurfaceGrid._wind_push(셀)가 대체.
 
 
 func _spread_tick() -> void:

@@ -42,6 +42,18 @@ const MEDIUM_COLOR := {
 ## primaryMedium 우선순위(EVENT-CORE §3 / INT-002 §6.1 미러). 겹침 시 랭크 작은(우선) 매질이 셀을 차지.
 const RX_PRIORITY := ["Oil", "ToxicGas", "Water", "Fire", "Steam", "Smoke", "Ice", "Vegetation", "Wind"]
 
+## S3 확산 CA — owned cells 위 frontier(경계 셀만). 사용자 결정(2026-07-22): 연료 위 Fire creep + 기체·불
+## 바람 밀림, 속도 조금 빠르게. gas 확산·intensity 알파는 S5. ref: RX-FIRE-VEGETATION · RX-WIND-* · SPREAD-ZONE-*.
+const SPREAD_CADENCE_S := 0.12       # 확산 틱 주기(빠르게)
+const _NEI4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+const FIRE_FUEL := ["Oil", "Vegetation"]     # A: Fire는 연료 위에서만 번짐(무한확산·성능 방지)
+const FIRE_CREEP_RINGS := 3                  # 확산 틱당 Fire 전진 셀-링(속도 — 빠르게)
+const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
+const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)
+const WIND_PUSHABLE := ["Smoke", "Steam", "ToxicGas", "Fire"]   # B: 기체 + 불이 바람에 밀림(액체·기름 고착)
+const WIND_PUSH_RINGS := 3                   # Wind gust당 downwind 밀림 셀
+const WIND_MAX_PER_TICK := 600               # 틱당 바람 이동 셀 상한(폭주/성능 가드)
+
 
 ## 소유 셀 — 존에서 stamp된 뒤 독립 지속. origin_id=stamp한 존 instance_id(0=detached: 확산/반응 산물).
 class Cell extends RefCounted:
@@ -62,6 +74,7 @@ var _debug_mode: int = 0
 var _render_accum: float = 0.0
 var _grid_accum: float = 0.0
 var _outcome_accum: float = 0.0
+var _spread_accum: float = 0.0       # S3 확산 틱 누적(SPREAD_CADENCE_S)
 var _mm: Dictionary = {}             # medium:String -> MultiMeshInstance3D (매질당 1개)
 var _quad: QuadMesh                  # 공유 flat quad(XZ 평면) — lazy(_make_medium_mesh)
 var _cells: Dictionary = {}          # key:int -> Cell (소유)
@@ -128,7 +141,10 @@ func _physics_process(delta: float) -> void:
 func _grid_tick(dt: float) -> void:
 	_stamp_zones()
 	_expire(dt)
-	# S2: _react_cells()  ·  S3: _spread_cells()  — owned cells 위에 얹힌다.
+	_spread_accum += dt
+	if _spread_accum >= SPREAD_CADENCE_S:
+		_spread_cells()      # S3 확산(Fire creep + Wind push). S2 경계 반응도 여기 얹힐 예정.
+		_spread_accum = 0.0
 	_outcome_accum += dt
 	if _outcome_accum >= OUTCOME_TICK_S:
 		_tick_outcomes(_outcome_accum)
@@ -280,6 +296,77 @@ func _credit(u, dmg: float, grp: String, src) -> void:
 		u.add_threat(src, dmg)
 		if u.has_method("perceive_attacker"):
 			u.perceive_attacker(src)
+
+
+# ── S3: 확산 CA (owned cells 위 frontier) ────────────────────────────────────
+
+## 확산 1스텝: Fire creep(연료 타고 번짐) + Wind push(기체·불 downwind 밀림). frontier만 건드린다.
+func _spread_cells() -> void:
+	_fire_creep()
+	_wind_push()
+
+
+## Fire가 인접 연료(Oil/Vegetation) 셀로 번진다 → 그 셀을 Fire로 전환. 연료 없으면 안 번짐(무한확산 방지).
+## FIRE_CREEP_RINGS만큼 셀-링 전진(속도). 순회 중 dict 수정 방지 → 링별로 수집 후 일괄 적용.
+func _fire_creep() -> void:
+	for _ring in FIRE_CREEP_RINGS:
+		var convert := {}
+		for key in _cells:
+			if (_cells[key] as Cell).medium != "Fire":
+				continue
+			var iz: int = (key & 0xFFFF) - 32768
+			var ix: int = ((key >> 16) & 0xFFFF) - 32768
+			for d in _NEI4:
+				var nkey := cell_key(ix + d.x, iz + d.y)
+				var nc: Cell = _cells.get(nkey)
+				if nc != null and FIRE_FUEL.has(nc.medium):
+					convert[nkey] = true
+		if convert.is_empty():
+			return
+		for nkey in convert:
+			var f := Cell.new()
+			f.medium = "Fire"
+			f.dps = FIRE_CREEP_DPS
+			f.ttl = FIRE_CREEP_TTL
+			f.lethal = true
+			f.origin_id = 0            # 확산 산물 = detached(원 존과 무관, 자체 ttl)
+			_cells[nkey] = f
+
+
+## Wind 존 인근의 밀림 매질(기체·불) 셀을 downwind(=존 중심에서 바깥)로 WIND_PUSH_RINGS만큼 이동. 빈 셀로만.
+## WindGust 자식-원 해킹(reaction_system._spread_tick) 대체. 틱당 WIND_MAX_PER_TICK 상한.
+func _wind_push() -> void:
+	var winds := []
+	for z in get_tree().get_nodes_in_group("ground_zone"):
+		if z is Node3D and z.has_method("is_active") and z.is_active() and String(z.status) == "Wind":
+			winds.append(z)
+	if winds.is_empty():
+		return
+	var moved := 0
+	for key in _cells.keys():
+		if moved >= WIND_MAX_PER_TICK:
+			break
+		var c: Cell = _cells[key]
+		if not WIND_PUSHABLE.has(c.medium):
+			continue
+		var iz: int = (key & 0xFFFF) - 32768
+		var ix: int = ((key >> 16) & 0xFFFF) - 32768
+		var px := cell_center(ix)
+		var pz := cell_center(iz)
+		for w in winds:
+			var wc: Vector3 = (w as Node3D).global_position
+			var dx := px - wc.x
+			var dz := pz - wc.z
+			var d2 := dx * dx + dz * dz
+			var reach := float(w.radius) + float(WIND_PUSH_RINGS) * CELL_M
+			if d2 > 0.0001 and d2 <= reach * reach:
+				var inv := 1.0 / sqrt(d2)
+				var nkey := cell_key(ix + int(round(dx * inv * WIND_PUSH_RINGS)), iz + int(round(dz * inv * WIND_PUSH_RINGS)))
+				if nkey != key and not _cells.has(nkey):
+					_cells[nkey] = c       # downwind 이동(빈 셀로만)
+					_cells.erase(key)
+					moved += 1
+				break
 
 
 # ── 렌더 ─────────────────────────────────────────────────────────────────────

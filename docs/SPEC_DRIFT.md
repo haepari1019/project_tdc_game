@@ -711,3 +711,8 @@
   착수 → S1(셀 권위화) → **S2에서 본 DRIFT-096 정식 종결**(중점/shrink 근사 제거, 셀 내 공존매질 해소) → S3(확산 CA).
   전파는 Target A라 최소(`INT-002 §6.1`/`EVENT-CORE §3` "타일=셀" 명료화; `ZONE-CORE`/`EFFECT-CORE` 지오메트리 불변,
   **수렴**) — S1/S2 체감 후 OPS_30.
+- **➡️ S3 확산 CA(2026-07-22, 사용자 결정 — 규칙/전파 후보):** 확산이 **circle 자식-존(WindGust `_spread_tick`)** →
+  **셀 CA**로 이동(Fire creep=연료 위 번짐 · Wind push=기체·불 downwind 밀림). flag ON 시 `reaction_system._spread_tick`
+  비활성. spec `SPREAD-ZONE-*-{n}TILES`·`max_tiles_per_gust`·`max_spreads_per_room`의 **"타일"이 우리 셀(0.1m)과 스케일이
+  달라 재조정 필요**(spec 1타일 ≈ 우리 10셀). 이 tile↔cell 재정합 + 확산 모델(연료 한정·바람 대상)이 OPS_30 전파
+  대상(S2/S3 체감 후 `INT-002 §6.1`/`EVENT-CORE §3`/`SPREAD-ZONE-*` 묶어서). 게임 상수(rings/cadence)는 튜닝수치=로깅만.

@@ -120,8 +120,29 @@ func _run() -> void:
 	var fmmi = grid._mm.get("Fire")
 	_chk(fmmi != null and fmmi.multimesh.instance_count > 0, "render: _render_cells → Fire MultiMesh 채움")
 	fire.free()
-
 	grid.free()
+
+	# 9) S3 Fire creep — Fire 인접 연료(Oil) 셀 → Fire 전환(연료 없으면 안 번짐).
+	var g2 = SurfaceGrid.new()
+	get_root().add_child(g2)
+	var fca = SurfaceGrid.Cell.new(); fca.medium = "Fire"; fca.ttl = -1.0; fca.origin_id = 1
+	g2._cells[g2.cell_key(0, 0)] = fca
+	var oca = SurfaceGrid.Cell.new(); oca.medium = "Oil"; oca.ttl = -1.0; oca.origin_id = 2
+	g2._cells[g2.cell_key(1, 0)] = oca
+	g2._fire_creep()
+	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Oil") == 0, "S3 fire creep: Oil 인접 → Fire 전환")
+
+	# 10) S3 Wind push — Wind 존 인근 기체 셀이 downwind(존 밖)로 이동.
+	g2._cells.clear()
+	var wz = HZ.new(); wz.setup(2.0, 0.0, 0.0, "Wind", false, -1.0)
+	get_root().add_child(wz); wz.global_position = Vector3(0.0, 0.0, 0.0)
+	var gk := g2.cell_key(g2.cell_ix(1.0), g2.cell_ix(0.0))   # 월드 (1,0) 셀 = Wind r2 안
+	var gca = SurfaceGrid.Cell.new(); gca.medium = "Steam"; gca.ttl = -1.0; gca.origin_id = 5
+	g2._cells[gk] = gca
+	g2._wind_push()
+	_chk(_count_medium(g2, "Steam") == 1 and not g2._cells.has(gk), "S3 wind push: 기체 downwind 이동")
+	wz.free()
+	g2.free()
 
 	if _ok:
 		print("SURFACE SMOKE PASSED")
