@@ -221,6 +221,16 @@ func _run() -> void:
 	_chk(_count_medium(g5, "Smoke") > 0, "ember: oil 점화 시 연소 연기(Smoke) 생성 — passive와 일관")
 	rs5.free(); mc5.free(); g5.free()
 
+	# 14) 연소 완료 → 연기 트레일: 다 탄 Fire 셀이 제거 대신 Smoke로 전환(불이 번진 만큼 연기가 따라감).
+	var g6 = SurfaceGrid.new(); get_root().add_child(g6)
+	var fcell = SurfaceGrid.Cell.new(); fcell.medium = "Fire"; fcell.ttl = 4.0; fcell.age = 0.0
+	g6._cells[g6.cell_key(0, 0)] = fcell
+	g6._expire(5.0)   # ttl 초과
+	_chk(_count_medium(g6, "Smoke") == 1 and _count_medium(g6, "Fire") == 0, "burnout: 다 탄 Fire → Smoke 전환")
+	g6._expire(SurfaceGrid.SMOKE_AFTER_TTL + 0.1)   # 연기도 결국 소멸
+	_chk(_count_medium(g6, "Smoke") == 0, "burnout: Smoke도 ttl 후 소멸")
+	g6.free()
+
 	if _ok:
 		print("SURFACE SMOKE PASSED")
 		quit(0)

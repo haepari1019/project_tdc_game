@@ -50,6 +50,7 @@ const FIRE_CREEP := {"Oil": 6, "Vegetation": 1}
 const IGNITE_SEED_R := 0.6                   # Fire가 연료 명중 시 최소 점화 반경(불의 footprint가 더 크면 그쪽 사용)
 const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
 const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)
+const SMOKE_AFTER_TTL := 3.5                 # 불이 꺼진 자리 → 연기 잔류(불이 번진 만큼 연기가 따라 퍼짐)
 const WIND_PUSHABLE := ["Smoke", "Steam", "ToxicGas", "Fire"]   # B: 기체 + 불이 바람에 밀림(액체·기름 고착)
 const WIND_PUSH_RINGS := 3                   # Wind gust당 downwind 밀림 셀
 const WIND_MAX_PER_TICK := 600               # 틱당 바람 이동 셀 상한(폭주/성능 가드)
@@ -220,7 +221,17 @@ func _expire(dt: float) -> void:
 			continue   # 지속형(Oil/Vegetation 등) — age 누적 안 함(나중 Fire 변환 시 ttl 오판 방지)
 		c.age += dt
 		if c.age >= c.ttl:
-			_cells.erase(key)
+			if c.medium == "Fire":
+				# 불이 다 탄 자리 → 연기로 전환(제거 대신). 불이 번진 만큼 연기가 따라 퍼진다 = 발화 지점 원 아님.
+				c.medium = "Smoke"
+				c.ttl = SMOKE_AFTER_TTL
+				c.age = 0.0
+				c.dps = 0.0
+				c.slow = 0.0
+				c.friendly_safe = false
+				c.origin_id = 0
+			else:
+				_cells.erase(key)
 
 
 # ── outcome (유닛 → 자기 셀 매질 → 효과) ─────────────────────────────────────
