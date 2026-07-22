@@ -5,7 +5,7 @@
 > 정식 해소하고, 예정된 **퍼짐(spread)·바람 밀림(wind)** 기능의 토대를 만든다.
 > **SSOT:** spec `F-021 §3.2`(RX)·`EVENT-CORE §3`·`INT-002 §6.1`(Tile medium model)·`ZONE-CORE`·`EFFECT-CORE`.
 > 본 문서는 **게임측 실행 계획(규칙 아님).** 규칙 변경은 spec repo + OPS_30.
-> **상태:** 설계 확정(2026-07-21, 사용자 승인) — **Target A**(셀=substrate, 원=저작). S0(shadow) 착수.
+> **상태:** **S0~S4d done + F5 검증 완료(샌드박스, 2026-07-23).** Target A(셀=substrate, 원=저작). DRIFT-096/097/093 전파 완료. 다음 = S5(렌더/perf).
 > 관련: [[IMPL-DEC-20260721-001]] · DRIFT-096 · `reaction_system.gd` · `hazard_zone.gd`.
 
 ## 0. 배경 — spec은 이미 하이브리드
@@ -252,4 +252,5 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
   - **데이터 주도(if-분기 제거, 사용자 요청):** passive 반응을 `SAME_CELL_RX` 테이블 + `RX_RESULT_PRESET`(결과 매질 프리셋)로.
     `_react_same_cell`은 제네릭 루프(`_match_same_cell_rx` — 테이블 순서=우선순위), 전투효과는 `_dispatch_burst`(burst kind →
     reaction_system 콜백). **새 반응 = 테이블 한 줄**(코드 무수정). 반응이 늘 부분이라 선접기(Ice·Lightning passive 등 대비).
-- **남은:** S5(gas/연기 알파 페이드·셰이더 엣지·m/s 기반 속도·render dirty-track). ⚠️ S4/S4d **F5 체감 대기**(겹친 존 동시효과·렌더 층서·passive Oil+Fire 국소폭발 유지).
+- **✅ S4/S4d F5 체감 완료(샌드박스 검증, 2026-07-23)** — 겹친 존 동시효과·렌더 층서·passive Oil+Fire 국소폭발·이펙트 자연스러움 OK.
+- **남은:** S5(렌더/perf) — intensity 알파 페이드 · 셰이더 엣지 노이즈 · m/s 기반 속도(셀 크기 무관화) · render dirty-track · chunk 승격 · nav 디바운스.
