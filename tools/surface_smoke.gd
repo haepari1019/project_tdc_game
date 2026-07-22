@@ -34,6 +34,11 @@ class MockUnit extends Node3D:
 class MockCombat extends Node3D:
 	signal camera_shake(trauma: float, kick: Vector3)
 	var grid = null
+	var explode_count := 0
+	var last_explode_center := Vector3.ZERO
+	func rx_explode_at(center: Vector3, _radius: float, _source, _fsafe: bool, _sfac: String) -> void:
+		explode_count += 1
+		last_explode_center = center
 	func surface_grid_fire_hits_fuel(center: Vector3, radius: float, fuel: String) -> bool:
 		return grid.fire_hits_fuel(center, radius, fuel)
 	func surface_grid_detach_zone_cells(oil) -> void:
@@ -302,6 +307,29 @@ func _run() -> void:
 	var rc2 = g12._cells.get(g12.cell_key(0, 0))
 	_chk(rc2 != null and rc2.medium == "ToxicGas" and rc2.extra.has("Fire"), "S4c 셀-내: 비반응 공존(ToxicGas+Fire) 유지")
 	g11.free(); g12.free()
+
+	# 19) S4d 셀-내 passive 점화(트리거 일원화) — Oil+Fire → Fire + **국소폭발 콜백**(reaction_system, RX-OIL-FIRE) ·
+	#     Veg+Fire → Fire(폭발 없음, RX-FIRE-VEGETATION). 특수처리 제거 + effect layering(감지=grid / 폭발=reaction_system).
+	var g13 = SurfaceGrid.new(); get_root().add_child(g13)
+	var mc13 = MockCombat.new(); mc13.grid = g13; get_root().add_child(mc13); g13._combat = mc13
+	var cof = SurfaceGrid.Cell.new(); cof.medium = "Oil"; cof.ttl = 10.0
+	var mof = SurfaceGrid.MediumState.new(); mof.medium = "Fire"; mof.dps = 8.0; mof.ttl = 4.0
+	cof.extra["Fire"] = mof
+	g13._cells[g13.cell_key(0, 0)] = cof
+	g13._react_same_cell()
+	var ro = g13._cells.get(g13.cell_key(0, 0))
+	_chk(ro != null and ro.medium == "Fire" and ro.extra.is_empty(), "S4d 셀-내: Oil+Fire → Fire")
+	_chk(mc13.explode_count == 1, "S4d 셀-내: Oil+Fire → 국소폭발 1회(reaction_system 콜백)")
+	# Veg+Fire → Fire, 폭발 없음(count 유지)
+	var cvf = SurfaceGrid.Cell.new(); cvf.medium = "Fire"; cvf.ttl = 4.0
+	var mvf = SurfaceGrid.MediumState.new(); mvf.medium = "Vegetation"; mvf.ttl = 10.0
+	cvf.extra["Vegetation"] = mvf
+	g13._cells[g13.cell_key(5, 0)] = cvf
+	g13._react_same_cell()
+	var rv = g13._cells.get(g13.cell_key(5, 0))
+	_chk(rv != null and rv.medium == "Fire" and rv.extra.is_empty(), "S4d 셀-내: Veg+Fire → Fire")
+	_chk(mc13.explode_count == 1, "S4d 셀-내: Veg 점화는 폭발 없음(콜백 count 유지)")
+	mc13.free(); g13.free()
 
 	if _ok:
 		print("SURFACE SMOKE PASSED")

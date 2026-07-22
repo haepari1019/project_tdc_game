@@ -110,6 +110,7 @@ var _last_ignite_radius: float = 0.0              # 그 점화 영역 반경(셀
 var _smoke_accum: float = 0.0                     # 연기 팽창 틱 누적
 var _by_medium: Dictionary = {}                   # perf: {medium → {key:true}} — 각 연산이 관련 셀만 순회(전체 스캔 회피)
 var _creep_noise: FastNoiseLite = null            # 확산 유기화용 공간 노이즈(lazy)
+var _combat: Node = null                          # S4d: reaction_system 전투효과 콜백(passive Oil+Fire 폭발). combat_controller 주입.
 
 
 # ── world↔cell 수학 ──────────────────────────────────────────────────────────
@@ -480,10 +481,12 @@ func _react_cells() -> void:
 		_set_cell_single(_cells[key], "Steam", STEAM_CELL_TTL, 0.0, 0.0, true)
 
 
-## S4c: 셀 안에 공존하는 반응쌍 해소(Overlap combo RX, per-cell). 현재 = Fire+Water 공존 → Steam(양쪽 소진).
-## Oil+Fire·Fire+Veg는 reaction_system._resolve_zone_pair→fire_hits_fuel(폭발/detach 포함)가 처리 → 여기서 안 건드림.
+## S4c/S4d: 셀 안에 공존하는 passive 반응쌍 해소(Overlap combo RX, per-cell). 그리드 CA가 passive **감지**를 균일하게
+## 소유(S4d 트리거 일원화); **전투효과(폭발)는 reaction_system**으로 콜백(effect layering). — Fire+Water→Steam(quench)
+## · Fire+Oil→Fire+국소폭발(RX-OIL-FIRE) · Fire+Vegetation→Fire(폭발 없음, RX-FIRE-VEGETATION).
 ## _by_medium는 primary-only라 _cells 직접 순회하되 extra 빈 셀(대다수)은 즉시 skip → stacked 셀만 처리.
 func _react_same_cell() -> void:
+	var oil_ig := {}   # Fire+Oil 셀 수집 → 붕괴 後 한 번에 국소 폭발(중복 폭발 방지)
 	for key in _cells.keys():
 		var c: Cell = _cells[key]
 		if c.extra.is_empty():
@@ -492,7 +495,41 @@ func _react_same_cell() -> void:
 		if not has_fire:
 			continue
 		if c.medium == "Water" or c.extra.has("Water"):
-			_set_cell_single(c, "Steam", STEAM_CELL_TTL, 0.0, 0.0, true)   # Fire+Water → Steam(양쪽 소진)
+			_set_cell_single(c, "Steam", STEAM_CELL_TTL, 0.0, 0.0, true)             # Fire+Water → Steam(quench)
+		elif c.medium == "Oil" or c.extra.has("Oil"):
+			oil_ig[key] = [c.friendly_safe, c.safe_faction, c.source]                # 붕괴 前 fsafe/source 승계(DRIFT-094·aggro)
+			_set_cell_single(c, "Fire", FIRE_CREEP_TTL, FIRE_CREEP_DPS, 0.0, true)   # Fire+Oil → 점화(creep 확산) + 폭발↓
+		elif c.medium == "Vegetation" or c.extra.has("Vegetation"):
+			_set_cell_single(c, "Fire", FIRE_CREEP_TTL, FIRE_CREEP_DPS, 0.0, true)   # Fire+Veg → 점화(폭발 없음)
+	if not oil_ig.is_empty() and _combat != null and _combat.has_method("rx_explode_at"):
+		_explode_oil_ignite(oil_ig)   # RX-OIL-FIRE 폭발 = reaction_system(전투효과 분리)
+
+
+## Fire+Oil passive 점화의 국소 폭발(RX-OIL-FIRE). 수집 셀 centroid에 1회 → reaction_system 콜백(전투효과 layering).
+func _explode_oil_ignite(cells: Dictionary) -> void:
+	var sx := 0.0
+	var sz := 0.0
+	var n := 0
+	var fsafe := false
+	var sfac := ""
+	var src = null
+	for key in cells:
+		var iz: int = (key & 0xFFFF) - 32768
+		var ix: int = ((key >> 16) & 0xFFFF) - 32768
+		sx += cell_center(ix)
+		sz += cell_center(iz)
+		n += 1
+		var meta = cells[key]
+		if bool(meta[0]):        # 하나라도 safeslick(아군안심 기름)이면 면제(보수적)
+			fsafe = true
+			sfac = String(meta[1])
+		if meta[2] != null:
+			src = meta[2]
+	if n == 0:
+		return
+	var center := Vector3(sx / float(n), 0.0, sz / float(n))
+	var radius := minf(sqrt(float(n) * CELL_M * CELL_M / PI) + 1.0, 3.0)
+	_combat.rx_explode_at(center, radius, src, fsafe, sfac)
 
 
 ## 셀을 단일 매질로 붕괴(extra 비움). 반응 산물로 셀 내용을 대체할 때 공용.

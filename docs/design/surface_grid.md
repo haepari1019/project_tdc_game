@@ -239,4 +239,14 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
     `fire_hits_fuel`(폭발/detach 포함)가 이미 처리 → 안 건드림(preempt 방지). surface_smoke test18.
   - **비드리프트(수렴):** S4는 게임이 방금 전파한 `INT-002 §6.1`(activeMedia[]/primaryMedium)에 따라잡는 것 → 새 spec 드리프트 없음.
     창발 트레이드오프(겹침 내부 Fire+Water 즉시 Steam·반응 변환 시 하위 매질 소진)는 튜닝/체감(F5).
-- **남은:** S5(gas/연기 알파 페이드·셰이더 엣지·m/s 기반 속도·render dirty-track). ⚠️ S4 **F5 체감 대기**(겹친 존 동시효과·렌더 층서).
+- **S4d done — passive 반응 트리거 일원화(반응 아키텍처 정리, 사용자 지적 "예외처리식" 해소).** S4c가 남긴 감지 이원화
+  (circle `_resolve_zone_pair` vs 셀)를 규칙으로 대체:
+  - **passive 매질 반응 감지 = 그리드 CA 단일 소유.** `_react_same_cell`이 Fire+{Water→Steam · Oil→Fire · Vegetation→Fire}를
+    **균일 처리**(특수처리 skip 제거) + adjacency는 `_creep_fuel`. `reaction_system._physics_process`가 flag ON에서 **early-return**
+    → `_zone_reaction_tick`/`_resolve_zone_pair` 미호출; `_resolve_zone_pair`는 flag OFF 원모델 폴백 전용으로 축소.
+  - **effect layering(감지=grid / 전투효과=reaction_system):** RX-OIL-FIRE **폭발**은 reaction_system 소유 — 그리드가 Fire+Oil 감지
+    → `_combat.rx_explode_at` → `reaction_system.passive_explode`(국소 1회, oil+fire 셀 centroid, fsafe/source 승계). Fire+Veg는
+    폭발 없음(RX-FIRE-VEGETATION 정합). `grid._combat` 주입(combat_controller).
+  - **규칙:** *passive medium 반응 = 그리드 CA · Hit 이벤트/전투효과 = reaction_system.* **spec 정합 유지(비드리프트)** — passive
+    Oil+Fire는 여전히 RX-OIL-FIRE 폭발(방금 전파한 `INT-002 §6.1` Overlap combo RX와 일치). surface_smoke test19(폭발 콜백)·ci_smoke 11/11.
+- **남은:** S5(gas/연기 알파 페이드·셰이더 엣지·m/s 기반 속도·render dirty-track). ⚠️ S4/S4d **F5 체감 대기**(겹친 존 동시효과·렌더 층서·passive Oil+Fire 국소폭발 유지).

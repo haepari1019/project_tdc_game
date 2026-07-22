@@ -119,6 +119,7 @@ func setup(party: Node3D, map: Node3D) -> void:
 	_enemy_cast_ctx.setup(self, _ability_dispatch, "enemy")
 	_surface = SurfaceGrid.new()
 	add_child(_surface)   # S0 shadow — self-inits, 관측 렌더만(원 권위)
+	_surface._combat = self   # S4d: passive Oil+Fire 폭발을 reaction_system으로 콜백(rx_explode_at)
 
 
 ## partyInCombat: true while ANY enemy is engaged. Drives HUD + follower re-form.
@@ -408,6 +409,11 @@ func ignite_at(center: Vector3, radius: float, source: Node = null) -> void:
 ## Spawn a medium ground zone (AB-009/036/039/040/042/043 — enemy/lootable). ref: F-027 ZONE-*.
 func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null) -> void:
 	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source)
+
+
+## S4d: SurfaceGrid가 감지한 passive Oil+Fire(셀) 점화의 국소 폭발(RX-OIL-FIRE) — 전투효과는 reaction_system 소유.
+func rx_explode_at(center: Vector3, radius: float, source: Node, friendly_safe: bool, safe_faction: String) -> void:
+	_reactions.passive_explode(center, radius, source, friendly_safe, safe_faction)
 
 
 ## 환경 존 셀 오버레이 A/B 디버그 순환(원+셀 → 셀만 → 원만). S0 검증용. returns 상태 라벨.

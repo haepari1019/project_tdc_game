@@ -59,8 +59,11 @@ func setup(combat: Node3D) -> void:
 var _spread_accum: float = 0.0
 var _rx_zone_accum: float = 0.0
 
-## B7: WindGust spread tick (S3e) + passive 존 쌍 반응(Oil+Fire·Fire+Water). 각자 자기 cadence로 구동.
+## flag OFF(원 모델) 폴백 전용 틱: passive 존 쌍 반응 + WindGust 확산. **flag ON은 SurfaceGrid 셀 CA가 소유**
+## (passive 반응 _react_same_cell/creep · Wind _wind_push) → 트리거 일원화, 여기선 전부 미호출(S4d).
 func _physics_process(delta: float) -> void:
+	if HazardZone.USE_SURFACE_GRID:
+		return
 	_rx_zone_accum += delta
 	if _rx_zone_accum >= ZONE_RX_CADENCE_S:
 		_rx_zone_accum = 0.0
@@ -69,8 +72,7 @@ func _physics_process(delta: float) -> void:
 	if _spread_accum < SPREAD_CADENCE_S:
 		return
 	_spread_accum = 0.0
-	if not HazardZone.USE_SURFACE_GRID:
-		_spread_tick()   # WindGust 원-확산(자식 원). flag ON은 SurfaceGrid._wind_push(셀)가 대체.
+	_spread_tick()   # WindGust 원-확산(자식 원).
 
 
 func _spread_tick() -> void:
@@ -113,7 +115,7 @@ func _zone_reaction_tick() -> void:
 			_resolve_zone_pair(zs[i], zs[j])
 
 
-## 겹친 존 한 쌍의 passive 반응. 겹침 없으면 무시.
+## 겹친 존 한 쌍의 passive 반응 — **flag OFF(원 모델) 폴백 전용**(flag ON은 _physics_process에서 미호출, SurfaceGrid 소유).
 func _resolve_zone_pair(a: Node, b: Node) -> void:
 	if not (a.is_active() and b.is_active()):
 		return
@@ -123,31 +125,19 @@ func _resolve_zone_pair(a: Node, b: Node) -> void:
 		return   # 안 겹침
 	var sa := String(a.status)
 	var sb := String(b.status)
-	# Oil + Fire → 점화. 셀판은 Fire 존의 footprint(위치·반경)를 명중점으로 → 겹친 oil 셀만 점화, creep이 확산.
+	# Oil + Fire → 점화(원 whole-ignite; _ignite_oil의 flag OFF 경로).
 	if (sa == "Oil" and sb == "Fire") or (sa == "Fire" and sb == "Oil"):
 		var oil_z: Node = a if sa == "Oil" else b
 		var fire_z: Node = b if sa == "Oil" else a
 		_ignite_oil(oil_z, 0, null, fire_z.global_position, float(fire_z.radius))
 		return
-	# Fire + Vegetation → 점화(폭발 없이). 셀판(flag ON): Fire footprint의 veg 셀 점화 + veg존 detach+clear → creep 확산.
-	# (oil은 위에서 passive 점화되는데 veg는 안 돼서 "동시 발화 시 veg만 안 붙던" 문제 해소 — 2026-07-22.)
-	if (sa == "Fire" and sb == "Vegetation") or (sa == "Vegetation" and sb == "Fire"):
-		if HazardZone.USE_SURFACE_GRID and _combat != null and _combat.has_method("surface_grid_fire_hits_fuel"):
-			var veg_z: Node = a if sa == "Vegetation" else b
-			var vfire_z: Node = b if sa == "Vegetation" else a
-			if _combat.surface_grid_fire_hits_fuel(vfire_z.global_position, float(vfire_z.radius), "Vegetation"):
-				_combat.surface_grid_detach_zone_cells(veg_z)
-				veg_z.clear_zone()
-		return
-	# Fire + Water → Steam. flag ON은 SurfaceGrid._react_cells가 **셀 경계**에서 처리(교집합만 반응·서서히 잠식)
-	# → 중점 Steam+원 shrink 근사 폐기(DRIFT-096 종결). flag OFF만 옛 원 근사.
+	# Fire + Water → Steam(중점 + 원 shrink 근사).
 	if (sa == "Fire" and sb == "Water") or (sa == "Water" and sb == "Fire"):
-		if not HazardZone.USE_SURFACE_GRID:
-			var mid: Vector3 = (a.global_position + b.global_position) * 0.5
-			var sr: float = minf(float(a.radius), float(b.radius)) * 0.6
-			spawn_zone("Steam", mid, maxf(sr, 0.6), 0.0, STEAM_TTL, null)
-			a.shrink(ZONE_SHRINK_STEP)
-			b.shrink(ZONE_SHRINK_STEP)
+		var mid: Vector3 = (a.global_position + b.global_position) * 0.5
+		var sr: float = minf(float(a.radius), float(b.radius)) * 0.6
+		spawn_zone("Steam", mid, maxf(sr, 0.6), 0.0, STEAM_TTL, null)
+		a.shrink(ZONE_SHRINK_STEP)
+		b.shrink(ZONE_SHRINK_STEP)
 
 
 ## Central event bus (EVENT-CORE). Skills/zones/entities emit; RX handlers dispatch here. For now
@@ -461,6 +451,11 @@ func _ignite_oil(oil: Node, depth: int, source: Node = null, hit_pos = null, hit
 	print("[RX] Oil ignited (depth %d) → explosion + Ignited + fire + smoke (RX-OIL-FIRE-001)" % depth)
 	if depth < MAX_CHAIN_DEPTH:
 		fire_hit(pos, r + 1.5, depth + 1, source)  # explosion reaches adjacent oil → chain +1
+
+
+## S4d: SurfaceGrid가 감지한 passive Oil+Fire 점화의 국소 폭발(RX-OIL-FIRE) 공개 진입 — 전투효과는 여기 소유(effect layering).
+func passive_explode(center: Vector3, radius: float, source: Node, friendly_safe: bool, safe_faction: String) -> void:
+	_explosion(center, radius, EXPLOSION_DMG, source, friendly_safe, safe_faction)
 
 
 ## AoE explosion — damage ALL units (피아무구분, F-021 §3.3.1) + destructibles + shake.
