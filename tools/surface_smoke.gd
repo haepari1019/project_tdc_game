@@ -238,6 +238,24 @@ func _run() -> void:
 	_chk(_count_medium(g7, "Smoke") > 1, "smoke expand: 연기가 외곽으로 팽창")
 	g7.free()
 
+	# 16) S2 셀 경계 반응 — 인접한 Fire+Water → 둘 다 Steam(경계만 반응, DRIFT-096 종결).
+	var g8 = SurfaceGrid.new(); get_root().add_child(g8)
+	var wc = SurfaceGrid.Cell.new(); wc.medium = "Water"; wc.ttl = 8.0; wc.age = 0.0
+	g8._cells[g8.cell_key(0, 0)] = wc
+	var frc = SurfaceGrid.Cell.new(); frc.medium = "Fire"; frc.ttl = 4.0; frc.age = 0.0
+	g8._cells[g8.cell_key(1, 0)] = frc   # (0,0) Water 인접
+	g8._react_cells()
+	_chk(_count_medium(g8, "Steam") == 2 and _count_medium(g8, "Water") == 0 and _count_medium(g8, "Fire") == 0, "S2 경계반응: 인접 Fire+Water → 둘 다 Steam")
+	# 안 붙은(멀리 떨어진) Fire+Water는 반응 안 함
+	var g9 = SurfaceGrid.new(); get_root().add_child(g9)
+	var wc2 = SurfaceGrid.Cell.new(); wc2.medium = "Water"; wc2.ttl = 8.0
+	g9._cells[g9.cell_key(0, 0)] = wc2
+	var frc2 = SurfaceGrid.Cell.new(); frc2.medium = "Fire"; frc2.ttl = 4.0
+	g9._cells[g9.cell_key(10, 0)] = frc2   # 멀리
+	g9._react_cells()
+	_chk(_count_medium(g9, "Steam") == 0, "S2 경계반응: 안 붙은 Fire+Water는 반응 안 함")
+	g8.free(); g9.free()
+
 	if _ok:
 		print("SURFACE SMOKE PASSED")
 		quit(0)

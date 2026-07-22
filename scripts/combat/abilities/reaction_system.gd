@@ -139,13 +139,15 @@ func _resolve_zone_pair(a: Node, b: Node) -> void:
 				_combat.surface_grid_detach_zone_cells(veg_z)
 				veg_z.clear_zone()
 		return
-	# Fire + Water → 교집합에 Steam + 양쪽 반경 소진(서서히 사라짐 = 원 단위 확산 근사).
+	# Fire + Water → Steam. flag ON은 SurfaceGrid._react_cells가 **셀 경계**에서 처리(교집합만 반응·서서히 잠식)
+	# → 중점 Steam+원 shrink 근사 폐기(DRIFT-096 종결). flag OFF만 옛 원 근사.
 	if (sa == "Fire" and sb == "Water") or (sa == "Water" and sb == "Fire"):
-		var mid: Vector3 = (a.global_position + b.global_position) * 0.5
-		var sr: float = minf(float(a.radius), float(b.radius)) * 0.6
-		spawn_zone("Steam", mid, maxf(sr, 0.6), 0.0, STEAM_TTL, null)
-		a.shrink(ZONE_SHRINK_STEP)
-		b.shrink(ZONE_SHRINK_STEP)
+		if not HazardZone.USE_SURFACE_GRID:
+			var mid: Vector3 = (a.global_position + b.global_position) * 0.5
+			var sr: float = minf(float(a.radius), float(b.radius)) * 0.6
+			spawn_zone("Steam", mid, maxf(sr, 0.6), 0.0, STEAM_TTL, null)
+			a.shrink(ZONE_SHRINK_STEP)
+			b.shrink(ZONE_SHRINK_STEP)
 
 
 ## Central event bus (EVENT-CORE). Skills/zones/entities emit; RX handlers dispatch here. For now

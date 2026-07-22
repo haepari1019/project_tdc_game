@@ -719,3 +719,8 @@
 - **➡️ S2 셀 연료 점화(2026-07-22):** RX-OIL-FIRE·RX-FIRE-VEGETATION을 셀판(footprint 점화+creep)으로 구현. **신규 규칙:
   Fire+Vegetation passive 점화**(존 겹침만으로 — 기존 spec은 Hit RX만) = OPS_30 전파 후보. `RX-FIRE-VEGETATION`에 passive
   트리거 추가 + 연료 creep 모델. 위 S3 전파 묶음에 포함.
+- **✅ 근사 정식 해소(2026-07-22, S2 완료):** 본 DRIFT의 핵심 한계였던 "교집합=중점 Steam·확산=반경 shrink" 원 근사를
+  **셀 경계 반응**으로 대체 — `SurfaceGrid._react_cells`: **Fire 셀과 Water 셀이 인접한 경계 셀만** Steam으로(양쪽 소진,
+  매틱 1셀 잠식=서서히). `_resolve_zone_pair` 중점/shrink는 flag ON에서 폐기. **사용자 이상("교집합만 반응+서서히 확산")이
+  셀 단위로 실현됨.** 남은 것은 **전파(OPS_30)** 뿐: 셀 모델·연료 creep·passive Fire+Veg·Fire↔Water 셀반응을
+  `INT-002 §6.1`/`EVENT-CORE §3`/`SPREAD-ZONE-*`/`RX-*`에 반영(S2/S3 체감 후). 설계 정본 [design/surface_grid.md](design/surface_grid.md).

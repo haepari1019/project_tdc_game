@@ -53,6 +53,7 @@ const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_syste
 const SMOKE_AFTER_TTL := 3.5                 # 불이 꺼진 자리 → 연기 잔류(불이 번진 만큼 연기가 따라 퍼짐)
 const SMOKE_EXPAND_CADENCE := 0.15           # 연기 외곽 팽창 주기(탄 영역보다 크게 번지도록)
 const SMOKE_EXPAND_MIN_TTL := 1.5            # 남은 ttl이 이보다 클 때만 팽창(가장자리로 갈수록 페이드·정지)
+const STEAM_CELL_TTL := 5.0                  # Fire↔Water 경계 반응 산물 Steam 지속(reaction_system.STEAM_TTL 미러)
 const WIND_PUSHABLE := ["Smoke", "Steam", "ToxicGas", "Fire"]   # B: 기체 + 불이 바람에 밀림(액체·기름 고착)
 const WIND_PUSH_RINGS := 3                   # Wind gust당 downwind 밀림 셀
 const WIND_MAX_PER_TICK := 600               # 틱당 바람 이동 셀 상한(폭주/성능 가드)
@@ -146,6 +147,7 @@ func _physics_process(delta: float) -> void:
 func _grid_tick(dt: float) -> void:
 	_stamp_zones()
 	_expire(dt)
+	_react_cells()           # S2 셀 경계 반응(Fire↔Water 인접 → Steam) — 중점/shrink 근사 대체(DRIFT-096 종결)
 	_spread_cells()          # S3 확산(Fire creep + Wind push) — grid tick(0.06s)마다 1셀 = 부드러운 진행
 	_outcome_accum += dt
 	if _outcome_accum >= OUTCOME_TICK_S:
@@ -310,6 +312,36 @@ func _credit(u, dmg: float, grp: String, src) -> void:
 		u.add_threat(src, dmg)
 		if u.has_method("perceive_attacker"):
 			u.perceive_attacker(src)
+
+
+# ── S2: 셀 경계 반응 (DRIFT-096 정식 종결) ───────────────────────────────────
+
+## Fire 셀과 Water 셀이 **인접**하면 그 경계 셀들만 Steam으로(양쪽 소진). 중점 Steam+원 shrink 근사 대체 —
+## 교집합/경계만 반응 + 매틱 1셀씩 서로 잠식 = 서서히. 물이 불을 끄고 증기가 피어오르는 셀 단위 반응.
+func _react_cells() -> void:
+	var to_steam := {}
+	for key in _cells:
+		if (_cells[key] as Cell).medium != "Water":
+			continue
+		var iz: int = (key & 0xFFFF) - 32768
+		var ix: int = ((key >> 16) & 0xFFFF) - 32768
+		for d in _NEI4:
+			var nkey := cell_key(ix + d.x, iz + d.y)
+			var nc: Cell = _cells.get(nkey)
+			if nc != null and nc.medium == "Fire":
+				to_steam[key] = true    # Water → Steam(증발)
+				to_steam[nkey] = true   # Fire → Steam(꺼짐)
+				break
+	for key in to_steam:
+		var s: Cell = _cells[key]
+		s.medium = "Steam"
+		s.ttl = STEAM_CELL_TTL
+		s.age = 0.0
+		s.dps = 0.0
+		s.slow = 0.0
+		s.friendly_safe = false
+		s.origin_id = 0
+		s.lethal = true
 
 
 # ── S3: 확산 CA (owned cells 위 frontier) ────────────────────────────────────
