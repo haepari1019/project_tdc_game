@@ -143,9 +143,10 @@ func _run() -> void:
 	g2._cells[g2.cell_key(0, 0)] = fca
 	var oca = SurfaceGrid.Cell.new(); oca.medium = "Oil"; oca.ttl = -1.0; oca.origin_id = 2
 	g2._cells[g2.cell_key(1, 0)] = oca
-	g2._rebuild_index()
-	g2._fire_creep()
-	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Oil") == 0, "S3 fire creep: Oil 인접 → Fire 전환")
+	for _ci in 25:   # 노이즈 확산 = 확률 전환 → 여러 틱 반복해야 다 붙음
+		g2._rebuild_index()
+		g2._fire_creep()
+	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Oil") == 0, "S3 fire creep: Oil 인접 → Fire 전환(노이즈)")
 
 	# 9b) Vegetation도 연료 — Fire 인접 Vegetation → Fire(veg creep).
 	g2._cells.clear()
@@ -153,9 +154,10 @@ func _run() -> void:
 	g2._cells[g2.cell_key(0, 0)] = fcv
 	var vcv = SurfaceGrid.Cell.new(); vcv.medium = "Vegetation"; vcv.ttl = -1.0; vcv.origin_id = 2
 	g2._cells[g2.cell_key(1, 0)] = vcv
-	g2._rebuild_index()
-	g2._fire_creep()
-	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Vegetation") == 0, "S3 fire creep: Vegetation 인접 → Fire")
+	for _cv in 25:
+		g2._rebuild_index()
+		g2._fire_creep()
+	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Vegetation") == 0, "S3 fire creep: Vegetation 인접 → Fire(노이즈)")
 
 	# 10) S3 Wind push — Wind 존 인근 기체 셀이 downwind(존 밖)로 이동.
 	g2._cells.clear()

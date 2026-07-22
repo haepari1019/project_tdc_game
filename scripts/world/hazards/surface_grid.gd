@@ -50,6 +50,11 @@ const _NEI4 := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)
 ## ⚠️ 셀 크기 바뀌면 m/s가 변함 — cell-count 튜닝이라 재조정 필요(체감 후).
 const FIRE_CREEP := {"Oil": 2, "Vegetation": 1}
 const IGNITE_SEED_R := 0.6                   # Fire가 연료 명중 시 최소 점화 반경(불의 footprint가 더 크면 그쪽 사용)
+## 확산 유기화: frontier가 인접 연료를 태울 확률을 **공간 노이즈로 변조**(<1) → 직선/다이아몬드 전선 대신 불규칙
+## fingers. 안 붙은 셀은 다음 틱 재시도 → 결국 다 탐. min 하한으로 저노이즈 셀도 결국 붙음.
+const FIRE_CREEP_BASE_PROB := 0.72
+const FIRE_CREEP_MIN_PROB := 0.30
+const FIRE_NOISE_FREQ := 0.5                 # 확산 노이즈 무늬 스케일(m 좌표 — 낮을수록 큰 무늬)
 const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
 const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)
 const SMOKE_AFTER_TTL := 3.5                 # 불이 꺼진 자리 → 연기 잔류(불이 번진 만큼 연기가 따라 퍼짐)
@@ -89,6 +94,7 @@ var _last_ignite_center: Vector3 = Vector3.ZERO   # 마지막 fire_hits_fuel이 
 var _last_ignite_radius: float = 0.0              # 그 점화 영역 반경(셀 수→면적)
 var _smoke_accum: float = 0.0                     # 연기 팽창 틱 누적
 var _by_medium: Dictionary = {}                   # perf: {medium → {key:true}} — 각 연산이 관련 셀만 순회(전체 스캔 회피)
+var _creep_noise: FastNoiseLite = null            # 확산 유기화용 공간 노이즈(lazy)
 
 
 # ── world↔cell 수학 ──────────────────────────────────────────────────────────
@@ -420,17 +426,32 @@ func _creep_fuel(fuel: String, rings: int) -> void:
 			for d in _NEI4:
 				var nkey := cell_key(ix + d.x, iz + d.y)
 				var nc: Cell = _cells.get(nkey)
-				if nc != null and nc.medium == fuel:
-					nc.medium = "Fire"          # 연료 셀 자리에서 재사용(할당 회피). 확산 산물 = detached
-					nc.dps = FIRE_CREEP_DPS
-					nc.slow = 0.0
-					nc.ttl = FIRE_CREEP_TTL
-					nc.age = 0.0
-					nc.lethal = true
-					nc.friendly_safe = false
-					nc.origin_id = 0
-					next_wave[nkey] = true
+				if nc == null or nc.medium != fuel:
+					continue
+				# 노이즈 변조 확률로 태운다 → 직선/다이아몬드 전선 대신 불규칙 fingers. 안 붙으면 다음 틱 재시도.
+				var np := clampf(FIRE_CREEP_BASE_PROB * (0.5 + 0.5 * _creep_noise_at(nkey)), FIRE_CREEP_MIN_PROB, 1.0)
+				if randf() > np:
+					continue
+				nc.medium = "Fire"          # 연료 셀 자리에서 재사용(할당 회피). 확산 산물 = detached
+				nc.dps = FIRE_CREEP_DPS
+				nc.slow = 0.0
+				nc.ttl = FIRE_CREEP_TTL
+				nc.age = 0.0
+				nc.lethal = true
+				nc.friendly_safe = false
+				nc.origin_id = 0
+				next_wave[nkey] = true
 		wave = next_wave
+
+
+## 확산 유기화용 공간 노이즈(-1..1) — frontier 전환 확률 변조. lazy FastNoiseLite.
+func _creep_noise_at(key: int) -> float:
+	if _creep_noise == null:
+		_creep_noise = FastNoiseLite.new()
+		_creep_noise.frequency = FIRE_NOISE_FREQ
+	var iz: int = (key & 0xFFFF) - 32768
+	var ix: int = ((key >> 16) & 0xFFFF) - 32768
+	return _creep_noise.get_noise_2d(cell_center(ix), cell_center(iz))
 
 
 ## Wind 존 인근의 밀림 매질(기체·불) 셀을 downwind(=존 중심에서 바깥)로 WIND_PUSH_RINGS만큼 이동. 빈 셀로만.
