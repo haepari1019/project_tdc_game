@@ -705,7 +705,7 @@
 - **⚠️ 아키텍처 한계(교집합·확산 = 원 단위 근사):** 사용자 이상 = "교집합만 반응 + 서서히 확산"(DOS2/BG3 surface = **셀 그리드**). 우리 존은 `center+radius` **원 하나**라 부분 반응이 구조적으로 없음 → 교집합="중점 Steam", 확산="반경 축소"로 **근사**. 완전한 셀 그리드 surface는 전투 시스템 **대공사** = 별도 spec 과제로 **defer**(사용자와 [[refactor-risk-preference]] 논의).
 - **분류/전파:** **rule → OPS_30 전파 후보.** spec `EVENT-CORE`/`F-021 §3.2`(RX)에 **passive 존 중첩 반응** 개념 신설. 게임 편집·체감 후 역전파.
 - **게이트:** ci_smoke 11/11 PASS.
-- **상태:** ✅ **전파** (staging `d9e9f52`, `DEC-20260722-001`; `INT-002 §6/§6.1`·`EVENT-CORE §1/§3`·`RX-OIL-FIRE-001`·`RX-FIRE-WATER-001`·`RX-FIRE-VEGETATION-001`·`EFFECT-CORE`). 셀=substrate·per-cell CA·`radius_m`=초기 seed·Overlap combo RX passive 확장(Oil+Fire·Fire+Veg·Fire+Water 경계 Steam)·확산 모델(연료 creep+Wind push) 반영. `activeMedia[]` 단일-매질/셀 = S4 갭(규칙 비전파, 후속). 게임 상수(CELL_M/rings/cadence/prob)=튜닝(로깅만).
+- **상태:** ✅ **전파** (staging `d9e9f52`, `DEC-20260722-001`; `INT-002 §6/§6.1`·`EVENT-CORE §1/§3`·`RX-OIL-FIRE-001`·`RX-FIRE-WATER-001`·`RX-FIRE-VEGETATION-001`·`EFFECT-CORE`). 셀=substrate·per-cell CA·`radius_m`=초기 seed·Overlap combo RX passive 확장(Oil+Fire·Fire+Veg·Fire+Water 경계 Steam)·확산 모델(연료 creep+Wind push) 반영. `activeMedia[]` 단일-매질/셀 = S4 갭 → **✅ S4 다매질 스택 구현으로 수렴(2026-07-22, primaryMedium+extra; 비드리프트 — 게임이 spec `INT-002 §6.1`에 따라잡음, [surface_grid.md §6 S4](design/surface_grid.md)).** 게임 상수(CELL_M/rings/cadence/prob)=튜닝(로깅만).
 - **➡️ 후속(2026-07-21, 사용자 승인): 셀 그리드화 착수 — 이 "원 단위 근사"의 정식 해소.** 설계 확정 = **Target A**(셀=substrate,
   원=저작; `spawn_zone`/`radius_m` 저작 불변, 내부 래스터화). 예정 기능(퍼짐·바람 밀림)의 토대. 설계·단계·마이그레이션
   정본 = [docs/design/surface_grid.md](design/surface_grid.md) · 결정 = [[IMPL-DEC-20260721-001]]. 단계: **S0**(shadow 렌더·무침습)

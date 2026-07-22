@@ -53,16 +53,16 @@ nav `cell_size`=0.25m의 4배 → carve 정렬 깔끔. 3m 원 ≈ 28셀, 5m ≈ 
 
 ### 2.3 셀 상태 모델
 ```
-CellState (MVP·S1):
-  medium       : String       # MVP 단일; S4 → activeMedia{medium→sub} + primaryMedium
-  intensity    : float 0..1    # 확산·부분소진. MVP는 1.0 바이너리 허용
-  age / ttl
-  dps, slow
-  source       : WeakRef       # threat crediting
-  friendly_safe, safe_faction  # DRIFT-094
-  impassable   : bool          # Fatal → carve (매질과 분리 — spec엔 Fatal 매질 없음, F-006 Severity)
+CellState (S4 다매질 스택):
+  medium       : String            # primaryMedium(최우선). activeMedia = [medium] + extra.keys()
+  extra        : {medium→MediumState}  # S4: 겹친 하위 매질(각자 dps/slow/source/ttl/age/origin). 비면 단일
+  dps, slow, source, ttl, age, origin_id  # primary 매질의 상태(MediumState와 동형)
+  friendly_safe, safe_faction      # DRIFT-094
+  lethal       : bool              # telegraph phase(false면 효과 없음)
 ```
-S4에서 `medium`→`activeMedia` 스택+`primaryMedium`(기존 `RX_PRIORITY` 재사용) 승격 → INT-002 §6.1 정확 수렴.
+**S4 done** — `medium`(primaryMedium) + `extra`(하위 activeMedia) 스택으로 승격, `primaryMedium`=`RX_PRIORITY` 최우선.
+outcome/render는 primary+extra 전부 반영(S1a 복원), stamp는 drop→stack, primary 소멸 시 하위 승격. → INT-002 §6.1 정확 수렴.
+impassable(Fatal carve)은 원(circle) 유지(S1c/S1d 디스코프 — 매질과 분리).
 
 ### 2.4 반응 = 셀 오토마타
 - **Hit-RX(이벤트 버스):** `_zones_overlapping(center,r)` → `cells_in_radius(center,r)`. resolver가 **셀당**
@@ -123,7 +123,7 @@ impassable 셀 → carve. 인접 impassable 셀 greedy 사각 병합 → obstruc
 | **S1** | 셀 권위화(단일 매질) — 소비 4곳 이주(RX쿼리·`_clamp_fatal`·`_carve_zone`·outcome틱), HazardZone tick/mesh 은퇴, `USE_SURFACE_GRID` 폴백 | 높음 | **높음(nav+회피=실전투/스티어링)** |
 | **S2** | 셀 경계 반응 — `_resolve_zone_pair` 중점/shrink → 셀 내 공존매질 해소. **← DRIFT-096 정식 종결** | 중 | 중 |
 | **S3** | 셀 확산 CA — 퍼짐·바람(spec `max_tiles` 캡 literal), WindGust 해킹 제거 | 중 | 중(체감튜닝) |
-| **S4** | 다매질 스택(`activeMedia[]`/`primaryMedium`) → INT-002 §6.1 정확 수렴 | 중 | 낮음~중 |
+| **S4 ✅** | 다매질 스택(`activeMedia[]`/`primaryMedium`) → INT-002 §6.1 정확 수렴 **(done — S4a 구조·S4b 스택+S1a복원·S4c 셀-내 RX)** | 중 | 낮음~중 |
 | **S5** | 셰이더 엣지 노이즈·intensity custom-data·chunk 승격·nav 디바운스 튜닝 | 중 | 낮음 |
 
 - **DRIFT-096 목표 달성 MVP = S0+S1+S2.** 퍼짐·바람 payoff = +S3. S4/S5 = 수렴·확장.
@@ -161,7 +161,7 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
   유닛→커버 존 primaryMedium(`RX_PRIORITY`)→효과(`hazard_zone._apply_medium` 이식). **소비 4곳(RX·회피·carve)은
   아직 원**(HazardZone circle 그대로 질의) — S1b/c/d에서 이주. 게이트: `surface_smoke`(Fire/Fatal/ToxicGas) + ci_smoke 11/11.
   - **⚠️ 알려진 한계(S1):** 겹친 존에서 **연속 outcome은 단일 primaryMedium만** 적용(오늘은 겹친 존 전부 적용).
-    예: Fire+ToxicGas 동시 체류 → 우선순위 상위(ToxicGas) 효과만. **S4 다매질 스택(activeMedia[])에서 복원.**
+    예: Fire+ToxicGas 동시 체류 → 우선순위 상위(ToxicGas) 효과만. **✅ S4 다매질 스택에서 복원됨(2026-07-22).**
     실전 impact 작음(지속 다매질 겹침 드묾; 대부분 RX가 즉시 변환). 폴백=`USE_SURFACE_GRID=false`(원 자기완결 복귀).
   - **⚠️ 렌더 차이:** Oil 불투명 슬릭 → 셀 반투명 오버레이(MEDIUM_COLOR). 미관 폴리시는 S5.
 - **S1b done** — **owned cells 전환.** 존이 셀을 **stamp-once**(원→셀, origin_id·ttl 복사)하면 셀은 그때부터
@@ -228,4 +228,15 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
   (도미노·직선). → **노이즈 변조 확률 전파**: 각 frontier→연료 전환 확률을 `FastNoiseLite` 공간 노이즈로 변조
   (`_creep_noise_at`, `BASE_PROB 0.72 · MIN 0.30`). 안 붙은 셀은 다음 틱 재시도 → 불규칙 fingers, 결국 다 탐.
   impl/튜닝(DRIFT-096 확산 우산). smoke는 확률이라 creep 테스트를 반복 호출로 near-certain화.
-- **남은:** S5(gas/연기 알파 페이드·셰이더 엣지·m/s 기반 속도·render dirty-track) · S4 다매질 스택 · spec 전파(OPS_30).
+- **S4 done — 다매질 스택(activeMedia = primaryMedium + extra), INT-002 §6.1 정확 수렴.** 리스크 통제로 **primary(평면 필드)=primaryMedium
+  + `extra:{medium→MediumState}`=하위 activeMedia** 모델 채택(spec primaryMedium/activeMedia 구분과 정합). 3단계:
+  - **S4a**(behavior-neutral): `MediumState` 클래스 + `Cell.extra` + 리더 extra-aware(`_tick_outcomes`/`_apply_medium_outcome`·
+    `_render_cells`·`_expire` 하위 만료+`_promote_extra`). extra 항상 비어 동작 불변. 게이트 ci_smoke 11/11.
+  - **S4b**(S1a 복원): `_stamp_zone` drop→**stack**(`_merge_medium_into`·`_demote_primary_to_extra`), origin·`_remove_origin`·
+    `detach_zone_cells` 매질별. 겹친 존 outcome/render **전부** 적용. primary 소멸 시 하위 승격. surface_smoke test17.
+  - **S4c**(셀-내 RX): `_react_same_cell`(같은 셀 Fire+Water→Steam, 겹침 내부=S2 인접의 보완) + 변환자(`fire_hits_fuel`·
+    `_creep_fuel`·`_react_cells`) **extra-clear**(stale/dupe 봉합). Oil+Fire·Fire+Veg는 `reaction_system._resolve_zone_pair`→
+    `fire_hits_fuel`(폭발/detach 포함)가 이미 처리 → 안 건드림(preempt 방지). surface_smoke test18.
+  - **비드리프트(수렴):** S4는 게임이 방금 전파한 `INT-002 §6.1`(activeMedia[]/primaryMedium)에 따라잡는 것 → 새 spec 드리프트 없음.
+    창발 트레이드오프(겹침 내부 Fire+Water 즉시 Steam·반응 변환 시 하위 매질 소진)는 튜닝/체감(F5).
+- **남은:** S5(gas/연기 알파 페이드·셰이더 엣지·m/s 기반 속도·render dirty-track). ⚠️ S4 **F5 체감 대기**(겹친 존 동시효과·렌더 층서).

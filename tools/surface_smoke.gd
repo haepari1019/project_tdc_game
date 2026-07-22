@@ -264,6 +264,45 @@ func _run() -> void:
 	_chk(_count_medium(g9, "Steam") == 0, "S2 경계반응: 안 붙은 Fire+Water는 반응 안 함")
 	g8.free(); g9.free()
 
+	# 17) S4 다매질 스택 — 겹친 Fire+ToxicGas 존 → 셀 = ToxicGas(primary) + Fire(extra), 유닛에 둘 다 적용(S1a 복원).
+	var g10 = SurfaceGrid.new(); get_root().add_child(g10)
+	var zf = HZ.new(); zf.setup(3.0, 8.0, 0.0, "Fire", false, -1.0)
+	get_root().add_child(zf); zf.global_position = Vector3(800.0, 0.0, 0.0)
+	var zg = HZ.new(); zg.setup(3.0, 6.0, 0.0, "ToxicGas", false, -1.0)
+	get_root().add_child(zg); zg.global_position = Vector3(800.0, 0.0, 0.0)   # 완전 겹침
+	g10._stamp_zones()
+	var cc = g10._cells.get(g10.cell_key(g10.cell_ix(800.0), g10.cell_ix(0.0)))
+	_chk(cc != null and cc.medium == "ToxicGas" and cc.extra.has("Fire"), "S4 스택: 겹친 셀 = ToxicGas primary + Fire extra")
+	var u2 = MockUnit.new(); get_root().add_child(u2); u2.add_to_group("enemy"); u2.global_position = Vector3(800.0, 0.0, 0.0)
+	g10._tick_outcomes(HZ.POISON_STACK_S)
+	_chk(u2.poisoned, "S4 스택: 겹친 존 → ToxicGas poison 적용")
+	_chk(u2.outcomes.has("Ignited"), "S4 스택: 겹친 존 → Fire Ignited도 적용(S1a 복원, 겹친 존 전부)")
+	# ToxicGas 존 소멸 → Fire가 primary로 승격(셀 유지).
+	zg.free()
+	g10._stamp_zones()
+	_chk(cc.medium == "Fire" and not cc.extra.has("Fire"), "S4 스택: primary(ToxicGas) 소멸 → Fire 승격")
+	zf.free(); u2.free(); g10.free()
+
+	# 18) S4c 셀-내 반응 — 한 셀에 Fire+Water 공존(겹침 내부 스택) → Steam(양쪽 소진, extra 비움). S2 인접의 보완.
+	var g11 = SurfaceGrid.new(); get_root().add_child(g11)
+	var cwf = SurfaceGrid.Cell.new(); cwf.medium = "Water"; cwf.ttl = 8.0
+	var msf = SurfaceGrid.MediumState.new(); msf.medium = "Fire"; msf.dps = 8.0; msf.ttl = 4.0
+	cwf.extra["Fire"] = msf
+	g11._cells[g11.cell_key(0, 0)] = cwf
+	g11._react_same_cell()
+	var rc = g11._cells.get(g11.cell_key(0, 0))
+	_chk(rc != null and rc.medium == "Steam" and rc.extra.is_empty(), "S4c 셀-내: Fire+Water 공존 셀 → Steam(extra 비움)")
+	# 반응 아닌 공존(Fire+ToxicGas)은 그대로 유지(같은 셀 RX 없음)
+	var g12 = SurfaceGrid.new(); get_root().add_child(g12)
+	var ctf = SurfaceGrid.Cell.new(); ctf.medium = "ToxicGas"; ctf.ttl = 5.0
+	var msf2 = SurfaceGrid.MediumState.new(); msf2.medium = "Fire"; msf2.ttl = 4.0
+	ctf.extra["Fire"] = msf2
+	g12._cells[g12.cell_key(0, 0)] = ctf
+	g12._react_same_cell()
+	var rc2 = g12._cells.get(g12.cell_key(0, 0))
+	_chk(rc2 != null and rc2.medium == "ToxicGas" and rc2.extra.has("Fire"), "S4c 셀-내: 비반응 공존(ToxicGas+Fire) 유지")
+	g11.free(); g12.free()
+
 	if _ok:
 		print("SURFACE SMOKE PASSED")
 		quit(0)
