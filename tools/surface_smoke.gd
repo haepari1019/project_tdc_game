@@ -217,8 +217,7 @@ func _run() -> void:
 	_chk(_count_medium(g5, "Oil") == 0 and _count_medium(g5, "Vegetation") == 0, "ember: oil+veg 둘 다 점화")
 	g5._expire(0.1)   # ⚠️ 변환 시 age 리셋 안 하면 여기서 즉시 소멸(기름만 사라지고 불 안 남던 버그)
 	_chk(_count_medium(g5, "Fire") > 0, "ember: 점화 후 Fire 유지(age 리셋 — 즉시 소멸 안 함)")
-	g5._stamp_zones()   # 점화가 만든 Smoke 존을 셀로 stamp
-	_chk(_count_medium(g5, "Smoke") > 0, "ember: oil 점화 시 연소 연기(Smoke) 생성 — passive와 일관")
+	# (연기는 이제 즉시 원이 아니라 불 연소 완료 시 트레일 — burnout 검증은 test14)
 	rs5.free(); mc5.free(); g5.free()
 
 	# 14) 연소 완료 → 연기 트레일: 다 탄 Fire 셀이 제거 대신 Smoke로 전환(불이 번진 만큼 연기가 따라감).
@@ -230,6 +229,14 @@ func _run() -> void:
 	g6._expire(SurfaceGrid.SMOKE_AFTER_TTL + 0.1)   # 연기도 결국 소멸
 	_chk(_count_medium(g6, "Smoke") == 0, "burnout: Smoke도 ttl 후 소멸")
 	g6.free()
+
+	# 15) 연기 팽창 — 남은 ttl 충분한 Smoke는 외곽 빈 셀로 번진다(탄 영역보다 크게).
+	var g7 = SurfaceGrid.new(); get_root().add_child(g7)
+	var sc = SurfaceGrid.Cell.new(); sc.medium = "Smoke"; sc.ttl = SurfaceGrid.SMOKE_AFTER_TTL; sc.age = 0.0
+	g7._cells[g7.cell_key(0, 0)] = sc
+	g7._smoke_expand()
+	_chk(_count_medium(g7, "Smoke") > 1, "smoke expand: 연기가 외곽으로 팽창")
+	g7.free()
 
 	if _ok:
 		print("SURFACE SMOKE PASSED")

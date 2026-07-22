@@ -51,6 +51,8 @@ const IGNITE_SEED_R := 0.6                   # Fire가 연료 명중 시 최소 
 const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
 const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)
 const SMOKE_AFTER_TTL := 3.5                 # 불이 꺼진 자리 → 연기 잔류(불이 번진 만큼 연기가 따라 퍼짐)
+const SMOKE_EXPAND_CADENCE := 0.15           # 연기 외곽 팽창 주기(탄 영역보다 크게 번지도록)
+const SMOKE_EXPAND_MIN_TTL := 1.5            # 남은 ttl이 이보다 클 때만 팽창(가장자리로 갈수록 페이드·정지)
 const WIND_PUSHABLE := ["Smoke", "Steam", "ToxicGas", "Fire"]   # B: 기체 + 불이 바람에 밀림(액체·기름 고착)
 const WIND_PUSH_RINGS := 3                   # Wind gust당 downwind 밀림 셀
 const WIND_MAX_PER_TICK := 600               # 틱당 바람 이동 셀 상한(폭주/성능 가드)
@@ -82,6 +84,7 @@ var _stamped: Dictionary = {}        # zone instance_id -> [radius, lethal] (신
 var _poison_accum: Dictionary = {}   # ToxicGas: unit → 스택 주기 누적(가스 밖 나가면 리셋)
 var _last_ignite_center: Vector3 = Vector3.ZERO   # 마지막 fire_hits_fuel이 실제 점화한 셀들의 중심(연기/폭발 배치용)
 var _last_ignite_radius: float = 0.0              # 그 점화 영역 반경(셀 수→면적)
+var _smoke_accum: float = 0.0                     # 연기 팽창 틱 누적
 
 
 # ── world↔cell 수학 ──────────────────────────────────────────────────────────
@@ -315,6 +318,34 @@ func _credit(u, dmg: float, grp: String, src) -> void:
 func _spread_cells() -> void:
 	_fire_creep()
 	_wind_push()
+	_smoke_accum += GRID_TICK_S
+	if _smoke_accum >= SMOKE_EXPAND_CADENCE:
+		_smoke_accum = 0.0
+		_smoke_expand()
+
+
+## 연기(Smoke)가 외곽 빈 셀로 번지며 옅어진다(기체 팽창) → 탄 영역보다 크게. 남은 ttl 낮은(가장자리) 연기는 멈춤.
+func _smoke_expand() -> void:
+	var add := {}
+	for key in _cells:
+		var c: Cell = _cells[key]
+		if c.medium != "Smoke":
+			continue
+		if (c.ttl - c.age) < SMOKE_EXPAND_MIN_TTL:
+			continue   # 옅어진 연기는 안 번짐(가장자리 페이드·정지)
+		var iz: int = (key & 0xFFFF) - 32768
+		var ix: int = ((key >> 16) & 0xFFFF) - 32768
+		for d in _NEI4:
+			var nkey := cell_key(ix + d.x, iz + d.y)
+			if not _cells.has(nkey) and not add.has(nkey):
+				add[nkey] = c.ttl - c.age
+	for nkey in add:
+		var s := Cell.new()
+		s.medium = "Smoke"
+		s.ttl = float(add[nkey]) * 0.75   # 번진 연기는 짧게(외곽으로 갈수록 페이드)
+		s.lethal = false
+		s.origin_id = 0
+		_cells[nkey] = s
 
 
 ## Fire가 인접 연료(Oil/Vegetation) 셀로 번진다 → 그 셀을 Fire로 전환. 연료 없으면 안 번짐(무한확산 방지).

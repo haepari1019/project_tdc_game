@@ -201,12 +201,10 @@ func _on_fire_damage_hit(p: Dictionary) -> void:
 		var oil_ir: float = _combat.surface_grid_last_ignite_radius()
 		var veg_hit: bool = _combat.surface_grid_fire_hits_fuel(center, radius, "Vegetation")   # veg는 폭발 없이 붙어 번짐
 		if oil_hit:
-			_explosion(oil_ig, minf(oil_ir + 1.0, 3.0), EXPLOSION_DMG, source)   # 폭발도 탄 자리에
+			_explosion(oil_ig, minf(oil_ir + 1.0, 3.0), EXPLOSION_DMG, source)   # 폭발은 탄 자리에
 			_clear_fuel_zones(center, radius, "Oil")
-			var smoke_h := HazardZone.new()   # RX-OIL-FIRE 연소 연기(무해·분위기/시야) — **점화된 자리**에
-			smoke_h.setup(oil_ir * 1.4 + 1.0, 0.0, 0.0, "Smoke", false, SMOKE_TTL)   # 연기는 발화점보다 팽창(탄 영역보다 크게)
-			add_child(smoke_h)
-			smoke_h.global_position = oil_ig
+			# 연기는 별도 원 존을 안 만든다 — 불이 탄 셀이 소멸 시 Smoke로 전환(_expire) + 외곽 팽창(_smoke_expand)
+			# 으로 **탄 만큼만** 따라 퍼진다(착탄 원이 점화 안 된 부분까지 덮던 문제 해소).
 		if veg_hit:
 			_clear_fuel_zones(center, radius, "Vegetation")
 	var zones := _zones_overlapping(center, radius)
@@ -438,10 +436,7 @@ func _ignite_oil(oil: Node, depth: int, source: Node = null, hit_pos = null, hit
 			var ir: float = _combat.surface_grid_last_ignite_radius()
 			_explosion(ig, minf(ir + 1.0, 3.0), EXPLOSION_DMG, source, fsafe, sfac)   # 점화 순간 국소 폭발(탄 자리)
 			_combat.surface_grid_detach_zone_cells(oil)     # 나머지 oil 셀 detach → creep이 태움/재점화 가능
-			var smoke_l := HazardZone.new()
-			smoke_l.setup(ir * 1.4 + 1.0, 0.0, 0.0, "Smoke", false, SMOKE_TTL)   # 연기는 발화점보다 팽창(탄 영역보다 크게)
-			add_child(smoke_l)
-			smoke_l.global_position = ig   # 점화된 자리에 연기
+			# 연기 = 연소 트레일(_expire Fire→Smoke) + 팽창(_smoke_expand). 별도 원 존 안 만듦(탄 만큼만).
 			oil.clear_zone()   # 존 제거(passive 재트리거 방지; 셀은 detach돼 생존)
 			print("[RX] Oil ignited @hit (depth %d) — cell footprint, creep spreads (RX-OIL-FIRE-001)" % depth)
 		return   # 불이 oil 셀에 안 닿았으면 존 유지(다음 시도 가능)
