@@ -249,4 +249,7 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
     폭발 없음(RX-FIRE-VEGETATION 정합). `grid._combat` 주입(combat_controller).
   - **규칙:** *passive medium 반응 = 그리드 CA · Hit 이벤트/전투효과 = reaction_system.* **spec 정합 유지(비드리프트)** — passive
     Oil+Fire는 여전히 RX-OIL-FIRE 폭발(방금 전파한 `INT-002 §6.1` Overlap combo RX와 일치). surface_smoke test19(폭발 콜백)·ci_smoke 11/11.
+  - **데이터 주도(if-분기 제거, 사용자 요청):** passive 반응을 `SAME_CELL_RX` 테이블 + `RX_RESULT_PRESET`(결과 매질 프리셋)로.
+    `_react_same_cell`은 제네릭 루프(`_match_same_cell_rx` — 테이블 순서=우선순위), 전투효과는 `_dispatch_burst`(burst kind →
+    reaction_system 콜백). **새 반응 = 테이블 한 줄**(코드 무수정). 반응이 늘 부분이라 선접기(Ice·Lightning passive 등 대비).
 - **남은:** S5(gas/연기 알파 페이드·셰이더 엣지·m/s 기반 속도·render dirty-track). ⚠️ S4/S4d **F5 체감 대기**(겹친 존 동시효과·렌더 층서·passive Oil+Fire 국소폭발 유지).
