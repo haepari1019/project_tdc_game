@@ -724,3 +724,15 @@
   매틱 1셀 잠식=서서히). `_resolve_zone_pair` 중점/shrink는 flag ON에서 폐기. **사용자 이상("교집합만 반응+서서히 확산")이
   셀 단위로 실현됨.** 남은 것은 **전파(OPS_30)** 뿐: 셀 모델·연료 creep·passive Fire+Veg·Fire↔Water 셀반응을
   `INT-002 §6.1`/`EVENT-CORE §3`/`SPREAD-ZONE-*`/`RX-*`에 반영(S2/S3 체감 후). 설계 정본 [design/surface_grid.md](design/surface_grid.md).
+
+### DRIFT-097 — 모든 환경 zone 유계(영속 ∞ 제거 → ~10s 지속): 리소스 상한 원칙 🔶 rule (전파 후보)
+- **배경(2026-07-22, 사용자):** 셀 그리드에서 **영속(ttl ∞) zone은 셀이 무한 누적** → 매 틱 순회/렌더 비용이 시간에
+  비례해 증가(랙). 원칙 채택: **모든 zone은 지속시간을 두고(영속 제거) ~10초** → 총 활성 표면이 시간으로 상한 =
+  "10초간 최대한 깔아도 연산이 버티는" 리소스 유계. (셀 관점: 지속 셀이 없어 `_expire`가 전부 만료 → 누적 차단.)
+- **변경:** `barrel.gd` Oil 장판 `ttl -1→10`, `combat_sandbox` lay-zone `-1→10`. (스킬 zone 데이터는 이미 6~9s 유계 —
+  변경 불요.)
+- **⚠️ spec 규칙 변경:** `ZONE-CORE`가 **Oil ∞·Vegetation ∞**(`default_ttl` ∞)로 정의 — 이걸 **유계 지속**으로 바꾸는
+  규칙 변경. `ZONE-OIL-001`/`ZONE-VEGETATION-001` TTL + "영속 zone" 개념(있다면) 개정 → **OPS_30 전파 후보.** 셀
+  substrate 전파 묶음(DRIFT-096)과 함께.
+- **분류:** rule → OPS_30 전파 후보. 게임 값(10s)은 튜닝수치지만, **∞→유계 전환 자체가 규칙**.
+- **게이트:** ci_smoke(부팅·존 정상 만료). ⚠️ 체감 — 기름 10s 뒤 사라짐이 게임플레이상 OK인가(점화 전 소멸 등).

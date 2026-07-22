@@ -54,7 +54,7 @@ func _break() -> void:
 	_broken = true
 	remove_from_group("destructible")
 	var oil := HazardZone.new()
-	oil.setup(OIL_RADIUS, 0.0, 0.0, "Oil", false, -1.0, 0.5)  # passable; slows units (slick), persists
+	oil.setup(OIL_RADIUS, 0.0, 0.0, "Oil", false, 10.0, 0.5)  # passable; slows(slick). 10s 지속(영속 제거 — 리소스 유계 원칙)
 	oil.position = Vector3(global_position.x, 0.0, global_position.z)
 	get_parent().add_child(oil)
 	print("[TDC] Barrel broken → oil pool")

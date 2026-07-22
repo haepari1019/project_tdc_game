@@ -669,7 +669,7 @@ func _on_lay_zone() -> void:
 	var medium: String = ZONE_MEDIA[_zone_dropdown.selected] if _zone_dropdown != null else "Fire"
 	var preset: Dictionary = ZONE_SPAWN.get(medium, {})
 	var z := HazardZone.new()
-	z.setup(ZONE_RADIUS, float(preset.get("dps", 0.0)), 0.0, medium, bool(preset.get("impassable", false)), -1.0)
+	z.setup(ZONE_RADIUS, float(preset.get("dps", 0.0)), 0.0, medium, bool(preset.get("impassable", false)), 10.0)  # 10s 지속(영속 제거)
 	_map.add_child(z)
 	z.global_position = ctrl.global_position
 	_status.text = "zone: %s @ controlled (r%.0f)" % [medium, ZONE_RADIUS]
