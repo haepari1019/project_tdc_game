@@ -27,6 +27,30 @@ func _initialize() -> void:
 	_bench("C. quiet (2× r3)", sg, [{"c": Vector3.ZERO, "r": 3.0}, {"c": Vector3(5,0,0), "r": 3.0}])
 
 	sg.free()
+
+	# 시나리오 D — perf 리팩터 후 **실제 per-tick CA 비용**(오일 위 불 확산 busy). 10존 상당 oil + 중심 fire seed.
+	var sgd: SurfaceGrid = SurfaceGrid.new()
+	for i in 10:
+		var oc := Vector3(float(i % 5) * 6.0, 0.0, float(i / 5) * 6.0)
+		var tmp := {}
+		sgd.stamp_circle(oc, 3.0, tmp)
+		for k in tmp:
+			var cell = SurfaceGrid.Cell.new(); cell.medium = "Oil"; cell.ttl = -1.0; cell.origin_id = 1000 + i
+			sgd._cells[k] = cell
+		var fk := sgd.cell_key(sgd.cell_ix(oc.x), sgd.cell_ix(oc.z))
+		var fc = SurfaceGrid.Cell.new(); fc.medium = "Fire"; fc.ttl = 4.0
+		sgd._cells[fk] = fc
+	var nd := sgd._cells.size()
+	var t := Time.get_ticks_usec()
+	sgd._rebuild_index()
+	sgd._expire(0.06)
+	sgd._react_cells()
+	sgd._fire_creep()      # oil 6링 BFS + veg 1링
+	sgd._smoke_expand()
+	var t_ca := (Time.get_ticks_usec() - t) / 1000.0
+	print("D. busy burn (10× r3 oil+fire): cells=%d  per-tick CA(index+expire+react+creep6+smoke)=%.2fms" % [nd, t_ca])
+	sgd.free()
+
 	print("=== bench done ===")
 	quit(0)
 

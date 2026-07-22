@@ -143,6 +143,7 @@ func _run() -> void:
 	g2._cells[g2.cell_key(0, 0)] = fca
 	var oca = SurfaceGrid.Cell.new(); oca.medium = "Oil"; oca.ttl = -1.0; oca.origin_id = 2
 	g2._cells[g2.cell_key(1, 0)] = oca
+	g2._rebuild_index()
 	g2._fire_creep()
 	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Oil") == 0, "S3 fire creep: Oil 인접 → Fire 전환")
 
@@ -152,6 +153,7 @@ func _run() -> void:
 	g2._cells[g2.cell_key(0, 0)] = fcv
 	var vcv = SurfaceGrid.Cell.new(); vcv.medium = "Vegetation"; vcv.ttl = -1.0; vcv.origin_id = 2
 	g2._cells[g2.cell_key(1, 0)] = vcv
+	g2._rebuild_index()
 	g2._fire_creep()
 	_chk(_count_medium(g2, "Fire") >= 2 and _count_medium(g2, "Vegetation") == 0, "S3 fire creep: Vegetation 인접 → Fire")
 
@@ -162,6 +164,7 @@ func _run() -> void:
 	var gk := g2.cell_key(g2.cell_ix(1.0), g2.cell_ix(0.0))   # 월드 (1,0) 셀 = Wind r2 안
 	var gca = SurfaceGrid.Cell.new(); gca.medium = "Steam"; gca.ttl = -1.0; gca.origin_id = 5
 	g2._cells[gk] = gca
+	g2._rebuild_index()
 	g2._wind_push()
 	_chk(_count_medium(g2, "Steam") == 1 and not g2._cells.has(gk), "S3 wind push: 기체 downwind 이동")
 	wz.free()
@@ -234,6 +237,7 @@ func _run() -> void:
 	var g7 = SurfaceGrid.new(); get_root().add_child(g7)
 	var sc = SurfaceGrid.Cell.new(); sc.medium = "Smoke"; sc.ttl = SurfaceGrid.SMOKE_AFTER_TTL; sc.age = 0.0
 	g7._cells[g7.cell_key(0, 0)] = sc
+	g7._rebuild_index()
 	g7._smoke_expand()
 	_chk(_count_medium(g7, "Smoke") > 1, "smoke expand: 연기가 외곽으로 팽창")
 	g7.free()
@@ -244,6 +248,7 @@ func _run() -> void:
 	g8._cells[g8.cell_key(0, 0)] = wc
 	var frc = SurfaceGrid.Cell.new(); frc.medium = "Fire"; frc.ttl = 4.0; frc.age = 0.0
 	g8._cells[g8.cell_key(1, 0)] = frc   # (0,0) Water 인접
+	g8._rebuild_index()
 	g8._react_cells()
 	_chk(_count_medium(g8, "Steam") == 2 and _count_medium(g8, "Water") == 0 and _count_medium(g8, "Fire") == 0, "S2 경계반응: 인접 Fire+Water → 둘 다 Steam")
 	# 안 붙은(멀리 떨어진) Fire+Water는 반응 안 함
@@ -252,6 +257,7 @@ func _run() -> void:
 	g9._cells[g9.cell_key(0, 0)] = wc2
 	var frc2 = SurfaceGrid.Cell.new(); frc2.medium = "Fire"; frc2.ttl = 4.0
 	g9._cells[g9.cell_key(10, 0)] = frc2   # 멀리
+	g9._rebuild_index()
 	g9._react_cells()
 	_chk(_count_medium(g9, "Steam") == 0, "S2 경계반응: 안 붙은 Fire+Water는 반응 안 함")
 	g8.free(); g9.free()
