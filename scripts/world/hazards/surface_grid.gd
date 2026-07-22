@@ -20,6 +20,9 @@ const CELL_M := 0.25                # 셀 한 변(m). 0.1→0.25(사용자 2026-
 const GRID_TICK_S := 0.06           # 셀 stamp/수명/확산 주기 — 짧게(매틱 1셀 확산) → 부드러운 진행
 const OUTCOME_TICK_S := 0.2         # 유닛 outcome 주기(hazard_zone.TICK_S와 동일)
 const RENDER_CADENCE_S := 0.06      # 렌더 버퍼 업로드 주기(grid tick과 동기 = 확산 끊김 완화)
+const FADE_FRAC := 0.35             # S5a: 유한 ttl 셀은 남은수명 비율이 이 값 아래로 떨어지면 알파 페이드아웃(소멸 자연스럽게)
+## S5a: 소멸 시 옅어지는(페이드) 매질 = **휘발성**(기체+불). 기름·물·얼음·초목·Fatal은 안 옅어지고 풀 알파로 유지하다 사라짐.
+const FADE_MEDIA := {"Smoke": true, "Steam": true, "ToxicGas": true, "Wind": true, "Fire": true}
 
 ## 매질별 render 층서(hazard_zone.RENDER_ORDER 미러 — 상승 기체 위 > 지면 화염 > 지면 액체/고체).
 const RENDER_ORDER := {
@@ -116,6 +119,7 @@ var _grid_accum: float = 0.0
 var _outcome_accum: float = 0.0
 var _mm: Dictionary = {}             # medium:String -> MultiMeshInstance3D (매질당 1개)
 var _quad: QuadMesh                  # 공유 flat quad(XZ 평면) — lazy(_make_medium_mesh)
+var _cell_shader: Shader = null      # S5: 셀 렌더 셰이더(lazy) — intensity 알파 + 엣지 노이즈
 var _cells: Dictionary = {}          # key:int -> Cell (소유)
 var _stamped: Dictionary = {}        # zone instance_id -> [radius, lethal] (신규/변화 감지)
 var _poison_accum: Dictionary = {}   # ToxicGas: unit → 스택 주기 누적(가스 밖 나가면 리셋)
@@ -775,12 +779,13 @@ func _render_cells() -> void:
 		if MEDIUM_COLOR.has(m):
 			if not buckets.has(m):
 				buckets[m] = {}
-			buckets[m][key] = true
+			buckets[m][key] = _cell_intensity(m, cell.age, cell.ttl)      # S5a: intensity(알파)
 		for em in cell.extra:                    # S4: 겹친 하위 매질도 렌더(RENDER_ORDER 층서)
 			if MEDIUM_COLOR.has(em):
 				if not buckets.has(em):
 					buckets[em] = {}
-				buckets[em][key] = true
+				var ms: MediumState = cell.extra[em]
+				buckets[em][key] = _cell_intensity(em, ms.age, ms.ttl)
 	var vis := _debug_mode != 2
 	for medium in MEDIUM_COLOR:
 		_update_medium_mesh(medium, buckets.get(medium, {}), vis)
@@ -827,6 +832,7 @@ func _update_medium_mesh(medium: String, cells: Dictionary, visible_flag: bool) 
 		var iz: int = (key & 0xFFFF) - 32768
 		var ix: int = ((key >> 16) & 0xFFFF) - 32768
 		mm.set_instance_transform(i, Transform3D(basis, Vector3(cell_center(ix), y, cell_center(iz))))
+		mm.set_instance_custom_data(i, Color(float(cells[key]), 0.0, 0.0, 0.0))   # S5a: intensity → 셰이더 알파(bool true=1.0 폴백)
 		i += 1
 
 
@@ -837,21 +843,46 @@ func _make_medium_mesh(medium: String) -> MultiMeshInstance3D:
 		_quad.size = Vector2(CELL_M, CELL_M)
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true       # S5a: per-instance intensity(알파)
 	mm.mesh = _quad
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.top_level = true            # per-instance transform = 월드 좌표(부모 트랜스폼 무시)
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.emission_enabled = true
-	mat.albedo_color = MEDIUM_COLOR[medium]
-	mat.emission = Color(MEDIUM_COLOR[medium].r, MEDIUM_COLOR[medium].g, MEDIUM_COLOR[medium].b)
+	var mat := ShaderMaterial.new()
+	mat.shader = _get_cell_shader()
+	mat.set_shader_parameter("base_color", MEDIUM_COLOR[medium])
 	mat.render_priority = int(RENDER_ORDER.get(medium, 0))
 	mmi.material_override = mat
 	add_child(mmi)
 	return mmi
+
+
+## S5a: 셀 render 알파(intensity). 지속형(ttl<0)·비휘발성 매질=풀; 휘발성(기체+불)만 수명 끝 FADE_FRAC 구간에서 페이드.
+func _cell_intensity(medium: String, age: float, ttl: float) -> float:
+	if ttl <= 0.0 or not FADE_MEDIA.has(medium):
+		return 1.0
+	var remain := (ttl - age) / ttl
+	return clampf(remain / FADE_FRAC, 0.0, 1.0)
+
+
+## S5a/S5b: 셀 렌더 셰이더(lazy) — unshaded 반투명, INSTANCE_CUSTOM.r=intensity(알파). [S5b: 엣지 노이즈 추가 예정]
+func _get_cell_shader() -> Shader:
+	if _cell_shader == null:
+		_cell_shader = Shader.new()
+		_cell_shader.code = """shader_type spatial;
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, shadows_disabled, ambient_light_disabled;
+uniform vec4 base_color : source_color = vec4(1.0);
+varying float inst_a;
+void vertex() {
+	inst_a = INSTANCE_CUSTOM.r;
+}
+void fragment() {
+	ALBEDO = base_color.rgb;
+	EMISSION = base_color.rgb;
+	ALPHA = clamp(base_color.a * inst_a, 0.0, 1.0);
+}
+"""
+	return _cell_shader
 
 
 ## 디버그 모드에 따라 원(HazardZone 노드) 표시/숨김. mode 1(셀만)에서만 숨긴다.

@@ -83,6 +83,13 @@ impassable(Fatal carve)은 원(circle) 유지(S1c/S1d 디스코프 — 매질과
 (셀은 평면상 안 겹침; 매질 STACK만 `RENDER_ORDER`로 순서). 유기 엣지=셰이더 노이즈(S5). 대안(셰이더 필드,
 vision_fog 월드XZ→UV 재사용)=S5 최적화 후보.
 
+**렌더 = 셀의 읽기 전용 소비자 (미래 아트 대비, 2026-07-23).** 렌더는 셀 상태를 *읽기만* 하고 바꾸지 않는다 → 진짜
+그래픽(블렌더 텍스처·GPU 파티클·메시)은 **렌더 층만 교체**, 시뮬(반응·데미지·확산)은 무변. **인계 seam** =
+`_render_cells`의 `buckets{매질→{셀:intensity}}`. 매질별로 다른 렌더러 가능(`_update_medium_mesh`가 매질당 1):
+기름/물/얼음/초목=텍스처 지면(S5 셰이더가 토대), 불/연기/증기/독안개=`GPUParticles3D`(활성 셀 영역=emitter), 특수=영역
+hero 메시. **`CELL_M`=시뮬 해상도지 아트 해상도 아님**(아트 디테일=텍스처/파티클로 sub-cell 무제한 — 셀 안 잘게 해도 됨).
+매질별 렌더러 인터페이스(quad/particle/decal 전략)는 **아트 방향 확정 후 이 seam 위에 접는다**(지금은 YAGNI — 위 분리 규율만 유지).
+
 ### 2.7 navmesh carve
 impassable 셀 → carve. 인접 impassable 셀 greedy 사각 병합 → obstruction 소수. **rebake 디바운스**(≤0.5s·set 변화
 시만). impassable은 **빠른 CA 확산 금지**(정적 trap footprint) → carve 빈도 오늘 수준 유지. 정직한 위험: impassable
