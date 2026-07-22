@@ -5,6 +5,7 @@
 > **최종 갱신:** 2026-07-09 — **컴팩션:** 스펙 전파 완료(✅ MERGED / ✅ 전파 / 🔷 전파) 드리프트 **19건 제거** — DRIFT-000·005·018·019·021·022·023·024·025·027·035·036·037·038·050·054·070·071·072(스펙 SSOT 반영 완료; 이력=spec DecisionLog/커밋). 잔존 = 튜닝 로깅(전파금지)·impl 결정·전파 후보(미전파)·파일럿 로깅(🕒 전파 보류). **현재 스펙 핀:** `staging@2bf37b2`(QA-031·Phase 2, 결속 정본 계열).
 > **미전파(승인/게이트 대기):** DRIFT-069 F3 환경 RX 3종·B7 zone spread = `PENDING-PROP`(OPS_30) · DRIFT-073~077 파일럿 결속/캐스터 설계 = 🕒 로깅(게이트 후 전파) · 058·064·065·066·067·068 = 전파 후보.
 > **2026-07-12 추가(미커밋 작업 로깅):** DRIFT-078 I-006 캐스팅 확장 패스(엄브렐러·impl/tuning·진행 중) · **DRIFT-079 AB-054 채널 규칙변경**·**DRIFT-080 DPS 초월 개편** = 🔶 rule **전파 후보**(OPS_30 미전파) · DRIFT-081 적 상태칩(impl) · **DRIFT-082 Shared 스킬 적↔아군 통합**(AB-003 파일럿·CastContext·프레젠테이션 파리티) = 🔶 rule/design **전파 후보**(packet 준비). 세부 원장 = `docs/_WIP_casting_expansion_pass.md` §4.
+> **2026-07-22 전파 완료:** DRIFT-096(셀 substrate 반응/확산 모델)·097(환경 zone 유계 ∞→10s)·093(Hit RX 겹친 매질 각 반응) → spec 역전파(staging `d9e9f52`, `DEC-20260722-001/002/003`; `INT-002`·`EVENT-CORE`·`RX-OIL-FIRE-001`·`RX-FIRE-WATER-001`·`RX-FIRE-VEGETATION-001`·`EFFECT-CORE`·`ZONE-CORE`). 스펙 핀 `2da700d`→`d9e9f52` 재핀. mapper 0·xref 0. **DRIFT-069**(per-medium RX 3종: `RX-FIRE-ICE`·`RX-COLD-FIRE`·`RX-COLD-STEAM`)은 093 위에서 채울 후속 = 여전히 미전파.
 > **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조) 이래 누적.
 
 ## 범례
@@ -671,7 +672,7 @@
   - **`_primary_medium_of`·RX_PRIORITY 유지:** 프로덕션 코드에선 이제 미사용(orphan)이나 `reaction_smoke`(EVENT-CORE §3 resolver 단위테스트)가 직접 호출 → 삭제 안 함.
 - **분류/전파:** **rule → OPS_30 전파 후보.** 개정 대상 = spec `EVENT-CORE §3`("ONE combo RX per tile" → "겹친 매질 각각 반응") / `INT-002 §6.1`. fire·cold·lightning 3축 일관. 게임 편집·체감 후 역전파. 이 레포 spec md 편집 금지.
 - **게이트:** ci_smoke 11/11 PASS (reaction_smoke 포함 — primaryMedium resolver 함수 유지로 단위테스트 무영향).
-- **상태:** 🔶 LOGGED (전파 후보·미전파). ⚠️ 체감 대기 — ①Oil+Ice 동시반응(fire) ②Water+Veg 동시반응(cold)·Water+Steam(lightning) ③연쇄 폭주 없는지(Oil 인접연쇄 + 변환물 재반응 차단).
+- **상태:** ✅ **전파** (staging `d9e9f52`, `DEC-20260722-003`; `EVENT-CORE §3`·`INT-002 §6/§6.1` — Hit medium RX 각 매질, `PhysicalImpact`는 primaryMedium 예외). F5 체감 확정(사용자, 2026-07-22): Oil+Ice에 Fire → Oil 점화 + Ice 융해 둘 다(각 매질 반응 OK). ⚠️ 얼음→물이 기름불을 켄치(Steam)해 첫 캐스트가 불발처럼 보이는 건 **096-S2 셀 경계반응과의 합작**(의도대로 수용). per-medium RX 신설(`RX-FIRE-ICE` 등)은 별개 = **DRIFT-069 후속**.
 
 ### DRIFT-094 — AB-009 축4 결속 「아군 안심 기름」(safeslick): 초월 Oil이 아군 무해 — **F-021 §3.3.1 피아무구분 예외**(결속이 환경 근본규칙을 뒤집는 첫 사례) 🔶 rule (전파 후보)
 - **배경(2026-07-21, 사용자 결정 — AB-009 축4 바인딩):** DPS 초월(IDA-024)에 AB-009 결속. **자동 폭발(컨셉 A)은 "화염존을 앞당긴 것"이라 Oil 컨셉을 지운다**는 판단으로 기각 → **Oil의 유일한 비용(피아무구분)을 제거하는 payoff**로 선회. 딜을 더하지 않고 "안심하고 깔 수 있는 기름"으로 컨셉 유지. 결속 후보 4개 중 **초월만** 결속(혈풍=무피해라 흡수 0 / Healer 지속치유·성역=서브+무치유 → 결속 없음).
@@ -704,7 +705,7 @@
 - **⚠️ 아키텍처 한계(교집합·확산 = 원 단위 근사):** 사용자 이상 = "교집합만 반응 + 서서히 확산"(DOS2/BG3 surface = **셀 그리드**). 우리 존은 `center+radius` **원 하나**라 부분 반응이 구조적으로 없음 → 교집합="중점 Steam", 확산="반경 축소"로 **근사**. 완전한 셀 그리드 surface는 전투 시스템 **대공사** = 별도 spec 과제로 **defer**(사용자와 [[refactor-risk-preference]] 논의).
 - **분류/전파:** **rule → OPS_30 전파 후보.** spec `EVENT-CORE`/`F-021 §3.2`(RX)에 **passive 존 중첩 반응** 개념 신설. 게임 편집·체감 후 역전파.
 - **게이트:** ci_smoke 11/11 PASS.
-- **상태:** 🔶 LOGGED (전파 후보·미전파). ⚠️ 체감 — Oil+Fire 자동폭발 · Fire+Water 증기+소진 · 폭주/성능(O(n²)·Steam 생성 빈도) · 확산 근사(축소) 자연스러운가.
+- **상태:** ✅ **전파** (staging `d9e9f52`, `DEC-20260722-001`; `INT-002 §6/§6.1`·`EVENT-CORE §1/§3`·`RX-OIL-FIRE-001`·`RX-FIRE-WATER-001`·`RX-FIRE-VEGETATION-001`·`EFFECT-CORE`). 셀=substrate·per-cell CA·`radius_m`=초기 seed·Overlap combo RX passive 확장(Oil+Fire·Fire+Veg·Fire+Water 경계 Steam)·확산 모델(연료 creep+Wind push) 반영. `activeMedia[]` 단일-매질/셀 = S4 갭(규칙 비전파, 후속). 게임 상수(CELL_M/rings/cadence/prob)=튜닝(로깅만).
 - **➡️ 후속(2026-07-21, 사용자 승인): 셀 그리드화 착수 — 이 "원 단위 근사"의 정식 해소.** 설계 확정 = **Target A**(셀=substrate,
   원=저작; `spawn_zone`/`radius_m` 저작 불변, 내부 래스터화). 예정 기능(퍼짐·바람 밀림)의 토대. 설계·단계·마이그레이션
   정본 = [docs/design/surface_grid.md](design/surface_grid.md) · 결정 = [[IMPL-DEC-20260721-001]]. 단계: **S0**(shadow 렌더·무침습)
@@ -722,8 +723,8 @@
 - **✅ 근사 정식 해소(2026-07-22, S2 완료):** 본 DRIFT의 핵심 한계였던 "교집합=중점 Steam·확산=반경 shrink" 원 근사를
   **셀 경계 반응**으로 대체 — `SurfaceGrid._react_cells`: **Fire 셀과 Water 셀이 인접한 경계 셀만** Steam으로(양쪽 소진,
   매틱 1셀 잠식=서서히). `_resolve_zone_pair` 중점/shrink는 flag ON에서 폐기. **사용자 이상("교집합만 반응+서서히 확산")이
-  셀 단위로 실현됨.** 남은 것은 **전파(OPS_30)** 뿐: 셀 모델·연료 creep·passive Fire+Veg·Fire↔Water 셀반응을
-  `INT-002 §6.1`/`EVENT-CORE §3`/`SPREAD-ZONE-*`/`RX-*`에 반영(S2/S3 체감 후). 설계 정본 [design/surface_grid.md](design/surface_grid.md).
+  셀 단위로 실현됨.** ✅ **전파 완료(2026-07-22, staging `d9e9f52`, `DEC-20260722-001`)**: 셀 모델·연료 creep·passive
+  Fire+Veg·Fire↔Water 셀반응을 `INT-002 §6/§6.1`/`EVENT-CORE §1/§3`/`EFFECT-CORE`/`RX-*`에 반영. 설계 정본 [design/surface_grid.md](design/surface_grid.md).
 
 ### DRIFT-097 — 모든 환경 zone 유계(영속 ∞ 제거 → ~10s 지속): 리소스 상한 원칙 🔶 rule (전파 후보)
 - **배경(2026-07-22, 사용자):** 셀 그리드에서 **영속(ttl ∞) zone은 셀이 무한 누적** → 매 틱 순회/렌더 비용이 시간에
@@ -734,5 +735,6 @@
 - **⚠️ spec 규칙 변경:** `ZONE-CORE`가 **Oil ∞·Vegetation ∞**(`default_ttl` ∞)로 정의 — 이걸 **유계 지속**으로 바꾸는
   규칙 변경. `ZONE-OIL-001`/`ZONE-VEGETATION-001` TTL + "영속 zone" 개념(있다면) 개정 → **OPS_30 전파 후보.** 셀
   substrate 전파 묶음(DRIFT-096)과 함께.
-- **분류:** rule → OPS_30 전파 후보. 게임 값(10s)은 튜닝수치지만, **∞→유계 전환 자체가 규칙**.
+- **분류:** rule → OPS_30 전파 완료. 게임 값(10s)은 튜닝수치지만, **∞→유계 전환 자체가 규칙**.
 - **게이트:** ci_smoke(부팅·존 정상 만료). ⚠️ 체감 — 기름 10s 뒤 사라짐이 게임플레이상 OK인가(점화 전 소멸 등).
+- **상태:** ✅ **전파** (staging `d9e9f52`, `DEC-20260722-002`; `ZONE-CORE` `ZONE-OIL-001`·`ZONE-VEGETATION-001` ttl `∞`→`10.0` + 유계 원칙 명문화).

@@ -142,10 +142,15 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
 문서:  이 파일 · docs/SPEC_DRIFT.md(DRIFT-096) · docs/impl_decisions/ImplDecisionLog.md · docs/ARCHITECTURE.md
 ```
 
-## 5. spec 전파 (Target A · S1/S2 체감 후 별도 승인)
-`OPS_30`: `INT-002 §6.1`+`EVENT-CORE §3`에 "타일=크기 X 셀 · 반응/확산 per-cell CA · `radius_m`=초기 seed" 명료화 →
-staging PR → `spec_ref` 재핀. **`ZONE-CORE`/`EFFECT-CORE` 지오메트리 불변**(수렴, 이탈 아님). DRIFT-096: 🔶전파후보
-→ "realized + INT-002 소폭 명료화".
+## 5. spec 전파 (Target A) — ✅ 완료 (2026-07-22)
+`OPS_30` 역전파 완료(staging `d9e9f52`, `DEC-20260722-001/002/003`, `spec_ref` `2da700d`→`d9e9f52` 재핀):
+- **DRIFT-096**(셀 substrate 반응/확산): `INT-002 §6/§6.1`(타일=`CELL_M` 셀·per-cell CA·`radius_m`=초기 seed)·
+  `EVENT-CORE §1/§3`(Ambient 중첩 반응·Hit medium RX)·`RX-OIL-FIRE-001`·`RX-FIRE-WATER-001`·`RX-FIRE-VEGETATION-001`
+  (passive/overlap 트리거·연료 creep·셀 경계 반응)·`EFFECT-CORE`(`SPREAD-ZONE-FIRE` 연료=[Veg,Oil]·확산 모델).
+- **DRIFT-097**(zone 유계): `ZONE-CORE` `ZONE-OIL-001`·`ZONE-VEGETATION-001` ttl `∞`→`10.0` + 유계 원칙 명문화.
+- **DRIFT-093**(Hit RX 각 매질, 동봉): `EVENT-CORE §3`·`INT-002 §6/§6.1` — 겹친 각 매질 반응(`PhysicalImpact`는 예외).
+- **불변(수렴):** `ZONE-CORE shape:Circle`·`EFFECT-CORE radius_m` 지오메트리 그대로. `activeMedia[]` 단일-매질/셀 = S4
+  갭(규칙 비전파). per-medium RX(`RX-FIRE-ICE` 등)=DRIFT-069 후속. 게임 상수(CELL_M/rings/cadence/prob)=튜닝(로깅만).
 
 ## 6. 진행 상태
 
