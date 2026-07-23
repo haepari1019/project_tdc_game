@@ -161,119 +161,40 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
 - **불변(수렴):** `ZONE-CORE shape:Circle`·`EFFECT-CORE radius_m` 지오메트리 그대로. `activeMedia[]` 단일-매질/셀 = S4
   갭(규칙 비전파). per-medium RX(`RX-FIRE-ICE` 등)=DRIFT-069 후속. 게임 상수(CELL_M/rings/cadence/prob)=튜닝(로깅만).
 
-## 6. 진행 상태
+## 6. 진행 상태 — S0~S5 완료 (요약)
 
-- **S0 done** — shadow substrate(`surface_grid.gd` 관측 렌더·MultiMesh·A/B `N`키·`surface_smoke`). 무침습.
-- **S1a done** — **outcome+render 권위를 셀로**(`USE_SURFACE_GRID=true`, `hazard_zone.gd`). HazardZone은 mesh·자기
-  outcome틱을 은퇴(`_build`/`_physics_process` 게이트, `clear_zone` null-safe, `get_source`/`is_lethal` 게터)하고
-  **lifetime(ttl/telegraph/clear)·geometry(radius/contains_point)·group만 유지.** `SurfaceGrid._tick_outcomes`가
-  유닛→커버 존 primaryMedium(`RX_PRIORITY`)→효과(`hazard_zone._apply_medium` 이식). **소비 4곳(RX·회피·carve)은
-  아직 원**(HazardZone circle 그대로 질의) — S1b/c/d에서 이주. 게이트: `surface_smoke`(Fire/Fatal/ToxicGas) + ci_smoke 11/11.
-  - **⚠️ 알려진 한계(S1):** 겹친 존에서 **연속 outcome은 단일 primaryMedium만** 적용(오늘은 겹친 존 전부 적용).
-    예: Fire+ToxicGas 동시 체류 → 우선순위 상위(ToxicGas) 효과만. **✅ S4 다매질 스택에서 복원됨(2026-07-22).**
-    실전 impact 작음(지속 다매질 겹침 드묾; 대부분 RX가 즉시 변환). 폴백=`USE_SURFACE_GRID=false`(원 자기완결 복귀).
-  - **⚠️ 렌더 차이:** Oil 불투명 슬릭 → 셀 반투명 오버레이(MEDIUM_COLOR). 미관 폴리시는 S5.
-- **S1b done** — **owned cells 전환.** 존이 셀을 **stamp-once**(원→셀, origin_id·ttl 복사)하면 셀은 그때부터
-  **독립 지속**(`_cells: {key: Cell}`). `_grid_tick`(0.1s) = `_stamp_zones`(신규/변화 존만·radius/lethal 변화 시
-  재스탬프·소멸 존 origin 셀 제거) → `_expire`(ttl) → outcome. render+outcome가 owned `_cells`를 읽는다(존이 아닌
-  셀 룩업 O(유닛)). **flag OFF = S0 shadow 폴백 유지.** 이게 **반응(S2)·확산(S3)의 필수 토대**(셀이 원과 분리돼야
-  소비/생성 가능). 게이트: `surface_smoke`(stamp→존재·ttl 만료·origin 소멸·outcome) + ci_smoke 11/11. 동작 중립.
-- **로드맵 실사 갱신:**
-  - **S1c(회피)·S1d(carve) 디스코프** — Fatal/impassable은 **확산 안 함**(정적 trap)이라 원(circle)이 계속
-    유효. 회피/carve는 원 유지 → **고위험 nav/스티어링 이주 회피.** 필요 시에만.
-  - **다음 = S3(확산 CA·frontier)** = 사용자 비전(퍼짐·바람) 핵심 payoff → 그 뒤 **S2(셀 경계 반응·DRIFT-096 종결).**
-    둘 다 owned cells(S1b) 위에 얹는다.
-- **S3 v1 done** — **확산 CA(owned cells 위 frontier).** 사용자 결정(2026-07-22): 권장 기본 + 확산 속도 조금 빠르게.
-  - **Fire creep** — Fire 셀이 인접 **연료(Oil/Vegetation)** 셀로 번져 Fire 전환(`FIRE_CREEP_RINGS=3`/틱). 연료
-    없으면 안 번짐(무한확산·성능 방지). 확산 산물 = detached(origin 0, 자체 ttl).
-  - **Wind push** — Wind 존 인근 **기체(Smoke/Steam/ToxicGas) + 불** 셀을 downwind(존 밖)로 `WIND_PUSH_RINGS=3`
-    이동(빈 셀로만, 틱당 `WIND_MAX_PER_TICK` 상한). **reaction_system `_spread_tick`(WindGust 자식-원 해킹)을
-    flag ON일 때 비활성화** — 그리드가 대체.
-  - **미포함(→후속):** gas 확산+intensity 알파 페이드는 S5. 액체·기름 바람 밀림 제외(지면 고착).
-  - 게이트: `surface_smoke`(fire creep Oil→Fire·wind push 이동) + ci_smoke 11/11. **튜닝 상수**(cadence·rings·wind)는
-    F5 체감 후 조정.
-  - **튜닝(2026-07-22 체감):** `FIRE_CREEP_RINGS 3→2`·`SPREAD_CADENCE 0.12→0.13`(너무 빨라 잘 안 보임).
-- **S2 착수 — 국소 점화(첫 조각).** 체감 피드백: Fire를 Oil **가장자리**에 맞혀도 옛 `_ignite_oil`이 **존 전체를 중심
-  기준 즉시 점화**해 "가운데부터 확산"처럼 보이고 creep이 안 보였다. → flag ON 시 `_ignite_oil`이 **명중 지점 국소
-  점화**로 분기: 그 존의 oil 셀을 detach(존과 분리)하고 `IGNITE_SEED_R` 인근만 Fire 씨드 → 나머지 oil 셀은 creep이
-  **맞힌 자리부터** 태운다. 존 제거해도 detach된 셀 생존. 재귀 fire_hit 연쇄 제거(creep이 대체). `surface_grid.ignite_oil_local`
-  + `combat_controller` facade + `reaction_system._ignite_oil` 분기.
-- **S2 oil-fire 재작업(2026-07-22 체감 2차).** 피드백: ① 가장자리 점화가 oil에 안 닿고 불스킬 중앙만 탐(고정 1m 씨드가
-  명중 *중앙* 기준이라 실제 oil 겹침부에 안 닿음), ② 그 뒤 detach된 oil이 원-기반 hit 감지에 안 잡혀 재점화 불가,
-  ③ 확산이 끊겨 부자연스러움. 수정:
-  - **`fire_hits_oil(center, radius)`** — 불의 **실제 footprint**의 oil 셀(zone-owned·detach **무관**, medium="Oil")을
-    Fire로 전환. `_on_fire_damage_hit`이 이걸 직접 호출 → **detach된 oil도 재점화**(존 스냅샷 무관). 실제로 닿았을 때만
-    폭발+겹친 oil존 정리(`detach_zone_cells`+`clear_zone`, passive 재트리거 방지). `ignite_oil_local` 제거.
-  - **확산 부드럽게**: `GRID_TICK_S 0.1→0.06`·`RENDER_CADENCE 0.1→0.06`·`FIRE_CREEP_RINGS 2→1` = 매 0.06s 1셀 전진(점프↓).
-  - 게이트: surface_smoke(footprint 점화·detach·통합경로·재점화) + ci_smoke 11/11.
-- **연료 일반화 + 속도 튜닝(2026-07-22 체감 3차, 3개 다 OK 후):** ① **Vegetation도 Oil처럼** 셀 footprint 점화
-  (`fire_hits_fuel(center,radius,fuel)`로 일반화 — Oil/Vegetation 공통, veg는 폭발 없이 붙음)+creep. `_rx_fire_vegetation`
-  원판은 flag OFF 폴백. ② **연료별 creep 속도** `FIRE_CREEP={"Oil":2,"Vegetation":1}` — **Oil 2배**(사용자). `_fire_creep`→
-  `_creep_fuel(fuel, rings)`. 게이트: surface_smoke(oil/veg footprint·veg creep) + ci_smoke 11/11.
-- **veg passive 점화 + oil 속도(2026-07-22 체감 4차):** ① **Fire+Vegetation passive 점화 추가**(`_resolve_zone_pair`) —
-  기존엔 Oil+Fire만 passive라 fire 존을 veg에 깔면 veg가 안 붙었다("oil·veg 떨어뜨려 동시 발화 시 veg만 안 붙음"). 셀판
-  footprint 점화+detach+clear. **⚠️ spec엔 RX-FIRE-VEGETATION이 Hit RX만 — passive 신설 = 전파 후보(DRIFT-096).**
-  ② **Oil creep 6배**(`FIRE_CREEP.Oil 2→6`, 사용자 "3배 더").
-- **연기 위치·팽창·트레일(2026-07-22 체감 5~7차):** ① 연기를 조준중심이 아닌 **실제 점화된 셀 중심**
-  (`get_last_ignite_center/radius`)에 배치(+폭발도). ② 연기 반경 = 탄 영역보다 팽창(`ir*1.4+1.0`, 기체 팽창).
-  ③ **연소 완료 셀 → Smoke 전환**(`_expire`: Fire ttl 끝나면 제거 대신 Smoke `SMOKE_AFTER_TTL`) — **불이 번진 만큼
-  연기가 따라 퍼진다**(일회성 착탄 원 → 확산 트레일).
-- **연기 트레일화·팽창(2026-07-22 체감 8차):** ① **초기 착탄 연기 원 제거**(hit·passive) — 점화 안 된 부분까지
-  덮던 문제. 연기 = **연소 트레일만**(탄 셀만). ② **`_smoke_expand`**(`SMOKE_EXPAND_CADENCE` 주기) — 연기가 외곽 빈
-  셀로 번지며 옅어짐(`ttl*0.75`, `SMOKE_EXPAND_MIN_TTL` 미만이면 정지) = 탄 영역보다 크게. ③ **렌더(연기가 oil 밑):
-  render_priority Smoke 8 > Oil 0라 셀 렌더상 연기가 위**(가려짐 아님). 어두운 oil(α0.80) 위에서 옅은 연기가 저대비로
-  보이는 것 — **S5 render 패스(셰이더/대비) 영역.** 착탄 원 제거로 연기가 탄(빈) 자리에 주로 떠 완화됨.
-- **S2 done — Fire↔Water 셀 경계 반응(DRIFT-096 종결).** `_react_cells`(grid tick): Fire 셀과 Water 셀이 **인접**하면
-  그 경계 셀들만 Steam으로(양쪽 소진, 매틱 1셀 잠식 = 서서히). `_resolve_zone_pair`의 **중점 Steam+원 shrink 근사
-  폐기**(flag ON) — "교집합만 반응 + 서서히 확산"이 셀 단위로 실현. 게이트: surface_smoke(인접 반응·비인접 무반응) +
-  ci_smoke 11/11. **DRIFT-096 근사 정식 해소.** (Oil+Fire·Fire+Veg는 이미 creep/footprint로 셀화됨.)
-- **perf 실사·해소(2026-07-22 체감 9차, 10존 랙 제보):** 원인 = 구현이 frontier 아닌 **naive**(매 틱 전체 셀 다중
-  순회 + oil 6링=6패스). 1차: **매질 인덱스 + creep frontier BFS**(50→30ms/틱). 그래도 남은 병목 = **0.1m×다존
-  = 지속 oil 셀 28k 전체를 매 틱 순회/렌더**(index/expire/render는 셀 수 비례 — 초기 경고한 "0.1m=100× 셀" 본질).
-  2차(사용자 A안): **`CELL_M 0.1→0.25`**(셀 ~6배↓) → per-tick CA **30.6→5.95ms**(surface_bench D, 10존 4480셀).
-  cell-count 속도(creep/wind)는 m/s 보존하려 `Oil 6→2`·`WIND 3→1` 재스케일. 엣지 미세함은 S5 셰이더.
-  ⚠️ 근본 교훈: **cell-count 튜닝은 셀 크기 의존** — 향후 m/s 기반으로 바꾸면 셀 크기 무관해짐(S5 후보).
-- **확산 유기화(2026-07-22 체감 10차):** creep이 4방향 인접 연료를 매 틱 **전부** 전환 → 완벽한 다이아몬드 전선
-  (도미노·직선). → **노이즈 변조 확률 전파**: 각 frontier→연료 전환 확률을 `FastNoiseLite` 공간 노이즈로 변조
-  (`_creep_noise_at`, `BASE_PROB 0.72 · MIN 0.30`). 안 붙은 셀은 다음 틱 재시도 → 불규칙 fingers, 결국 다 탐.
-  impl/튜닝(DRIFT-096 확산 우산). smoke는 확률이라 creep 테스트를 반복 호출로 near-certain화.
-- **S4 done — 다매질 스택(activeMedia = primaryMedium + extra), INT-002 §6.1 정확 수렴.** 리스크 통제로 **primary(평면 필드)=primaryMedium
-  + `extra:{medium→MediumState}`=하위 activeMedia** 모델 채택(spec primaryMedium/activeMedia 구분과 정합). 3단계:
-  - **S4a**(behavior-neutral): `MediumState` 클래스 + `Cell.extra` + 리더 extra-aware(`_tick_outcomes`/`_apply_medium_outcome`·
-    `_render_cells`·`_expire` 하위 만료+`_promote_extra`). extra 항상 비어 동작 불변. 게이트 ci_smoke 11/11.
-  - **S4b**(S1a 복원): `_stamp_zone` drop→**stack**(`_merge_medium_into`·`_demote_primary_to_extra`), origin·`_remove_origin`·
-    `detach_zone_cells` 매질별. 겹친 존 outcome/render **전부** 적용. primary 소멸 시 하위 승격. surface_smoke test17.
-  - **S4c**(셀-내 RX): `_react_same_cell`(같은 셀 Fire+Water→Steam, 겹침 내부=S2 인접의 보완) + 변환자(`fire_hits_fuel`·
-    `_creep_fuel`·`_react_cells`) **extra-clear**(stale/dupe 봉합). Oil+Fire·Fire+Veg는 `reaction_system._resolve_zone_pair`→
-    `fire_hits_fuel`(폭발/detach 포함)가 이미 처리 → 안 건드림(preempt 방지). surface_smoke test18.
-  - **비드리프트(수렴):** S4는 게임이 방금 전파한 `INT-002 §6.1`(activeMedia[]/primaryMedium)에 따라잡는 것 → 새 spec 드리프트 없음.
-    창발 트레이드오프(겹침 내부 Fire+Water 즉시 Steam·반응 변환 시 하위 매질 소진)는 튜닝/체감(F5).
-- **S4d done — passive 반응 트리거 일원화(반응 아키텍처 정리, 사용자 지적 "예외처리식" 해소).** S4c가 남긴 감지 이원화
-  (circle `_resolve_zone_pair` vs 셀)를 규칙으로 대체:
-  - **passive 매질 반응 감지 = 그리드 CA 단일 소유.** `_react_same_cell`이 Fire+{Water→Steam · Oil→Fire · Vegetation→Fire}를
-    **균일 처리**(특수처리 skip 제거) + adjacency는 `_creep_fuel`. `reaction_system._physics_process`가 flag ON에서 **early-return**
-    → `_zone_reaction_tick`/`_resolve_zone_pair` 미호출; `_resolve_zone_pair`는 flag OFF 원모델 폴백 전용으로 축소.
-  - **effect layering(감지=grid / 전투효과=reaction_system):** RX-OIL-FIRE **폭발**은 reaction_system 소유 — 그리드가 Fire+Oil 감지
-    → `_combat.rx_explode_at` → `reaction_system.passive_explode`(국소 1회, oil+fire 셀 centroid, fsafe/source 승계). Fire+Veg는
-    폭발 없음(RX-FIRE-VEGETATION 정합). `grid._combat` 주입(combat_controller).
-  - **규칙:** *passive medium 반응 = 그리드 CA · Hit 이벤트/전투효과 = reaction_system.* **spec 정합 유지(비드리프트)** — passive
-    Oil+Fire는 여전히 RX-OIL-FIRE 폭발(방금 전파한 `INT-002 §6.1` Overlap combo RX와 일치). surface_smoke test19(폭발 콜백)·ci_smoke 11/11.
-  - **데이터 주도(if-분기 제거, 사용자 요청):** passive 반응을 `SAME_CELL_RX` 테이블 + `RX_RESULT_PRESET`(결과 매질 프리셋)로.
-    `_react_same_cell`은 제네릭 루프(`_match_same_cell_rx` — 테이블 순서=우선순위), 전투효과는 `_dispatch_burst`(burst kind →
-    reaction_system 콜백). **새 반응 = 테이블 한 줄**(코드 무수정). 반응이 늘 부분이라 선접기(Ice·Lightning passive 등 대비).
-- **✅ S4/S4d F5 체감 완료(샌드박스 검증, 2026-07-23)** — 겹친 존 동시효과·렌더 층서·passive Oil+Fire 국소폭발·이펙트 자연스러움 OK.
-- **S5a/S5b done — 셀 렌더 셰이더화 + 필드(coverage 텍스처) 렌더 (2026-07-23, F5 확인).**
-  - **S5a**: MultiMesh 셀 → `ShaderMaterial`+custom-data, **intensity 알파 페이드**(휘발성=기체+불만; 기름/물/얼음/초목/Fatal은 유지).
-  - **S5b**: **per-quad 폐기 → 필드 방식.** 셀 → 매질별 **coverage 이미지**(R=intensity) → **지면 plane 1장**이 `bilinear`+월드
-    노이즈로 샘플. per-quad의 겹침 알파누적(내부 격자)·타일 seam이 **구조적으로 제거**(plane 1장 = 픽셀당 1샘플). bilinear가
-    계단을 보간, 노이즈가 유기 엣지. **surface 등장마다 노이즈 시드 재롤**(가변 패턴; 지속 중 고정 = 엣지 안 crawl). flag OFF는
-    MultiMesh 폴백 유지(`_make_medium_mesh`). **⚠️ per-quad 삽질 교훈**: 반투명 타일은 겹치면 누적격자·안 겹치면 seam →
-    매끈한 표면은 필드/텍스처가 정답(원형/정사각 rim 다 실패). 노브: `edge_lo/hi 0.28/0.62`·`noise_amp 0.30`·`noise_scale 1.8`·
-    `PAD_CELLS 2`(튜닝). **coverage 텍스처 = 미래 아트 셰이더가 그대로 샘플할 토대**(§2.6).
-- **S5 perf done (m/s · dirty-track) — 2026-07-23.**
-  - **m/s 기반 속도**: `FIRE_CREEP`/`WIND_PUSH`/`SMOKE_EXPAND`을 셀-카운트 → **m/s**(`FIRE_CREEP_MPS`·`WIND_PUSH_MPS`·`SMOKE_EXPAND_MPS`);
-    `_mps_to_rings` = `round(mps·GRID_TICK_S/CELL_M)`로 변환 → **CELL_M 바꿔도 체감 일정**(재튜닝 불요). 0.25m에서 기존 링수와 동일.
-  - **render dirty-track**: `_render_cells`가 **셀 수 불변 + 휘발성 매질 없음**이면 coverage 재빌드 **스킵**(정적 비휘발성 표면).
-    모든 in-place 반응은 fade 매질(Fire/Steam/Smoke)을 만들어 `_has_fade_media`가 잡고, 구조 변화는 `_cells.size()`로 잡음
-    (뮤테이션 sprinkle 없이 gate 한 곳). 디버그 토글은 `_render_dirty`로 우회. surface_smoke test20. ci_smoke 11/11.
-- **남은:** chunk 승격(대면적 상시 표면) = 데모엔 **YAGNI**. **surface 셀 그리드 대공사 = 사실상 완료**(S0~S5 + DRIFT-096/097/093 전파).
+> 최종 상태 + 핵심 결정/교훈만. F5 튜닝 라운드 블로우바이블로우는 **git 이력**(압축, 2026-07-23).
+
+**완료 스테이지:** S0(shadow) · S1a(outcome/render 권위를 셀로, `USE_SURFACE_GRID=true`) · S1b(owned cells) ·
+S3(확산 CA) · S2(셀 경계반응·DRIFT-096 종결) · S4~S4d(다매질 스택·반응 아키텍처) · S5a/b(렌더) · S5 perf.
+`surface_smoke`(test1~20) + `ci_smoke 11/11` + F5 체감(시각 스테이지) 게이트 전부 통과. **폴백:** `USE_SURFACE_GRID=false` → S0 shadow(원 자기완결).
+
+- **S1c/S1d(회피·carve) 디스코프** — Fatal/impassable은 확산 안 함(정적 trap) → 원(circle) 유지 = 고위험 nav/스티어링 이주 회피.
+
+### 핵심 결정·교훈 (스테이지별)
+- **S1b owned cells = 반응/확산의 필수 토대.** 존이 셀을 **stamp-once**(원→셀, origin_id·ttl 복사)하면 셀은 원과 분리돼 독립
+  지속(`_cells:{key:Cell}`) → 소비/생성 가능. `_grid_tick` = stamp(신규/변화 존만) → expire → 반응 → 확산 → outcome.
+- **S3 확산 모델.** Fire **creep** = 인접 **연료 셀(Oil/Vegetation)로만** 번짐(무연료=무확산, 산물=detached origin 0); **Wind push**
+  = 기체+불을 downwind 빈 셀로(WindGust 자식-원 해킹 대체). **유기화**: creep이 4방향 전부 전환하면 다이아몬드 직선전선 →
+  **노이즈 변조 확률 전파**(`_creep_noise_at`)로 불규칙 fingers(안 붙은 셀 다음 틱 재시도, 결국 다 탐).
+- **S2 국소 점화 + 경계반응.** 옛 `_ignite_oil`(존 전체 즉시점화)이 creep을 가림 → **`fire_hits_fuel(center,radius,fuel)`**로 불
+  **footprint의 연료 셀만** 점화(Oil/Vegetation 공통, zone-owned·detach 무관 → 재점화 가능)+creep. **Fire↔Water 셀 경계반응**
+  (`_react_cells`: 인접 경계 셀만 Steam, 매틱 1셀 = 서서히) = **DRIFT-096 근사(중점 Steam·원 shrink) 정식 해소.** 연소 완료 Fire
+  셀 → Smoke 전환(`_expire`)+외곽 팽창(`_smoke_expand`) = 트레일.
+- **perf 교훈.** index/expire/render는 **셀 수 비례** → `CELL_M 0.1→0.25`(셀 ~6배↓, per-tick CA 30→6ms). 확산은 매질 인덱스+
+  frontier BFS. **근본 교훈: cell-count 튜닝은 셀 크기 의존** → S5에서 m/s로 해소.
+- **S4 다매질 스택 (INT-002 §6.1 정확 수렴, 비드리프트).** `Cell.medium`(primaryMedium) + `extra:{medium→MediumState}`(하위
+  activeMedia). 겹친 존 outcome/render **전부** 적용 = S1a 한계(겹침 시 단일 primaryMedium만) 복원. 단계 S4a(구조·무동작)→
+  S4b(stack)→S4c(셀-내 RX + 변환자 extra-clear). 리스크 통제로 위험한 CA는 S4c까지 무손.
+- **S4d 반응 아키텍처 규칙 ("예외처리식" 해소).** **passive medium 반응 = 그리드 CA**(`_react_same_cell` + `SAME_CELL_RX`
+  데이터 테이블·`_creep_fuel`) · **Hit 이벤트/전투효과 = reaction_system.** 감지 일원화(circle `_resolve_zone_pair`는 flag OFF
+  폴백 전용). **effect layering**: RX-OIL-FIRE 폭발은 reaction_system 소유 — 그리드 감지 → `_combat.rx_explode_at` 콜백.
+  새 반응 = 테이블 한 줄(Ice·Lightning passive 등 대비 선접기).
+- **S5b 렌더 교훈 (중요).** 반투명 **per-quad** 타일은 **겹치면 알파누적(내부 격자)·안 겹치면 seam** → 매끈한 표면 구조적
+  불가(원형/정사각 rim 다 실패). **필드 방식이 정답**: 셀 → 매질별 coverage 이미지(R=intensity) → 지면 plane 1장이 `bilinear`+
+  월드 노이즈로 샘플(픽셀당 1샘플, 누적 없음). S5a 알파 페이드(휘발성 매질만) 유지. noise 시드는 surface 등장마다 재롤.
+  **coverage 텍스처 = 미래 아트 셰이더 토대**(§2.6).
+- **S5 perf.** m/s 속도(`_mps_to_rings`, 셀 크기 무관) · render dirty-track(정적 비휘발성 표면은 재빌드 스킵 — `_has_fade_media`
+  + `_cells.size()` gate 한 곳, sprinkle 없음).
+
+**남은:** chunk 승격(대면적 상시 표면) = 데모엔 **YAGNI**. **surface 셀 그리드 대공사 = 사실상 완료**(S0~S5 + DRIFT-096/097/093 전파).
