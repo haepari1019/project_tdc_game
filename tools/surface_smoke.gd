@@ -332,6 +332,22 @@ func _run() -> void:
 	_chk(mc13.explode_count == 1, "S4d 셀-내: Veg 점화는 폭발 없음(콜백 count 유지)")
 	mc13.free(); g13.free()
 
+	# 20) S5 dirty-track — 비휘발성(Oil)만이면 스킵 후보, 휘발성(Fire) 있으면 항상 재렌더. 렌더 후 dirty=false·size 갱신.
+	var gdt = SurfaceGrid.new(); get_root().add_child(gdt)
+	var dt_oil = SurfaceGrid.Cell.new(); dt_oil.medium = "Oil"; dt_oil.ttl = 10.0
+	gdt._cells[gdt.cell_key(0, 0)] = dt_oil
+	gdt._rebuild_index()
+	_chk(not gdt._has_fade_media(), "dirty-track: Oil만 → 휘발성 없음(정적 스킵 후보)")
+	gdt._render_cells()
+	_chk(not gdt._render_dirty and gdt._last_render_size == 1, "dirty-track: 렌더 후 dirty=false·last_size=1")
+	var dt_fire = SurfaceGrid.Cell.new(); dt_fire.medium = "Fire"; dt_fire.ttl = 4.0
+	gdt._cells[gdt.cell_key(1, 0)] = dt_fire
+	gdt._rebuild_index()
+	_chk(gdt._has_fade_media(), "dirty-track: Fire 추가 → 휘발성 있음(항상 재렌더)")
+	# m/s → 셀-링(CELL_M 무관): 0.25m·0.06s에서 Oil 8.33m/s = 2링, Veg/Wind 4.17 = 1링
+	_chk(gdt._mps_to_rings(8.33) == 2 and gdt._mps_to_rings(4.17) == 1, "m/s→rings: Oil 8.33→2·Veg/Wind 4.17→1(CELL_M 0.25)")
+	gdt.free()
+
 	if _ok:
 		print("SURFACE SMOKE PASSED")
 		quit(0)

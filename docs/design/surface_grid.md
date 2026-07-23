@@ -270,4 +270,10 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
     MultiMesh 폴백 유지(`_make_medium_mesh`). **⚠️ per-quad 삽질 교훈**: 반투명 타일은 겹치면 누적격자·안 겹치면 seam →
     매끈한 표면은 필드/텍스처가 정답(원형/정사각 rim 다 실패). 노브: `edge_lo/hi 0.28/0.62`·`noise_amp 0.30`·`noise_scale 1.8`·
     `PAD_CELLS 2`(튜닝). **coverage 텍스처 = 미래 아트 셰이더가 그대로 샘플할 토대**(§2.6).
-- **남은:** m/s 기반 속도(셀 크기 무관화) · render dirty-track(변화 셀만 갱신) · chunk 승격(대면적) — 전부 perf/robustness(비가시). 유기 렌더·페이드는 done.
+- **S5 perf done (m/s · dirty-track) — 2026-07-23.**
+  - **m/s 기반 속도**: `FIRE_CREEP`/`WIND_PUSH`/`SMOKE_EXPAND`을 셀-카운트 → **m/s**(`FIRE_CREEP_MPS`·`WIND_PUSH_MPS`·`SMOKE_EXPAND_MPS`);
+    `_mps_to_rings` = `round(mps·GRID_TICK_S/CELL_M)`로 변환 → **CELL_M 바꿔도 체감 일정**(재튜닝 불요). 0.25m에서 기존 링수와 동일.
+  - **render dirty-track**: `_render_cells`가 **셀 수 불변 + 휘발성 매질 없음**이면 coverage 재빌드 **스킵**(정적 비휘발성 표면).
+    모든 in-place 반응은 fade 매질(Fire/Steam/Smoke)을 만들어 `_has_fade_media`가 잡고, 구조 변화는 `_cells.size()`로 잡음
+    (뮤테이션 sprinkle 없이 gate 한 곳). 디버그 토글은 `_render_dirty`로 우회. surface_smoke test20. ci_smoke 11/11.
+- **남은:** chunk 승격(대면적 상시 표면) = 데모엔 **YAGNI**. **surface 셀 그리드 대공사 = 사실상 완료**(S0~S5 + DRIFT-096/097/093 전파).
