@@ -23,6 +23,7 @@ const RENDER_CADENCE_S := 0.06      # 렌더 버퍼 업로드 주기(grid tick�
 const FADE_FRAC := 0.35             # S5a: 유한 ttl 셀은 남은수명 비율이 이 값 아래로 떨어지면 알파 페이드아웃(소멸 자연스럽게)
 ## S5a: 소멸 시 옅어지는(페이드) 매질 = **휘발성**(기체+불). 기름·물·얼음·초목·Fatal은 안 옅어지고 풀 알파로 유지하다 사라짐.
 const FADE_MEDIA := {"Smoke": true, "Steam": true, "ToxicGas": true, "Wind": true, "Fire": true}
+const PAD_CELLS := 2                # S5b(필드): coverage 텍스처 bbox 패딩(경계 노이즈/블러 여유)
 
 ## 매질별 render 층서(hazard_zone.RENDER_ORDER 미러 — 상승 기체 위 > 지면 화염 > 지면 액체/고체).
 const RENDER_ORDER := {
@@ -117,9 +118,17 @@ var _debug_mode: int = 0
 var _render_accum: float = 0.0
 var _grid_accum: float = 0.0
 var _outcome_accum: float = 0.0
-var _mm: Dictionary = {}             # medium:String -> MultiMeshInstance3D (매질당 1개)
-var _quad: QuadMesh                  # 공유 flat quad(XZ 평면) — lazy(_make_medium_mesh)
-var _cell_shader: Shader = null      # S5: 셀 렌더 셰이더(lazy) — intensity 알파 + 엣지 노이즈
+var _mm: Dictionary = {}             # medium:String -> MultiMeshInstance3D (flag OFF shadow 폴백만)
+var _quad: QuadMesh                  # 공유 flat quad(XZ 평면) — lazy(_make_medium_mesh, flag OFF)
+var _cell_shader: Shader = null      # flag OFF MultiMesh용 셰이더(lazy) — intensity 알파
+## S5b 필드 렌더(flag ON): 매질별 coverage 이미지→텍스처→지면 plane 1장(bilinear+노이즈). per-quad 겹침 격자/seam 제거.
+var _planes: Dictionary = {}         # medium -> MeshInstance3D (지면 plane, 매질당 1개)
+var _images: Dictionary = {}         # medium -> Image (coverage: R=intensity)
+var _textures: Dictionary = {}       # medium -> ImageTexture
+var _plane_quad: PlaneMesh = null    # 공유 단위 PlaneMesh(인스턴스 스케일로 region 커버)
+var _field_shader: Shader = null     # 필드 렌더 셰이더(lazy)
+var _field_seed: Dictionary = {}     # medium -> Vector2 노이즈 도메인 오프셋(surface 등장마다 재롤 = 가변 패턴)
+var _field_had: Dictionary = {}      # medium -> bool 지난 틱 활성 여부(empty→active 전이 감지 → 시드 재롤)
 var _cells: Dictionary = {}          # key:int -> Cell (소유)
 var _stamped: Dictionary = {}        # zone instance_id -> [radius, lethal] (신규/변화 감지)
 var _poison_accum: Dictionary = {}   # ToxicGas: unit → 스택 주기 누적(가스 밖 나가면 리셋)
@@ -772,23 +781,82 @@ func detach_zone_cells(oil) -> void:
 
 ## owned 셀 → 매질별 버킷 → MultiMesh(flag ON).
 func _render_cells() -> void:
-	var buckets := {}
+	# 1) 매질별 활성 셀(ix,iz,intensity) 수집 + 전역 bbox(렌더 매질만)
+	var cover := {}   # medium → Array([ix, iz, intensity])
+	var mnx := 0x3FFFFFFF
+	var mxx := -0x3FFFFFFF
+	var mnz := 0x3FFFFFFF
+	var mxz := -0x3FFFFFFF
 	for key in _cells:
 		var cell := _cells[key] as Cell
-		var m: String = cell.medium
-		if MEDIUM_COLOR.has(m):
-			if not buckets.has(m):
-				buckets[m] = {}
-			buckets[m][key] = _cell_intensity(m, cell.age, cell.ttl)      # S5a: intensity(알파)
-		for em in cell.extra:                    # S4: 겹친 하위 매질도 렌더(RENDER_ORDER 층서)
+		var ix: int = ((key >> 16) & 0xFFFF) - 32768
+		var iz: int = (key & 0xFFFF) - 32768
+		var hit := false
+		if MEDIUM_COLOR.has(cell.medium):
+			if not cover.has(cell.medium):
+				cover[cell.medium] = []
+			cover[cell.medium].append([ix, iz, _cell_intensity(cell.medium, cell.age, cell.ttl)])
+			hit = true
+		for em in cell.extra:
 			if MEDIUM_COLOR.has(em):
-				if not buckets.has(em):
-					buckets[em] = {}
 				var ms: MediumState = cell.extra[em]
-				buckets[em][key] = _cell_intensity(em, ms.age, ms.ttl)
+				if not cover.has(em):
+					cover[em] = []
+				cover[em].append([ix, iz, _cell_intensity(em, ms.age, ms.ttl)])
+				hit = true
+		if hit:
+			mnx = mini(mnx, ix); mxx = maxi(mxx, ix); mnz = mini(mnz, iz); mxz = maxi(mxz, iz)
+	if cover.is_empty():
+		for p in _planes.values():
+			(p as MeshInstance3D).visible = false
+		_apply_circle_visibility()
+		return
+	# 2) bbox + 패딩(경계 노이즈 여유) → 텍스처/region 크기
+	mnx -= PAD_CELLS; mnz -= PAD_CELLS; mxx += PAD_CELLS; mxz += PAD_CELLS
+	var W := mxx - mnx + 1
+	var H := mxz - mnz + 1
+	var rmin := Vector2(float(mnx) * CELL_M, float(mnz) * CELL_M)
+	var rsize := Vector2(float(W) * CELL_M, float(H) * CELL_M)
 	var vis := _debug_mode != 2
+	# 3) 매질별 coverage 이미지 → 텍스처 → plane(bilinear 샘플, 누적 없음)
 	for medium in MEDIUM_COLOR:
-		_update_medium_mesh(medium, buckets.get(medium, {}), vis)
+		var list = cover.get(medium)
+		var plane: MeshInstance3D = _planes.get(medium)
+		if list == null:
+			if plane != null:
+				plane.visible = false
+			_field_had[medium] = false
+			continue
+		if not _field_had.get(medium, false):
+			_field_seed[medium] = Vector2(randf() * 997.0, randf() * 997.0)   # 새 surface 등장 → 새 노이즈 시드(가변 패턴)
+		_field_had[medium] = true
+		var img: Image = _images.get(medium)
+		var resized: bool = img == null or img.get_width() != W or img.get_height() != H
+		if resized:
+			img = Image.create(W, H, false, Image.FORMAT_RGBA8)
+			_images[medium] = img
+		img.fill(Color(0, 0, 0, 0))
+		for e in list:
+			img.set_pixel(int(e[0]) - mnx, int(e[1]) - mnz, Color(float(e[2]), 0.0, 0.0, 1.0))   # R=intensity
+		var tex: ImageTexture = _textures.get(medium)
+		if tex == null or resized:
+			tex = ImageTexture.create_from_image(img)
+			_textures[medium] = tex
+		else:
+			tex.update(img)
+		if plane == null:
+			plane = _make_plane(medium)
+			_planes[medium] = plane
+		plane.visible = vis
+		var order: int = int(RENDER_ORDER.get(medium, 0))
+		plane.transform = Transform3D(
+			Basis().scaled(Vector3(rsize.x, 1.0, rsize.y)),
+			Vector3(rmin.x + rsize.x * 0.5, 0.06 + float(order) * 0.012, rmin.y + rsize.y * 0.5))
+		var mat: ShaderMaterial = plane.material_override
+		mat.set_shader_parameter("coverage", tex)
+		mat.set_shader_parameter("region_min", rmin)
+		mat.set_shader_parameter("region_size", rsize)
+		mat.set_shader_parameter("seed_offset", _field_seed[medium])
 	_apply_circle_visibility()
 
 
@@ -885,6 +953,63 @@ void fragment() {
 	return _cell_shader
 
 
+## S5b 필드 렌더 plane(매질당 1) — 단위 PlaneMesh + 필드 셰이더. 인스턴스 스케일로 region 커버.
+func _make_plane(medium: String) -> MeshInstance3D:
+	if _plane_quad == null:
+		_plane_quad = PlaneMesh.new()
+		_plane_quad.size = Vector2(1.0, 1.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = _plane_quad
+	mi.top_level = true
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mat := ShaderMaterial.new()
+	mat.shader = _get_field_shader()
+	mat.set_shader_parameter("base_color", MEDIUM_COLOR[medium])
+	mat.render_priority = int(RENDER_ORDER.get(medium, 0))
+	mi.material_override = mat
+	add_child(mi)
+	return mi
+
+
+## S5b 필드 셰이더(lazy) — coverage 텍스처 bilinear 샘플 + 월드 노이즈로 유기 엣지. 누적 없음(plane 1장 = 한 번 샘플).
+func _get_field_shader() -> Shader:
+	if _field_shader == null:
+		_field_shader = Shader.new()
+		_field_shader.code = """shader_type spatial;
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, shadows_disabled, ambient_light_disabled;
+uniform sampler2D coverage : filter_linear, repeat_disable;
+uniform vec4 base_color : source_color = vec4(1.0);
+uniform vec2 region_min = vec2(0.0);
+uniform vec2 region_size = vec2(1.0);
+uniform float edge_lo = 0.28;
+uniform float edge_hi = 0.62;
+uniform float noise_amp = 0.30;
+uniform float noise_scale = 1.8;   // 무늬 ~0.55m(유기 lobe). ↑=잘게(그레인), ↓=크게(뭉뚱)
+uniform vec2 seed_offset = vec2(0.0);   // 노이즈 도메인 오프셋(surface마다 가변 → 항상 같은 패턴 방지)
+varying vec3 wpos;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	vec2 cuv = (wpos.xz - region_min) / region_size;
+	float cov = texture(coverage, cuv).r;
+	float n = (vnoise((wpos.xz + seed_offset) * noise_scale) - 0.5) * noise_amp;
+	float a = smoothstep(edge_lo, edge_hi, cov + n);
+	ALBEDO = base_color.rgb;
+	EMISSION = base_color.rgb;
+	ALPHA = clamp(a * base_color.a, 0.0, 1.0);
+}
+"""
+	return _field_shader
+
+
 ## 디버그 모드에 따라 원(HazardZone 노드) 표시/숨김. mode 1(셀만)에서만 숨긴다.
 func _apply_circle_visibility() -> void:
 	var circles_visible := _debug_mode != 1
@@ -901,6 +1026,8 @@ func cycle_debug() -> String:
 	if _debug_mode == 2:                 # 셀 숨김 즉시 반영(다음 render 전)
 		for mmi in _mm.values():
 			(mmi as MultiMeshInstance3D).visible = false
+		for p in _planes.values():
+			(p as MeshInstance3D).visible = false
 	return debug_label()
 
 

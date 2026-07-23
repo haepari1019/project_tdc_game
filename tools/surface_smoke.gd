@@ -134,10 +134,11 @@ func _run() -> void:
 	_chk(_count_medium(grid, "Fire") > 0, "ignite순서: Oil 소비 자리에 Fire 셀 남음")
 	_chk(_count_medium(grid, "Oil") == 0, "ignite순서: Oil 셀 제거됨")
 
-	# 8) render 경로 — _render_cells가 MultiMesh를 채운다(smoke가 이전엔 안 태우던 경로).
+	# 8) render 경로 — _render_cells가 필드 plane + coverage 텍스처를 만든다(S5b 필드 렌더).
 	grid._render_cells()
-	var fmmi = grid._mm.get("Fire")
-	_chk(fmmi != null and fmmi.multimesh.instance_count > 0, "render: _render_cells → Fire MultiMesh 채움")
+	var fp = grid._planes.get("Fire")
+	_chk(fp != null and fp.visible, "render: _render_cells → Fire 필드 plane 활성")
+	_chk(grid._textures.has("Fire"), "render: Fire coverage 텍스처 생성")
 	fire.free()
 	grid.free()
 

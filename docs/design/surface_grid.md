@@ -77,7 +77,9 @@ impassable(Fatal carve)은 원(circle) 유지(S1c/S1d 디스코프 — 매질과
 따라 기어감·기체 감쇠+소멸·Wind zone=방향 바이어스. spec `max_tiles_per_gust:2`·`max_spreads_per_room:6`·
 `SPREAD-ZONE-*-{n}TILES`가 literally 구현 가능(수렴). `_spread_tick` WindGust 자식-원 해킹 제거.
 
-### 2.6 렌더 — MultiMesh
+### 2.6 렌더 — 필드(coverage, flag ON) / MultiMesh(flag OFF 폴백)
+**flag ON(현재) = 필드 방식(S5b done).** 셀 → 매질별 coverage 이미지(R=intensity) → 지면 plane 1장이 `bilinear`+월드 노이즈로
+샘플 → 매끈한 유기 표면(겹침 알파누적 격자·타일 seam 없음, plane 1장=픽셀당 1샘플). 아래 MultiMesh 서술은 **flag OFF 폴백**.
 매질별 `MultiMeshInstance3D` 1개, 활성 셀당 flat quad 인스턴스 1개. per-instance transform(셀 중심)+custom-data
 (intensity→alpha). **매질당 draw call 1회.** 버퍼는 매 그리드 틱 갱신 O(활성 셀). **DRIFT-095 깜빡임 대부분 소멸**
 (셀은 평면상 안 겹침; 매질 STACK만 `RENDER_ORDER`로 순서). 유기 엣지=셰이더 노이즈(S5). 대안(셰이더 필드,
@@ -260,4 +262,12 @@ S3:    reaction_system.gd(_spread_tick → 셀 CA) or surface_grid.gd 이관
     `_react_same_cell`은 제네릭 루프(`_match_same_cell_rx` — 테이블 순서=우선순위), 전투효과는 `_dispatch_burst`(burst kind →
     reaction_system 콜백). **새 반응 = 테이블 한 줄**(코드 무수정). 반응이 늘 부분이라 선접기(Ice·Lightning passive 등 대비).
 - **✅ S4/S4d F5 체감 완료(샌드박스 검증, 2026-07-23)** — 겹친 존 동시효과·렌더 층서·passive Oil+Fire 국소폭발·이펙트 자연스러움 OK.
-- **남은:** S5(렌더/perf) — intensity 알파 페이드 · 셰이더 엣지 노이즈 · m/s 기반 속도(셀 크기 무관화) · render dirty-track · chunk 승격 · nav 디바운스.
+- **S5a/S5b done — 셀 렌더 셰이더화 + 필드(coverage 텍스처) 렌더 (2026-07-23, F5 확인).**
+  - **S5a**: MultiMesh 셀 → `ShaderMaterial`+custom-data, **intensity 알파 페이드**(휘발성=기체+불만; 기름/물/얼음/초목/Fatal은 유지).
+  - **S5b**: **per-quad 폐기 → 필드 방식.** 셀 → 매질별 **coverage 이미지**(R=intensity) → **지면 plane 1장**이 `bilinear`+월드
+    노이즈로 샘플. per-quad의 겹침 알파누적(내부 격자)·타일 seam이 **구조적으로 제거**(plane 1장 = 픽셀당 1샘플). bilinear가
+    계단을 보간, 노이즈가 유기 엣지. **surface 등장마다 노이즈 시드 재롤**(가변 패턴; 지속 중 고정 = 엣지 안 crawl). flag OFF는
+    MultiMesh 폴백 유지(`_make_medium_mesh`). **⚠️ per-quad 삽질 교훈**: 반투명 타일은 겹치면 누적격자·안 겹치면 seam →
+    매끈한 표면은 필드/텍스처가 정답(원형/정사각 rim 다 실패). 노브: `edge_lo/hi 0.28/0.62`·`noise_amp 0.30`·`noise_scale 1.8`·
+    `PAD_CELLS 2`(튜닝). **coverage 텍스처 = 미래 아트 셰이더가 그대로 샘플할 토대**(§2.6).
+- **남은:** m/s 기반 속도(셀 크기 무관화) · render dirty-track(변화 셀만 갱신) · chunk 승격(대면적) — 전부 perf/robustness(비가시). 유기 렌더·페이드는 done.
