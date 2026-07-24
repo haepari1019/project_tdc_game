@@ -6,6 +6,7 @@
 > **미전파(승인/게이트 대기):** DRIFT-069 F3 환경 RX 3종·B7 zone spread = `PENDING-PROP`(OPS_30) · DRIFT-073~077 파일럿 결속/캐스터 설계 = 🕒 로깅(게이트 후 전파) · 058·064·065·066·067·068 = 전파 후보.
 > **2026-07-12 추가(미커밋 작업 로깅):** DRIFT-078 I-006 캐스팅 확장 패스(엄브렐러·impl/tuning·진행 중) · **DRIFT-079 AB-054 채널 규칙변경**·**DRIFT-080 DPS 초월 개편** = 🔶 rule **전파 후보**(OPS_30 미전파) · DRIFT-081 적 상태칩(impl) · **DRIFT-082 Shared 스킬 적↔아군 통합**(AB-003 파일럿·CastContext·프레젠테이션 파리티) = 🔶 rule/design **전파 후보**(packet 준비). 세부 원장 = `docs/_WIP_casting_expansion_pass.md` §4.
 > **2026-07-22 전파 완료:** DRIFT-096(셀 substrate 반응/확산 모델)·097(환경 zone 유계 ∞→10s)·093(Hit RX 겹친 매질 각 반응) → spec 역전파(staging `d9e9f52`, `DEC-20260722-001/002/003`; `INT-002`·`EVENT-CORE`·`RX-OIL-FIRE-001`·`RX-FIRE-WATER-001`·`RX-FIRE-VEGETATION-001`·`EFFECT-CORE`·`ZONE-CORE`). 스펙 핀 `2da700d`→`d9e9f52` 재핀. mapper 0·xref 0. **DRIFT-069**(per-medium RX 3종: `RX-FIRE-ICE`·`RX-COLD-FIRE`·`RX-COLD-STEAM`)은 093 위에서 채울 후속 = 여전히 미전파.
+> **2026-07-24 전파 완료:** DRIFT-098(zone 형상 축 `Rect` 방향성 복도 + 능력 `shape`/`length_m`/`width_m` + `WindBuffeted` 진입임펄스→체류 드리프트) → spec 역전파(staging `a5e5ae3`, `DEC-20260724-001`; `ZONE-CORE`·`D-016`·`EFFECT-CORE`·`STATUS-OUTCOME-CORE`·`RX-WIND-ENTER-001`·`AB-042`). 스펙 핀 `d9e9f52`→`a5e5ae3` 재핀. mapper 0·xref broken-ref 0. **후속:** AB-042 적 telegraph ↔ 아군 cast_s 타이밍 대칭 = Phase B(spec TODO 등재).
 > **출처:** 2026-06-08 read-only 드리프트 서베이(스펙 SSOT 대조) 이래 누적.
 
 ## 범례
@@ -762,11 +763,18 @@
   - **aim 회귀 수정** — `shape:"rect"` 추가가 AB-042를 **AB-005용 빔 조준 분기**(캐스터에서 뻗는 lane)로 밀어넣어
     ⓐ 프리뷰↔실제 스폰 좌표 불일치 ⓑ 최대사거리 링 미표시가 발생. `skillbook_zone`+rect는 **지면배치 조준**으로 분리
     (`AimMarker.show_zone_rect` = 커서 P 중앙 rect 프리뷰 + 사거리 링). `skillbook_strike`+rect(AB-005)는 빔 유지.
-- **⚠️ spec 필드 추가(전파 후보):** zone cast 스키마에 **`shape`(circle|rect)·`length_m`·`width_m`** 신설 — 튜닝수치가
-  아니라 **필드/enum 추가**라 SSOT 편집 + OPS_30 전파 대상. 대상 후보: `ZONE-CORE`(존 형상 = 원 전제)·`F-021` §3.3 ·
-  AB-042 능력 정의. **이 레포에서 spec md 미편집**(CLAUDE.md 절대규칙).
+- **⚠️ spec 필드 추가 → ✅ 전파 완료:** zone cast 스키마에 **`shape`(circle|rect)·`length_m`·`width_m`** 신설 —
+  튜닝수치가 아니라 **필드/enum 추가**라 SSOT 편집 대상이었고 OPS_30으로 역전파했다. (impact_scan 결과 `F-021`은
+  형상을 언급하지 않아 **대상 아님** — 형상 SSOT는 `ZONE-CORE`.) 실제 전파 범위는 예상보다 넓었다: spec이
+  `WindBuffeted`를 *"진입 0.3s 짧은 밀림 + 속도 ×1.05"*(`APPLY-WIND-PUSH-0P3S`/`RX-WIND-ENTER-001`)로 정의하고
+  있어 **밀림 모델 전환**까지 함께 반영.
 - **튜닝수치(로깅만):** `length_m` 6.0 · `width_m` 2.5(구 `radius_m` 2.0 원 대체) · `WIND_UNIT_PUSH_MPS` 2.5(근단 피크) ·
   `WIND_FALLOFF_MIN` 0.2 · `cast_s` 1.0. 전부 Phase B 재튜닝 대상.
-- **분류:** rule(필드 추가) → **OPS_30 전파 후보** + impl/tuning(밀림·aim·수치)은 DRIFT-078 우산 하위 로깅.
+- **분류:** rule(형상 축·기준점 규약·밀림 모델 전환) → **OPS_30 전파 완료** + impl/tuning(aim 분리·수치)은 DRIFT-078
+  우산 하위 로깅.
 - **게이트:** ci_smoke **PASS**(11/11). F5 체감 2회 반영(조준 불일치 → aim 분리 / 즉발 체감 → cast_s 1.0).
-- **상태:** ⬜ 미전파(필드 추가분). 게임 구현·게이트 완료.
+- **상태:** ✅ **전파** (spec `a5e5ae3` staging push, `DEC-20260724-001`; `ZONE-CORE` 형상 축 규약 + `ZONE-WIND-001`
+  `Circle`→`Rect` · `D-016` §3 `shape`/`length_m`/`width_m` + 기준점 규약 · `EFFECT-CORE` `DRIFT-WIND-CORRIDOR`+
+  `APPLY-WIND-BUFFETED-DWELL` 신설·`APPLY-WIND-PUSH-0P3S` Deprecated · `STATUS-OUTCOME-CORE` `WindBuffeted`=체류 표식 ·
+  `RX-WIND-ENTER-001` 재작성 · `AB-042` 값 부여). 게임 재핀 `d9e9f52`→`a5e5ae3`. mapper 0 · xref broken-ref 0.
+  **후속(spec TODO 등재):** 적 `telegraph_s` 0.4 ↔ 아군 `cast_s` 1.0 **타이밍 대칭 미확정** = Phase B 판정.
