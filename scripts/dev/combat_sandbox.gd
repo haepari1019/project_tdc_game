@@ -93,7 +93,6 @@ const IDENTITY_VERIFY := {
 	"arc_line": "최근접 적 향해 좁은 관통선 다단히트.\n• [하늘색] 직선이 여러 적 관통(최대 max_hits만큼)",
 	"flank_dash": "최근접 적으로 대시 후 다단 버스트.\n• [크림슨] 적에게 순간 접근(대시)\n• hits회 연타 + 카메라 셰이크",
 	"mend_circle": "[녹색] 지면 펄스 — 범위 힐(체력 낮은 아군 우선).\n• 녹색 펄스 후 주변 아군 HP 회복",
-	"ward_shield": "가장 다친 아군에 보호막 + 디버프 1개 클렌즈. 전투 중(10m 내 적)만.\n• 다친 아군에 보호막 게이지\n• 상태이상 1개 제거(클렌즈)",
 }
 # 평타 검증 — ba 아키타입 shape별 기대 VFX (skill_vfx _BA_VFX와 1:1).
 const BASIC_SHAPE_DESC := {

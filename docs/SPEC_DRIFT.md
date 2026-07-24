@@ -809,4 +809,4 @@
   `AB-012` Debuff→Control·`applies_status`→`[Polymorphed]`·`cast_s 3.0` · `EFFECT-CORE` `APPLY-POLYMORPH-30S`·
   `APPLY-HEX-WEAK-4S` Deprecated · `STATUS-OUTCOME-CORE` `HEX-WEAK` Deprecated · `AB-070` 아군 dispel(`targetType` Any) ·
   프로즈 `EN-007`/`ROLE-040`/`ROLE-001`/`ENC-HARD-004`/`AB-080`/`IDA-031` 정합). 게임 재핀 `a5e5ae3`→`fb87816`. mapper 0 ·
-  xref broken-ref 0 · 정의 ID +1. **후속(spec TODO):** ① `IDA-031`이 개구리도 cleanse할지 ② 3s 캐스트 중 표적 이탈=대상 락(impl).
+  xref broken-ref 0 · 정의 ID +1. 개구리 dispel = **AB-070 단일 확정**(게임에 다른 정화 없음 — IDA-031은 지속치유로 재해석됨, Ward Pulse 정화 폐지 DRIFT-073). **후속:** 3s 캐스트 중 표적 이탈=대상 엔티티 락(impl).

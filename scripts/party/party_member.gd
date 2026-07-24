@@ -1278,11 +1278,6 @@ func clear_active_channel(n: Node) -> void:
 		_active_channel = null
 
 
-## F-009/F-008 Ward Pulse (IDA-031) — cleanse one debuff. Returns the removed outcome id ("" if none).
-func cleanse_one() -> String:
-	return _outcome.cleanse_one() if _outcome != null else ""
-
-
 func is_alive() -> bool:
 	return _alive
 
