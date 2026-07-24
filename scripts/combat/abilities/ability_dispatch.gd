@@ -745,8 +745,8 @@ func fire_hit(center: Vector3, r: float, depth: int, source: Node = null) -> voi
 
 
 ## Spawn a medium ground zone (party spawn-zone subs: AB-009/036/039/040/042/043).
-func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null) -> void:
-	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source)
+func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null, opts: Dictionary = {}) -> void:
+	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source, opts)
 
 
 ## Emit a ColdDamageHit at a point (party Glacial Bolt, AB-041) → Cold RX (Water→Ice, Veg→Slowed).

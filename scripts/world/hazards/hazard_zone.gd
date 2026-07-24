@@ -79,6 +79,12 @@ var _source: Node = null   # attacker credited for threat when this zone damages
 ## 이 존의 효과(미끄럼·피해)를 **전부** 면제받는다. 결속이 환경 피아무구분 규칙을 뒤집는 첫 사례.
 var friendly_safe: bool = false
 var safe_faction: String = ""
+## AB-042 Wind 방향성 복도 — 기본은 원형(shape="circle"·radius). rect면 wind_dir 축 방향으로 길이 length,
+## 직각 폭 width의 직사각(global_position = 복도 **중앙**). SurfaceGrid가 stamp_rect·_wind_field로 읽는다.
+var shape: String = "circle"
+var wind_dir: Vector3 = Vector3.ZERO
+var length: float = 0.0
+var width: float = 0.0
 
 
 func setup(p_radius: float, p_dps: float, p_telegraph_s: float = 0.0, p_status: String = "Fatal", p_impassable: bool = true, p_ttl: float = -1.0, p_slow: float = 0.0) -> void:
@@ -89,6 +95,15 @@ func setup(p_radius: float, p_dps: float, p_telegraph_s: float = 0.0, p_status: 
 	impassable = p_impassable
 	ttl = p_ttl
 	slow_factor = p_slow
+
+
+## 방향성 직사각 복도로 전환(AB-042 Wind). setup() 뒤에 호출. dir = 바람 축(캐스터→조준점), global_position=중앙.
+func setup_rect(dir: Vector3, p_length: float, p_width: float) -> void:
+	shape = "rect"
+	var d := Vector3(dir.x, 0.0, dir.z)
+	wind_dir = d.normalized() if d.length() > 0.001 else Vector3(0.0, 0.0, 1.0)
+	length = p_length
+	width = p_width
 
 
 func _ready() -> void:
@@ -179,6 +194,11 @@ func _add_safe_particles() -> void:
 func contains_point(p: Vector3, pad: float = 0.0) -> bool:
 	if not _active:
 		return false
+	if shape == "rect":
+		var rel := Vector3(p.x - global_position.x, 0.0, p.z - global_position.z)
+		var along := rel.dot(wind_dir)
+		var perp := rel.x * -wind_dir.z + rel.z * wind_dir.x
+		return absf(along) <= length * 0.5 + pad and absf(perp) <= width * 0.5 + pad
 	var d := Vector2(p.x - global_position.x, p.z - global_position.z)
 	return d.length() <= radius + pad
 

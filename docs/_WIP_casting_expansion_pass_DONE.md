@@ -24,6 +24,7 @@
 | **AB-011** Toll Stun | **A 유지**(즉발; role=control→어텐션이코노미 "딜=긴캐" 예외) + **타겟팅 단일**(자기중심 AoE→조준 최근접 1체·선택어시스트 UNIT_AIM) | AoE 강타+기절 → **단일 기절+인터럽트**(sb_stun; targeted r2.5·range9) + equip **Tank 전용**(DPS·sub_bands 제거) | Tank **방벽충전**(BIND-029)+**표식**(BIND-030) generic. DPS 초월(stun kind 미구현)/혈풍=DPS 제거로 제외 | 적 EN-006 tele0.5 ↔ 아군 즉발 — **통합(exec=shared) defer**(control 대칭: 적 tell vs 아군 인터럽트; 스턴 subset 배치) | `skillbooks.json`·`sb_stun.gd`·`aim_controller.gd`·`binding_overlays.gd` | ✅ (통합 defer) |
 | **AB-039** Vent Spore | — (**AB-010에 병합 → 폐기**) | "AB-010과 느낌 중복"(사용자) → **병합**: 독안개 존을 AB-010이 흡수하고, 존은 **초월 결속 payoff**로만 발현. EN-005 킷·아군 스킬북에서 제거(**ID는 등록만 잔존·미사용** → 정식 제거는 스펙 배치). ToxicGas 존 재설계 = **체류 3s마다 독 스택 +1 + 독 지속 리셋**(옛 연속 dps 폐지) | Nuker/Healer 존 결속 소멸 → **DPS 초월로 일원화** | 적 EN-005가 더는 별도 독안개를 깔지 않음(base엔 zone 없음) | `enemies.json`·`skillbooks.json`·`hazard_zone.gd`·`sb_poison.gd`·`ability_dispatch.gd` | ✅ 병합·폐기 |
 | **AB-041** Glacial Bolt(cold) | A→**B**(cast_s 0.8→3.5) | — | 초월 cold→빙결(Rooted) 강화 | 적 EN-007 존/볼트 ↔ 아군 B | `skillbooks.json` | ✅ 완료 |
+| **AB-042** Spawn Gust Patch | A→**짧은 캐스트 1.0s**(즉발 체감 불량 → "마법적"; role=utility라 A/B 밴드 밖 **별도 판단**) · cd 10 유지 | **원형 존 → 방향성 직사각 복도**(조준점 P = 복도 **중앙**, 축 = 캐스터→P, length 6·width 2.5) + **유닛 지속 밀림 신설**(`apply_drift` — 넉백과 분리한 위치 넛지, 피아무구분, 근단 ×1.0→원단 ×0.2 gradient, 피크 2.5m/s) + 매질 밀림도 축방향 통일(`_wind_field` 공용) + **aim 회귀 수정**(rect가 AB-005 빔 분기로 오라우팅돼 프리뷰↔스폰 불일치·사거리링 소실 → `skillbook_zone`+rect = 지면배치 조준 `show_zone_rect`로 분리) | 존은 명중/치유 훅이 없어 **generic 결속 델타 없음**(bespoke는 AB-007a/b `slot_index:-1` 선례로 가능하나 미적용) | 적 EN-004도 **동일 rect 복도**(축 = 적→시전지점, 규칙5 통합). 단 적은 `telegraph_s` 0.4 / 아군은 `cast_s` 1.0 — **기제 상이**(대칭 판정 Phase B) | `skillbooks.json`·`abilities.json`·`sb_zone.gd`·`ability_dispatch.gd`·`reaction_system.gd`·`enemy_ai.gd`·`hazard_zone.gd`·`surface_grid.gd`·`party_member.gd`·`enemy_unit.gd`·`outcome_status.gd`·`aim_controller.gd`·`aim_marker.gd` | ✅ 완료(DRIFT-098) |
 | **AB-053** 작열(fire) | A→**B**(cast_s 0.6→3.0) | — | 초월 fire→화상(Ignited) 강화(BIND-019) | (DPS 전용) | `skillbooks.json` | ✅ 완료 |
 | **AB-059** 공허창(bolt) | A→**B**(cast_s 1.5→5.0) | — | — | (Ally-only) | `skillbooks.json` | ✅ 완료 |
 | **AB-064** 치유 캐스트(channel_heal) | 캐스트힐(cast_s 2.0→3.0) | — | Healer 지속치유(dot_heal) | (Ally-only) | `skillbooks.json` | ✅ 완료 |
@@ -81,4 +82,57 @@
 > - **AB-007** Retreat Hop — 가설 "A 유지" → **뒤집힘**. 아군 순수 도망은 **메리트 0**(죽은 슬롯) → **저HP auto-trigger 이탈**(마무리딜+후퇴+어그로↓)로 재설계 + 적↔아군 **거동 통일** + **`AB-007a`(액티브)/`AB-007b`(패시브) ID 분기**(스킬트리 택1) + 집중/잠행 결속.
 >
 > **전역 파생(이 ENC에서 나옴):** ① 쿨 시작 = 캐스트 **완료** 시점(활성 §0) ② 결속 `slot_index:-1`(슬롯 무관) 매칭 신설 ③ 패시브 서브 UI 규약("자동" 라벨·딤·툴팁 "직접 사용 불가").
-> 세부 = §4 원장(이 파일). **다음 ENC = ENC-MID-001**(활성 §8).
+> 세부 = §4 원장(이 파일). **다음 ENC = ENC-MID-001**(→ 아래 §8).
+
+---
+
+## 8. ENC-MID-001 — 확인 스킬표 ✅
+
+> 유닛: **EN-004 Slag Siphon ×1** · EN-010 ×2 · EN-013 ×1. (EN-010/013 = 능력 없음)
+> EN-004가 zone 스킬(AB-009 Oil · AB-042 Wind)을 들고 나오는 첫 ENC. ENC-HARD-008과 EN-004 공유 → **판정-1회로 소진**.
+
+| AB | 이름 | 효과(kind) | 아군 equip | 쓰는 적 | 판정 전 | 판정 결과 |
+|----|------|-----------|-----------|---------|---------|-----------|
+| **AB-008** | Slag Spit | 볼트+광역(bolt) | DPS·Nuker | EN-004 | 즉발 cd2.5 | **B(cast_s 3.0)·cd5·unified** — 볼트 계열 **원형**(집중→투사체→광역) 확정. DRIFT-085 |
+| **AB-009** | Spawn Oil Patch | 기름 장판(zone) | DPS·Healer | EN-004 | 즉발 cd8 | **A 유지** + 관성 강화 + 클래스 Healer→DPS + RX 전부매질 + 초월 `safeslick`. DRIFT-091~095 |
+| **AB-042** | Spawn Gust Patch | 돌풍 장판(zone) | Nuker·Healer | EN-004 | 즉발 cd10 · **무효과** | **원형→방향성 rect 복도 + 유닛 밀림 신설 + cast_s 1.0.** DRIFT-098 |
+
+### 8.1 존 정책 — 통합 폐기 (2026-07-21, 사용자)
+"장판 생성"은 **구현 kind(`skillbook_zone`)이지 디자인 역할이 아니다** — 같은 kind가 피해존(AB-039)·감속존(Ice)·
+콤보씨앗(Oil)·산포기(Wind)처럼 전혀 다른 역할을 한다. 이 패스의 판정 축은 전부 **역할 기반**이라 kind로 묶을 근거가
+없고, zone 스킬이 5종뿐이라 통합의 관리 이점도 없다. → **존 정책 옵션표·"정책 상속" 폐기**, zone 스킬은 §5 전수표의
+**개별 스킬**로 각자 4축 판정.
+
+### 8.2 코드 실사 (2026-07-15 · 07-21 재실사 · **07-23 3차 갱신**)
+1. **RX 엔진 완전 가동** — Oil→Fire 점화(폭발+연쇄+잔류), Water→감전 전도, Ice↔Fire 용해/응결 등. AB-039 병합은
+   **삭제가 아니라 흡수**라 RX 무손상(트리거만 BIND-031로 이동) — 남는 건 "매질 판 등장 빈도 감소"뿐.
+2. **잔존 존 5종 전부 `role: utility`·무피해** — 유일한 피해 존이던 AB-039가 HARD-001에서 병합·소멸. 원안이 존을
+   기각한 근거는 **피해 존**에 대한 것이라 무피해 존에 전이되지 않음(기계적 일반화 경고).
+3. **존은 피아무구분**(`F-021` §3.3.1) — 내 기름에 우리 파티도 미끄러진다. 위협만 진영 인지.
+4. **훅 없는 서브도 bespoke 결속 가능** — AB-007a/b(블링크·무피해·무치유)가 `slot_index:-1`로 델타 보유. 즉
+   "존=결속 불가"가 아니라 **"generic 훅으론 불가, bespoke는 선례대로 가능"**.
+5. **⚠️ 3차 갱신(2026-07-23) — surface_grid 리팩터가 위 전제를 바꿨다.** 존 outcome 틱이 `hazard_zone`→`SurfaceGrid`로
+   이관됐고, Wind 확산은 `reaction_system._spread_tick`(자식-원 해킹) **→ `SurfaceGrid._wind_push`(셀 CA)로 교체**
+   (flag ON에선 `_spread_tick` 미호출). 밀리는 대상도 `WIND_PUSHABLE` = **기체+불만**(Smoke/Steam/ToxicGas/Fire) —
+   기름·물·얼음은 **고착**. → 옛 서술 *"돌풍에 기름이 흘러간다"*는 **무효**. 이 갱신이 AB-042 판정의 실제 출발점이 됐다.
+
+### 8.3 파손 2건 (§0 "명백히 깨진 효과" 스코프)
+① **AB-042 Wind = 무효과** — `WindBuffeted`는 색·KO라벨·플로팅텍스트·오브까지 배선돼 있으나 `MOVE_MULT` 항목이 없고
+   넉백 소스도 없었다(주석은 *"the source applies a knockback"* 이라 약속하나 그 source가 부재). → **DRIFT-098에서 해소**.
+② **잠복 크래시 → ✅ 해소(2026-07-18)** — `cast_context.gd` 계약 누락이 2개가 아니라 **15개**(공간쿼리 flip 6·힐 3·
+   RX 위임 3·파티전용 3). 전부 메움 + `CTX_CONTRACT` 계약 상수 + `party_pool_smoke` 파리티 게이트로 CI가 잡는다.
+
+> ✅ **ENC-MID-001 완료 (2026-07-24) — 가설 대비 실제 결정:**
+> - **AB-008** Slag Spit — 볼트 **원형**으로 확정(B·cast_s 3.0·unified). 존 정책과 독립(유일한 `role=threat` 딜 서브).
+> - **AB-009** Spawn Oil Patch — 가설 "정책 종속" → **A 유지**로 개별 확정. 무피해 RX 셋업씨앗은 **즉발이 곧 정체성**
+>   (AB-011 `role=control` A유지와 같은 논리). 초월 `safeslick`이 **결속이 환경 피아무구분 규칙을 뒤집는 첫 사례**.
+> - **AB-042** Spawn Gust Patch — 가설 "AB-009 정책 상속" → **뒤집힘.** 정책 상속이 폐기된 데다, 실사에서 Wind가 유닛에
+>   **아무 효과도 없는 상태**임이 드러나 파손 수정이 판정의 본체가 됐다. 결정: **원형 방사 → 직사각 방향성 복도**
+>   (P=복도 중앙 · 축 = 캐스터→P · 근단 최강 gradient) + **유닛 지속 밀림 신설**(`apply_drift`) + **cast_s 1.0**
+>   (즉발 체감 불량 → "마법적"). 적 EN-004도 동일 rect 복도(규칙5 통합).
+>
+> **전역 파생(이 ENC에서 나옴):** ① **존 통합 정책 폐기**(kind≠역할 — §8.1) ② **zone cast 스키마에 형상 축 신설**
+> (`shape`/`length_m`/`width_m` → DRIFT-098 **OPS_30 전파 후보**) ③ **rect 존 지면배치 조준 분리**
+> (`AimMarker.show_zone_rect` — "rect = 캐스터에서 뻗는 빔"이라는 기존 가정을 깸) ④ **환경 드리프트 API**(`apply_drift`)를
+> 일회 넉백(`apply_knockback`)과 분리 — 유닛별 스무딩 차이로 지속 밀림엔 넉백이 부적합.
+> 세부 = §4 원장(이 파일). **다음 = Phase A 표 순회**(활성 §5).

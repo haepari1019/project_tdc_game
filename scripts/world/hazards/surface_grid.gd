@@ -68,6 +68,8 @@ const STEAM_CELL_TTL := 5.0                  # Fire↔Water 경계 반응 산물
 const WIND_PUSHABLE := ["Smoke", "Steam", "ToxicGas", "Fire"]   # B: 기체 + 불이 바람에 밀림(액체·기름 고착)
 const WIND_PUSH_MPS := 4.17                  # Wind downwind 밀림 **속도(m/s)** — 셀 크기 무관(`_mps_to_rings`). 0.25m·0.06s=1링.
 const WIND_MAX_PER_TICK := 600               # 틱당 바람 이동 셀 상한(폭주/성능 가드)
+const WIND_UNIT_PUSH_MPS := 2.5              # AB-042: Wind 복도 **근단 피크** 유닛 밀림 속도(m/s·피아무구분). gradient로 원단 감소. 시작값 — Phase B 튜닝.
+const WIND_FALLOFF_MIN := 0.2                # AB-042: 복도 gradient 원단 배율(근단 ×1.0 → 원단 ×이 값, 선형).
 
 ## S4d: passive 셀-내 반응 = **데이터 테이블**(반응 늘면 여기 한 줄, 코드 무수정). 한 셀에 a·b 매질 공존 → result로 붕괴.
 ## `burst`(선택) = 일회성 전투효과 kind → reaction_system 콜백(_dispatch_burst; 그리드=매질, 전투효과=위임 layering).
@@ -177,6 +179,30 @@ func stamp_circle(center: Vector3, radius: float, out: Dictionary) -> void:
 				out[cell_key(ix, iz)] = true
 
 
+## 방향성 직사각(복도)을 셀 집합으로 래스터화 — center=복도 중앙, dir=축(정규화 불필요), length=축길이, width=직각폭.
+## AB-042 Wind 복도 stamp 프리미티브. AABB(reach=halfL+halfW)만 훑고 축/직각 투영으로 소속 판정.
+func stamp_rect(center: Vector3, dir: Vector3, p_length: float, p_width: float, out: Dictionary) -> void:
+	var d := Vector3(dir.x, 0.0, dir.z)
+	if d.length() < 0.001 or p_length <= 0.0 or p_width <= 0.0:
+		return
+	d = d.normalized()
+	var half_l := p_length * 0.5
+	var half_w := p_width * 0.5
+	var reach := half_l + half_w   # 회전 사각형을 덮는 AABB 여유
+	var ix0 := cell_ix(center.x - reach)
+	var ix1 := cell_ix(center.x + reach)
+	var iz0 := cell_ix(center.z - reach)
+	var iz1 := cell_ix(center.z + reach)
+	for ix in range(ix0, ix1 + 1):
+		var rx := cell_center(ix) - center.x
+		for iz in range(iz0, iz1 + 1):
+			var rz := cell_center(iz) - center.z
+			var along := rx * d.x + rz * d.z
+			var perp := rx * -d.z + rz * d.x
+			if absf(along) <= half_l and absf(perp) <= half_w:
+				out[cell_key(ix, iz)] = true
+
+
 func _physics_process(delta: float) -> void:
 	if HazardZone.USE_SURFACE_GRID:
 		_grid_accum += delta
@@ -256,7 +282,10 @@ func _stamp_zones() -> void:
 ## 한 존의 원을 셀로 칠한다. S4: 겹친 매질을 **버리지 않고 스택**(primaryMedium=최우선, 나머지=extra) → S1a 복원.
 func _stamp_zone(z, id: int) -> void:
 	var tmp := {}
-	stamp_circle((z as Node3D).global_position, float(z.radius), tmp)
+	if String(z.shape) == "rect":
+		stamp_rect((z as Node3D).global_position, z.wind_dir, float(z.length), float(z.width), tmp)
+	else:
+		stamp_circle((z as Node3D).global_position, float(z.radius), tmp)
 	var src = z.get_source() if z.has_method("get_source") else null
 	var lethal: bool = (not z.has_method("is_lethal")) or z.is_lethal()
 	var medium := String(z.status)
@@ -602,6 +631,7 @@ func _set_cell_single(c: Cell, medium: String, ttl: float, dps: float, slow: flo
 func _spread_cells() -> void:
 	_fire_creep()
 	_wind_push()
+	_wind_push_units()   # AB-042: 매질(_wind_push)에 더해 존 안 유닛도 downwind로 — WindBuffeted 실효화(§8.4-①)
 	_smoke_accum += GRID_TICK_S
 	if _smoke_accum >= CELL_M / SMOKE_EXPAND_MPS:   # cadence = 1셀 전진에 걸리는 시간(셀 크기 무관)
 		_smoke_accum = 0.0
@@ -691,7 +721,32 @@ func _creep_noise_at(key: int) -> float:
 	return _creep_noise.get_noise_2d(cell_center(ix), cell_center(iz))
 
 
-## Wind 존 인근의 밀림 매질(기체·불) 셀을 downwind(=존 중심에서 바깥)로 rings만큼 이동. 빈 셀로만.
+## Wind 존의 push 필드 조회 — {in:bool, dir:Vector3(밀리는 방향), factor:float(gradient 배율)}. rect=축(wind_dir)
+## +근단gradient(1.0→WIND_FALLOFF_MIN) / circle=방사·uniform(폴백). 매질(_wind_push)·유닛(_wind_push_units) 공용.
+func _wind_field(w, px: float, pz: float) -> Dictionary:
+	var rx := px - (w as Node3D).global_position.x
+	var rz := pz - (w as Node3D).global_position.z
+	if String(w.shape) == "rect":
+		var dir: Vector3 = w.wind_dir
+		var along := rx * dir.x + rz * dir.z
+		var perp := rx * -dir.z + rz * dir.x
+		var half_l: float = float(w.length) * 0.5
+		if absf(along) > half_l or absf(perp) > float(w.width) * 0.5:
+			return {"in": false}
+		var frac := clampf((along + half_l) / maxf(float(w.length), 0.001), 0.0, 1.0)   # 0=근단(캐스터쪽) … 1=원단
+		return {"in": true, "dir": dir, "factor": lerpf(1.0, WIND_FALLOFF_MIN, frac)}
+	# circle 폴백 — 방사·uniform
+	var d2 := rx * rx + rz * rz
+	var r: float = float(w.radius)
+	if d2 > r * r:
+		return {"in": false}
+	if d2 < 0.0001:
+		return {"in": true, "dir": Vector3.ZERO, "factor": 1.0}
+	var inv := 1.0 / sqrt(d2)
+	return {"in": true, "dir": Vector3(rx * inv, 0.0, rz * inv), "factor": 1.0}
+
+
+## Wind 존 인근의 밀림 매질(기체·불) 셀을 downwind(축방향·gradient 비례 rings)로 이동. 빈 셀로만.
 ## WindGust 자식-원 해킹(reaction_system._spread_tick) 대체. 틱당 WIND_MAX_PER_TICK 상한.
 func _wind_push() -> void:
 	var winds := []
@@ -714,19 +769,52 @@ func _wind_push() -> void:
 			var px := cell_center(ix)
 			var pz := cell_center(iz)
 			for w in winds:
-				var wc: Vector3 = (w as Node3D).global_position
-				var dx := px - wc.x
-				var dz := pz - wc.z
-				var d2 := dx * dx + dz * dz
-				var reach := float(w.radius) + float(rings) * CELL_M
-				if d2 > 0.0001 and d2 <= reach * reach:
-					var inv := 1.0 / sqrt(d2)
-					var nkey := cell_key(ix + int(round(dx * inv * rings)), iz + int(round(dz * inv * rings)))
-					if nkey != key and not _cells.has(nkey):
-						_cells[nkey] = c       # downwind 이동(빈 셀로만)
-						_cells.erase(key)
-						moved += 1
+				var f := _wind_field(w, px, pz)
+				if not bool(f["in"]):
+					continue
+				var dir: Vector3 = f["dir"]
+				if dir == Vector3.ZERO:
 					break
+				var r := maxi(1, int(round(float(rings) * float(f["factor"]))))
+				var nkey := cell_key(ix + int(round(dir.x * r)), iz + int(round(dir.z * r)))
+				if nkey != key and not _cells.has(nkey):
+					_cells[nkey] = c       # downwind 이동(빈 셀로만)
+					_cells.erase(key)
+					moved += 1
+				break
+
+
+## Wind 복도 안의 유닛을 downwind(축방향)로 지속 밀어낸다(피아무구분·F-021) — 근단 최강, 원단 gradient 감소.
+## 매질을 미는 _wind_push의 유닛판, WindBuffeted 태그(§8.4-① 무효과 파손)에 실제 밀림 부여(AB-042). 넉백
+## (apply_knockback)은 일회 임펄스라 유닛별 스무딩이 달라(적=velocity/스티어 차단, 아군=instant) 지속 밀림엔
+## 부적합 → apply_drift(collision-stopped 위치 넛지)로 양 유닛 동일 속도·스티어링 미차단. grid tick마다 소량.
+func _wind_push_units() -> void:
+	var winds := []
+	for z in get_tree().get_nodes_in_group("ground_zone"):
+		if not (z is Node3D and z.has_method("is_active") and z.is_active() and String(z.status) == "Wind"):
+			continue
+		if z.has_method("is_lethal") and not z.is_lethal():
+			continue   # telegraph 단계 — 아직 밀지 않음
+		winds.append(z)
+	if winds.is_empty():
+		return
+	var base := WIND_UNIT_PUSH_MPS * GRID_TICK_S
+	for grp in ["party_member", "enemy"]:
+		for u in get_tree().get_nodes_in_group(grp):
+			if not (u is Node3D) or not u.has_method("apply_drift"):
+				continue
+			var upos: Vector3 = (u as Node3D).global_position
+			for w in winds:
+				if w.friendly_safe and grp == w.safe_faction:
+					continue   # 초월 아군안심 예외(Wind엔 미설정이나 일반 가드·DRIFT-094)
+				var f := _wind_field(w, upos.x, upos.z)
+				if not bool(f["in"]):
+					continue
+				var dir: Vector3 = f["dir"]
+				if dir == Vector3.ZERO:
+					break   # 복도 중심선 정중앙(방향 0) — 이 틱은 스킵
+				u.apply_drift(dir, base * float(f["factor"]))
+				break   # 한 유닛은 한 존에서만 밀림(중첩 존 폭주 방지)
 
 
 ## 불이 닿은 영역(center, 반경 radius)의 **연료 셀(fuel=Oil/Vegetation)을 Fire로 전환**(origin→0). 존 소속 무관 —

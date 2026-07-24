@@ -113,6 +113,9 @@
       "telegraph_s": 0.4,
       "channel": true,
       "cooldown_s": 10.0,
+      "shape": "rect",
+      "length_m": 6.0,
+      "width_m": 2.5,
       "radius_m": 2.0,
       "ttl_s": 8.0
     },

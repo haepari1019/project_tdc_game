@@ -738,3 +738,35 @@
 - **분류:** rule → OPS_30 전파 완료. 게임 값(10s)은 튜닝수치지만, **∞→유계 전환 자체가 규칙**.
 - **게이트:** ci_smoke(부팅·존 정상 만료). ⚠️ 체감 — 기름 10s 뒤 사라짐이 게임플레이상 OK인가(점화 전 소멸 등).
 - **상태:** ✅ **전파** (staging `d9e9f52`, `DEC-20260722-002`; `ZONE-CORE` `ZONE-OIL-001`·`ZONE-VEGETATION-001` ttl `∞`→`10.0` + 유계 원칙 명문화).
+
+### DRIFT-098 — AB-042 Spawn Gust Patch: 무효과 파손 해소 + 원형→**방향성 직사각 바람 복도** 🔶 rule (전파 후보)
+- **배경(2026-07-23~24, I-006 캐스팅 패스 Phase A):** ① **파손** — `WindBuffeted`는 색·KO라벨·플로팅텍스트·오브까지
+  배선돼 있으나 `outcome_status.MOVE_MULT`에 항목이 없고 넉백 소스도 없어 **런타임 무효과**였다(주석은 *"the source
+  applies a knockback"* 이라 약속하지만 그 source가 부재). `ability_roles.gd` "Wind 밀림(무피해)"의 밀림이 실제로
+  없음 = §0 "명백히 깨진 효과" 스코프. ② **surface_grid 리팩터로 전제 갱신** — 존 outcome 틱이 `hazard_zone`→
+  `SurfaceGrid`로 이관됐고, Wind 확산도 `reaction_system._spread_tick`(자식-원 해킹) → `SurfaceGrid._wind_push`(셀 CA)로
+  교체됨. 즉 Wind는 **기체·불 매질 산포기로만** 살아 있고 유닛 대상 효과는 0이었다(`WIND_PUSHABLE`=Smoke/Steam/
+  ToxicGas/Fire — 기름·물·얼음은 고착이라 "돌풍에 기름이 흘러간다"는 옛 서술도 무효).
+- **결정(사용자):** 원형 중심-방사 밀림이 아니라 **직사각 방향성 복도** — 조준점 P가 **복도 중앙**, 축 = 캐스터→P,
+  **근단(캐스터쪽)이 최강이고 원단으로 gradient 감소**, 세기 소폭 상향. 즉발 체감이 나빠 **짧은 캐스트 1.0s** 부여("마법적").
+- **변경:**
+  - **유닛 밀림 신설** — `apply_drift(dir,dist)`(party_member·enemy_unit 동일 규격) = collision-stopped 위치 넛지.
+    넉백(`apply_knockback`)은 일회 임펄스라 유닛별 스무딩이 달라(적=velocity·스티어링 차단 / 아군=instant) 지속 밀림엔
+    부적합 → 드리프트 전용 API로 분리. `SurfaceGrid._wind_push_units`가 grid tick마다 적용(피아무구분·F-021, telegraph 중 제외).
+  - **rect 지오메트리** — `HazardZone.shape/wind_dir/length/width` + `setup_rect()` + rect-aware `contains_point`,
+    `SurfaceGrid.stamp_rect()`(직사각 셀 래스터화) + `_stamp_zone` 분기. `spawn_zone(...,opts)`로 전달(sb_zone·enemy_ai).
+    **RX 스폰은 opts 없음 = 원형 유지**(Steam/Fire 등 무영향).
+  - **축방향+gradient 통일** — `_wind_field()` 공용 헬퍼로 매질(`_wind_push`)·유닛(`_wind_push_units`) 모두 축 방향 +
+    근단 gradient(1.0→`WIND_FALLOFF_MIN`). 원형 Wind는 방사·uniform 폴백.
+  - **적 대칭(규칙5 통합)** — EN-004도 동일 rect 복도(축 = 적→시전지점).
+  - **aim 회귀 수정** — `shape:"rect"` 추가가 AB-042를 **AB-005용 빔 조준 분기**(캐스터에서 뻗는 lane)로 밀어넣어
+    ⓐ 프리뷰↔실제 스폰 좌표 불일치 ⓑ 최대사거리 링 미표시가 발생. `skillbook_zone`+rect는 **지면배치 조준**으로 분리
+    (`AimMarker.show_zone_rect` = 커서 P 중앙 rect 프리뷰 + 사거리 링). `skillbook_strike`+rect(AB-005)는 빔 유지.
+- **⚠️ spec 필드 추가(전파 후보):** zone cast 스키마에 **`shape`(circle|rect)·`length_m`·`width_m`** 신설 — 튜닝수치가
+  아니라 **필드/enum 추가**라 SSOT 편집 + OPS_30 전파 대상. 대상 후보: `ZONE-CORE`(존 형상 = 원 전제)·`F-021` §3.3 ·
+  AB-042 능력 정의. **이 레포에서 spec md 미편집**(CLAUDE.md 절대규칙).
+- **튜닝수치(로깅만):** `length_m` 6.0 · `width_m` 2.5(구 `radius_m` 2.0 원 대체) · `WIND_UNIT_PUSH_MPS` 2.5(근단 피크) ·
+  `WIND_FALLOFF_MIN` 0.2 · `cast_s` 1.0. 전부 Phase B 재튜닝 대상.
+- **분류:** rule(필드 추가) → **OPS_30 전파 후보** + impl/tuning(밀림·aim·수치)은 DRIFT-078 우산 하위 로깅.
+- **게이트:** ci_smoke **PASS**(11/11). F5 체감 2회 반영(조준 불일치 → aim 분리 / 즉발 체감 → cast_s 1.0).
+- **상태:** ⬜ 미전파(필드 추가분). 게임 구현·게이트 완료.

@@ -686,6 +686,18 @@ func tick_knockback(delta: float) -> bool:
 	return true
 
 
+## 지속 위치 밀림(환경 드리프트 — 바람 등). 넉백과 달리 kb_vel/스티어링 차단 없이 매 틱 소량 이동
+## (collision-stopped). 아군판 party_member.apply_drift와 동일 규격 → 피아무 동일 속도. ref: AB-042 Wind.
+func apply_drift(dir: Vector3, dist: float) -> void:
+	if not is_alive() or dist <= 0.0:
+		return
+	var d := dir
+	d.y = 0.0
+	if d.length() < 0.01:
+		return
+	move_and_collide(d.normalized() * dist)
+
+
 ## Show current target slot color on the HP bar + next-target (imminent) marker.
 func set_target_marker(member: CharacterBody3D) -> void:
 	if _hp_bar == null:
