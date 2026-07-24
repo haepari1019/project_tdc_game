@@ -802,8 +802,11 @@
   AB-070 dispel 규약. **이 레포에서 spec md 미편집**(CLAUDE.md 절대규칙). ⚠️ 규모 큰 전파.
 - **튜닝수치(로깅만):** `poly_dur_s` 30 · `cast_s` 3.0 · `cooldown_s` 4→12 · 적 `telegraph_s` 0.45→3.0 · hop(간격 0.65·
   속도 2.2) · 개구리 축소 0.45. 전부 Phase B 재튜닝.
-- **분류:** rule/design(폴리모프 재정의·통일·dispel 규약) → **OPS_30 전파 후보** + impl/tuning은 DRIFT-078 우산 하위.
+- **분류:** rule/design(폴리모프 재정의·통일·dispel 규약) → **OPS_30 전파 완료** + impl/tuning은 DRIFT-078 우산 하위.
 - **게이트:** ci_smoke **PASS**(11/11, 4회 — 구현·spawn_zone회귀·적무시 각 확인). F5 체감 반영 2건(적이 개구리
   아군 즉시 브레이크 → 적 타겟 제외 / 적 zone 크래시 → spawn_zone arity).
-- **상태:** ⬜ 미전파(폴리모프 재정의분). 게임 구현·게이트 완료. ⚠️ **미검증 사각:** 3s 캐스트 중 표적이 radius 1.6
-  밖으로 이탈하면 실패(대상 엔티티 락 = 후속 후보). 미니멀 개구리 큐(아트 후속).
+- **상태:** ✅ **전파** (spec `fb87816` staging push, `DEC-20260724-002`; 신규 `Polymorphed`(`STATUS-ACTOR-CORE`) ·
+  `AB-012` Debuff→Control·`applies_status`→`[Polymorphed]`·`cast_s 3.0` · `EFFECT-CORE` `APPLY-POLYMORPH-30S`·
+  `APPLY-HEX-WEAK-4S` Deprecated · `STATUS-OUTCOME-CORE` `HEX-WEAK` Deprecated · `AB-070` 아군 dispel(`targetType` Any) ·
+  프로즈 `EN-007`/`ROLE-040`/`ROLE-001`/`ENC-HARD-004`/`AB-080`/`IDA-031` 정합). 게임 재핀 `a5e5ae3`→`fb87816`. mapper 0 ·
+  xref broken-ref 0 · 정의 ID +1. **후속(spec TODO):** ① `IDA-031`이 개구리도 cleanse할지 ② 3s 캐스트 중 표적 이탈=대상 락(impl).
