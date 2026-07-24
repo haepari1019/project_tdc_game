@@ -145,9 +145,12 @@ var _alert_token: int = 0
 ## 누적 이동량이 아니라 **누른 지점으로부터의 최대 직선거리**로 본다(누적은 줄지 않아 손떨림만
 ## 으로 오판됐다). orbit 시작(DRAG_START) < 클릭 인정(CLICK_MAX) 이라 둘이 겹친다 — 그 구간
 ## 에서는 카메라가 돌면서도 손을 떼면 클릭이 먹는다. 임계는 해상도 비례, InputTuning 이 SSOT.
-var _cam_orbiting := false
+## 가로(yaw)·세로(pitch)를 축별로 분리 — 세로는 더 큰 데드존(PITCH_DRAG_START)으로 엄격 판별.
+var _cam_orbiting := false               # 가로가 DRAG_START 를 넘어 yaw 가 시작됐나(래치)
+var _cam_pitching := false               # 세로가 PITCH_DRAG_START 를 넘어 피치가 시작됐나(래치)
 var _rmb_press_pos: Vector2 = Vector2.ZERO
-var _rmb_max_dist: float = 0.0
+var _rmb_max_dx: float = 0.0             # 누른 지점으로부터 도달한 최대 |가로| 거리
+var _rmb_max_dy: float = 0.0             # 누른 지점으로부터 도달한 최대 |세로| 거리
 
 # Left dev panel — fixed width, viewport-capped height, collapsible + scrollable (was an
 # unbounded VBoxContainer that overflowed the bottom of the screen and widened with long labels).
@@ -1163,23 +1166,30 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.pressed:
 			_cam_dragging = true
 			_cam_orbiting = false
-			_rmb_max_dist = 0.0
+			_cam_pitching = false
+			_rmb_max_dx = 0.0
+			_rmb_max_dy = 0.0
 			_rmb_press_pos = get_viewport().get_mouse_position()
 		else:
 			_cam_dragging = false
+			# 가로가 CLICK_MAX 안이고 세로 드래그(피치)가 시작되지 않았으면 클릭으로 인정. (리셋 전에 판정)
+			var was_pitching := _cam_pitching
 			_cam_orbiting = false
-			# orbit 이 이미 시작됐더라도 CLICK_MAX 안이면 클릭으로 인정(겹치는 구간).
-			if _rmb_max_dist <= InputTuning.click_max_px(get_viewport()) and not _pointer_over_panel():
+			_cam_pitching = false
+			if _rmb_max_dx <= InputTuning.click_max_px(get_viewport()) and not was_pitching and not _pointer_over_panel():
 				_rmb_move_to_ground()  # 우클릭 탭 → 조종캐 클릭이동
 	if event is InputEventMouseMotion and _cam_dragging:
-		_rmb_max_dist = maxf(_rmb_max_dist,
-				_rmb_press_pos.distance_to(get_viewport().get_mouse_position()))
-		if not _cam_orbiting:
-			if _rmb_max_dist <= InputTuning.drag_start_px(get_viewport()):
-				return          # 아직 데드존 안 — 카메라를 건드리지 않는다.
-			_cam_orbiting = true
-		_camera.orbit_yaw(event.relative.x)
-		_camera.pitch_by_drag(event.relative.y)
+		var cur := get_viewport().get_mouse_position()
+		_rmb_max_dx = maxf(_rmb_max_dx, absf(cur.x - _rmb_press_pos.x))
+		_rmb_max_dy = maxf(_rmb_max_dy, absf(cur.y - _rmb_press_pos.y))
+		if not _cam_orbiting and _rmb_max_dx > InputTuning.drag_start_px(get_viewport()):
+			_cam_orbiting = true    # 가로 데드존 통과 → yaw 시작
+		if not _cam_pitching and _rmb_max_dy > InputTuning.pitch_drag_start_px(get_viewport()):
+			_cam_pitching = true    # 세로는 더 큰 데드존 통과해야 피치 시작
+		if _cam_orbiting:
+			_camera.orbit_yaw(event.relative.x)
+		if _cam_pitching:
+			_camera.pitch_by_drag(event.relative.y)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_1: _party.try_swap_to(0)
@@ -1274,7 +1284,8 @@ func _ground_under_mouse():
 
 func _cast_sub(slot: int) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
-	if ctrl == null or not ctrl.is_alive() or ctrl.is_stunned():
+	if ctrl == null or not ctrl.is_alive() or ctrl.is_stunned() \
+			or (ctrl.has_method("is_polymorphed") and ctrl.is_polymorphed()):   # 개구리는 시전 불가
 		return
 	if ctrl.has_method("is_provoked") and ctrl.is_provoked():
 		return

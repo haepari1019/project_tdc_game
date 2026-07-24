@@ -13,7 +13,7 @@ var _slot: int = -1
 const UNIT_AIM_KINDS := [
 	"skillbook_taunt", "skillbook_pull", "skillbook_execute", "skillbook_charge", "skillbook_blink",
 	"skillbook_pin", "skillbook_tether", "skillbook_scent", "skillbook_root", "skillbook_slow",
-	"skillbook_vulnerable", "skillbook_purge", "skillbook_stun",
+	"skillbook_vulnerable", "skillbook_purge", "skillbook_stun", "skillbook_polymorph",
 ]
 ## 아군을 대상으로 하는 kind(초록 커서). 그 외 = 적 대상(빨강 커서).
 const ALLY_TARGET_KINDS := [

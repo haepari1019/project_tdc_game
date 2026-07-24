@@ -292,7 +292,7 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 	for m in members:
 		if not is_instance_valid(m):
 			continue
-		if m.is_stunned():  # F-021: stunned members can't act
+		if m.is_stunned() or (m.has_method("is_polymorphed") and m.is_polymorphed()):  # F-021: 기절/개구리는 행동 불가
 			continue
 		m.attack_cooldown_s = maxf(0.0, m.attack_cooldown_s - delta)
 		m.identity_cooldown_s = maxf(0.0, m.identity_cooldown_s - delta)
@@ -407,8 +407,8 @@ func ignite_at(center: Vector3, radius: float, source: Node = null) -> void:
 
 
 ## Spawn a medium ground zone (AB-009/036/039/040/042/043 — enemy/lootable). ref: F-027 ZONE-*.
-func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null) -> void:
-	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source)
+func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null, opts: Dictionary = {}) -> void:
+	_reactions.spawn_zone(medium, pos, radius, dps, ttl, source, opts)
 
 
 ## S4d: SurfaceGrid가 감지한 passive Oil+Fire(셀) 점화의 국소 폭발(RX-OIL-FIRE) — 전투효과는 reaction_system 소유.
@@ -503,12 +503,14 @@ func _in_rect(units: Array, pos: Vector3, axis: Vector3, length: float, half_wid
 
 
 ## 순수 최근접 필터 — 수평(x,z) 거리 기준(파티가 적 위로 떠 있어 3D는 높이차만큼 밀림).
-func _nearest_in_range(units: Array, from: Vector3, range_m: float) -> CharacterBody3D:
+func _nearest_in_range(units: Array, from: Vector3, range_m: float, skip_poly: bool = false) -> CharacterBody3D:
 	var best: CharacterBody3D = null
 	var best_d := range_m * range_m
 	for e in units:
 		if not is_instance_valid(e):
 			continue
+		if skip_poly and e.has_method("is_polymorphed") and e.is_polymorphed():
+			continue   # AB-012 개구리 = 자동공격 대상 제외("얼려둔 놈" 실수로 안 깨지게)
 		var d: float = Spatial.h_dist2(from, e.global_position)
 		if d <= best_d:
 			best_d = d
@@ -549,7 +551,7 @@ func _allies_in_radius(pos: Vector3, r: float) -> Array:
 
 
 func _nearest_enemy_in_range(from: Vector3, range_m: float) -> CharacterBody3D:
-	return _nearest_in_range(_enemies, from, range_m)
+	return _nearest_in_range(_enemies, from, range_m, true)   # 파티 평타는 개구리 스킵(자동 브레이크 방지)
 
 
 ## Party→enemy damage with F-022 threat: damage*mult, first-attack bonus,

@@ -352,6 +352,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	enemy.tick_slow(delta)
 	enemy.tick_stun(delta)
 	enemy.tick_silence(delta)  # AB-044 Hush Ward — active-cast block timer
+	enemy.tick_polymorph(delta)  # AB-012 Hex Bolt — 개구리 변이 지속 감소
 	enemy.tick_outcome(delta)  # elemental outcome timers + Ignited DoT
 	# Stunned (EN-AI-000 §2): frozen + INTERRUPT — any channel/cast or dash in progress fails
 	# (no resolve; its cooldown stays consumed). Player counterplay: stun EN-001 mid-Mockery.
@@ -364,6 +365,18 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 			print("[EN] %s cast interrupted (stun)" % enemy.enemy_id)
 		enemy.dashing = false
 		enemy.velocity = Vector3.ZERO
+		enemy.move_and_slide()
+		return
+	# Polymorphed (AB-012 Hex Bolt): 개구리 — 공격/시전 전면 불가, AI 대신 랜덤 hop만. 시전 중이면 인터럽트.
+	# 피해를 받으면 enemy_unit.take_damage가 즉시 해제(sheep式). 이 takeover가 winding/attack 로직을 전부 스킵.
+	if enemy.is_polymorphed():
+		if enemy.winding:
+			enemy.winding = false
+			enemy.windup_target = null
+			enemy.windup_unified = {}
+			_clear_cast_bar(enemy)
+		enemy.dashing = false
+		enemy.velocity = enemy.polymorph_hop_velocity(delta)
 		enemy.move_and_slide()
 		return
 	# Smoothed knockback push takes over movement for its short duration.
@@ -1084,10 +1097,9 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			target.apply_outcome("Chilled", float(eff.get("chill_dur_s", 3.0)))
 			get_tree().call_group("event_bus", "emit_event", "ColdDamageHit",
 				{"position": target.global_position, "radius": 1.5, "source": enemy})
-		"enemy_hex":  # AB-012 Hex Bolt — HEX-WEAK soft CC (이동 감소; 피해감소 half = 후속)
-			target.apply_slow(float(eff.get("hex_slow", 0.6)), float(eff.get("hex_dur_s", 4.0)))
-			if target.has_method("apply_hex_weak"):   # enemy_unit엔 없음(진영전 표적이면 skip)
-				target.apply_hex_weak(float(eff.get("hex_weak", 0.5)), float(eff.get("hex_dur_s", 4.0)))
+		"enemy_hex":  # AB-012 Hex Bolt — 개구리 변이 폴리모프 CC(Shared·통일). 피해 받으면 해제.
+			if target.has_method("apply_polymorph"):
+				target.apply_polymorph(float(eff.get("poly_dur_s", 30.0)))
 		"enemy_splash":  # AB-008 Slag Spit — splash to party members near the impact point
 			var sr := float(eff.get("splash_radius_m", 1.5))
 			var sfrac := float(eff.get("splash_frac", 0.6))
@@ -1573,8 +1585,11 @@ func _select_enemy_ability(enemy: CharacterBody3D) -> Dictionary:
 func _alive_members(nodes: Array) -> Array:
 	var out: Array = []
 	for n in nodes:
-		if is_instance_valid(n) and (not n.has_method("is_alive") or n.is_alive()):
-			out.append(n)
+		if not is_instance_valid(n) or (n.has_method("is_alive") and not n.is_alive()):
+			continue
+		if n.has_method("is_polymorphed") and n.is_polymorphed():
+			continue   # AB-012 개구리 = 어그로 최하·무시(적이 안 건드려 CC가 안 깨짐)
+		out.append(n)
 	return out
 
 
@@ -1589,6 +1604,8 @@ func _nearest_visible(enemy: CharacterBody3D, nodes: Array) -> CharacterBody3D:
 			continue
 		if n.has_method("is_alive") and not n.is_alive():
 			continue
+		if n.has_method("is_polymorphed") and n.is_polymorphed():
+			continue   # AB-012 개구리 = 무시(fallback 타겟에서도 제외)
 		var d: float = from.distance_squared_to(n.global_position)
 		if d >= best_d:
 			continue
@@ -1723,6 +1740,8 @@ func _huntable(enemy: CharacterBody3D, hostiles: Array) -> Array:
 			continue
 		if h.has_method("is_alive") and not h.is_alive():
 			continue
+		if h.has_method("is_polymorphed") and h.is_polymorphed():
+			continue   # AB-012 개구리 = 사냥 후보에서 제외(무시)
 		# Keep an already-engaged target (has threat); else require near + line of sight.
 		if float(enemy.threat.get(h, 0.0)) <= 0.0:
 			if ep.distance_to(h.global_position) > HUNT_RADIUS_M or not _has_los(enemy, h):

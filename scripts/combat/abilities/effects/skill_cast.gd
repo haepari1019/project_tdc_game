@@ -48,6 +48,7 @@ func _process(delta: float) -> void:
 	# 취소: 시전자 소멸/다운/스턴, 또는 이동(시작 지점 이탈).
 	if _caster == null or not is_instance_valid(_caster) or not _caster.is_alive() \
 			or (_caster.has_method("is_stunned") and _caster.is_stunned()) \
+			or (_caster.has_method("is_polymorphed") and _caster.is_polymorphed()) \
 			or _caster.global_position.distance_to(_start_pos) > MOVE_CANCEL_M:
 		_cancel()
 		return

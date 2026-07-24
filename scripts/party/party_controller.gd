@@ -823,6 +823,9 @@ func _sv1_update_follow(
 		# 없어서, 같은 기절인데 조작 여부에 따라 거동이 갈렸다(비조작은 계속 걸어감).
 		# 오더는 **취소하지 않고 유지**만 한다 → 기절이 풀리면 목표 지점으로 다시 출발한다.
 		# 도발/오더보다 앞에 둔다: 기절은 강제이동까지 덮는 하드 락.
+		if member.has_method("is_polymorphed") and member.is_polymorphed():
+			planned[member] = member.polymorph_hop_velocity(delta)   # 개구리 — 랜덤 hop(진형/오더 무시)
+			continue
 		if member.has_method("is_stunned") and member.is_stunned():
 			member.velocity = Vector3.ZERO
 			continue
@@ -879,6 +882,12 @@ func _sv1_update_follow(
 	# would otherwise stand at the formation origin while everyone else engages, so
 	# drive it into combat here too. Outside combat it holds (the formation reference).
 	if not anchor.is_controlled() and (not anchor.has_method("is_alive") or anchor.is_alive()):
+		# 개구리(AB-012) 비조작 앵커도 랜덤 hop(피해 받으면 해제).
+		if anchor.has_method("is_polymorphed") and anchor.is_polymorphed():
+			anchor.velocity = anchor.polymorph_hop_velocity(delta)
+			_clamp_fatal(anchor, delta)
+			anchor.move_and_slide()
+			return
 		# 기절한 비조작 앵커도 정지(팔로워와 동일 규칙). 오더는 유지 → 풀리면 재출발.
 		if anchor.has_method("is_stunned") and anchor.is_stunned():
 			anchor.velocity = Vector3.ZERO

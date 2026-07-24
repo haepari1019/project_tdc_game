@@ -35,6 +35,16 @@ const CLICK_MAX_MIN_PX := 28.0
 const DRAG_START_FRACTION := 0.03
 const DRAG_START_MIN_PX := 14.0
 
+## 세로(피치 틸트) 전용 임계 — 우클릭 카메라에서만(가로 yaw/좌클릭 선택은 위 스칼라 그대로).
+## 세로가 이 거리를 넘어야 (a) 피치가 반응하고 (b) 릴리즈가 클릭이 아닌 '드래그'로 판정된다
+## (가로와 달리 겹침 구간 없는 단일 경계). **트레이드오프 — 한 축에서 두 요구가 상충한다:**
+## 크게 = 클릭이 세로 손떨림에 안 씹힘 / 대신 작은 피치 드래그가 씹힘,
+## 작게 = 피치 드래그 잘 먹힘 / 대신 손떨림이 클릭을 드래그로 오판. 그래서 값은 '손떨림'과
+## '의도한 피치 드래그'를 가르는 지점으로 맞춘다.
+## 튜닝 이력: 0.08(86px — 드래그 씹힘) → **0.04**(1080p ≈ 43px). x의 DRAG_START(32px)보단 약간 큼.
+const PITCH_DRAG_START_FRACTION := 0.04
+const PITCH_DRAG_START_MIN_PX := 19.0   # 하한 발동 crossover 를 위 둘(짧은변 ≈467px)과 일치
+
 
 ## 릴리즈 판정용 — 누른 지점에서 이 거리 안이면 클릭으로 인정.
 static func click_max_px(vp: Viewport) -> float:
@@ -44,6 +54,12 @@ static func click_max_px(vp: Viewport) -> float:
 ## 카메라 orbit / 마퀴 시작 임계 — 이걸 넘으면 드래그 동작이 시작된다(클릭 인정은 별개).
 static func drag_start_px(vp: Viewport) -> float:
 	return _scaled(vp, DRAG_START_FRACTION, DRAG_START_MIN_PX)
+
+
+## 세로(피치) 전용 임계 — 우클릭 카메라에서 세로 이동이 이 거리를 넘어야 피치가 반응하고
+## 동시에 릴리즈가 클릭이 아닌 드래그로 판정된다(겹침 구간 없는 단일 경계). 가로보다 크다.
+static func pitch_drag_start_px(vp: Viewport) -> float:
+	return _scaled(vp, PITCH_DRAG_START_FRACTION, PITCH_DRAG_START_MIN_PX)
 
 
 static func _scaled(vp: Viewport, fraction: float, min_px: float) -> float:

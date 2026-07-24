@@ -49,13 +49,10 @@
     },
     "AB-012": {
       "kind": "enemy_hex",
-      "telegraph_s": 0.45,
+      "telegraph_s": 3.0,
       "channel": true,
-      "cooldown_s": 4.0,
-      "damage_mult": 0.4,
-      "hex_slow": 0.6,
-      "hex_weak": 0.5,
-      "hex_dur_s": 4.0,
+      "cooldown_s": 12.0,
+      "poly_dur_s": 30.0,
       "vfx": "shot_hex"
     },
     "AB-013": {

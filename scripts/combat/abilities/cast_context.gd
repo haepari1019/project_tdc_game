@@ -125,8 +125,8 @@ func sub_shake(p: Dictionary) -> void:
 
 
 ## 지면 존 생성(피아무구분 — 존이 내부 유닛에 매체 결과 적용). AB-010 병합(옛 AB-039 독존)이 여기로 위임.
-func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null) -> void:
-	_dispatch.spawn_zone(medium, pos, radius, dps, ttl, source)
+func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node = null, opts: Dictionary = {}) -> void:
+	_dispatch.spawn_zone(medium, pos, radius, dps, ttl, source, opts)
 
 
 ## AB-007 이탈 — 적은 파티 위협 테이블이 없음 → 후퇴 자체가 이탈이라 no-op(아군↔적 통일 대칭).

@@ -217,6 +217,8 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 		accumulated_damage += amount   # 허수아비: 누적딜만 집계, HP 미소모(불사)
 		_flash()
 		return
+	if poly_timer_s > 0.0 and amount > 0.0:
+		remove_polymorph()   # 개구리는 피해를 받으면 즉시 해제(sheep式, AB-012)
 	hp = maxf(0.0, hp - amount)
 	if _hp_bar:
 		_hp_bar.set_ratio(hp / max_hp)
@@ -606,6 +608,84 @@ func tick_silence(delta: float) -> void:
 		silence_timer_s = maxf(0.0, silence_timer_s - delta)
 		if silence_timer_s <= 0.0:
 			_silence_dur = 0.0
+
+
+# --- Polymorph (AB-012 Hex Bolt) — 개구리 변이: 공격/시전 불가·컨트롤 무력·랜덤 hop·피해 시 즉시 해제 ---
+var poly_timer_s: float = 0.0
+var _poly_visual_on: bool = false
+var _poly_saved_scale: Vector3 = Vector3.ONE
+var _poly_mesh_base_y: float = 0.0
+var _poly_hop_t: float = 0.0
+var _poly_hop_dir: Vector3 = Vector3.ZERO
+const POLY_HOP_INTERVAL := 0.65     # 껑충 주기(초)
+const POLY_HOP_SPEED := 2.2         # 이동 구간 속도(m/s)
+const POLY_HOP_MOVE_FRAC := 0.45    # 주기 중 이동(껑충) 비율(나머지=착지 정지)
+const POLY_FROG_SCALE := 0.45       # 개구리 = 메시 축소
+const POLY_FROG_COLOR := Color(0.38, 0.85, 0.38)
+
+
+## 대상을 개구리로 변이(기본 30s). 재적용 시 지속 갱신. 죽은 유닛 no-op. 고정 지속(ccTenacity 미적용). ref: AB-012.
+func apply_polymorph(dur: float) -> void:
+	if hp <= 0.0 or dur <= 0.0:
+		return
+	if poly_timer_s <= 0.0:
+		popup_status("개구리", POLY_FROG_COLOR)
+	poly_timer_s = maxf(poly_timer_s, dur)
+	_poly_hop_t = 0.0
+	_apply_frog_visual(true)
+
+
+func is_polymorphed() -> bool:
+	return poly_timer_s > 0.0
+
+
+func tick_polymorph(delta: float) -> void:
+	if poly_timer_s > 0.0:
+		poly_timer_s = maxf(0.0, poly_timer_s - delta)
+		if poly_timer_s <= 0.0:
+			_apply_frog_visual(false)
+
+
+## 즉시 해제 — 피해 break(take_damage) / AB-070 정화.
+func remove_polymorph() -> void:
+	if poly_timer_s <= 0.0:
+		return
+	poly_timer_s = 0.0
+	_apply_frog_visual(false)
+
+
+func _apply_frog_visual(on: bool) -> void:
+	var mesh := get_node_or_null("Mesh") as Node3D
+	if on:
+		if not _poly_visual_on and mesh != null:
+			_poly_saved_scale = mesh.scale
+			_poly_mesh_base_y = mesh.position.y
+			mesh.scale = _poly_saved_scale * POLY_FROG_SCALE
+			_poly_visual_on = true
+		if _body_material:
+			_body_material.albedo_color = POLY_FROG_COLOR
+	else:
+		if _poly_visual_on and mesh != null:
+			mesh.scale = _poly_saved_scale
+			mesh.position.y = _poly_mesh_base_y
+		_poly_visual_on = false
+		if _body_material:
+			_body_material.albedo_color = _base_albedo
+
+
+## 랜덤 껑충 이동 속도 + 수직 바운스. enemy_ai/컨트롤러가 이동을 이걸로 대체한다.
+func polymorph_hop_velocity(delta: float) -> Vector3:
+	_poly_hop_t -= delta
+	if _poly_hop_t <= 0.0:
+		_poly_hop_t = POLY_HOP_INTERVAL
+		var a := randf_range(0.0, TAU)
+		_poly_hop_dir = Vector3(cos(a), 0.0, sin(a))
+	var phase := 1.0 - clampf(_poly_hop_t / POLY_HOP_INTERVAL, 0.0, 1.0)
+	var moving := phase < POLY_HOP_MOVE_FRAC
+	var mesh := get_node_or_null("Mesh") as Node3D
+	if mesh != null:
+		mesh.position.y = _poly_mesh_base_y + (sin((phase / POLY_HOP_MOVE_FRAC) * PI) * 0.35 if moving else 0.0)
+	return _poly_hop_dir * (POLY_HOP_SPEED if moving else 0.0)
 
 
 ## Active buffs/debuffs for the enemy inspect panel (enemy_info.gd) — same shape as

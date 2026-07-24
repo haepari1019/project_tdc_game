@@ -59,6 +59,7 @@ func _process(delta: float) -> void:
 	# Interrupt: caster gone / downed / stunned, OR the caster moved off the cast spot (moving cancels).
 	if _caster == null or not is_instance_valid(_caster) or not _caster.is_alive() \
 			or (_caster.has_method("is_stunned") and _caster.is_stunned()) \
+			or (_caster.has_method("is_polymorphed") and _caster.is_polymorphed()) \
 			or _caster.global_position.distance_to(_origin) > MOVE_CANCEL_M:
 		_finish()
 		return

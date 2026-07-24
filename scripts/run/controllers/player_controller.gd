@@ -32,6 +32,11 @@ func _physics_process(delta: float) -> void:
 		body.velocity = Vector3.ZERO
 		body.move_and_slide()
 		return  # 기절은 일시적 — 오더는 유지(풀리면 이어서 걸어간다)
+	# 개구리(AB-012): 입력 무시 + 랜덤 hop 자동 이동(피해 받으면 해제). 조작 중이어도 컨트롤 안 먹음.
+	if body.has_method("is_polymorphed") and body.is_polymorphed():
+		body.velocity = body.polymorph_hop_velocity(delta)
+		body.move_and_slide()
+		return
 	# Provoked (AB-099): movement input is locked — the member is forced toward the caster
 	# (so it gets into basic range; the forced attack itself runs in CombatController).
 	# 오더는 apply_provoke 가 이미 취소했다.

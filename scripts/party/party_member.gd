@@ -1041,6 +1041,8 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 	_flash()
 	if amount <= 0.0:
 		return  # fully absorbed
+	if poly_timer_s > 0.0:
+		remove_polymorph()   # 개구리는 실제 피해를 받으면 즉시 해제(sheep式, AB-012)
 	hp = maxf(0.0, hp - amount)
 	if _hp_bar:
 		_hp_bar.set_ratio(hp / max_hp)
@@ -1366,6 +1368,87 @@ func apply_drift(dir: Vector3, dist: float) -> void:
 	move_and_collide(d.normalized() * dist)
 
 
+# --- Polymorph (AB-012 Hex Bolt) — 개구리 변이: 공격/시전 불가·플레이어 컨트롤 무력·랜덤 hop·피해 시 즉시 해제 ---
+var poly_timer_s: float = 0.0
+var _poly_visual_on: bool = false
+var _poly_saved_scale: Vector3 = Vector3.ONE
+var _poly_mesh_base_y: float = 0.0
+var _poly_hop_t: float = 0.0
+var _poly_hop_dir: Vector3 = Vector3.ZERO
+const POLY_HOP_INTERVAL := 0.65
+const POLY_HOP_SPEED := 2.2
+const POLY_HOP_MOVE_FRAC := 0.45
+const POLY_FROG_SCALE := 0.45
+const POLY_FROG_COLOR := Color(0.38, 0.85, 0.38)
+
+
+## 이 아군을 개구리로 변이(적 시전, 기본 30s). 시전 중이면 취소는 skill_cast/beam이 is_polymorphed로 처리. ref: AB-012.
+func apply_polymorph(dur: float) -> void:
+	if not _alive or dur <= 0.0:
+		return
+	if poly_timer_s <= 0.0:
+		popup_status("개구리", POLY_FROG_COLOR)
+	poly_timer_s = maxf(poly_timer_s, dur)
+	_poly_hop_t = 0.0
+	cancel_order()   # 이동 오더 취소(개구리는 hop만)
+	_apply_frog_visual(true)
+
+
+func is_polymorphed() -> bool:
+	return poly_timer_s > 0.0
+
+
+func tick_polymorph(delta: float) -> void:
+	if poly_timer_s > 0.0:
+		poly_timer_s = maxf(0.0, poly_timer_s - delta)
+		if poly_timer_s <= 0.0:
+			_apply_frog_visual(false)
+
+
+## 즉시 해제 — 피해 break(take_damage) / 힐러 정화(AB-070).
+func remove_polymorph() -> void:
+	if poly_timer_s <= 0.0:
+		return
+	poly_timer_s = 0.0
+	_apply_frog_visual(false)
+
+
+func _apply_frog_visual(on: bool) -> void:
+	var mesh := get_node_or_null("Mesh") as Node3D
+	if on:
+		if not _poly_visual_on and mesh != null:
+			_poly_saved_scale = mesh.scale
+			_poly_mesh_base_y = mesh.position.y
+			mesh.scale = _poly_saved_scale * POLY_FROG_SCALE
+			_poly_visual_on = true
+		if _body_material:
+			_body_material.albedo_color = POLY_FROG_COLOR
+			_body_material.emission_enabled = false   # 개구리는 조작 발광 끔(초록 톤 유지)
+	else:
+		if _poly_visual_on and mesh != null:
+			mesh.scale = _poly_saved_scale
+			mesh.position.y = _poly_mesh_base_y
+		_poly_visual_on = false
+		if _body_material:
+			_body_material.albedo_color = _base_color
+			_body_material.emission_enabled = is_controlled()   # 조작 중이면 발광 복원
+
+
+## 랜덤 껑충 이동 속도 + 수직 바운스. player_controller/party_controller가 이동을 이걸로 대체한다.
+func polymorph_hop_velocity(delta: float) -> Vector3:
+	_poly_hop_t -= delta
+	if _poly_hop_t <= 0.0:
+		_poly_hop_t = POLY_HOP_INTERVAL
+		var a := randf_range(0.0, TAU)
+		_poly_hop_dir = Vector3(cos(a), 0.0, sin(a))
+	var phase := 1.0 - clampf(_poly_hop_t / POLY_HOP_INTERVAL, 0.0, 1.0)
+	var moving := phase < POLY_HOP_MOVE_FRAC
+	var mesh := get_node_or_null("Mesh") as Node3D
+	if mesh != null:
+		mesh.position.y = _poly_mesh_base_y + (sin((phase / POLY_HOP_MOVE_FRAC) * PI) * 0.35 if moving else 0.0)
+	return _poly_hop_dir * (POLY_HOP_SPEED if moving else 0.0)
+
+
 func _physics_process(delta: float) -> void:
 	if sub_cooldown_s > 0.0:
 		sub_cooldown_s -= delta
@@ -1385,6 +1468,8 @@ func _physics_process(delta: float) -> void:
 		shield_timer_s -= delta
 		if shield_timer_s <= 0.0:
 			shield = 0.0
+	if poly_timer_s > 0.0:            # AB-012 개구리 변이 — 지속 감소(만료 시 원복). hop 이동은 컨트롤러가 구동.
+		tick_polymorph(delta)
 	if _ward_timer_s > 0.0:            # 수호-흡수: 유지 시간 감소(종료 시 ward_heal 노드가 흡수분 치유 정산)
 		_ward_timer_s -= delta
 	if _sentinel_timer_s > 0.0:

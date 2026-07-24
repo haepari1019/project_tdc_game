@@ -778,3 +778,32 @@
   `APPLY-WIND-BUFFETED-DWELL` 신설·`APPLY-WIND-PUSH-0P3S` Deprecated · `STATUS-OUTCOME-CORE` `WindBuffeted`=체류 표식 ·
   `RX-WIND-ENTER-001` 재작성 · `AB-042` 값 부여). 게임 재핀 `d9e9f52`→`a5e5ae3`. mapper 0 · xref broken-ref 0.
   **후속(spec TODO 등재):** 적 `telegraph_s` 0.4 ↔ 아군 `cast_s` 1.0 **타이밍 대칭 미확정** = Phase B 판정.
+
+### DRIFT-099 — AB-012 Hex Bolt: 취약 표식(HEX-WEAK/Vulnerable) → **개구리 폴리모프 CC** 🔶 rule (전파 후보)
+- **배경(2026-07-24, I-006 캐스팅 패스 Phase A · 사용자 결정):** AB-012는 **3중 드리프트**였다 — 아군(skillbooks
+  `skillbook_vulnerable` = 순수 `Vulnerable` +15%) ≠ 적(abilities `enemy_hex` = `hex_slow`+`hex_weak`+dmg) ≠ spec
+  (`HEX-WEAK` 이동·피해 soft CC). 게다가 아군 AB-012 == AB-057(둘 다 `Vulnerable` +15%, §5 "취약 2 통폐합 후보").
+- **결정:** AB-012를 **개구리 변이 폴리모프 하드 CC로 전면 재정의**(취약 표식 폐기). 시나리오 = "까다로운 엘리트를
+  잠시 얼려두고 잡몹 먼저 처리." → **적↔아군 통일**(단일 거동). 이로써 AB-057(순수 증폭)과 완전히 갈려 **통폐합 문제도 해소**.
+- **동작(신규 CC):** 대상 30s 개구리 변이 → ① 공격/시전 전면 불가 ② AI/플레이어 컨트롤 무력(랜덤 hop 자동이동)
+  ③ **어떤 피해든 받으면 즉시 해제**(sheep式) ④ **양측 모두 개구리를 타겟 후보에서 제외**(파티 평타·적 어그로 전부
+  무시 → 자동 브레이크 방지, "얼려둔 놈 방치") ⑤ **힐러 정화(AB-070)로 아군 개구리 해제**(AB-070에 아군 dispel 경로 신설).
+- **변경(~18파일):** 신규 `skillbook_polymorph`(`sb_polymorph.gd`) · 양 유닛 `apply_polymorph`/`is_polymorphed`/
+  `remove_polymorph`/`polymorph_hop_velocity` + 미니멀 개구리 큐(메시 축소 0.45·초록·hop 바운스) + `take_damage`
+  break 훅 · `enemy_ai` takeover 슬롯(stun 다음)·`enemy_hex` resolve→`apply_polymorph`(통일) · 행동차단 게이트
+  (`combat_controller`·`skill_cast`·`beam_channel`·`dungeon_run`·`combat_sandbox`) · party 컨트롤 hop(`player_controller`·
+  `party_controller`) · 타겟 제외(파티 `_nearest_enemy_in_range` skip_poly / 적 `_alive_members`·`_nearest_visible`·
+  `_huntable`) · `sb_purge`(AB-070) 아군 dispel · `ability_dispatch` 레지스트리 · `aim_controller` UNIT_AIM.
+  **회귀 동반수정:** AB-042 적-rect가 `combat_controller.spawn_zone`/`cast_context.spawn_zone` 래퍼의 `opts` 인자
+  누락으로 **적 zone 시전 시 크래시**(ci_smoke 사각=적-zone 런타임 경로 미검증) → 4개 `spawn_zone` 정의 arity 통일.
+- **⚠️ spec 재정의(전파 후보):** `HEX-WEAK`(soft CC) 폐기 + 신규 **폴리모프 상태**(공격/시전/컨트롤 봉쇄 + break-on-damage)
+  + AB-012 `abilityKind`/`applies_status`/effects 재정의. 대상 후보: `AB-012` 정의 · `STATUS-OUTCOME-CORE`(`HEX-WEAK`→
+  폴리모프 상태) · `EFFECT-CORE`(`APPLY-HEX-WEAK-4S` Deprecated + 폴리모프 effect) · `D-016`(castTier B/cast_s) ·
+  AB-070 dispel 규약. **이 레포에서 spec md 미편집**(CLAUDE.md 절대규칙). ⚠️ 규모 큰 전파.
+- **튜닝수치(로깅만):** `poly_dur_s` 30 · `cast_s` 3.0 · `cooldown_s` 4→12 · 적 `telegraph_s` 0.45→3.0 · hop(간격 0.65·
+  속도 2.2) · 개구리 축소 0.45. 전부 Phase B 재튜닝.
+- **분류:** rule/design(폴리모프 재정의·통일·dispel 규약) → **OPS_30 전파 후보** + impl/tuning은 DRIFT-078 우산 하위.
+- **게이트:** ci_smoke **PASS**(11/11, 4회 — 구현·spawn_zone회귀·적무시 각 확인). F5 체감 반영 2건(적이 개구리
+  아군 즉시 브레이크 → 적 타겟 제외 / 적 zone 크래시 → spawn_zone arity).
+- **상태:** ⬜ 미전파(폴리모프 재정의분). 게임 구현·게이트 완료. ⚠️ **미검증 사각:** 3s 캐스트 중 표적이 radius 1.6
+  밖으로 이탈하면 실패(대상 엔티티 락 = 후속 후보). 미니멀 개구리 큐(아트 후속).

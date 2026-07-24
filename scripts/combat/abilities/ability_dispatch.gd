@@ -49,6 +49,7 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_hot.gd"),         # AB-065 Renewing Tide (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_blink.gd"),       # AB-006 Gap-Close / AB-007a·b (Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_vulnerable.gd"),  # AB-057 Focus Fire (Healer)
+	preload("res://scripts/combat/abilities/effects/sb_polymorph.gd"),   # AB-012 Hex Bolt — 개구리 변이(Healer/Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_haste.gd"),       # AB-069 Swift Grace (Healer)
 	# P2-S6a B1 잔여 — stealth/buff/channel/barrier/purge/silence (AB-075 reuses skillbook_shield).
 	preload("res://scripts/combat/abilities/effects/sb_stealth.gd"),     # AB-062 Smoke Veil (Nuker, Veiled)

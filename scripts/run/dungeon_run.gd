@@ -116,11 +116,16 @@ var _enemy_info: EnemyInfo
 # 구간에서는 카메라가 돌면서도 손을 떼면 클릭이 먹는다("살짝 밀렸지만 클릭할 의도였다").
 # 거리는 릴리즈 순간이 아니라 **누른 지점으로부터의 최대 거리**로 잰다(멀리 끌었다 돌아와
 # 놓는 걸 클릭으로 오인하지 않게). 임계는 해상도 비례 → InputTuning 이 SSOT.
-# ref: DRIFT-090 후속.
+#
+# 가로(yaw)·세로(pitch)를 **축별로 분리**해 잰다. 세로는 가로보다 큰 데드존(PITCH_DRAG_START)을
+# 써서 더 엄격히 구분한다 — 피치는 드물게·조금씩만 만지므로, 우클릭 '이동' 의도의 세로 손떨림이
+# 피치를 기울이거나 클릭을 씹지 않게 한다. 가로는 기존 그대로(느낌 보존). ref: DRIFT-090 후속.
 var _cam_dragging: bool = false
-var _cam_orbiting: bool = false          # DRAG_START 를 넘어 orbit 이 시작됐나(래치)
+var _cam_orbiting: bool = false          # 가로가 DRAG_START 를 넘어 yaw 가 시작됐나(래치)
+var _cam_pitching: bool = false          # 세로가 PITCH_DRAG_START 를 넘어 피치가 시작됐나(래치)
 var _rmb_press_pos: Vector2 = Vector2.ZERO
-var _rmb_max_dist: float = 0.0           # 누른 지점으로부터 도달한 최대 직선거리
+var _rmb_max_dx: float = 0.0             # 누른 지점으로부터 도달한 최대 |가로| 거리
+var _rmb_max_dy: float = 0.0             # 누른 지점으로부터 도달한 최대 |세로| 거리
 
 
 
@@ -395,25 +400,33 @@ func _unhandled_input(event: InputEvent) -> void:
 			if cam_btn.pressed:
 				_cam_dragging = true
 				_cam_orbiting = false
-				_rmb_max_dist = 0.0
+				_cam_pitching = false
+				_rmb_max_dx = 0.0
+				_rmb_max_dy = 0.0
 				_rmb_press_pos = get_viewport().get_mouse_position()
 			else:
 				_cam_dragging = false
+				# 가로 orbit 이 이미 돌았어도 가로가 CLICK_MAX 안이고 세로 드래그(피치)가 시작되지
+				# 않았으면 클릭으로 인정 — 세로 손떨림으로 이동이 씹히던 걸 막는다. (리셋 전에 판정)
+				var was_pitching := _cam_pitching
 				_cam_orbiting = false
-				# orbit 이 이미 시작됐더라도 CLICK_MAX 안이면 클릭으로 인정(겹치는 구간).
-				if _rmb_max_dist <= InputTuning.click_max_px(get_viewport()):
+				_cam_pitching = false
+				if _rmb_max_dx <= InputTuning.click_max_px(get_viewport()) and not was_pitching:
 					_interaction.try_interact()  # RMB click → interact / 클릭이동
 			return
 	if event is InputEventMouseMotion and _cam_dragging:
 		var mm := event as InputEventMouseMotion
-		_rmb_max_dist = maxf(_rmb_max_dist,
-				_rmb_press_pos.distance_to(get_viewport().get_mouse_position()))
-		if not _cam_orbiting:
-			if _rmb_max_dist <= InputTuning.drag_start_px(get_viewport()):
-				return          # 아직 데드존 안 — 카메라를 건드리지 않는다.
-			_cam_orbiting = true   # 한 번 시작되면 놓을 때까지 유지(경계에서 깜빡임 방지)
-		_camera_rig.orbit_yaw(mm.relative.x)     # horizontal drag → yaw
-		_camera_rig.pitch_by_drag(mm.relative.y) # vertical drag → pitch (inverted: down = raise angle)
+		var cur := get_viewport().get_mouse_position()
+		_rmb_max_dx = maxf(_rmb_max_dx, absf(cur.x - _rmb_press_pos.x))
+		_rmb_max_dy = maxf(_rmb_max_dy, absf(cur.y - _rmb_press_pos.y))
+		if not _cam_orbiting and _rmb_max_dx > InputTuning.drag_start_px(get_viewport()):
+			_cam_orbiting = true    # 가로 데드존 통과 → yaw 시작(놓을 때까지 유지)
+		if not _cam_pitching and _rmb_max_dy > InputTuning.pitch_drag_start_px(get_viewport()):
+			_cam_pitching = true    # 세로는 더 큰 데드존 통과해야 피치 시작
+		if _cam_orbiting:
+			_camera_rig.orbit_yaw(mm.relative.x)      # horizontal drag → yaw
+		if _cam_pitching:
+			_camera_rig.pitch_by_drag(mm.relative.y)  # vertical drag → pitch (inverted: down = raise angle)
 		return
 	if event.is_action_pressed("use_sub"):
 		_on_sub_key(0)  # Q → skillbook slot 0
@@ -444,7 +457,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_sub_key(slot_index: int) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
-	if ctrl == null or not ctrl.is_alive() or ctrl.is_stunned():
+	if ctrl == null or not ctrl.is_alive() or ctrl.is_stunned() \
+			or (ctrl.has_method("is_polymorphed") and ctrl.is_polymorphed()):   # 개구리는 시전 불가
 		return
 	if ctrl.has_method("is_provoked") and ctrl.is_provoked():
 		return  # Provoked (AB-099): active skills locked — only forced basic on the caster

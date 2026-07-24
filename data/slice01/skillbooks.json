@@ -790,13 +790,13 @@
       "range_band": "Long",
       "charges_max": 60,
       "cast": {
-        "kind": "skillbook_vulnerable",
-        "cooldown_s": 4,
+        "kind": "skillbook_polymorph",
+        "cooldown_s": 12,
+        "cast_s": 3.0,
         "targeted": true,
         "range_m": 13,
         "radius_m": 1.6,
-        "vulnerable_pct": 0.15,
-        "duration_s": 4.0
+        "poly_dur_s": 30.0
       },
       "tier": "Basic"
     },

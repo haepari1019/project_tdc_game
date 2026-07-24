@@ -15,6 +15,17 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var center: Vector3 = target_pos if target_pos != Vector3.ZERO else m.global_position
 	var radius := float(p.get("radius_m", 2.0))
 	var removed := ""
+	# 아군 개구리(AB-012 폴리모프) 해제 우선 — 적이 아군을 변이시켰을 때 힐러가 풀어준다.
+	for a in ctx.allies_in_radius(center, radius):
+		if a != null and is_instance_valid(a) and a.has_method("is_polymorphed") and a.is_polymorphed():
+			a.remove_polymorph()
+			removed = "개구리"
+			SkillVfx.telegraph(ctx, a.global_position, Color(0.55, 0.9, 0.45), 1.6)
+			break
+	if removed != "":
+		SkillVfx.telegraph(ctx, center, Color(1.0, 0.92, 0.55), maxf(radius, 1.5))
+		print("[SB] %s Purge Light — removed %s" % [m.class_id, removed])
+		return true
 	for e in ctx.enemies_in_radius(center, radius):
 		if e != null and is_instance_valid(e) and e.has_method("purge_one_buff"):
 			removed = e.purge_one_buff()
