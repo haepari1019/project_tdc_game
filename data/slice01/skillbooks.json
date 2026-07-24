@@ -177,9 +177,13 @@
       "cast": {
         "kind": "skillbook_zone",
         "cooldown_s": 10,
+        "cast_s": 1.0,
         "targeted": true,
         "range_m": 9,
         "medium": "Wind",
+        "shape": "rect",
+        "length_m": 6.0,
+        "width_m": 2.5,
         "radius_m": 2.0,
         "ttl_s": 8.0
       },

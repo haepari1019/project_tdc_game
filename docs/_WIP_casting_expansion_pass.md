@@ -3,7 +3,7 @@
 > **임시 작업 문서.** 패스 완료 후 **삭제**한다. SSOT 아님 — 결정은 `SPEC_DRIFT.md`(DRIFT-078)로 남는다.
 > **📂 2-파일 체계(2026-07-15):** 이 파일 = **활성/해야할것**(방법론 §0~§3 · 진행 지도 §5 · 현재 ENC §8 · 규칙 §9). 완료분은 [_WIP_casting_expansion_pass_DONE.md](_WIP_casting_expansion_pass_DONE.md) = **완료 아카이브**(원장 §4 · 완료 ENC §6~§7 상세). **ENC 컨펌 시 활성→DONE 이동**(§2.4). 활성 파일을 짧게 유지해 매 세션 읽는 비용을 줄이는 게 목적.
 > **모델 분업:** 방법·표 = Opus 작성(이 파일). **실제 스킬별 핑퐁 = Sonnet 세션이 이 파일을 열어 §2 루프를 구동.**
-> **작성:** 2026-07-09 · **최신화:** 2026-07-19 (**축 전환: ENC→스킬 전수 표 §5 + 2-Phase §2.0**. 61종 전수 표(완료 13/미완료 48). **Phase A = 스킬 전수 핑퐁(§5 표 순회) / Phase B = ENC 밸런싱(§5.3)**. 다음 = Phase A 표 순서로 미완료 48종) · spec pin `2bf37b2` · 게임 `wip/casting-ab054-overdrive-20260712`.
+> **작성:** 2026-07-09 · **최신화:** 2026-07-24 (**AB-042 완결 → ENC-MID-001 완료·DONE §8 이관**. 전수 표 **완료 17/미완료 43**. **Phase A = 스킬 전수 핑퐁(§5 표 순회) / Phase B = ENC 밸런싱(§5.3)**. 다음 = Phase A 표 순서로 미완료 43종 — 표 순서상 **AB-012 Hex Bolt**부터) · spec pin `2bf37b2` · 게임 `wip/casting-ab042-wind-20260723`.
 
 ---
 
@@ -178,7 +178,7 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 | **AB-037** Ember Lance | 지정 지점에 화염 피해를 주고 점화시킨다 | — | DPS/Nuker | Ally | A·5 | ? | 1.8 | — | [ ] | |
 | **AB-040** Spawn Frost Patch | 지정 지점에 일정 시간 지속되는 장판을 생성한다 | medium=Ice ttl_s=9.0 | Nuker/Healer | Shared·EN-007 | A·9 | ? | — | HARD-004·HARD-012 | [ ] | |
 | **AB-041** 빙결 파동 | 지정 지점에 냉기 피해를 주고 적을 둔화시킨다 | chill_dur_s=3.0 element=cold | DPS/Nuker **양쪽 주력** | Shared·EN-007 | 3.5s·5.5 | DONE | 1.2 | HARD-004·HARD-012 | [x] | sub_bands 제거(BIND-021 절대영도 복구) · **다중클래스 전-주력 최초 선례** · DRIFT-087 |
-| **AB-042** Spawn Gust Patch | 지정 지점에 일정 시간 지속되는 장판을 생성한다 | medium=Wind ttl_s=8.0 | Nuker/Healer | Shared·EN-004 | A·10 | ? | — | HARD-008·MID-001 | [ ] | |
+| **AB-042** Spawn Gust Patch | 지정 지점에 일정 시간 지속되는 장판을 생성한다 | medium=Wind **shape=rect** length_m=6.0 width_m=2.5 ttl_s=8.0 | Nuker/Healer | Shared·EN-004 | 1.0s·10 | DONE | — | HARD-008·MID-001 | [x] | **원형→방향성 rect 복도**(P=중앙·축 캐스터→P·근단최강 gradient) · **유닛 밀림 신설**(apply_drift) · aim 지면배치 분리 · 적 대칭 · DRIFT-098 |
 | **AB-043** Spawn Briar Patch | 지정 지점에 일정 시간 지속되는 장판을 생성한다 | medium=Vegetation ttl_s=9.0 | Nuker/Healer | Shared·EN-007 | A·9 | ? | — | HARD-004·HARD-012 | [ ] | |
 | **AB-044** Hush Ward | 대상 지역의 적을 침묵시켜 액티브 스킬 사용을 막는다 | silence_s=3.0 | Healer | Ally | A·12 | ? | — | — | [ ] | |
 | **AB-045** Lifeline | 가장 위험한 아군을 안전한 위치로 견인한다 | relocate_m=5.0 castTier=B rootDuringCa… | Healer | Ally | A·14 | ? | — | — | [ ] | |
@@ -226,7 +226,7 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 |-----|------------------|------|
 | ENC-NORM-001 | AB-002 · AB-003 · AB-005 · (AB-099 적전용) | ✅ 완료 → [DONE §6](_WIP_casting_expansion_pass_DONE.md) (AB-002 A유지 · AB-003 통합캐스트 · AB-005 커밋버스트 / AB-099 무변경) |
 | ENC-HARD-001 | AB-011 · AB-010 · AB-039 · AB-007 | ✅ 완료 → [DONE §7](_WIP_casting_expansion_pass_DONE.md) (AB-011 A유지 · AB-010 통합B+스택독 · AB-039 병합→폐기 · AB-007 auto-trigger+007a/007b) |
-| **ENC-MID-001** | ~~AB-008~~ · ~~AB-009~~ · **AB-042** | 🔄 AB-008✅ · AB-009✅(DRIFT-091~095, [DONE §4](_WIP_casting_expansion_pass_DONE.md)) → **AB-042 남음**(§8.4-① Wind 파손 수정 선결) |
+| ENC-MID-001 | AB-008 · AB-009 · AB-042 | ✅ 완료 → [DONE §8](_WIP_casting_expansion_pass_DONE.md) (AB-008 볼트원형 · AB-009 A유지+RX확장 · AB-042 rect 바람복도+1s캐스트) |
 | ENC-HARD-002 | AB-013(돌진) | ⬜ |
 | ENC-HARD-003 · DEEP-001 | AB-006(누커 이동) | ✅ Phase A 완료(DRIFT-085) — 적측 무변경 확정 → **Phase B 판정 대상 0** |
 | ENC-HARD-004 · HARD-012 | AB-012(취약) · AB-036 · AB-040 · AB-043 | ⬜ — 각 존 **개별 판정**(상속 폐기 2026-07-21) |
@@ -245,70 +245,13 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 
 ---
 
-## 8. ENC-MID-001 — 확인 스킬표 (다음)
+## 8. ENC-MID-001 → **[DONE 파일 §8](_WIP_casting_expansion_pass_DONE.md)로 이관** ✅
 
-> 유닛: **EN-004 Slag Siphon ×1** · EN-010 ×2 · EN-013 ×1. (EN-010/013 = 능력 없음)
-> **왜 여기가 다음인가:** NORM-002/003·AMB·PAT·BOSS 등은 **신규 캐스터 AB가 0**(§5.3 재구성). EN-004가 zone 스킬(AB-009 Oil·AB-042 Wind)을 들고 나오는 첫 ENC. (EN-004는 ENC-HARD-008과 공유 → 판정-1회로 소진)
->
-> **🚩 결정(2026-07-21, 사용자) — zone 통합 정책 폐기.** "장판 생성"은 **구현 kind(`skillbook_zone`)이지 디자인 역할이 아니다** — 같은 kind가 피해존(AB-039, 병합·소멸)·감속존(Ice)·콤보씨앗(Oil)처럼 전혀 다른 역할을 한다. 이 패스의 판정 축(§0)은 전부 **역할 기반**이라 kind로 묶을 근거가 없고, zone 스킬이 5종뿐이라 통합의 관리 이점도 없다(앞으로 더 갈라질 여지만 큼). → **§8.2 옵션표 · §5.3 "존 정책 상속" 폐기.** zone 스킬은 §5 전수표의 **개별 스킬**로 각자 4축 판정(AB-009=Oil, AB-042=Wind …). 아래 §8.1 실사·§8.4 파손은 사실이라 유효(개별 판정 재료로 잔존). ENC-MID-001은 "정책 확정 ENC"에서 **AB-009·AB-042 개별 판정 ENC**로 격하.
-
-### 8.1 코드 실사 (2026-07-15 · Opus — 조사만, 편집 0)
-
-> 아래 3건이 **아래 정책 옵션표의 전제를 바꾼다.** 핑퐁 전에 읽을 것.
-
-1. **RX 엔진은 이미 완전 가동 중**(설계 의도 아님). [reaction_system.gd](../scripts/combat/abilities/reaction_system.gd) — Oil→Fire 점화(`:336` `_ignite_oil` = 폭발 60dmg + **인접 기름 연쇄**(depth≤2) + 잔류 Fire존 8dps/4s + Ignited 5s + Smoke), Water→감전 전도(`:276` Shock), Wind→풍하 산포(`:68` `_spread_tick`, 2s마다 1.6m·≤2/gust·≤6 live), Ice↔Fire 용해/응결 등 10여 쌍. 우선순위 중재(`:169` `_primary_medium_of`)까지 있음. **점화 진입점 = `sb_fire.gd:30`(AB-037) · `torch.gd:185` 둘뿐.**
-   - ⚠️ **정정(2026-07-15, 사용자 지적):** 초안은 여기서 "옵션 2·3 = RX 파괴"라 썼으나 **틀렸다.** 기존 방식(AB-039)은 **삭제가 아니라 흡수**였다 — ToxicGas 존 분기(`hazard_zone.gd:194-204`)도 fire+ToxicGas→toxic flash(`reaction_system.gd:218`)도 **그대로 살아 있고** 트리거만 BIND-031로 이동했다. 즉 병합은 RX를 **손상시키지 않았다.** Oil도 흡수처만 있으면 `_ignite_oil` 도달성은 유지된다. 남는 사실은 "**매질의 판 등장 빈도**가 줄어든다"(EN-005가 더는 가스를 안 깖)뿐 — 파괴가 아니라 노출 감소.
-2. **잔존 존 5종 전부 이미 `role: utility` · 무피해**([ability_roles.gd:59-63](../scripts/combat/abilities/ability_roles.gd#L59-L63)). 유일한 `role: threat` 피해 존이던 **AB-039**(`:38` 주석 = *"독가스 존 (dps 8 — 유일한 피해 존)"*)가 바로 HARD-001에서 병합·소멸한 그것. → §8 원안이 옵션 1을 기각한 근거("적이 장판 계속 까는 그림 = HARD-001 기각")는 **피해 존에 대한 기각**이라 **무피해 존에 전이되지 않음**. 아래 「기계적 일반화 경고」에 정확히 해당하는 사례.
-3. **존은 피아무구분**([hazard_zone.gd:14](../scripts/world/hazards/hazard_zone.gd#L14) `UNIT_GROUPS`, 진영 체크 0 — spec F-021 §3.3.1 명시). **내 기름에 우리 파티도 미끄러진다.** 위협만 진영 인지(`:218` `_credit` — 아군 오폭은 어그로 0, HP는 깎임).
-
-> **재실사 (2026-07-21 · 클러스터 1~4 전파 후 · 조사만·문서반영만):** 위 3건은 표 작성(2026-07-15) 기준이고, 그 뒤 캐스팅 전파로 **전제 3건이 갱신**됐다. (편집 0 — 사실만 반영.)
-> 4. **AB-008이 이미 판정 완료(§5 `[x]`) — 5안의 흡수처가 사라졌다.** §8.3 표는 AB-008을 "즉발·cd2.5·dmg×0.8"로 적었으나 현재는 `cast_s:3.0·cd5·unified:true`이고 DRIFT-085에서 **볼트 계열 "원형"**(집중→투사체→광역)으로 확정됐다. 5안(AB-009→AB-008 흡수)은 이제 ⓐ DONE 스킬 재오픈 + ⓑ 볼트 원형에 `skillbook_zone`(무피해·지속장판) 접붙이기를 **동시에** 요구 → AB-039→AB-010(같은 kind·같은 flavor) 병합과 **형태가 다르다**(kind 상이).
-> 5. **점화 진입점이 AB-037·횃불 둘뿐이 아니다.** DRIFT-088 `element_hit` 속성 seam([ability_dispatch.gd:755](../scripts/combat/abilities/ability_dispatch.gd#L755)) 이후 `element:"fire"` AB는 전부 `fire_hit` 진입. [sb_fire.gd](../scripts/combat/abilities/effects/sb_fire.gd)는 **AB-037＋AB-053 공용**이고 **AB-053은 이미 판정 완료(B·3.0s)**. → 기름 점화 체감에 미판정 스킬(AB-037)을 끌 필요 없음(§8.5 "AB-037 필수" 제약 해제).
-> 6. **"존은 결속 델타 0"은 절반만 맞다.** 훅(명중/치유) 없는 서브에 **bespoke 델타를 붙인 선례가 이미 정본**: AB-007a/b(블링크·무피해·무치유)가 `slot_index:-1`로 `disengage_focus`/`disengage_veil` 델타 보유([binding_overlays.gd:286-301](../scripts/combat/abilities/bindings/binding_overlays.gd#L286-L301) + [ability_dispatch.gd:298-303](../scripts/combat/abilities/ability_dispatch.gd#L298-L303)). 즉 "존=결속 불가"가 아니라 **"generic 훅으로는 불가, bespoke는 선례대로 가능"**(2안 기술 장벽 하락). 단 클래스 축 불일치(존 equip=Nuker/Healer vs 초월=DPS)는 잔존.
-
-### 8.2 ~~존 정책 — 옵션표~~ **[폐기 2026-07-21 — 위 🚩 결정. 역사적 참조로만 존치]**
-
-> **역할 주의(2026-07-15):** 이 표는 **초안·재료**다. 평가·추천 칸은 **의도적으로 없앴다** — 안의 채택은 사용자가 **스킬단위 감독**으로 정한다(§9). 아래 칸은 각 안에 걸리는 **사실**만 적는다.
-
-| 안 | 내용 | 걸리는 사실(실사) |
-|----|------|------------------|
-| 1 | (원안) 존 = base — 모든 시전이 존을 깖 | 캐스트 모드는 미지정(1+가 그 축을 명시) |
-| **1+** | base + **A(즉발) 유지** 명시 | 존 5종 = `role: utility`·무피해(`ability_roles.gd:59-63`). 적 캐스트 캡 대상 아님(`CAP_ROLES=["threat","control"]`). AB-011이 `role=control` 근거로 A유지한 선례 있음(§7). 적 tele 0.55는 `windup_pos`에 해소되므로([enemy_ai.gd:891-896](../scripts/combat/enemy_ai.gd#L891-L896)) 마커 밟고 비키면 회피 성립 |
-| 2 | 존 = 결속 payoff | **AB-039 선례 = 흡수**(코드 유지·트리거 이동, §8.1 정정) → RX 손상 없음. **기술 장벽 하락(재실사 6): 훅 없는 서브 bespoke 델타 선례 = AB-007a/b(`slot_index:-1`).** 단 존 equip = **Nuker/Healer**, 초월 = **DPS**(클래스 축 상이) → 어느 정체성에 붙일지가 미정. 적용 시 EN-005 전례대로 EN-004도 base에선 안 깖(매질 노출 빈도↓) |
-| 3 | 존 = 적 전용 | EN-004 = `axis: zone`·`archetype: EnvironmentElite`·PT-004 "plants + reaches"·공격사거리 9m(`enemies.json:2,89-119`). 아군 점화 경로(AB-037·횃불)는 잔존 → 반응형 플레이 성립. 아군 스킬북 5종 소멸 |
-| 4 | base + 캐스트화 | 아군 캐스트는 **오직 `cast_s`**가 구동(§1 line 31 — `telegraph_s`는 아군 죽은 스키마). 적 tele와 아군 cast_s는 서로 다른 기제 |
-| **5** | **존 = 다른 스킬에 흡수**(실사 파생) | ⚠️ **비용 급등(재실사 4):** AB-008이 **이미 판정 완료(§5 `[x]` DONE)** + DRIFT-085 볼트 원형 확정 → 흡수 시 ⓐ DONE 재오픈 + ⓑ 볼트 원형에 이종 kind(`skillbook_zone`) 접붙이기. AB-039→AB-010(같은 kind·flavor) 병합과 **형태 상이**. (당초 근거 "AB-008 = EN-004 킷 스플래시 볼트"는 유효하나 흡수처로서의 저비용 전제가 깨짐.) **미검증** |
-
-> **⚠️ 판단 포인트(기계적 일반화 경고 — 실사로 뒷받침됨):** AB-039(독 존)는 *"AB-010과 느낌 중복"* 이라 병합된 것이지 "존은 나쁘다"가 아니다. 게다가 AB-039는 **유일한 피해 존**이었고(실사 2), AB-009/042(기름·돌풍)는 **중복 대상이 없고 RX 콤보의 기판**이며 EN-004의 정체성 그 자체(`axis: zone` · `archetype: EnvironmentElite` · PT-004 "plants + reaches" · 공격사거리 9m = zone-holder reward, `enemies.json:2,89-119`). → 독 존 선례를 확장하지 말고 **존 자체의 존재 가치**를 먼저 판정할 것.
-
-### 8.3 스킬별 초안 (전부 ⬜ 미확정 — **변경안은 사용자가 스킬단위 감독으로 작성**)
-
-> 「초안 가설」칸 = **검증 대상이지 권고가 아니다.** 체감이 뒤집으면 뒤집힌다(HARD-001에서 AB-007 "A 유지" 가설이 통째로 뒤집힌 전례).
-
-| AB | 현재(실측) | 초안 가설(미검증) | 관련 사실 | 샌드박스 체크 |
-|----|-----------|------------------|----------|--------------|
-| **AB-008** Slag Spit | ✅ **이미 판정 완료(§5 DONE·DRIFT-085)** — `skillbook_bolt` · **cast_s 3.0** · cd 5 · dmg ×0.8 · splash r2.0 · range 10 · projectile 16m/s · DPS·Nuker(B1) · **role=threat**/exec=shared · `unified` · 적 tele 0.4 | 존 정책과 **독립**(유일한 `role=threat` 딜 서브). 이미 볼트 **원형**으로 확정. **§8.2-5안이면 흡수처 후보지만 재실사 4로 비용 급등**(DONE 재오픈+이종 kind) | 같은 kind(`skillbook_bolt`)인 AB-003이 이미 통합·B·cd6. DRIFT-082/085 "같은 ID = 같은 거동". §0 딜-캐스트 규칙 대상 | ✅ 완료 — §8에선 **5안 흡수처 후보로만 참조** |
-| **AB-009** Spawn Oil Patch | `skillbook_zone` Oil · 즉발 · cd 8 · r2.0 · ttl 8 · range 9 · targeted · Nuker·Healer(B3) · **role=utility** · 적 tele 0.55 | **정책 선택에 종속** — 1+면 무변경 / 5면 AB-008로 흡수 / 2·3이면 아군 킷 이탈 / 4면 cast_s 부여 | 무피해 유틸 · RX 기판(Oil→Fire 60dmg 연쇄) · EN-004 정체성(`axis: zone`) · §8.1 실사 1~3 | **A** 허수아비에 기름 → **AB-037로 점화** → 폭발·연쇄·잔류 화염존 체감 · **피아무구분** 확인(내 기름에 파티가 미끄러지나 — 이게 캐스트 대신인 "비용"으로 충분한가?) · **B** EN-004 기름 tele 0.55 회피 감각 |
-| **AB-042** Spawn Gust Patch | `skillbook_zone` Wind · 즉발 · cd 10 · r2.0 · ttl 8 · range 9 · Nuker·Healer(B3) · **role=utility** · 적 tele 0.4 | AB-009 정책 상속. **정책과 무관하게** WindBuffeted 무효과 = 파손(§8.4-①) → "밀림 구현" vs "순수 기판 확정" 별도 판정 | spread(`_spread_tick`)는 정상 작동 → Wind는 **산포기**로는 살아 있음. 자체 효과만 공백 | 기름 옆에 돌풍 → **기름이 실제로 흘러가나** → 흘러간 기름에 점화 · 돌풍 **자체 피격감**(현재 = 색·팝업만 뜨고 무효과) |
-
-### 8.4 실사로 드러난 파손 2건 (§0 "명백히 깨진 효과" = 이 패스 스코프)
-
-① **AB-042 Wind = 무효과 상태.** `WindBuffeted`는 색([outcome_status.gd:25](../scripts/combat/outcome_status.gd#L25))·KO라벨(`:40`)·플로팅텍스트·오브 슬롯(`:149`)까지 배선돼 있으나 **`MOVE_MULT` 항목이 없고 넉백도 없다**. `outcome_status.gd:8`은 *"the source applies a knockback"* 이라 약속하지만 **그 source가 존재하지 않음**(`hazard_zone.gd`는 상태만 부여). → `ability_roles.gd:62` 주석 "Wind **밀림**(무피해)"의 밀림이 **런타임에 없음**. Vegetation(`:63` "무효과(가연성/RX 전용)")은 **의도된** 무효과라 대비됨.
-
-② **잠복 크래시 → ✅ 해소(2026-07-18).** 실사해보니 [cast_context.gd](../scripts/combat/abilities/cast_context.gd)의 계약 누락은 fire_hit/cold_hit 2개가 아니라 **15개**였다(공간쿼리 flip 6·힐 3·RX 위임 3·파티전용 3). 전부 메움 + `CTX_CONTRACT` 계약 상수([ability_dispatch.gd](../scripts/combat/abilities/ability_dispatch.gd)) + `party_pool_smoke` **파리티 게이트**로 앞으로의 누락도 CI가 잡는다(암묵중복→명시계약). `combat_controller` 공간쿼리는 순수필터(`_in_cone`/`_rect`/`_nearest`) 추출로 진영-flip 재사용. **kind/role 조용한 실패**도 `push_error`·전수검증으로 승격. → **strike/stun/poison/cold subset을 unified로 확대해도 throw 없음**(§4 통합 착수 전 선결 완료). ci_smoke 7/7. ImplDecision 후보.
-
-### 8.5 축4(바인딩) — 존 공통 공백 **[판정 필요]**
-
-존 5종은 **Nuker·Healer** equip인데, 그 4개 정체성 델타는 전부 **명중 훅**(`focus_stack`·`flank_strike`) 또는 **치유 훅**(`dot_heal`·`sanct`)이다. **무피해·무치유인 존은 어느 generic 훅에도 안 걸린다** → 존 서브 = **generic 결속 델타 0**.
-
-> **⚠️ 정정(재실사 6, 2026-07-21):** "결속 델타 0"은 **generic 한정**이다. **훅 없는 서브에 bespoke 델타를 붙인 선례가 이미 정본**: AB-007a/b(블링크·무피해·무치유)가 `slot_index:-1`로 `disengage_focus`/`disengage_veil`를 받는다([binding_overlays.gd:286-301](../scripts/combat/abilities/bindings/binding_overlays.gd#L286-L301) + [ability_dispatch.gd:298-303](../scripts/combat/abilities/ability_dispatch.gd#L298-L303)). 즉 존도 **bespoke로는 결속 가능**(2안). 남는 실제 축 두 개: ① "존의 존재 이유"(정책 1+에서도 남음) ② 클래스 축 불일치(존 equip=Nuker/Healer vs 초월=DPS).
-
-⚠️ ~~**AB-008 파생:** 초월 감전폭주가 kind 분기라 AB-008에도 자동 적용 → 차별성 0~~ → **오류였다(2026-07-19 정정, DRIFT-086 ①).** `BindingOverlays.resolve`는 `slot_ab` **정확 일치**를 요구하고 AB-008은 OVERLAYS에 없다 → 결속이 **아예 안 붙었다**(중복이 아니라 **부재**). 실제 문제는 "발현만 kind 분기"였고, **`variant` 키(AB 단 지정)로 해소**됨.
-
-**들고 갈 ally-only 후보(사각 처리):**
-- **점화 진입점(재실사 5):** `element:"fire"` AB는 [sb_fire.gd](../scripts/combat/abilities/effects/sb_fire.gd) 공용 = **AB-037＋AB-053 둘 다**(+횃불). **AB-053은 이미 판정 완료(B·3.0s)** 라 존 점화 체감은 AB-053으로 충분 → 미판정 AB-037을 끌 **필요 없음**. AB-037을 굳이 반입하면 그 자신도 딜 서브 판정 대상(즉발 → §0 대상)이 됨.
-- ~~AB-055 · AB-056 · AB-060~~ — **정정(2026-07-15 실사):** 셋 다 점화 **불가**. AB-055/056 = `skillbook_bolt`(→ Water 있으면 **감전 전도** RX), AB-060 = `skillbook_execute`. `fire_hit` 방출은 `sb_fire.gd`(AB-037)와 횃불(`torch.gd:185`)뿐. 딜 누킹 체감용으로만 유효.
-- **AB-070 Purge Light** (`skillbook_purge` · Healer) — 기름/돌풍 디버프 대응.
+> 확인 스킬표(AB-008·AB-009·AB-042) + 존 통합 정책 폐기 결정 + 코드 실사(surface_grid 3차 갱신 포함) + 파손 2건 +
+> "가설 대비 실제 결정"은 DONE 파일에 있다. 요약은 §5.3 진행표 참조.
+> **여기서 나온 전역 파생:** ① **존 통합 정책 폐기**(kind≠역할) ② zone cast 스키마 **형상 축 신설**
+> (`shape`/`length_m`/`width_m` → DRIFT-098 **OPS_30 전파 후보**) ③ rect 존 **지면배치 조준 분리**
+> (`AimMarker.show_zone_rect` — "rect = 캐스터에서 뻗는 빔" 가정을 깸) ④ **환경 드리프트 API**(`apply_drift`)를 일회 넉백과 분리.
 
 ---
 

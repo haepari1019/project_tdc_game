@@ -70,9 +70,16 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	# Flank Collapse 「잠행」 — 링크된 스킬은 근접 사거리로만 시전(붙어야 함). 원래 range_m를 melee로 대체 → 링도 좁게.
 	if String(BindingOverlays.resolve_effective(String(member.base_gear_id), String(member.ability_id), String(inst.get("base_ability_id", "")), slot_index).get("delta", "")) == "flank_strike":
 		_range = float(BindingOverlays.FLANK["melee_range_m"])
-	# 직선 빔(AB-054 절단 광선) / 전방 직사각형(AB-005 rect) — 원형이 아니라 시전자→마우스 직선 레인으로
-	# 조준(적 커서). 확정 시 그 방향으로 즉시 시전(사거리까지 걷지 않음).
 	var is_rect := String(p.get("shape", "")) == "rect"
+	# AB-042 등 rect **존**(지면배치) — 커서 P가 복도 중앙·캐스터→P 축. 사거리 링 + 커서 중앙 프리뷰라 실제 스폰과 일치.
+	# 배치형이라 line-aim 아님(사거리 안=즉시 시전 / 밖=navmesh로 걸어가서 시전 — _confirm_cast 일반 경로).
+	if is_rect and kind == "skillbook_zone":
+		_is_line_aim = false
+		Input.set_custom_mouse_cursor(_cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))
+		_aim.show_zone_rect(member, _range, float(p.get("length_m", 6.0)), float(p.get("width_m", 2.5)), cc)
+		return
+	# 직선 빔(AB-054 절단 광선) / 캐스터에서 뻗는 직사각형(AB-005 근접 rect) — 원형이 아니라 시전자→마우스 직선
+	# 레인으로 조준(적 커서). 확정 시 그 방향으로 즉시 시전(사거리까지 걷지 않음).
 	if LINE_AIM_KINDS.has(kind) or is_rect:
 		_is_line_aim = true
 		Input.set_custom_mouse_cursor(_cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))

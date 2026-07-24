@@ -7,7 +7,8 @@ class_name OutcomeStatus
 ##   부스트(>1.0, IceGlide·Hastened) 양방향. `Slippery`(is_slippery) = **관성 개념명**: INERTIA 집합
 ##   (OilSlick 기름·IceGlide 빙판)의 상태가 관성 이동(the mover lerps velocity)을 유발한다.
 ## - Ignited is a DoT, polled each tick (whole-HP ticks, like poison) and applied by the unit.
-## - WindBuffeted is a one-shot impulse (the source applies a knockback) + a brief display tag here.
+## - WindBuffeted = a display tag only; the real effect is a continuous downwind DRIFT applied by
+##   SurfaceGrid._wind_push_units while a unit stands in a Wind zone (AB-042; no MOVE_MULT here).
 ## DEMO PH magnitudes (SPEC_DRIFT) — real RX→status mapping/numbers land in P2-S3d.
 
 # Movement-outcome → speed multiplier (strongest slow taken when several stack).

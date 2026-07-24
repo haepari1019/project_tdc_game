@@ -965,8 +965,13 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 		return
 	if String(eff.get("kind", "")) == "spawn_zone":
 		# Ground-targeted: spawn at the telegraphed spot (windup_pos), even if the target moved/died.
+		var zopts := {}
+		if String(eff.get("shape", "")) == "rect":   # AB-042 Wind 복도 — 축 = 적→시전지점(windup_pos), 규칙5 통합(아군과 동일 거동)
+			var zdir: Vector3 = enemy.windup_pos - enemy.global_position
+			zdir.y = 0.0
+			zopts = {"shape": "rect", "dir": zdir, "length": float(eff.get("length_m", 6.0)), "width": float(eff.get("width_m", 2.5))}
 		_combat.spawn_zone(String(eff.get("medium", "Oil")), enemy.windup_pos,
-			float(eff.get("radius_m", 3.0)), float(eff.get("dps", 0.0)), float(eff.get("ttl_s", 8.0)), enemy)
+			float(eff.get("radius_m", 3.0)), float(eff.get("dps", 0.0)), float(eff.get("ttl_s", 8.0)), enemy, zopts)
 		print("[EN] %s %s → zone %s" % [enemy.enemy_id, String(chosen.get("ref", "")), String(eff.get("medium", "?"))])
 		return
 	if not is_instance_valid(target) or not target.is_alive():

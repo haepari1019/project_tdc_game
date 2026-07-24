@@ -1355,6 +1355,17 @@ func apply_knockback(dir: Vector3, dist: float) -> void:
 	move_and_collide(d.normalized() * dist)
 
 
+## 지속 위치 밀림(환경 드리프트 — 바람 등). 넉백과 달리 매 틱 소량이라 스티어링을 뺏지 않는다. ref: AB-042 Wind.
+func apply_drift(dir: Vector3, dist: float) -> void:
+	if not _alive or dist <= 0.0:
+		return
+	var d := dir
+	d.y = 0.0
+	if d.length() < 0.01:
+		return
+	move_and_collide(d.normalized() * dist)
+
+
 func _physics_process(delta: float) -> void:
 	if sub_cooldown_s > 0.0:
 		sub_cooldown_s -= delta

@@ -254,9 +254,11 @@ func _primary_medium_of(zones: Array) -> String:
 
 
 ## Spawn a medium zone (RX result). dps>0 carries the source for aggro crediting.
-func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node) -> void:
+func spawn_zone(medium: String, pos: Vector3, radius: float, dps: float, ttl: float, source: Node, opts: Dictionary = {}) -> void:
 	var z := HazardZone.new()
 	z.setup(radius, dps, 0.0, medium, false, ttl)
+	if String(opts.get("shape", "")) == "rect":   # AB-042 Wind 방향성 복도(원형 아님) — RX 스폰은 opts 없음 = 원형 유지
+		z.setup_rect(opts.get("dir", Vector3.FORWARD), float(opts.get("length", 6.0)), float(opts.get("width", 2.5)))
 	add_child(z)
 	z.global_position = pos
 	if source != null and dps > 0.0:
