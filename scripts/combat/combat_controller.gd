@@ -39,6 +39,9 @@ const COMBAT_EXIT_GRACE_S := 6.0
 ## EN-AI-000 §3 distance-leash (leash_m 28): an engaged enemy dragged this far from its spawn
 ## anchor gives up the chase (arena-boundary kite prevention) and returns to post (B6). Tuning.
 const DISENGAGE_LEASH_M := 28.0
+## anti-KITE 게이트: 거리-리시는 이 반경 안에 프레이가 하나도 없을 때만(진짜로 접촉 상실) 발동한다. 프레이가
+## 코앞이면 = 정당한 교전(먼 대상에게 도달한 경우 포함) → 리시 미발동 → engage↔leash 프리즈 방지. ref: 사용자 버그.
+const LEASH_PREY_KEEP_M := 14.0
 ## Squad cohesion: a newly-engaged enemy wakes squad-mates within this radius. A
 ## strayed member (off investigating) is outside it, so killing it alone does NOT
 ## wake the distant squad. Tuning.
@@ -46,6 +49,9 @@ const SQUAD_PROP_RADIUS_M := 9.0
 ## Lateral spacing between squads sharing one room (relocated start-room encounter
 ## sits beside the room's own squad instead of overlapping it).
 const SQUAD_LANE_SPACING := 12.0
+## 대량 소환 분산: lane 수직 오프셋을 좌우 번갈아 ±이 스텝 수로 상한(한쪽 벽 몰림 방지). 초과 레인은 깊이로 흘림.
+const LANE_SPREAD_MAX := 1
+const LANE_DEPTH_STAGGER_M := 3.0
 const SPAWN_SCATTER_M := 4.5   # per-run seeded scatter of the squad spawn center (navmesh-snapped)
 const EncounterGenerator := preload("res://scripts/run/encounter_generator.gd")   # S5b 조합 제너레이터
 const GEN_SCATTER_FRAC := 0.28   # 절차적 스폰: 방 최소변의 이 비율까지 deep-anchor 주변 산포(고정 4.5 대체)
@@ -207,6 +213,24 @@ func refresh_engage_grace(e: CharacterBody3D) -> void:
 	e.engage_grace_s = COMBAT_EXIT_GRACE_S
 
 
+## anti-KITE 게이트용: 이 적이 교전할 대상(파티는 항상 적대; 교차진영 적)이 반경 r 안에 하나라도 있나.
+## 있으면 "지금 싸우는 중"이라 거리-리시를 발동하지 않는다(먼 대상에게 정당히 도달한 경우 포함). ref: 사용자 버그.
+func _prey_near(enemy: CharacterBody3D, r: float, party: Array) -> bool:
+	var r2 := r * r
+	for m in party:
+		if is_instance_valid(m) and (not m.has_method("is_alive") or m.is_alive()) \
+				and Spatial.h_dist2(enemy.global_position, m.global_position) <= r2:
+			return true
+	for e in _enemies:
+		if e == enemy or not is_instance_valid(e) or String(e.faction) == String(enemy.faction):
+			continue
+		if e.has_method("is_alive") and not e.is_alive():
+			continue
+		if Spatial.h_dist2(enemy.global_position, e.global_position) <= r2:
+			return true
+	return false
+
+
 func _physics_process(delta: float) -> void:
 	if _enemies.is_empty():
 		_refresh_party_in_combat()  # last enemy died → clear partyInCombat (휴식중)
@@ -222,16 +246,20 @@ func _physics_process(delta: float) -> void:
 	for enemy in _enemies:
 		if is_instance_valid(enemy) and enemy.engaged and not enemy.training_dummy:
 			enemy.engage_grace_s -= delta
-			# Distance-leash (B5): dragged too far from the spawn anchor → give up (kite prevention).
+			# Distance-leash (B5) = anti-KITE: give up ONLY when dragged far from home AND no prey is near
+			# (truly out of contact). Firing it while a target is right here — e.g. an enemy that legitimately
+			# traveled ~leash distance to REACH its target — caused the engage↔leash freeze. Grace still
+			# handles lost-LOS disengage. ref: 사용자 버그.
 			var leashed: bool = enemy.home_pos != Vector3.INF \
-				and Spatial.h_dist2(enemy.global_position, enemy.home_pos) > DISENGAGE_LEASH_M * DISENGAGE_LEASH_M
+				and Spatial.h_dist2(enemy.global_position, enemy.home_pos) > DISENGAGE_LEASH_M * DISENGAGE_LEASH_M \
+				and not _prey_near(enemy, LEASH_PREY_KEEP_M, party)
 			if enemy.engage_grace_s <= 0.0 or leashed:
 				enemy.engaged = false
 				enemy.returning = true    # B6: path back to the spawn anchor
 	# Tick every enemy: dormant ones perceive/idle, engaged ones fight (EnemyAI).
 	# 허수아비(training_dummy)는 AI 미구동 → 정지·비공격(스킬샷 표적).
 	for enemy in _enemies:
-		if is_instance_valid(enemy) and not enemy.training_dummy:
+		if is_instance_valid(enemy) and enemy.is_alive() and not enemy.training_dummy:
 			_enemy_ai.tick(enemy, targets, delta)
 	# Party auto-attack runs always — attacking a foe is what commits the party. (party원만 actor)
 	_tick_party_attacks(party, delta)
@@ -756,7 +784,14 @@ func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
 		if dir.length() > 0.01:
 			dir = dir.normalized()
 			var perp := Vector3(dir.z, 0.0, -dir.x)  # 90° to the approach axis
-			center += perp * (float(lane) * SQUAD_LANE_SPACING)
+			# 대량 소환 분산: 한쪽으로 무한 행진(→벽 몰림) 대신 중심 좌우로 번갈아 부채꼴 전개하고 ±LANE_SPREAD_MAX
+			# 스텝으로 상한. 상한 초과 레인은 같은 열에 쌓이되 살짝 더 깊이 배치해 겹침 완화. 벽 관통은 _nav_snap 최종 방지.
+			var pair: int = (lane + 1) / 2                  # 1,1,2,2,3,3,…
+			var step: int = mini(pair, LANE_SPREAD_MAX)
+			var side: float = 1.0 if (lane % 2 == 1) else -1.0
+			center += perp * (side * float(step) * SQUAD_LANE_SPACING)
+			if pair > LANE_SPREAD_MAX:
+				center += dir * (float(pair - LANE_SPREAD_MAX) * LANE_DEPTH_STAGGER_M)
 	# Seeded scatter (LDG-SPAWN-DEMO-001 §2 placement variety, game-side): nudge the spawn off the
 	# exact deep point per run so positions aren't memorizable. run_seed=0 (sandbox/no run) → none.
 	# NOTE: no navmesh snap here — at prespawn the NavigationServer map isn't synced yet, so
@@ -896,7 +931,10 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, plac
 			unit.setup(row, vis["color"], s)
 			# AmbushHold dual-anchor: distribute units round-robin across the anchor spots.
 			var aid := index % maxi(anchor_count, 1)
-			unit.global_position = _anchor_center(center, aid, anchor_count) + _spawn_offset(index)
+			var pos: Vector3 = _anchor_center(center, aid, anchor_count) + _spawn_offset(index)
+			# 벽/네비메시 밖 스폰 방지: 런타임(샌드박스·런 중)엔 navmap이 동기화돼 최근접 walkable로 스냅.
+			# prespawn은 map 미동기 → closest_point가 ~원점 반환 → _nav_snap 내부 가드가 원좌표 그대로 통과.
+			unit.global_position = _nav_snap(pos)
 			unit.squad_id = squad_id
 			unit.faction = String(u.get("faction", faction))   # F-028 — ENC faction; 유닛별 override 가능(혼합 진영)
 			# F-028 비주얼 마커: 비-Dungeon 진영은 콘(원뿔)+violet 틴트로 박스 적과 구분.
@@ -1033,6 +1071,27 @@ func _spawn_offset(i: int) -> Vector3:
 	if i < RING.size():
 		return RING[i]
 	return Vector3(float((i * 37) % 8) - 4.0, 0, 3.0 + float((i * 53) % 6))
+
+
+## 스폰 좌표를 베이크된 navmesh 위로 스냅 — lane/스캐터/링 오프셋이 벽을 뚫거나 mesh 밖으로 나가지
+## 못하게 한다. RUNTIME 전용 가드: prespawn엔 NavServer map이 미동기라 map_get_closest_point()가
+## ~원점을 반환한다 → 원점-붕괴를 감지해 원좌표를 그대로 돌려준다(prespawn 스캐터/클램프 미적용 정책 존중).
+## 동기된 map(샌드박스/런 중)에서만 실제 스냅이 일어난다. ref: 샌드박스 벽밖 스폰 버그.
+func _nav_snap(pos: Vector3) -> Vector3:
+	if not is_inside_tree():
+		return pos
+	var world := get_world_3d()
+	if world == null:
+		return pos
+	var map: RID = world.get_navigation_map()
+	if not map.is_valid():
+		return pos
+	var snapped: Vector3 = NavigationServer3D.map_get_closest_point(map, pos)
+	# 미동기 map(prespawn): 모든 질의가 ~원점으로 붕괴 → 신뢰하지 않고 원좌표 유지.
+	if snapped.length_squared() < 0.25 and pos.length_squared() > 4.0:
+		return pos
+	snapped.y = pos.y   # navmesh는 바닥 y라 의도한 스폰 높이 보존
+	return snapped
 
 
 func _on_enemy_died(unit: CharacterBody3D) -> void:

@@ -64,6 +64,9 @@ var dash_timer_s: float = 0.0
 var dash_eff: Dictionary = {}
 var dash_chosen: Dictionary = {}
 var dash_target: CharacterBody3D = null
+## EN-008 hit-run flank: kite↔standoff 히스테리시스 상태 — 4m 안으로 들어오면 kite 시작, 6m 밖으로
+## 벌어질 때까지 유지(경계에서 매 프레임 토글하며 "부들부들" 떨던 것 방지). EnemyAI._move_hit_run_flank 소유.
+var flank_kiting: bool = false
 ## AssassinTransform (ENC tag — NORM-003/HARD-011): disguised among fodder, stalks a backline
 ## target, then reveals with a telegraph and EXECUTES (high burst). Reverts to normal after.
 ## Set per-encounter at spawn (not a unit-catalog property). ref: ENC-NORM-003 / D-013 tags.
@@ -943,7 +946,17 @@ func nav_move_toward(dest: Vector3, speed: float) -> Vector3:
 	to_wp.y = 0.0
 	var d := to_wp.length()
 	if d < 0.05:
-		return Vector3.ZERO
+		# Nav yielded no usable step: waypoint ≈ our position. Happens when the dest sits
+		# inside our own nav cell (close-range) or we were shoved off-mesh (a dash's
+		# move_and_slide ignores navmesh). If the real dest is still beyond arrival, steer
+		# STRAIGHT at it so we close the final gap — otherwise we freeze just short of melee
+		# range and stand idle while engaged (the '!' freeze after AB-013 backstab dashes).
+		var to_dest := dest - global_position
+		to_dest.y = 0.0
+		var dd := to_dest.length()
+		if dd < 0.05:
+			return Vector3.ZERO
+		return (to_dest / dd) * speed
 	return (to_wp / d) * speed
 
 

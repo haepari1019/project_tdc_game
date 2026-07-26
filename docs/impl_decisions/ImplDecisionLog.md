@@ -6,6 +6,13 @@
 
 ---
 
+### IMPL-DEC-20260727-001 — EN-008 프리즈 = engage↔leash 데드락(샌드박스 auto-engage) · 리시 anti-kite 게이트 · 파티 팔로워 교전 리시/홀드
+- **결정(2026-07-27, 사용자 감독):** EN-008 "선회 안 하고 멈춤" 프리즈의 근본은 flank/dash 코드가 **아니라** 공용 engage/perception의 **engage↔leash 데드락**이었다(진단: tick 최상단 프린트 `engaged=false returning=true homeDist=28.2`). 샌드박스 auto-engage가 EN-008을 deep-spawn(home에서 ~28m)에서 engaged로 만들어, 정지한 플레이어에 도달하는 순간 `DISENGAGE_LEASH_M`(28m)를 밟아 매 프레임 [leash 이탈→dormant 재교전+plant] 무한 토글 → 정지·무공격.
+- **수정:** ① **샌드박스 auto-engage 옵션 제거**(수동 소환=항상 dormant→지각 aggro). ② **거리-리시 anti-kite 게이트**(`_prey_near`): home에서 멀어도 `LEASH_PREY_KEEP_M`(14m) 안에 프레이가 있으면 미발동 — "먼 대상에 정당히 도달"을 kite로 오판 안 함(데드락 원천 차단, 잠재 재현 포함). ③ **EN-008 측면 선회 접근 복원**(밴드에이드 "순수 직선 접근" 되돌림) + kite↔standoff `flank_kiting` 히스테리시스(부들부들 떨림 제거). ④ 부수: 벽밖 스폰 navmesh 스냅(`_nav_snap`, 런타임 전용 원점-가드)·lane 좌우 부채꼴 분산.
+- **파티 팔로워 교전 시스템(신규, `combat_positioning`):** 근접 팔로워가 카이터를 대열 밖으로 무한 추격하던 것을 **슬롯 기준 리시**로 제한 + 상태머신: 깊은 acquire(재교전) / 시간기반 엣지 홀드(`HOLD_EDGE_S`) / 커밋 dwell(표적 전환 버퍼) / 짧은 복귀 인터미션. goal은 리시 엣지로 clamp(연속 "전방 가드" → 슬롯↔적 급점프=줄다리기 제거). 탱커는 리더라 리시 넉넉(게이팅 첫타). 값 전부 튜닝(리시 5/8m·홀드 2.5s·커밋 2.5s·acquire 0.65×·복귀 0.3s).
+- **대안(기각):** "EN-008 재생성"=프리즈가 flank 레이어가 아니라 공용 engage에 있어 오진(사용자와 확인). "복귀 시 슬롯 스냅"=요요/급반전 → 시간기반 엣지 홀드로 대체. "전역 이동 가속감쇠"=적 dash/knockback velocity takeover와 충돌 위험 → 보류(goal 연속화로 대개 불요).
+- **영향 파일:** `scripts/combat/{combat_controller,enemy_ai,enemy_unit}.gd`·`scripts/dev/combat_sandbox.gd`·`scripts/party/combat_positioning.gd`. 관련: [[DRIFT-100]](AB-013 Backstab Dash 확정).
+
 ### IMPL-DEC-20260721-001 — 환경 존 셀 그리드화 = **Target A**(셀=substrate, 원=저작). 단계적, shadow-first
 - **결정(2026-07-21, 사용자 승인):** 환경 surface(존)를 `center+radius` 원 단위 → **셀 그리드 substrate**로 전환한다. DRIFT-096의 "원 단위 근사"(교집합=중점 Steam·확산=반경 축소) 정식 해소 + 예정 기능(퍼짐·바람 밀림) 토대. 채택안 = **Target A**: `spawn_zone(medium,pos,radius,…)`·`radius_m`·`shape:Circle` **저작 그대로**, 내부에서 원을 셀로 **래스터화**. 셀이 상태·반응·확산 소유.
 - **이유:** spec은 이미 하이브리드(지오메트리=원 `radius_m`·`ZONE-CORE`/`EFFECT-CORE`, RX 해상도="타일" `INT-002 §6.1`/`EVENT-CORE §3`). 런타임 비원형화(퍼짐·바람)는 **substrate 층(셀 CA) 성질**이라 저작 단위와 직교 — A/B가 동일 제공. A/B 차이는 **seed 저작 단위**뿐이고, seed는 실제로 모양(조준점 원·배럴 슬릭)이라 `radius_m` 저작이 자연스럽고 `radius_m`=초기 스폰범위(불변식 아님). → A는 spec "타일" 어휘를 literally 참으로 만드는 **수렴**이고 지오메트리 SSOT 불변, 전파 최소.

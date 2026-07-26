@@ -390,6 +390,12 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 			enemy.windup_bar.set_progress(1.0 - enemy.windup_timer_s / enemy.windup_total_s)
 		if enemy.windup_timer_s <= 0.0:
 			_resolve_enemy_attack(enemy)  # dash abilities set enemy.dashing here
+		elif bool(enemy.windup_eff.get("hit_on_arrival", false)):
+			# 타격형 돌진 캐스트(AB-013) = 시전 중 **정지**(아군 cast_s 파리티). 안 그러면 1s 캐스트 동안
+			# 걸어가 돌진 지오메트리가 깨지고 "중간에 멈춤"처럼 보인다. reposition(AB-006)·존·볼트는 무영향.
+			enemy.velocity = Vector3.ZERO
+			enemy.move_and_slide()
+			return
 	# Dash takeover (AB-006/013): a short post-telegraph lunge drives movement (like knockback);
 	# on arrival, AB-013 lands its backstab. Resolves before normal steering this whole window.
 	if enemy.dashing:
@@ -700,9 +706,21 @@ func _is_hit_run_flanker(enemy: CharacterBody3D) -> bool:
 ## REPOSITION step: kite out if any party actor is too close, else move to the flank standoff. Burst
 ## speed + unleashed so it holds distance vs the faster player and isn't frozen by the spawn leash.
 func _move_hit_run_flank(enemy: CharacterBody3D, tp: Vector3, spd: float) -> Vector3:
-	var threat := _nearest_party(enemy, FLANK_KITE_TRIGGER_M)
-	if threat != null:
-		return _kite_flee(enemy, threat.global_position, spd * FLANK_KITE_SPEED_MULT, false)
+	# REPOSITION: 파티의 노출된 측면(_flank_standoff, 6m)으로 **선회 접근**(head-on 금지). 백스탭 돌진은
+	# _try_cast_dash가 기회형으로 발동. 근접 시 burst-kite로 빠지되(치고-빠지기 RESET) — kite↔standoff가
+	# FLANK_KITE_TRIGGER(4m) 경계에서 매 프레임 토글하며 "부들부들" 떨던 것을 **히스테리시스 밴드**로 제거:
+	# 4m 안으로 들어오면 kite 시작, FLANK_KEEP(6m) 밖으로 벌어질 때까지 계속 kite → 경계 진동 없음.
+	var near := _nearest_party(enemy, FLANK_KEEP_M)
+	var nd := INF
+	if near != null:
+		nd = Vector2(near.global_position.x - enemy.global_position.x, near.global_position.z - enemy.global_position.z).length()
+	if enemy.flank_kiting:
+		if nd > FLANK_KEEP_M:
+			enemy.flank_kiting = false
+	elif nd < FLANK_KITE_TRIGGER_M:
+		enemy.flank_kiting = true
+	if enemy.flank_kiting and near != null:
+		return _kite_flee(enemy, near.global_position, spd * FLANK_KITE_SPEED_MULT, false)
 	return _nav_move(enemy, _flank_standoff(enemy, tp), spd)
 
 
@@ -1383,25 +1401,22 @@ func _try_cast_dash(enemy: CharacterBody3D, target: CharacterBody3D, dist: float
 			continue  # AB still on cooldown
 		if _cast_gated(enemy, ref):
 			continue  # 전투 템포: AB-013/100/104(threat/control)만 cap; AB-006 갭클로즈(reposition) 무영향
-		# Backstab (hit_on_arrival): STRIKE only from the FLANK — perpendicular to the party spine.
-		# If not on the flank arc yet, hold and let REPOSITION circle there first (no head-on dash).
-		if bool(eff.get("flank", false)):  # only flank dashes (AB-013) gate on the party flank axis;
-			var axis := _party_flank_axis(enemy)  # Pounce/Rampage (no flank) dash head-on freely
-			if axis != Vector3.ZERO:
-				var toe := enemy.global_position - target.global_position
-				toe.y = 0.0
-				if toe.length() < 0.01 or absf(toe.normalized().dot(axis)) < FLANK_STRIKE_COS:
-					return false  # in the front/back arc → keep repositioning
+		# (구) flank arc 게이트 폐지 — "측면 각에서만 백스탭"은 리포지션(standoff/공전)을 강제해 "멍때림/멈춤"의
+		# 근본이었다. 이제 접근 중 dash range 안이면 정면이든 측면이든 돌진(백스탭 각은 _begin_dash가 dest=flank로
+		# 잡아 시각적으로는 여전히 측면 착지). 사용자 확인 — 안정적 돌진 + 멈춤 제거 우선. dest 계산은 flank 유지.
 		if dist <= enemy.attack_range_m + DASH_TRIGGER_BUFFER_M:
 			return false
 		if dist > float(eff.get("dash_range_m", DASH_MAX_M)):
 			return false
 		enemy.winding = true
 		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.3))
+		enemy.windup_total_s = float(eff.get("telegraph_s", 0.3))   # 캐스트바 진행률 기준
 		enemy.windup_eff = eff
 		enemy.windup_chosen = {"ref": ref, "trigger": "signature"}
 		enemy.windup_target = target
 		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 5.0))
+		if bool(eff.get("hit_on_arrival", false)):
+			_start_cast_bar(enemy)   # 타격형 돌진(AB-013) — HP 바 위 캐스트바(아군 cast_s 파리티). reposition(AB-006)은 즉발이라 생략.
 		SkillVfx.telegraph(self, enemy.global_position, _dash_color(eff))  # teal reposition / crimson strike
 		return true
 	return false

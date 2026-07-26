@@ -121,7 +121,6 @@ var _enc_dropdown: OptionButton
 var _unit_dropdown: OptionButton
 var _zone_dropdown: OptionButton
 var _count_spin: SpinBox
-var _engaged_chk: CheckBox
 var _interact_chk: CheckBox   # SINGLE UNIT에 opportunistic 사물 상호작용(배럴 능동 부수기) 켜기 (dev)
 var _third_chk: CheckBox   # 스폰 유닛을 Third 진영으로 (진영전 테스트)
 var _status: Label
@@ -389,10 +388,6 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 
 	# --- shared ---
 	box.add_child(_section("OPTIONS"))
-	_engaged_chk = CheckBox.new()
-	_engaged_chk.text = "spawn engaged (skip perception)"
-	_engaged_chk.button_pressed = true
-	box.add_child(_engaged_chk)
 	_interact_chk = CheckBox.new()
 	_interact_chk.text = "opportunistic 사물 상호작용 (배럴 능동 부수기)"
 	_interact_chk.button_pressed = false
@@ -617,14 +612,13 @@ func _on_spawn_enc(additive: bool = false) -> void:
 	if _enc_dropdown.selected < 0:
 		return
 	var eid := _enc_dropdown.get_item_text(_enc_dropdown.selected)
-	# Patrol/AmbushHold only read while DORMANT — engaged "skip perception" would bypass the whole
-	# placement behavior. Force dormant for those so the patrol loop / ambush spring is observable.
+	# 수동 소환 적은 항상 DORMANT — 지각(perception)으로 aggro해야 함(시작부터 engaged 금지). Patrol/
+	# AmbushHold는 placement 표기용으로만 남긴다(순찰 루프/매복 스프링 관찰).
 	var placement := String(Slice01Data.get_encounter(eid).get("placement_behavior", "Fixed"))
 	var is_placement := placement == "Patrol" or placement == "AmbushHold"
-	var engaged: bool = _engaged_chk.button_pressed and not is_placement
 	# additive=true → clear 안 함 (일반 ENC + ENC-3RD 둘 다 스폰해 진영전 관찰, F-028).
-	_combat.debug_spawn_only(eid, "SANDBOX", engaged, additive)
-	var hint := "  (engaged)" if engaged else "  (dormant — 북쪽으로 걸어가 트리거)"
+	_combat.debug_spawn_only(eid, "SANDBOX", false, additive)
+	var hint := "  (dormant — 북쪽으로 걸어가 트리거)"
 	if is_placement:
 		hint = "  [%s] dormant — 북쪽으로 접근" % placement
 	_status.text = "%s%s%s" % ["+ENC: " if additive else "ENC: ", eid, hint]
@@ -635,7 +629,7 @@ func _on_spawn_unit() -> void:
 	if eid == "":
 		return
 	var fac := "Third" if _third_chk.button_pressed else "Dungeon"
-	_combat.debug_spawn_unit(eid, int(_count_spin.value), "SANDBOX", _engaged_chk.button_pressed, fac, _interact_chk.button_pressed)
+	_combat.debug_spawn_unit(eid, int(_count_spin.value), "SANDBOX", false, fac, _interact_chk.button_pressed)
 	_status.text = "+%d × %s [%s]" % [int(_count_spin.value), eid, fac]
 
 
