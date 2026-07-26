@@ -809,13 +809,14 @@
       "range_band": "Mid",
       "charges_max": 80,
       "cast": {
-        "kind": "skillbook_charge",
-        "cooldown_s": 5,
+        "kind": "skillbook_dash",
+        "cooldown_s": 10,
+        "cast_s": 1.0,
         "targeted": true,
         "range_m": 8,
-        "cone_deg": 24,
-        "damage_mult": 1.5,
-        "knockback_m": 0.0
+        "radius_m": 2.5,
+        "gap_m": 1.4,
+        "damage_mult": 1.5
       },
       "tier": "Advanced"
     },

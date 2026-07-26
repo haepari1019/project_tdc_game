@@ -706,6 +706,10 @@ func binding_sanctuary_clear() -> void:
 func notify_kill(_enemy) -> void:
 	if BindingOverlays.identity_flanks(String(base_gear_id), String(ability_id)):
 		apply_veil(float(BindingOverlays.FLANK["veil_s"]))
+		# AB-013 Backstab Dash 잠행 결속(BIND-038) — 주변에서 적 처치 시 이 스킬 쿨 초기화(암살 연쇄)
+		for s in skillbook_slots:
+			if s != null and String(s.get("base_ability_id", "")) == "AB-013":
+				s["cooldown_s"] = 0.0
 
 
 ## DEBUG (combat sandbox): full reset to re-run an experiment — alive, full HP, all statuses +

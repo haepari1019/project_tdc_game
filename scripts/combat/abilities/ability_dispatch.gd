@@ -49,6 +49,7 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_blink.gd"),       # AB-006 Gap-Close / AB-007a·b (Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_vulnerable.gd"),  # AB-057 Focus Fire (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_polymorph.gd"),   # AB-012 Hex Bolt — 개구리 변이(Healer/Nuker)
+	preload("res://scripts/combat/abilities/effects/sb_dash.gd"),        # AB-013 Backstab Dash — 단일 돌진+피해(Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_haste.gd"),       # AB-069 Swift Grace (Healer)
 	# P2-S6a B1 잔여 — stealth/buff/channel/barrier/purge/silence (AB-075 reuses skillbook_shield).
 	preload("res://scripts/combat/abilities/effects/sb_stealth.gd"),     # AB-062 Smoke Veil (Nuker, Veiled)
@@ -288,6 +289,10 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		"flank_dash":     # E — 사거리 비례 이득 후 적 반대편으로 원래 사거리만큼 순간 이탈
 			_nuker_flank_strike(member, slot_index, aim)
 			_nuker_flank_dash(member, slot_index, aim)
+		"focus_backstab":   # AB-013 — 집중 2스택 + 캡 도달/이미 캡이면 준 피해만큼 캐스터 보호막(1s)
+			_nuker_focus_backstab(member, slot_index, aim)
+		"flank_backstab":   # AB-013 — 캐스트 시 특수 없음(사거리 무패널티=aim 분기 / 쿨 초기화=notify_kill)
+			pass
 			# --- DPS press_line 「초월」: 서브 명중 시 게이지 충전(비발동) / 초월 중이면 서브 강화 변형(겁화·중력·절대영도) ---
 		"overdrive_charge":
 			_dps_overdrive(member, slot_index, aim, ov)
@@ -423,6 +428,32 @@ func _nuker_flank_dash(member: CharacterBody3D, _slot_index: int, aim: Vector3) 
 	var start: Vector3 = member.global_position
 	member.global_position += away.normalized() * float(BindingOverlays.FLANK["dash_m"])
 	SkillVfx.dash_streak(self, start, member.global_position, Color(0.7, 0.4, 0.5))
+
+
+## AB-013 Backstab Dash 「집중」 변주 — 명중 대상에 집중 **2스택** + 캡 도달/이미 캡이면 **준 피해만큼 캐스터
+## 보호막(1s)**(돌진 리스크 상쇄 보상). 돌진이 방금 명중한 대상(report_hit_target) 우선.
+func _nuker_focus_backstab(member: CharacterBody3D, slot_index: int, aim: Vector3) -> void:
+	var f: Dictionary = BindingOverlays.FOCUS
+	var hit = _last_hit_target if (_last_hit_target != null and is_instance_valid(_last_hit_target)) else nearest_enemy_in_range(aim, float(f["seed_radius_m"]))
+	if hit == null or not is_instance_valid(hit):
+		return
+	var cap: int = int(f["stack_cap"])
+	if member.get_focus_enemy() != hit:
+		member.binding_focus(hit, float(f["window_s"]))   # 새/다른 대상 → 집중 재설정(0부터)
+	member.binding_focus_add(cap, float(f["window_s"]))                       # +1
+	var stacks: int = member.binding_focus_add(cap, float(f["window_s"]))    # +1 → 총 2스택(캡 클램프)
+	var bonus: float = float(stacks) * float(f["stack_dmg_pct"]) * member.basic_damage
+	if bonus > 0.0:
+		deal_damage(hit, member, bonus)
+		if hit.has_method("popup_status"):
+			hit.popup_status("+%d" % int(round(bonus)), Color(1.0, 0.35, 0.3))
+	if stacks >= cap:   # 이 스킬로 max 도달 or 이미 max 대상 → 캐스터 보호막(준 피해만큼, 1s)
+		var inst = member.get_skillbook(slot_index)
+		var master: Dictionary = Slice01Data.get_skillbook_master(String(inst.get("base_ability_id", "")) if inst != null else "")
+		var shield_amt: float = float(master.get("cast", {}).get("damage_mult", 1.5)) * member.basic_damage
+		member.add_shield(shield_amt, 1.0)
+		if member.has_method("popup_status"):
+			member.popup_status("보호막 +%d" % int(round(shield_amt)), Color(0.55, 0.85, 1.0))
 
 
 # ============================================================================

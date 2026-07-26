@@ -810,3 +810,12 @@
   `APPLY-HEX-WEAK-4S` Deprecated · `STATUS-OUTCOME-CORE` `HEX-WEAK` Deprecated · `AB-070` 아군 dispel(`targetType` Any) ·
   프로즈 `EN-007`/`ROLE-040`/`ROLE-001`/`ENC-HARD-004`/`AB-080`/`IDA-031` 정합). 게임 재핀 `a5e5ae3`→`fb87816`. mapper 0 ·
   xref broken-ref 0 · 정의 ID +1. 개구리 dispel = **AB-070 단일 확정**(게임에 다른 정화 없음 — IDA-031은 지속치유로 재해석됨, Ward Pulse 정화 폐지 DRIFT-073). **후속:** 3s 캐스트 중 표적 이탈=대상 엔티티 락(impl).
+
+### DRIFT-100 — AB-013 Backstab Dash 확정: 아군 `skillbook_charge`→`skillbook_dash`(단일 접근+피해) + 결속 2종 · 적 telegraph/cd 튜닝 🔶 impl + tuning
+- **배경(2026-07-27, 사용자 확정):** [[DRIFT-085]] ②(AB-013=AB-006 발전형: 접근+즉시딜×1.5)의 아군측 구현 완결. DRIFT-085 당시 "코드 변경 0(스킬트리 배치 시)"였으나, 아군 AB-013 스킬북이 `skillbook_charge`(전방 콘·다수 넉백=탱커형)로 남아 "단일표적 접근+피해" 설계와 어긋나 있었다.
+- **① 아군 스킬(impl):** `skillbooks.json` AB-013 cast `skillbook_charge`→**`skillbook_dash`**(신규 `sb_dash.gd`): 조준 적에게 캐스터 돌진(gap_m 1.4 남김)+단일 데미지(×1.5)+`report_hit_target`(집중 결속 훅). Tank `skillbook_charge`(콘·넉백)와 분리 = 이동계열 접근+피해 슬롯(AB-006 무피해 gap-close ↔ AB-013 접근+피해). 적 `enemy_dash`(EN-008 백스탭) 거동 통일. `cast_s 1.0`·targeted·range 8·radius 2.5.
+- **② 결속 2종(impl, BIND-037/038, 슬롯 무관):** 「집중」(IDA-025 `focus_backstab`)=명중 시 집중 +2스택, max 도달/이미 max면 준 피해만큼 캐스터 보호막(1s). 「잠행」(IDA-029 `flank_backstab`)=근접 사거리 패널티 없음(이미 돌진) + 주변 처치 시 이 스킬 쿨 초기화(암살 연쇄, `notify_kill`). overlay 35→37.
+- **③ 적(tuning):** `abilities.json` AB-013 `telegraph_s` 0.3→**1.0** · `cooldown_s` 5→**10** · `knockback_m` 1.0→**0.0**. EN-008 하드모델(치고-빠지기) 페이싱 — 로깅만, Phase B 재튜닝.
+- **분류\전파:** 신규 `skillbook_dash` kind + BIND-037/038 = **rule 전파 후보**(OPS_30, [[DRIFT-085]] 발전형 계열 후속 배치 — 085는 ✅전파완료). 적 telegraph/cd/kb = **tuning 로깅만**. 이 레포 spec md 편집 금지.
+- **영향 파일:** `data/slice01/{abilities,skillbooks}.json` · `scripts/combat/abilities/effects/sb_dash.gd`(신규) · `ability_dispatch.gd`(등재+`_nuker_focus_backstab`) · `bindings/binding_overlays.gd`(BIND-037/038) · `party_member.gd`(notify_kill 쿨초기화) · `aim_controller.gd`(UNIT_AIM) · `tools/binding_smoke.gd`(37).
+- **상태:** LOGGED (게임측 확정). skillbook_dash kind + BIND-037/038 전파 = 사용자 판단 대기.

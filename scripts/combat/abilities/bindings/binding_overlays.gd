@@ -307,6 +307,17 @@ const OVERLAYS := [
 		"identity_ab": "IDA-029", "slot_ab": "AB-007b", "slot_index": -1, "theme": "flank", "delta": "disengage_veil",
 		"payoff": "이탈 → 은신 유지 · 은신 첫 스킬 강타", "desc_ko": "이탈 후 은신을 유지한다(은신 중 평타 정지). 은신에서 쓰는 첫 스킬이 추가 피해 — 시전/은신해제 시 종료.",
 	},
+	# AB-013 Backstab Dash bespoke 변주(슬롯 무관). 집중 = 2스택 + max 시 캐스터 보호막 / 잠행 = 사거리 패널티 없음(돌진=이미 근접) + 주변 처치 시 쿨 초기화(암살 연쇄).
+	{
+		"id": "BIND-037", "gear": "gear_ward_nuker_ruin_sight",
+		"identity_ab": "IDA-025", "slot_ab": "AB-013", "slot_index": -1, "theme": "focus", "delta": "focus_backstab",
+		"payoff": "돌진 명중 → Focus +2 & max 도달/이미 max면 데미지만큼 캐스터 보호막(1s)", "desc_ko": "명중한 적에게 집중을 두 겹 쌓는다. 집중이 가득 차면(또는 이미 가득 찬 대상이면) 준 피해만큼 잠시 보호막을 얻는다.",
+	},
+	{
+		"id": "BIND-038", "gear": "gear_ward_nuker_flank_knife",
+		"identity_ab": "IDA-029", "slot_ab": "AB-013", "slot_index": -1, "theme": "flank", "delta": "flank_backstab",
+		"payoff": "이미 근접 돌진 → 사거리 패널티 없음 · 주변에서 적 처치 시 이 스킬 쿨 초기화", "desc_ko": "근접 사거리로 강제되지 않는다(이미 돌진). 주변에서 적이 처치되면 이 스킬의 대기시간이 초기화된다(암살 연쇄).",
+	},
 ]
 
 ## resolveEffectiveAbility (F-020 §3.7) — active overlay for a member's slot, or {} (base only). 착용 즉시 활성.

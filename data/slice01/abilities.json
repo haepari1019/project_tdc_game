@@ -57,14 +57,14 @@
     },
     "AB-013": {
       "kind": "enemy_dash",
-      "telegraph_s": 0.3,
+      "telegraph_s": 1.0,
       "channel": true,
-      "cooldown_s": 5.0,
+      "cooldown_s": 10.0,
       "dash_range_m": 10.0,
       "flank": true,
       "hit_on_arrival": true,
       "damage_mult": 1.5,
-      "knockback_m": 1.0,
+      "knockback_m": 0.0,
       "vfx": "strike"
     },
     "AB-009": {

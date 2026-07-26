@@ -20,9 +20,9 @@ func _init() -> void:
 	if not BindingOverlays.resolve("gear_ward_tank_anchor_bulwark", "IDA-020", "AB-033", 1).is_empty():
 		fails += 1; push_error("[BIND] wrong slotIndex must NOT activate an overlay")
 
-	# All 35 overlays (+ AB-007 이탈 집중 033/034 · 잠행 035/036 + BIND-027 초월 아군안심기름 AB-009). Tank 001~006/029/030 + Nuker 007~008/027/010~012/028 + Healer 013~018 + DPS 019~024/026/031/032 + 이탈 033~036 + 초월 027(safeslick).
-	if BindingOverlays.OVERLAYS.size() != 35:
-		fails += 1; push_error("[BIND] expected 35 overlays, got %d" % BindingOverlays.OVERLAYS.size())
+	# All 37 overlays (+ AB-007 이탈 033~036 · BIND-027 초월 아군안심기름 AB-009 · **BIND-037/038 AB-013 Backstab Dash 집중/잠행 변주**). Tank 001~006/029/030 + Nuker 007~008/027/010~012/028 + Healer 013~018 + DPS 019~024/026/031/032 + 이탈 033~036 + 초월 027 + AB-013 037/038.
+	if BindingOverlays.OVERLAYS.size() != 37:
+		fails += 1; push_error("[BIND] expected 37 overlays, got %d" % BindingOverlays.OVERLAYS.size())
 	# 이탈 결속은 slot 무관(-1) — 어느 슬롯에 있어도 resolve.
 	if String(BindingOverlays.resolve("gear_ward_nuker_ruin_sight", "IDA-025", "AB-007a", 2).get("delta", "")) != "disengage_focus":
 		fails += 1; push_error("[BIND] 이탈(AB-007a)+집중 should resolve disengage_focus at any slot")
