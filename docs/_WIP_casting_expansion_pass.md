@@ -3,7 +3,7 @@
 > **임시 작업 문서.** 패스 완료 후 **삭제**한다. SSOT 아님 — 결정은 `SPEC_DRIFT.md`(DRIFT-078)로 남는다.
 > **📂 2-파일 체계(2026-07-15):** 이 파일 = **활성/해야할것**(방법론 §0~§3 · 진행 지도 §5 · 현재 ENC §8 · 규칙 §9). 완료분은 [_WIP_casting_expansion_pass_DONE.md](_WIP_casting_expansion_pass_DONE.md) = **완료 아카이브**(원장 §4 · 완료 ENC §6~§7 상세). **ENC 컨펌 시 활성→DONE 이동**(§2.4). 활성 파일을 짧게 유지해 매 세션 읽는 비용을 줄이는 게 목적.
 > **모델 분업:** 방법·표 = Opus 작성(이 파일). **실제 스킬별 핑퐁 = Sonnet 세션이 이 파일을 열어 §2 루프를 구동.**
-> **작성:** 2026-07-09 · **최신화:** 2026-07-24 (**AB-012 개구리 폴리모프 완결**(DRIFT-099). 전수 표 **완료 18/미완료 42**. **Phase A = 스킬 전수 핑퐁(§5 표 순회) / Phase B = ENC 밸런싱(§5.3)**. 다음 = Phase A 표 순서로 미완료 42종 — 표 순서상 **AB-013 Backstab Dash**부터) · spec pin `a5e5ae3`(재핀 대기: DRIFT-099 폴리모프 미전파) · 게임 `main` 직접 작업.
+> **작성:** 2026-07-09 · **최신화:** 2026-07-27 (**AB-013 Backstab Dash 완결**(DRIFT-100): 아군 skillbook_charge→**skillbook_dash**(단일 접근+피해) + 결속 2종(집중/잠행) + 적 telegraph/cd 튜닝. 전수 표 **완료 19/미완료 41**. **Phase A = 스킬 전수 핑퐁(§5 표 순회) / Phase B = ENC 밸런싱(§5.3)**. 다음 = Phase A 표 순서로 미완료 41종 — 표 순서상 **AB-028 Guard Break Rhythm**부터) · spec pin `4d4d192` (DRIFT-100 `skillbook_dash` kind + BIND-037/038 미전파=전파 후보) · 게임 `main` 직접 작업.
 
 ---
 
@@ -167,7 +167,7 @@ Shared 서브(적도 드롭) 또는 Ally-only 서브는, 장착 가능한 **각 
 | **AB-010** Venom Spit | 대상에 맹독을 걸어 시간에 걸쳐 지속 피해를 준다 [uni] | poison_dps=1.35 poison_dur_s=8 poison_… | DPS | Shared·EN-005 | 2.0s·4 | DONE | 0.3 | HARD-001 | [x] | |
 | **AB-011** Toll Stun | 대상 지역의 적을 강타하고 잠시 기절시킨다 | stun_s=1.4 | Tank | Shared·EN-006 | A·8 | DONE | 0.6 | DEEP-001·HARD-001·HARD-003 | [x] | |
 | **AB-012** Hex Bolt | 대상을 개구리로 변이시켜 무력화한다(공격·시전·컨트롤 불가·랜덤 hop) | **skillbook_polymorph** poly_dur_s=30 cast_s=3.0 | Healer/Nuker | Shared·EN-007 | 3.0s·12 | DONE | — | HARD-004·HARD-012 | [x] | **취약 표식→개구리 폴리모프 하드 CC 전면 재정의**(AB-057과 차별화·통폐합 해소) · 피해 시 해제 · 양측 타겟 제외(자동 브레이크 방지) · AB-070 아군 dispel · 적↔아군 통일 · DRIFT-099 |
-| **AB-013** Backstab Dash | 대상을 향해 돌진해 충돌 피해를 준다 | cone_deg=24 knockback_m=0.0 | Nuker | Shared·EN-008 | A·5 | ? | 1.5 | HARD-002 | [ ] | |
+| **AB-013** Backstab Dash | 대상에게 돌진해 단일 피해를 준다 | radius_m=2.5 gap_m=1.4 cast_s=1.0 | Nuker | Shared·EN-008 | 1.0s·10 | **A** | 1.5 | HARD-002 | [x] | **charge→skillbook_dash**(단일 접근+피해) · 결속 BIND-037집중/038잠행 · 1.0s 커밋 다이브(A/B 밖 별도, AB-042 선례) · 적 telegraph 1.0/cd 10(tuning) · DRIFT-085 발전형/**DRIFT-100** |
 | **AB-028** Guard Break Rhythm | 대상 지역의 적을 강타해 피해를 주고 밀어낸다 | knockback_m=0.0 castTier=B rootDuringC… | DPS | Ally | A·6 | ? | 1.0 | — | [ ] | |
 | **AB-030** Voltaic Interrupt | 대상 지역의 적을 강타하고 잠시 기절시킨다 | stun_s=0.5 | Nuker/DPS | Ally | A·8 | ? | 0.4 | — | [ ] | |
 | **AB-032** Beacon Sight | 주변에 숨은 적을 드러낸다(정찰) | reveal_s=3.5 | Healer | Ally | A·10 | ? | — | — | [ ] | |
