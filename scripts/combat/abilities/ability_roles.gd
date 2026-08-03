@@ -42,7 +42,8 @@ const ROLES := {
 
 	# ── ① 위협(threat) · hybrid (대시 딜리버리=ai, 피해=shared strike) ──
 	"AB-013": {"kind": "enemy_dash", "role": "threat", "exec": "hybrid"},          # 백스탭(flank dash + strike 1.5)
-	"AB-104": {"kind": "enemy_dash", "role": "threat", "exec": "hybrid"},          # 램페이지(line + splash 1.1)
+	# AB-104 램페이지 제거 — T1 통폐합(DRIFT-101). EN-3RD-03은 AB-011(control)로 교체.
+	# `line`/`_rampage_splash`(enemy_ai) 페이로드 경로는 데이터 구동이라 남겨 둠 — 현재 사용처 0.
 
 	# ── ① 통제(control) · shared/hybrid — 하드 CC, 캡 O ───────────────────────
 	"AB-011": {"kind": "enemy_stun",    "role": "control", "exec": "shared"},      # 종 기절 1.4s

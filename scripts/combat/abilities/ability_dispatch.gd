@@ -30,7 +30,7 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_root.gd"),    # AB-102 Snare Net (Tank)
 	preload("res://scripts/combat/abilities/effects/sb_pin.gd"),     # AB-100 Pounce (Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_tether.gd"),  # AB-103 Tether (Nuker)
-	preload("res://scripts/combat/abilities/effects/sb_charge.gd"),  # AB-104 Rampage (Tank)
+	# AB-104 Rampage(sb_charge) 제거 — T1 통폐합(DRIFT-101): AB-011로 흡수, 적 EN-3RD-03도 AB-011로 교체.
 	preload("res://scripts/combat/abilities/effects/sb_execute.gd"), # AB-106 Devour (Nuker)
 	preload("res://scripts/combat/abilities/effects/sb_scent.gd"),   # AB-101 Scent of Blood (Healer)
 	# Gear-catalog Identity skills (non-starter identities; spec PT-pending → intent impl, params drift).
@@ -44,6 +44,7 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_channel_heal.gd"),# AB-064/066 집중 채널 힐 (Healer 킷 재설계)
 	preload("res://scripts/combat/abilities/effects/sb_ward_heal.gd"),   # AB-065 수호-흡수 힐 (Healer 킷 재설계)
 	preload("res://scripts/combat/abilities/effects/sb_dr.gd"),          # AB-046/047/068 Shield Wall·Aegis·Warding (Tank/Healer)
+	preload("res://scripts/combat/abilities/effects/sb_reflect.gd"),     # AB-048 Counter Stance (Tank) — T2 재정의, DRIFT-102
 	preload("res://scripts/combat/abilities/effects/sb_ally_shield.gd"), # AB-067 Aegis Blessing (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_hot.gd"),         # AB-065 Renewing Tide (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_blink.gd"),       # AB-006 Gap-Close / AB-007a·b (Nuker)

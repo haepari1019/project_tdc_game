@@ -1,7 +1,7 @@
 extends RefCounted
 ## AB-013 Backstab Dash (kind=skillbook_dash) — 조준 적에게 **캐스터가 돌진(이동)** + **단일 데미지**.
-## 누커가 근접으로 다이브 = 리스크 → `cast_s`로 커밋(짧은 캐스트). Tank의 `skillbook_charge`(전방 콘·다수
-## 넉백)와 분리 — 이쪽은 단일 표적 접근+피해. 이동계열 접근+피해 슬롯(AB-006 gap-close=무피해 / AB-013=
+## 누커가 근접으로 다이브 = 리스크 → `cast_s`로 커밋(짧은 캐스트). (Tank의 `skillbook_charge`는 T1 통폐합으로
+## 폐기 — DRIFT-101.) 이쪽은 단일 표적 접근+피해. 이동계열 접근+피해 슬롯(AB-006 gap-close=무피해 / AB-013=
 ## 접근+피해, DRIFT-085). 적 `enemy_dash`와 거동 통일. report_hit_target로 집중 결속이 이 명중을 훅한다.
 
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")

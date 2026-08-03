@@ -819,3 +819,105 @@
 - **분류\전파:** 신규 `skillbook_dash` kind + BIND-037/038 = **rule 전파 후보**(OPS_30, [[DRIFT-085]] 발전형 계열 후속 배치 — 085는 ✅전파완료). 적 telegraph/cd/kb = **tuning 로깅만**. 이 레포 spec md 편집 금지.
 - **영향 파일:** `data/slice01/{abilities,skillbooks}.json` · `scripts/combat/abilities/effects/sb_dash.gd`(신규) · `ability_dispatch.gd`(등재+`_nuker_focus_backstab`) · `bindings/binding_overlays.gd`(BIND-037/038) · `party_member.gd`(notify_kill 쿨초기화) · `aim_controller.gd`(UNIT_AIM) · `tools/binding_smoke.gd`(37).
 - **상태:** LOGGED (게임측 확정). skillbook_dash kind + BIND-037/038 전파 = 사용자 판단 대기.
+
+### DRIFT-101 — T1(Tank 지역 강타) 통폐합: AB-071·049·104 폐기 → AB-002/011 2종 · 강타/기절 툴팁 재정의 🔶 rule/scope (전파 후보)
+- **배경(2026-07-28, 사용자 판정):** [[DRIFT-078]] Phase A를 **「효과 유사도 × 주력 클래스」 클러스터**로 재편(§5)한 뒤 첫 판정. Tank 지역 강타 클러스터(T1) 실사에서 **AB-002↔071이 툴팁·`damage_mult`(1.0) 100% 동일**(차이 = 반경 8.0↔2.2 · kb 3.0↔2.0 · cd 2↔6)이고 **AB-011↔049는 단조 사다리**(stun 1.4↔0.6 · dmg 0.6↔0.3 · cd 8↔10, 049는 반경만 우위)로 확인. AB-104는 AB-011과 역할 중복. 사용자 판정: *"각 스킬이 주는 추가적인 메리트가 없으니 AB-002와 011만 남긴다"*.
+- **① 아군 서브 3종 폐기(scope):** `skillbooks.json`에서 **AB-071 Bulwark Bash · AB-049 Ground Pound · AB-104 Rampage 삭제**(60→**57종**). 폐기분은 전부 미완료였으므로 완료 19 불변 / 미완료 41→**38**. Tank 주력 15→**12종**. **ID는 `id_registry`에 등록만 잔존·미사용**([[DRIFT-085]] AB-061·AB-039 선례 — 정식 제거는 스펙 배치).
+- **② Shared 폐기 시 적측 처리 규칙(rule — 사용자 확정):** *"아군 스킬을 제거할 때 그게 Shared였다면 적측도 통폐합 대상 스킬로 교체한다."* [[DRIFT-082]] K1 대칭·§0 규칙5(진영별 분기 금지)의 폐기 방향 대칭 규칙. 적용: **EN-3RD-03 Reaver 킷 `AB-104`→`AB-011`**(`enemies.json`), 고아가 된 `abilities.json` **AB-104 항목 삭제**. AB-071·049는 Ally-only라 해당 없음.
+  - ⚠️ **파생 결과(로깅):** Reaver(elite, hp640)의 오프너가 **돌진 line-cleave(dmg 1.1 + splash 0.6 + kb) → 단일 기절(dmg 0.6 · stun 1.4 · cd 5)**로 바뀐다. 아키타입이 "돌진 학살자"에서 "기절 학살자"로 이동하고 위협도가 내려간다 — **Phase B 밸런싱/아키타입 재확인 대상**(§0 밸런싱 스킵 원칙에 따라 지금은 로깅만). 되돌릴 경우의 대안 = 돌진을 `rom_*` 기본 공격 아키타입으로 내리기.
+- **③ 남은 2종의 차이축을 툴팁으로 못박음(impl — 사용자 지시):** 실사 결과 **AB-011은 이미 코드상 단일 대상**이었다(`sb_stun`이 `nearest_enemy_in_range`로 1체 선택, `radius_m`은 조준 어시스트 반경). 즉 기계는 맞고 **문구만 광역처럼 거짓말**하고 있었다. `display_names.json` `skill_desc`:
+  - `skillbook_strike`: "대상 지역의 적을 강타해…" → **"자신의 발밑을 강타해 주변 적 전체에게 피해를 주고 밀어낸다."** (AB-002·028 = `targeted` 없는 **자기중심**인데 "대상 지역"이라 조준형으로 읽혔다.)
+  - `skillbook_strike_rect`(신규 키): **"전방 직선 범위를 휩쓸어 그 안의 적에게 피해를 주고 밀어낸다."** — `shape:"rect"`(AB-005) 분기. [skill_text.gd](../scripts/ui/skill_text.gd) `describe`가 params로 고른다([[DRIFT-085]] ⑤ 볼트 조립 선례와 동형, 스키마 변경 0).
+  - `skillbook_stun`: "대상 지역의 적을 강타하고…" → **"조준한 적 1기를 강타하여 피해를 주고 잠시 기절시킨다. 시전 중이었다면 시전을 중단시킨다."** 채널 인터럽트는 `apply_stun`이 실제로 하는 일(EN-AI-000 §2)이라 **AB-011의 실질 메리트**로 표면화. AB-030(Voltaic Interrupt)도 같은 kind라 동시에 참이 된다 — 이름과 데이터의 괴리 해소.
+  - ⚠️ **AB-028은 `knockback_m: 0.0`이라 "밀어낸다"가 여전히 거짓** — 변경 전에도 거짓이었고 D4(DPS 지역 강타) 판정 항목으로 이월(로깅만).
+- **④ 고아 정리:** `sb_charge.gd` **삭제**(`skillbook_charge` 유일 사용자였음) + `ability_dispatch` preload·`ability_roles` AB-104 행·`aim_controller` UNIT_AIM_KINDS·`display_names`(skill_desc/effect_kinds) 항목 제거. **`enemy_ai`의 `line` 분기·`_rampage_splash`는 존치** — AB 고정이 아니라 데이터(`line: true`) 구동이라 재사용 가능한 일반 경로다(현재 사용처 0, 주석 표기).
+- **분류\전파:** 서브 3종 폐기(아군 풀 스코프) + **Shared 폐기 대칭 규칙(②)** = **rule/scope → OPS_30 전파 후보**([[DRIFT-078]] 패스 확정분과 동반 배치). 툴팁 워딩·`skillbook_strike_rect` 키 = impl(스키마 변경 없음). Reaver 위협도 = tuning 로깅만. **이 레포 spec md 편집 금지.**
+- **영향 파일:** `data/slice01/{skillbooks,enemies,abilities,display_names}.json` · `scripts/ui/skill_text.gd` · `scripts/combat/abilities/{ability_dispatch,ability_roles,cast_context}.gd` · `effects/sb_charge.gd`(삭제)·`effects/sb_dash.gd`(주석) · `scripts/run/controllers/aim_controller.gd` · `tools/third_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — third_smoke에 `EN-3RD-03 kit has AB-011` · `AB-104 removed from catalog` 검증 2건 신설.
+- **상태:** LOGGED (게임측 확정). 3종 폐기 + Shared 폐기 대칭 규칙 전파 = 사용자 판단 대기.
+
+### DRIFT-102 — T2(Tank 피해 감소) 통폐합: AB-074 폐기 · AB-048 → **반격(반사)** 재정의 · AB-046/047 자기↔파티 분화 🔶 rule/scope/schema (전파 후보)
+- **배경(2026-07-28, 사용자 판정):** [[DRIFT-101]] T1에 이은 T2 판정. Tank 주력 DR 4종(AB-046·047·048·074)이 **툴팁 한 문장을 공유**하고 실차이가 수치뿐이었다(046 0.5/2.0s·048 0.4/1.5s = **같은 자기중심·같은 cd9**, 047 0.2/3.0s·074 0.3/6.0s = 둘 다 광역 r4.0). Tank 서브 슬롯은 3개인데 같은 문장 4종이 경합 = 전수 중 최악의 동일-클래스 중복.
+- **① AB-046 ↔ AB-047 = 「자기만 ↔ 팀원도」로 분화(impl):** 기계는 이미 갈려 있었다(`sb_dr`가 `allies_in_radius(radius_m)` — 046/068 r0.5 = 자기 · 047 r4.0 = 주변 아군). **문구만 뭉뚱그려져** 있었으므로 워딩으로 못박음:
+  - `skillbook_dr`: "잠시 동안 받는 피해를 감소시킨다." → **"잠시 동안 자신이 받는 피해를 감소시킨다."**
+  - `skillbook_dr_party`(신규 키): **"잠시 동안 주변 아군 전체가 받는 피해를 감소시킨다."** — [skill_text.gd](../scripts/ui/skill_text.gd) `describe`가 `radius_m > 1.0`으로 분기([[DRIFT-101]] `skillbook_strike_rect` 선례와 동형, 스키마 변경 0). AB-068(Healer 자기)도 자동으로 자기 문구.
+- **② AB-048 Counter Stance → `skillbook_reflect` 재정의(scope/schema — 신규 effect kind):** *"이름에 맞게 피해를 일정 부분 반사하는 효과로"*(사용자). DR 계열에서 **빼내** 이름값을 실현 → T2의 4종 중복이 구조적으로 해소된다(DR 2 + 반격 1).
+  - `skillbooks.json` AB-048 cast: `skillbook_dr`/`damage_reduction 0.4`/`radius_m 0.5` **삭제** → **`skillbook_reflect`** · `reflect_frac 0.4`(기존 DR 0.4 자리 승계) · **`reflect_cap 40.0`** · `duration_s 1.5`·`cooldown_s 9` 유지.
+  - **`reflect_cap` = 시전 1회당 반사 총량 상한**(사용자 지시: *"최대 상한치를 만들어서 추후 밸런싱이 편하게"*). 다수에게 둘러싸일수록 반사가 무한 증폭되는 걸 막는 레버 — **frac·cap 두 숫자만 만지면 튜닝 완결.** 상한 소진 시 태세가 남아 있어도 반사 정지, 재시전마다 예산 재충전. 밴드/affix `_coeff`는 **상한 쪽에 태운다**(비주력이 들면 총량이 줄어듦).
+  - **IDA-052 Sentinel Form과 분리:** Sentinel = DR + 이동잠금 + 반사(무제한). AB-048 = **순수 반사**(DR 없음·이동잠금 없음·상한 있음). 훅은 `party_member.take_damage`에서 Sentinel 반사 바로 다음, **경감 전 amount 기준**(Sentinel과 동일 규약).
+  - ⚠️ **`reflect_cap 40.0`은 PH 시작값** — 적 contact 10~22 기준 "1.5초에 100 피해를 받아야 상한이 무는" 수준. Phase B 튜닝 대상(로깅만).
+- **③ AB-074 Guardian Oath 폐기(scope):** 사용자 판정 *"74는 제거"*. AB-047과 같은 광역 r4.0 DR로 축이 완전히 겹쳤다(0.3/6.0s/cd16 ↔ 0.2/3.0s/cd12). **Ally-only라 [[DRIFT-101]] ② Shared 폐기 대칭 규칙은 해당 없음.** `skillbooks.json` 삭제(57→**56종**) + `dungeon_run.ALLY_CACHE_POOL` 제거. ID는 `id_registry` 등록만 잔존·미사용.
+- **결과 — T2 클러스터:** 4종(⬜4) → **3종(⬜3)**, 그러나 **DR은 046(자기)·047(파티) 2종으로 축이 직교**하고 048은 별 계열로 이탈 → **클러스터 내부 실중복 0.** 완료 19 불변 / 미완료 38→**37**. Tank 주력 12→**11종**.
+- **분류\전파:** **신규 `skillbook_reflect` kind + `reflect_frac`/`reflect_cap` 필드** = schema/rule → **OPS_30 전파 후보**([[DRIFT-100]] `skillbook_dash` 선례와 동일 처리). AB-074 폐기 = scope 전파 후보. 툴팁 분화·`skillbook_dr_party` 키 = impl. `reflect_cap` 값 = tuning 로깅만. **이 레포 spec md 편집 금지.**
+- **영향 파일:** `data/slice01/{skillbooks,display_names}.json` · `scripts/combat/abilities/effects/sb_reflect.gd`(신규)·`sb_dr.gd`(주석) · `ability_dispatch.gd`(등재) · `party/party_member.gd`(`apply_reflect`/`is_countering`/take_damage 훅/만료) · `ui/skill_text.gd` · `run/dungeon_run.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 반격 재정의·074 폐기·046/047 반경 분화 검증 **7건** 신설.
+- **상태:** LOGGED (게임측 확정). `skillbook_reflect` kind + AB-074 폐기 전파 = 사용자 판단 대기. ⏳ **F5 체감 대기**(반사 상한이 실전에서 무는지).
+
+### DRIFT-103 — 피해 감소 체감 개편: 상태 승격 + 막은 양 표시 + **횟수 기반** 전환 · DR 곱연산 · 타이머 공유 버그 수정 🔶 rule/impl + 🐞 bugfix
+- **배경(2026-07-28, 사용자 지시 "ABE 적용"):** [[DRIFT-102]] T2 직후 *"피해 감소가 너무 체감되지 않는다"*. 실사 결과 원인이 셋으로 갈렸다.
+  - **① 화면에 존재하지 않았다(가장 큼):** `damage_taken_mult`가 생 float라 [party_member.gd](../scripts/party/party_member.gd) `get_status_list()`에 **없었다** — 보호막·은신·기절은 칩+지속 arc가 뜨는데 DR만 아무 표시가 없었고, 시전 시 팝업 1회가 전부. 게다가 **아군은 피격 데미지 숫자 팝업 자체가 없어**(`take_damage`→`_flash()`만) "원래 얼마 맞았는지" 기준선이 없었다. 즉 줄어든 걸 지각할 채널이 0.
+  - **② 지속 < 적 공격 주기:** 적 `attack_interval_s` 1.3~1.8s인데 AB-046은 2.0s → 적 1기 상대 **1~2타**만 덮음.
+  - **③ 절대량:** Tank HP 170~205 · 적 contact 10~22 기준 AB-046 실경감 **7~15(HP의 4~8%)**, AB-047 **약 6**.
+- **① A — 상태 승격(impl):** DR을 `_dr_stacks` 배열로 승격하고 `get_status_list()`에 **스택마다 별개 버프 칩**으로 내보낸다(`name` = "라벨 −N%", `ratio` = 남은 타수 비율, `stacks` = 남은 타수). `party_sheet`의 status pip(4슬롯, 버프 미필터)이 자동으로 둘을 나란히 그린다. **버프 아이콘 2개 별개 = 사용자 명시 지시.**
+- **② B — 막은 양 표시(impl):** 피격 시 경감량을 계산해 **"막음 N"** 팝업(≥1일 때만), 스택 소진 시 **"라벨 종료 (총 N 막음)"**. 곱연산이라 스택별 기여 분리가 불가능해 표시용 누적은 **균등 배분**(정확한 귀속이 아니라 체감 지표라는 걸 코드 주석에 명시). AB-065 `ward_heal`의 흡수량 정산과 같은 계열.
+- **③ E — 횟수 기반 전환(rule/schema) — ⛔ [[DRIFT-104]]에서 롤백됨(2026-07-28 당일):** `duration_s`(초) → **`dr_hits`(타수)**. *"다음 N회의 공격에 대해 피해가 X% 줄어든다"* — **셀 수 있는 게 체감의 핵심**이라 툴팁 문장에도 params로 박았다. 타수는 **가해자가 있는 피격만 소모**(존/장판/DoT는 경감은 받되 예산을 안 태운다 — 0.5s마다 도는 DoT가 예산을 즉시 태워 버리는 걸 막는다). `dr_ttl_s`(기본 8s) = 전투 이탈 시 스택이 영원히 남지 않게 하는 **안전장치일 뿐** 주 수명이 아니다.
+  - 데이터: **AB-046 철벽 50%×2타** · **AB-047 수호진 20%×3타** · **AB-068 수호인 15%×3타**(+`dr_label` = 칩 분리 키, `dr_ttl_s` 8.0). `duration_s` 제거.
+  - ⚠️ 타수 값은 **PH**(기존 지속에서 환산) — Phase B 튜닝 대상.
+- **④ 곱연산(rule — 사용자 지시):** 여러 DR이 겹치면 **Π(1−frac)**. 50%+20% = **×0.4(60% 감소)**. 종전 "최강 하나만 적용(minf)"에서 전환 — 연속으로 쓰면 실제로 더 단단해진다. 최종 배율 = `_sentinel_dr_mult × Π(1−frac_i)`, `_recalc_damage_taken_mult()`가 단일 소유.
+- **⑤ 🐞 버그 수정 — Sentinel/DR 타이머·배율 공유:** 종전 `apply_damage_reduction`이 `damage_taken_mult`(minf)와 **`_sentinel_timer_s`(maxf)를 IDA-052와 공유**해서, **약하고 긴 DR을 덧걸면 강한 DR의 지속만 연장**됐다(AB-046 50%/2s → AB-047 20%/3s = **50%가 3초 유지**). Sentinel 배율을 `_sentinel_dr_mult`로 분리하고 DR은 자체 스택이 소유 → 둘은 이제 **곱해질 뿐 서로의 수명에 관여하지 않는다.**
+- **분류\전파:** **DR 시간→타수 전환 + `dr_hits`/`dr_label`/`dr_ttl_s` 필드 + 곱연산 규칙** = rule/schema → **OPS_30 전파 후보**([[DRIFT-102]] `skillbook_reflect`와 동반 배치). 상태 승격·막은 양 표시 = impl. 타수 값 = tuning 로깅만. 타이머 공유 = **버그 수정**(전파 불요). **이 레포 spec md 편집 금지.**
+- **영향 파일:** `data/slice01/{skillbooks,display_names}.json` · `scripts/party/party_member.gd`(`_dr_stacks`/`_sentinel_dr_mult`/`apply_damage_reduction`/`_recalc_damage_taken_mult`/`_consume_dr`/take_damage 훅/만료/`get_status_list`) · `scripts/combat/abilities/effects/sb_dr.gd` · `scripts/ui/skill_text.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 곱연산(0.5×0.8=0.4)·칩 2개 분리·같은 label 갱신·**Sentinel×DR 분리(0.4×0.4=0.16)** 검증 신설.
+- **상태:** LOGGED (게임측 확정). ⏳ **F5 체감 대기** — 이제 보이는데도 안 느껴지면 원인이 ③(크기)로 확정되고, 그때 타수/감소율을 올리면 된다(지금은 "안 보여서 못 느낀 건지 작아서 못 느낀 건지"가 분리되지 않은 상태였다).
+
+### DRIFT-104 — DR 타수형 **롤백**(시간 기반 복귀) · 반격 2변주 분기(AB-048 → **048a 시간형 / 048b 캐스팅 한정**) 🔶 rule/scope/schema (전파 후보)
+- **배경(2026-07-28, 사용자 판정):** [[DRIFT-103]] ③으로 DR을 타수형(`dr_hits`)으로 바꿨는데 F5 없이 즉시 반려 — *"타수로 했더니 체감하기가 더 어렵다"*. **원인 분석:** 타수는 **소진 시점을 플레이어가 예측할 수 없다**(적 공격 타이밍에 종속). 지속(초)은 칩 arc가 줄어드는 걸 보며 남은 창을 읽을 수 있는데, 타수는 "언제 닳는지"가 외부 변수라 오히려 인지 부하가 늘었다. 반면 **[[DRIFT-103]] ①(상태 승격)·②(막은 양 표시)·④(곱연산)·⑤(버그 수정)는 유지**한다 — 반려된 건 시간→타수 축 하나뿐.
+- **① DR 시간 기반 복귀(rule 롤백):** `dr_hits`/`dr_ttl_s` 제거 → **`duration_s` 복귀**(AB-046 2.0s · AB-047 3.0s · AB-068 4.0s = 종전값). 칩 `ratio`는 남은 시간, `stacks` 표기 제거. `_consume_dr`는 **막은 양 적산 전용**이 되고 만료는 시간이 처리 → 존/DoT도 동일하게 경감된다(예산 개념 소멸 = 타수형의 "DoT가 예산을 태운다" 예외도 함께 소멸).
+  - ⚠️ **[[DRIFT-103]] ②(지속 < 적 공격 주기)는 미해결로 남는다** — AB-046의 2.0s는 적 `attack_interval_s` 1.3~1.8s 기준 여전히 1~2타만 덮는다. 지속 상향이 남은 레버지만 수치라 Phase B(사용자 지시 없이 건드리지 않음).
+- **② 반격 2변주 분기(scope — 신규 ID):** *"특정 타수에 대해서, 평타급은 제외하고 적이 캐스팅 집중을 하고 쓰는 스킬에 한정해서 막는 스킬"* + *"일정 시간 동안 반사가 적용되는 스킬"* 두 개로 갈라라(사용자). **AB-007 → AB-007a/AB-007b 선례와 동형**으로 `AB-048` → **`AB-048a`/`AB-048b`** 분할, `id_registry.ability_ids`에서 `AB-048`을 두 항목으로 치환.
+  | | AB-048a **Counter Stance**(반격 태세) | AB-048b **Riposte**(응수) |
+  |---|---|---|
+  | 발동 조건 | 지속 동안 **모든 피격** | **적 캐스팅 스킬 피격만**(평타 무시) |
+  | 수명 | `duration_s 3.0` | `reflect_hits 2`타(+`duration_s 6.0` = 창 안전장치) |
+  | 반사율 / 상한 | 40% / 40 | **80% / 60** — 발동 기회가 드문 만큼 한 방이 크다 |
+  | cd | 9 | 12 |
+  - **캐스팅 판별:** `enemy_ai._apply_enemy_hit`가 `chosen.trigger == "signature"`(= AB-### 능력)를 `take_damage(amount, attacker, from_ability)` 3번째 인자로 넘긴다. `rom_*` 평타·존·트랩은 false. **신규 시그니처 인자**(기본값 false라 기존 호출부 무영향).
+  - 타수형은 **반사가 성립한 피격만** 타수를 깎는다(평타를 맞아도 응수 창이 닳지 않음).
+- **③ ⚠️ 반사는 경감이 아니다(rule — 사용자 확정):** **두 변주 모두 내 캐릭터가 받는 피해는 그대로 들어간다.** 반사는 `amount`를 건드리지 않고 공격자에게 추가로 되돌리기만 한다. *"패링되어 딜이 안 들어오고 반사만 되는 건 나중에 고도화 시 특성으로 넣을 예정"* — **딜 무효화는 후속 특성으로 이연**(지금 구현 금지). 툴팁에도 "받는 피해 자체는 줄어들지 않는다"를 명시.
+- **④ 피드백:** 반사 성립 시 **"반사 N"** 팝업, 종료 시 **"라벨 종료 (총 N 반사)"**. 반격도 DR과 같이 **버프 칩**(arc = 남은 타수 or 시간, stacks = 남은 타수)으로 승격.
+- **분류\전파:** **신규 ID `AB-048a`/`AB-048b`** + `reflect_hits`/`reflect_cast_only`/`reflect_label` 필드 + `take_damage(from_ability)` 시그니처 = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-102]]/[[DRIFT-103]]과 동반 배치). ⚠️ **[[DRIFT-085]]가 지적한 "AB-007a/b 신규 ID 미로깅" 선례 반복을 피하려 이번엔 분할 즉시 로깅한다.** DR 롤백 = [[DRIFT-103]] ③ supersede. 수치 = tuning 로깅만.
+- **영향 파일:** `data/slice01/{skillbooks,display_names,id_registry}.json` · `scripts/party/party_member.gd`(take_damage 3인자·`apply_reflect` 6인자·`_end_reflect`·DR 시간 롤백·반격 칩) · `effects/{sb_reflect,sb_dr}.gd` · `scripts/combat/enemy_ai.gd`(from_ability 전달 4곳) · `scripts/ui/skill_text.gd` · `scripts/run/dungeon_run.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **기능 검증** 신설: 응수가 ① 평타를 반사하지 않고 ② 평타 피해는 그대로 들어오며 ③ 캐스팅 스킬은 0.8×20=16 반사하고 ④ **반사해도 내 피해는 그대로**임을 실제 `take_damage` 호출로 확인.
+- **상태:** LOGGED (게임측 확정). 신규 ID 2종 + 반사 필드 전파 = 사용자 판단 대기. ⏳ **F5 체감 대기**(응수 발동 빈도 — 적 캐스팅 스킬이 실전에서 충분히 자주 오는지).
+
+### DRIFT-105 — 피해 감소 지속 상향(오오라형 전환): 2~4s → 6~10s · 쿨 동반 상향 🔶 tuning (로깅만)
+- **배경(2026-07-28, 사용자 판정):** *"2초 너무 짧아. 이런 오오라 류는 길게 지속되면서 버프를 줘야 해."* [[DRIFT-104]]가 미해결로 남긴 "지속 < 적 공격 주기" 문제의 해소. 적 `attack_interval_s` 1.3~1.8s 기준 AB-046의 2.0s는 **1~2타**밖에 못 덮어, 버튼을 눌러도 "무슨 일이 일어났는지" 관측할 표본 자체가 안 생겼다.
+- **⚠️ 지속만 늘리면 안 되는 이유(동반 상향 근거):** 장르 관례는 능동 방어 쿨기 **6~12초 지속 + 그보다 훨씬 긴 쿨**(수십 초~분)인데, **이 게임의 쿨 스케일은 2~16초로 압축**돼 있다. 지속만 관례에 맞추면 가동률이 100%를 넘어 **버프가 아니라 패시브 스탯**이 된다(선택이 사라짐). → 쿨을 같이 올려 가동률을 설계값으로 고정.
+- **적용:**
+  | AB | 감소 | 지속 | 쿨 | 가동률 | 덮는 타수 |
+  |---|---|---|---|---|---|
+  | **AB-046** 철벽(자기) | 50% | 2.0 → **6.0s** | 9 → **16** | **38%** | 1~2 → **4** |
+  | **AB-047** 수호진(파티 r4.0) | 20% | 3.0 → **10.0s** | 12 → **16** | **62%** | 2 → **6~7** |
+  | **AB-068** 수호인(Healer 자기) | 15% | 4.0 → **10.0s** | 10 → **14** | **71%** | 2~3 → **6~7** |
+- **파생 성격 분화:** 강한 자기 방어(046) = **저가동률 반응기**(38%) / 약한 광역(047·068) = **고가동률 오오라**(62·71%). [[DRIFT-102]]의 "자기 ↔ 파티" 축에 **가동률 축**이 하나 더 얹혀 두 스킬이 문구·범위·리듬 세 겹으로 갈린다.
+- ⚠️ **남는 과제:** 가동률이 크게 올랐으므로 **감소율 자체의 재검토**가 필요하다(62%·71% 시간 동안 20%·15%가 상시로 붙는 게 맞는지). Phase B 밸런싱 대상 — 이번엔 지속·쿨만 만졌다.
+- **분류\전파:** 전부 **수치 → tuning 로깅만**(전파 불요). 규칙·필드·enum 변경 없음. [[DRIFT-078]] §0 "밸런싱 스킵"의 예외 근거 = **"적 공격 주기보다 짧다"는 구조적 결함 해소**([[DRIFT-104]]에서 이미 구조 문제로 식별).
+- **영향 파일:** `data/slice01/skillbooks.json`(AB-046/047/068 `duration_s`·`cooldown_s`).
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28).
+- **상태:** LOGGED. ⏳ **F5 체감 대기** — 이제 지속·표시·곱연산이 다 갖춰졌으므로, 여기서도 안 느껴지면 원인은 **감소율(크기)** 단독으로 확정된다.
+
+### DRIFT-106 — 피해 감소 **지속형 오오라 VFX** 신설(`aura_field`/`clear_aura`) 🔶 impl (로깅만)
+- **배경(2026-07-28, 사용자 지시):** *"수호를 키면 오오라가 지속시간 동안 나오도록 vfx를 추가해줘."* [[DRIFT-105]]로 지속이 6~10초가 됐는데 VFX는 시전 순간 1회 펄스(`sub_sanctuary`)뿐이라, **버프가 켜져 있는 대부분의 시간이 화면에서 비어 있었다** — [[DRIFT-103]] ①(지각 채널 부재)의 잔여분.
+- **① `SkillVfx.aura_field(unit, radius, color, dur, key)` 신설:** 기존 VFX가 전부 **월드 좌표 1회성**인 것과 달리, **유닛의 자식으로 붙어 따라다니는 지속형**이다. 바닥 회전 링(TorusMesh, 6초 1회전) + 옅은 돔 + 0.9초 주기 맥동, 마지막 `AURA_FADE_S`(0.6s)에 페이드아웃 후 자기 소멸.
+  - **`key` = 교체 식별자** — 재시전 시 같은 key의 기존 오오라를 먼저 제거해 링이 겹쳐 쌓이는 걸 막는다. `clear_aura(unit, key)`는 조기 해제용.
+  - **부모 스케일 상쇄** — 파티원은 `_role_scale × CONTROLLED_SCALE`로 스케일이 붙어 있어 자식이 그대로 상속하면 반경이 어긋난다. `root.scale = 1/unit.scale`로 월드 반경을 params 값에 고정.
+  - ⚠️ **트윈 함정 2건(구현 중 발견·수정):** ① `set_parallel(true)`는 "다음 tweener를 **직전 것과** 병렬"이라 `tween_interval` 뒤에 쓰면 페이드가 대기 없이 즉시 시작된다 → `parallel()`(다음 하나만) + `chain()`(앞의 전부 이후)로 명시. ② 무한 루프 맥동이 같은 `albedo_color:a`를 계속 덮어써 페이드를 무효화 → 페이드 직전 `pulse.kill()`.
+- **② `sb_dr` 연결 — 오오라는 「캐스터의 반경」이 아니라 「버프받은 각 유닛」에 붙인다(설계 판단):** AB-047은 시전 **순간** 반경 안에 있던 대상에게 DR을 1회 부여할 뿐, "안에 서 있어야 유지되는 필드"가 아니다. 캐스터에 r4.0 링을 깔면 **규칙을 오독**하게 되므로(들어오면 걸리는 줄 앎), 각 대상 발밑에 개인 링(r 0.9)을 붙였다. 시전 순간 펄스(`sub_sanctuary`)는 그대로 두어 "시전 큐 → 지속 오오라" 2단으로 읽힌다. 색은 펄스와 같은 금색(0.97,0.86,0.35)이라 같은 효과로 묶여 보인다.
+- **③ 반격(AB-048a/b)도 적용(사용자 지시, 동일 세션):** 자기 대상 스탠스라 캐스터 발밑 개인 링(r1.0). **주황**(1.0,0.50,0.20) = DR 금색과 구분되는 색 언어. **반격 상태는 `_reflect_*` 단일 슬롯**이라(동시에 두 반격이 켜질 수 없다) 오오라 key도 `"reflect"` 하나로 맞췄다 — 메커니즘과 표현의 슬롯 수가 일치.
+  - **🦔 고슴도치 가시(사용자 제안):** `aura_field(..., spikes)` 옵션 신설 — 링 둘레 등간격으로 원뿔 8개를 **바깥+위(0.92:0.38)로 곤두세운다**. 링(root)의 자식이라 같이 돌고, 0.75초 주기로 미세하게 곤두섰다 눕는다(`bristle`). 원뿔 축이 +Y라 `look_at`(−Z 기준)이 아니라 **basis 직접 조립**(side/up/fwd)으로 방향을 잡았다. 페이드아웃 때 가시 머티리얼도 같이 사그라든다. → **"건드리면 아프다"를 형태로 말한다** — 반사는 경감이 아니라 되받아치기라는 규칙이 아이콘·숫자 없이 읽힌다. DR(부드러운 금색 링)과 실루엣부터 갈린다.
+  - **조기 종료 동기화:** 타수형(048b)은 **창 시간이 남아도 타수가 먼저 소진**될 수 있다. `party_member._end_reflect()`가 `clear_aura(self, "reflect")`를 불러 **상태와 화면을 즉시 일치**시킨다(안 그러면 꺼진 버프의 오오라가 최대 6초까지 남는다). `party_member`에 `_SkillVfx` preload 추가.
+- **적용 범위:** `skillbook_dr` 3종(AB-046 철벽 · AB-047 수호진 · AB-068 수호인) + `skillbook_reflect` 2종(AB-048a 반격 태세 · AB-048b 응수).
+- **분류\전파:** 순수 표현 → **impl 로깅만**(전파 불요). 규칙·필드·enum 변경 없음.
+- **영향 파일:** `scripts/combat/abilities/skill_vfx.gd`(`aura_field`/`clear_aura`/`AURA_FADE_S`) · `effects/sb_dr.gd`(대상별 호출) · `effects/sb_reflect.gd`(캐스터 호출) · `scripts/party/party_member.gd`(`_end_reflect` → `clear_aura`) · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **수명 검증 7건** 신설: 생성 · 같은 key 재시전 시 교체(중복 없음) · **지속 종료 후 자기 소멸** · `clear_aura` 즉시 제거 · **반격 오오라 부착** · **가시 8개 생성** · **타수 소진 시 즉시 제거(창 시간 남아도)**. (VFX는 게이트가 컴파일까지만 보증하므로 노드 수명을 별도로 잠갔다. 카운트는 `meta("aura_key")` 기준 — `party_member`는 `_ready`에서 체력바 등 자식을 만들어 `child_count`로는 못 센다.)
+- **상태:** LOGGED. ⏳ F5 체감 대기.

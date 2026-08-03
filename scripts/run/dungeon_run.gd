@@ -14,7 +14,7 @@ const ALLY_CACHE_POOL := [
 	"AB-075", "AB-062", "AB-054", "AB-034", "AB-070", "AB-044",
 	"AB-064", "AB-065", "AB-067", "AB-068", "AB-069", "AB-057", "AB-046", "AB-047", "AB-028",
 	# B2 ally-only(usable_by_enemy=false): 적이 안 씀 → 캐시 전용.
-	"AB-030", "AB-033", "AB-048", "AB-055", "AB-056", "AB-058", "AB-059", "AB-060", "AB-066", "AB-073", "AB-074",
+	"AB-030", "AB-033", "AB-048a", "AB-048b", "AB-055", "AB-056", "AB-058", "AB-059", "AB-060", "AB-066", "AB-073",
 	# B2 bespoke(ally-only): taunt/pull/slow/relocate/reveal.
 	"AB-035", "AB-051", "AB-050", "AB-045", "AB-032",
 ]

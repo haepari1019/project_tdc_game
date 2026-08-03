@@ -35,7 +35,7 @@ func nearest_enemy_in_range(pos: Vector3, r: float) -> CharacterBody3D:
 	return _combat._nearest_in_range(_hostiles(), pos, r)
 
 
-## 시전자의 적을 원뿔/전방레인으로(진영 flip) — sb_charge(Reaver)·sb_slow 등.
+## 시전자의 적을 원뿔/전방레인으로(진영 flip) — sb_slow 등.
 func enemies_in_cone(pos: Vector3, axis: Vector3, r: float, half: float) -> Array:
 	return _combat._in_cone(_hostiles(), pos, axis, r, half)
 

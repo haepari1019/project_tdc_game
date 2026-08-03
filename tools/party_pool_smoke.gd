@@ -78,6 +78,102 @@ func _initialize() -> void:
 	_chk("AB-054 ticks>0", int(sd.get_skillbook_master("AB-054").get("cast", {}).get("ticks", 0)) > 0)
 	_chk("AB-044 silence_s>0", float(sd.get_skillbook_master("AB-044").get("cast", {}).get("silence_s", 0.0)) > 0.0)
 	_chk("AB-034 barrier_hp>0", float(sd.get_skillbook_master("AB-034").get("cast", {}).get("barrier_hp", 0.0)) > 0.0)
+	# T2 판정(DRIFT-102/104): AB-048 → **반격 2변주**(048a 시간형 / 048b 캐스팅 한정 타수형) · AB-074 폐기 ·
+	# AB-046(자기)↔AB-047(파티) 반경 분화 · DR은 **시간 기반**(타수형은 체감 나빠 롤백).
+	for ab in ["AB-048a", "AB-048b"]:
+		var cr: Dictionary = sd.get_skillbook_master(ab).get("cast", {})
+		_chk("%s kind=skillbook_reflect" % ab, String(cr.get("kind", "")) == "skillbook_reflect")
+		_chk("%s reflect_frac>0" % ab, float(cr.get("reflect_frac", 0.0)) > 0.0)
+		_chk("%s reflect_cap>0 (밸런싱 상한)" % ab, float(cr.get("reflect_cap", 0.0)) > 0.0)
+		_chk("%s DR 잔재 없음" % ab, not cr.has("damage_reduction"))
+	var c48a: Dictionary = sd.get_skillbook_master("AB-048a").get("cast", {})
+	var c48b: Dictionary = sd.get_skillbook_master("AB-048b").get("cast", {})
+	_chk("AB-048a = 시간형(타수 없음)", int(c48a.get("reflect_hits", 0)) == 0 and not bool(c48a.get("reflect_cast_only", false)))
+	_chk("AB-048b = 타수형", int(c48b.get("reflect_hits", 0)) > 0)
+	_chk("AB-048b = 캐스팅 한정", bool(c48b.get("reflect_cast_only", false)))
+	_chk("AB-048 원본 제거(a/b로 분할)", sd.get_skillbook_master("AB-048").is_empty())
+	_chk("AB-074 폐기", sd.get_skillbook_master("AB-074").is_empty())
+	_chk("AB-046 자기(radius<=1)", float(sd.get_skillbook_master("AB-046").get("cast", {}).get("radius_m", 0.0)) <= 1.0)
+	_chk("AB-047 파티(radius>1)", float(sd.get_skillbook_master("AB-047").get("cast", {}).get("radius_m", 0.0)) > 1.0)
+	for ab in ["AB-046", "AB-047", "AB-068"]:
+		var cdr: Dictionary = sd.get_skillbook_master(ab).get("cast", {})
+		_chk("%s duration_s>0 (시간 기반)" % ab, float(cdr.get("duration_s", 0.0)) > 0.0)
+		_chk("%s dr_label 有 (칩 분리)" % ab, String(cdr.get("dr_label", "")) != "")
+		_chk("%s dr_hits 잔재 없음" % ab, not cdr.has("dr_hits"))
+	# DR 곱연산 + 스택별 별개 버프 칩 + Sentinel 분리(버그 수정, DRIFT-103)
+	var pmdr = PM.new()
+	root.add_child(pmdr)   # popup_status(FloatText)가 트리를 요구
+	pmdr.apply_damage_reduction(0.5, 2.0, "철벽")
+	pmdr.apply_damage_reduction(0.2, 3.0, "수호진")
+	_chk("DR 곱연산 0.5×0.8 → ×0.4", is_equal_approx(pmdr.damage_taken_mult, 0.4))
+	var dr_chips: int = 0
+	for st in pmdr.get_status_list():
+		var nm := String(st.get("name", ""))
+		if nm.begins_with("철벽") or nm.begins_with("수호진"):
+			dr_chips += 1
+			_chk("%s = 버프 칩" % nm, bool(st.get("buff", false)))
+	_chk("DR 스택 2개 = 버프 칩 2개(별개)", dr_chips == 2)
+	pmdr.apply_damage_reduction(0.5, 2.0, "철벽")   # 같은 label 재시전 = 갱신(칸 추가 아님)
+	_chk("같은 label 재시전 = 갱신(칸 유지)", is_equal_approx(pmdr.damage_taken_mult, 0.4))
+	pmdr.enter_sentinel(0.6, 4.0, 0.0)
+	_chk("Sentinel × DR 곱연산 (0.4×0.4)", is_equal_approx(pmdr.damage_taken_mult, 0.16))
+	pmdr.free()
+
+	# 지속형 오오라(DRIFT-106) — 스폰 · 같은 key 재시전 시 교체(중복 링 방지) · 지속 후 자기 소멸.
+	var SV = load("res://scripts/combat/abilities/skill_vfx.gd")
+	var host := Node3D.new()
+	root.add_child(host)
+	SV.aura_field(host, 0.9, Color(1.0, 0.86, 0.35), 0.25, "dr_test")
+	_chk("오오라 생성", _aura_count(host) == 1)
+	SV.aura_field(host, 0.9, Color(1.0, 0.86, 0.35), 0.25, "dr_test")   # 재시전 = 기존 교체
+	await process_frame
+	_chk("같은 key 재시전 = 링 교체(중복 없음)", _aura_count(host) == 1)
+	var waited := 0
+	while _aura_count(host) > 0 and waited < 240:
+		await process_frame
+		waited += 1
+	_chk("지속 종료 후 자기 소멸", _aura_count(host) == 0)
+	SV.aura_field(host, 0.9, Color(1.0, 0.86, 0.35), 5.0, "dr_test")
+	SV.clear_aura(host, "dr_test")
+	await process_frame
+	_chk("clear_aura 즉시 제거", _aura_count(host) == 0)
+	host.free()
+
+	# 반격 게이트(DRIFT-104) — 048b는 **캐스팅 스킬 피격만** 반사하고 평타는 무시. 반사해도 내 피해는 그대로.
+	var pmr = PM.new()
+	root.add_child(pmr)
+	var dummy = EN.new()
+	root.add_child(dummy)
+	dummy.max_hp = 500.0
+	dummy.hp = 500.0
+	pmr.max_hp = 400.0
+	pmr.hp = 400.0
+	pmr.apply_reflect(0.8, 6.0, 60.0, 2, true, "응수")
+	pmr.take_damage(20.0, dummy, false)             # 평타 → 반사 없음
+	_chk("응수: 평타는 반사 안 함", is_equal_approx(dummy.hp, 500.0))
+	_chk("응수: 평타 피해는 그대로 들어옴", is_equal_approx(pmr.hp, 380.0))
+	pmr.take_damage(20.0, dummy, true)              # 캐스팅 스킬 → 16 반사
+	_chk("응수: 캐스팅 스킬은 반사(0.8×20)", is_equal_approx(dummy.hp, 484.0))
+	_chk("응수: 반사해도 내 피해는 그대로", is_equal_approx(pmr.hp, 360.0))
+	# 반격 오오라(DRIFT-106) — 타수가 소진되면 창 시간이 남아도 `_end_reflect`가 즉시 끈다.
+	SV.aura_field(pmr, 1.0, Color(1.0, 0.5, 0.2), 6.0, "reflect", 8)   # 반격 = 가시 8개
+	_chk("반격 오오라 부착", _aura_count(pmr) == 1)
+	# 고슴도치 가시 — 링·돔 외 quills 컨테이너가 붙고 그 안에 가시 8개.
+	var aura_root: Node = null
+	for ch in pmr.get_children():
+		if ch.has_meta("aura_key"):
+			aura_root = ch
+	var quill_n := 0
+	if aura_root != null:
+		for ch in aura_root.get_children():
+			if ch.get_child_count() > 0:
+				quill_n = ch.get_child_count()
+	_chk("반격 오오라 = 가시 8개", quill_n == 8)
+	pmr.take_damage(20.0, dummy, true)              # 2타째 → 소진 → _end_reflect → clear_aura
+	await process_frame
+	_chk("타수 소진 시 오오라 즉시 제거(창 시간 남아도)", _aura_count(pmr) == 0)
+	pmr.free()
+	dummy.free()
 
 	# 4) Band penalty — coeff table + sub_bands data sanity + the dispatch coeff helper.
 	_chk("BAND_COEFF B0=1.0", is_equal_approx(float(AD.BAND_COEFF["B0"]), 1.0))
@@ -390,6 +486,16 @@ func _initialize() -> void:
 
 	print("PARTY POOL SMOKE " + ("PASSED" if _ok else "FAILED"))
 	quit(0 if _ok else 1)
+
+
+## 유닛에 붙은 지속형 오오라 노드 수(meta "aura_key" 보유 자식). party_member는 _ready에서 체력바 등
+## 자식을 만들므로 전체 child_count로는 셀 수 없다.
+func _aura_count(unit: Node) -> int:
+	var c := 0
+	for ch in unit.get_children():
+		if ch.has_meta("aura_key"):
+			c += 1
+	return c
 
 
 func _chk(label: String, cond: bool) -> void:

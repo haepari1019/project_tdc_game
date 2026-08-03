@@ -41,8 +41,8 @@
     "skillbook_scent": "혈향 추적",
     "skillbook_root": "속박",
     "skillbook_tether": "사슬",
-    "skillbook_charge": "돌진",
-    "skillbook_execute": "처형"
+    "skillbook_execute": "처형",
+    "skillbook_reflect": "반격"
   },
   "roles": {
     "Tank": "탱커",
@@ -56,14 +56,14 @@
     "affix_charges_small": "탄약 증가"
   },
   "skill_desc": {
-    "skillbook_strike": "대상 지역의 적을 강타해 피해를 주고 밀어낸다.",
+    "skillbook_strike": "자신의 발밑을 강타해 주변 적 전체에게 피해를 주고 밀어낸다.",
     "skillbook_poison": "대상에 맹독을 걸어 시간에 걸쳐 지속 피해를 준다.",
-    "skillbook_stun": "대상 지역의 적을 강타하고 잠시 기절시킨다.",
+    "skillbook_stun": "조준한 적 1기를 강타하여 피해를 주고 잠시 기절시킨다. 시전 중이었다면 시전을 중단시킨다.",
     "skillbook_fire": "지정 지점에 화염 피해를 주고 점화시킨다.",
     "skillbook_cold": "지정 지점에 냉기 피해를 주고 적을 둔화시킨다.",
     "skillbook_zone": "지정 지점에 일정 시간 지속되는 장판을 생성한다.",
     "skillbook_heal": "주변 아군의 체력을 즉시 회복시킨다.",
-    "skillbook_dr": "잠시 동안 받는 피해를 감소시킨다.",
+    "skillbook_dr": "자신이 받는 피해를 감소시킨다.",
     "skillbook_shield": "대상에게 피해를 흡수하는 보호막을 부여한다.",
     "skillbook_hot": "일정 시간 동안 체력을 서서히 회복시킨다.",
     "skillbook_blink": "지정한 방향으로 순간이동한다.",
@@ -84,7 +84,6 @@
     "skillbook_scent": "대상에 혈향을 묻혀 추적 표식을 남긴다.",
     "skillbook_root": "대상을 속박해 이동을 막는다.",
     "skillbook_tether": "대상과 사슬로 연결해 묶어 둔다.",
-    "skillbook_charge": "대상을 향해 돌진해 충돌 피해를 준다.",
     "skillbook_execute": "체력이 낮은 대상을 처형해 큰 피해를 준다.",
     "shield_pulse": "자신에게 보호막을 두르고 주변 적의 위협을 끌어당겨 전선을 지킨다.",
     "cone_sweep": "전방 부채꼴을 연속으로 휩쓸어 여러 적을 동시에 압박한다.",
@@ -96,6 +95,10 @@
     "arc_line": "가장 가까운 적을 향해 길고 좁은 관통 선으로 여러 번 타격한다.",
     "flank_dash": "가장 가까운 적에게 파고들어 연타로 마무리한다.",
     "skillbook_channel_heal": "집중해서 시전한다. 완료 시 주변 아군을 크게 치유한다 (집중 중에는 이동할 수 없고, 방해받으면 취소된다).",
-    "skillbook_ward_heal": "가장 다친 아군에게 보호막을 두른다. 보호막이 끝날 때, 그동안 막아 낸 피해량만큼 치유한다."
+    "skillbook_ward_heal": "가장 다친 아군에게 보호막을 두른다. 보호막이 끝날 때, 그동안 막아 낸 피해량만큼 치유한다.",
+    "skillbook_strike_rect": "전방 직선 범위를 휩쓸어 그 안의 적에게 피해를 주고 밀어낸다.",
+    "skillbook_dr_party": "주변 아군 전체가 받는 피해를 감소시킨다.",
+    "skillbook_reflect": "잠시 동안 반격 태세를 갖춰, 받은 피해의 일부를 공격자에게 되돌린다. 받는 피해 자체는 줄어들지 않는다.",
+    "skillbook_reflect_cast": "적이 집중해서 시전하는 스킬에 한해, 받은 피해의 일부를 공격자에게 되돌린다. 평타는 막지 못하고, 받는 피해 자체도 줄어들지 않는다."
   }
 }

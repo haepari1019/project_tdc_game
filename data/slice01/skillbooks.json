@@ -274,27 +274,6 @@
       "tier": "Basic"
     },
     {
-      "base_ability_id": "AB-049",
-      "display_name": "Ground Pound",
-      "equip_classes": [
-        "Tank",
-        "Nuker"
-      ],
-      "sub_bands": {
-        "Nuker": "B2"
-      },
-      "range_band": "Melee",
-      "charges_max": 60,
-      "cast": {
-        "kind": "skillbook_stun",
-        "cooldown_s": 10,
-        "radius_m": 3.0,
-        "damage_mult": 0.3,
-        "stun_s": 0.6
-      },
-      "tier": "Advanced"
-    },
-    {
       "base_ability_id": "AB-072",
       "display_name": "우박 세례",
       "equip_classes": [
@@ -317,27 +296,6 @@
         "chill_dur_s": 3.0
       },
       "tier": "Advanced"
-    },
-    {
-      "base_ability_id": "AB-071",
-      "display_name": "Bulwark Bash",
-      "equip_classes": [
-        "Tank",
-        "Nuker"
-      ],
-      "sub_bands": {
-        "Nuker": "B2"
-      },
-      "range_band": "Melee",
-      "charges_max": 80,
-      "cast": {
-        "kind": "skillbook_strike",
-        "cooldown_s": 6,
-        "radius_m": 2.2,
-        "damage_mult": 1.0,
-        "knockback_m": 2.0
-      },
-      "tier": "Basic"
     },
     {
       "base_ability_id": "AB-028",
@@ -387,10 +345,11 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_dr",
-        "cooldown_s": 9,
+        "cooldown_s": 16,
         "radius_m": 0.5,
         "damage_reduction": 0.5,
-        "duration_s": 2.0
+        "dr_label": "철벽",
+        "duration_s": 6.0
       },
       "tier": "Basic"
     },
@@ -408,10 +367,11 @@
       "charges_max": 50,
       "cast": {
         "kind": "skillbook_dr",
-        "cooldown_s": 12,
+        "cooldown_s": 16,
         "radius_m": 4.0,
         "damage_reduction": 0.2,
-        "duration_s": 3.0
+        "dr_label": "수호진",
+        "duration_s": 10.0
       },
       "tier": "Advanced"
     },
@@ -442,10 +402,11 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_dr",
-        "cooldown_s": 10,
+        "cooldown_s": 14,
         "radius_m": 0.5,
         "damage_reduction": 0.15,
-        "duration_s": 4.0
+        "dr_label": "수호인",
+        "duration_s": 10.0
       },
       "tier": "Advanced"
     },
@@ -861,7 +822,7 @@
       "tier": "Basic"
     },
     {
-      "base_ability_id": "AB-048",
+      "base_ability_id": "AB-048a",
       "display_name": "Counter Stance",
       "equip_classes": [
         "Tank"
@@ -869,11 +830,32 @@
       "range_band": "Melee",
       "charges_max": 60,
       "cast": {
-        "kind": "skillbook_dr",
+        "kind": "skillbook_reflect",
         "cooldown_s": 9,
-        "radius_m": 0.5,
-        "damage_reduction": 0.4,
-        "duration_s": 1.5
+        "duration_s": 3.0,
+        "reflect_frac": 0.4,
+        "reflect_cap": 40.0,
+        "reflect_label": "반격 태세"
+      },
+      "tier": "Advanced"
+    },
+    {
+      "base_ability_id": "AB-048b",
+      "display_name": "Riposte",
+      "equip_classes": [
+        "Tank"
+      ],
+      "range_band": "Melee",
+      "charges_max": 60,
+      "cast": {
+        "kind": "skillbook_reflect",
+        "cooldown_s": 12,
+        "duration_s": 6.0,
+        "reflect_frac": 0.8,
+        "reflect_cap": 60.0,
+        "reflect_hits": 2,
+        "reflect_cast_only": true,
+        "reflect_label": "응수"
       },
       "tier": "Advanced"
     },
@@ -1049,23 +1031,6 @@
       "tier": "Master"
     },
     {
-      "base_ability_id": "AB-074",
-      "display_name": "Guardian Oath",
-      "equip_classes": [
-        "Tank"
-      ],
-      "range_band": "Melee",
-      "charges_max": 50,
-      "cast": {
-        "kind": "skillbook_dr",
-        "cooldown_s": 16,
-        "radius_m": 4.0,
-        "damage_reduction": 0.3,
-        "duration_s": 6.0
-      },
-      "tier": "Basic"
-    },
-    {
       "base_ability_id": "AB-035",
       "display_name": "도전 선포",
       "equip_classes": [
@@ -1233,25 +1198,6 @@
         "radius_m": 2.0,
         "tether_s": 4.0,
         "damage_mult": 0.4
-      },
-      "tier": "Advanced"
-    },
-    {
-      "base_ability_id": "AB-104",
-      "display_name": "Rampage",
-      "equip_classes": [
-        "Tank"
-      ],
-      "range_band": "Mid",
-      "charges_max": 60,
-      "cast": {
-        "kind": "skillbook_charge",
-        "cooldown_s": 7,
-        "targeted": true,
-        "range_m": 8,
-        "cone_deg": 40,
-        "damage_mult": 1.1,
-        "knockback_m": 0.9
       },
       "tier": "Advanced"
     },

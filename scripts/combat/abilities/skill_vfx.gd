@@ -145,6 +145,101 @@ static func sub_sanctuary(parent: Node3D, pos: Vector3, radius: float) -> void:
 	_dome(parent, pos + Vector3(0, 0.95, 0), 1.7, Color(1.0, 0.9, 0.42, 0.35), 2.1)
 
 
+## **지속형 오오라**(DRIFT-106) — 일회성 pulse와 달리 유닛의 **자식으로 붙어 따라다니며** `dur` 동안 유지된다.
+## 바닥 회전 링(반경 표시) + 유닛을 감싸는 옅은 돔 + 은은한 맥동. 마지막 `FADE`초에 걸쳐 사라진다.
+## `key` = 같은 종류의 기존 오오라를 교체하는 식별자(재시전 시 링이 겹쳐 쌓이는 걸 막는다).
+## 유닛 스케일(_role_scale × 컨트롤 배율)을 상쇄해 **월드 반경이 params 값과 일치**하게 맞춘다.
+## `spikes` > 0 이면 링 위에 **바깥을 향해 곤두선 가시**를 두른다(고슴도치) — "건드리면 아프다"를 형태로
+## 말하는 반격 계열 전용. 링과 함께 천천히 돌고, 미세하게 곤두섰다 눕는다.
+const AURA_FADE_S := 0.6
+static func aura_field(unit: Node3D, radius: float, color: Color, dur: float, key: String = "aura",
+		spikes: int = 0) -> void:
+	if unit == null or not is_instance_valid(unit) or dur <= 0.0:
+		return
+	clear_aura(unit, key)
+	var root := Node3D.new()
+	root.set_meta("aura_key", key)
+	unit.add_child(root)
+	root.position = Vector3(0.0, GROUND_Y, 0.0)
+	var us: float = maxf(unit.scale.x, 0.01)
+	root.scale = Vector3(1.0 / us, 1.0 / us, 1.0 / us)   # 부모 스케일 상쇄 → 반경이 params 그대로
+
+	var r: float = maxf(radius, 0.7)   # 자기 대상(r0.5)도 눈에 보이게 최소 반경 확보
+	var ring := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = maxf(r - 0.16, 0.10)
+	torus.outer_radius = r
+	ring.mesh = torus
+	var rmat := _emat(Color(color.r, color.g, color.b, 0.55))
+	ring.material_override = rmat
+	root.add_child(ring)
+
+	var dome := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = maxf(r * 0.55, 0.75)
+	sphere.height = sphere.radius * 2.0
+	dome.mesh = sphere
+	var dmat := _mat(Color(color.r, color.g, color.b, 0.16))
+	dome.material_override = dmat
+	dome.position = Vector3(0.0, 0.85, 0.0)
+	root.add_child(dome)
+
+	# 고슴도치 가시 — 링 둘레에 등간격, 바깥+위로 살짝 기울여 곤두세운다. 링(root)의 자식이라 같이 돈다.
+	var smat: StandardMaterial3D = null
+	var quills: Node3D = null
+	if spikes > 0:
+		smat = _emat(Color(color.r, color.g, color.b, 0.85))
+		quills = Node3D.new()
+		root.add_child(quills)
+		for i in spikes:
+			var a: float = TAU * float(i) / float(spikes)
+			var outward := Vector3(cos(a), 0.0, sin(a))
+			var sp := MeshInstance3D.new()
+			var cone := CylinderMesh.new()
+			cone.top_radius = 0.0                        # 원뿔 = 가시
+			cone.bottom_radius = 0.075
+			cone.height = 0.42
+			sp.mesh = cone
+			sp.material_override = smat
+			# 원뿔 축(+Y)을 "바깥 + 살짝 위"로 향하게 basis 조립(look_at은 −Z 기준이라 부적합).
+			var up_dir := (outward * 0.92 + Vector3.UP * 0.38).normalized()
+			var side := Vector3.UP.cross(up_dir)
+			side = side.normalized() if side.length() > 0.001 else Vector3.RIGHT
+			sp.basis = Basis(side, up_dir, up_dir.cross(side).normalized())
+			sp.position = outward * (r - 0.06) + Vector3(0.0, 0.10, 0.0)
+			quills.add_child(sp)
+		var bristle := quills.create_tween().set_loops()   # 미세하게 곤두섰다 눕는 숨결
+		bristle.tween_property(quills, "scale", Vector3(1.12, 1.18, 1.12), 0.75).from(Vector3.ONE)
+		bristle.tween_property(quills, "scale", Vector3.ONE, 0.75)
+
+	var spin := root.create_tween().set_loops()          # 천천히 도는 링 = "살아 있는" 오오라
+	spin.tween_property(root, "rotation:y", TAU, 6.0).from(0.0)
+	var pulse := ring.create_tween().set_loops()         # 은은한 맥동(지속 중임을 계속 알림)
+	pulse.tween_property(rmat, "albedo_color:a", 0.28, 0.9).from(0.55)
+	pulse.tween_property(rmat, "albedo_color:a", 0.55, 0.9)
+	# 지속 종료 → 페이드아웃 후 자기 소멸. **순차**로 엮어야 한다:
+	#  · `set_parallel(true)`를 쓰면 첫 페이드가 **interval과 병렬**로 붙어 대기 없이 즉시 사라진다.
+	#    → `parallel()`(다음 하나만 병렬) + `chain()`(앞의 전부 끝난 뒤)로 명시한다.
+	#  · 맥동 루프가 같은 `albedo_color:a`를 계속 덮어써서 페이드를 무효화하므로 **먼저 kill**한다.
+	var life := root.create_tween()
+	life.tween_interval(maxf(dur - AURA_FADE_S, 0.05))
+	life.tween_callback(pulse.kill)
+	life.tween_property(rmat, "albedo_color:a", 0.0, AURA_FADE_S)
+	life.parallel().tween_property(dmat, "albedo_color:a", 0.0, AURA_FADE_S)
+	if smat != null:
+		life.parallel().tween_property(smat, "albedo_color:a", 0.0, AURA_FADE_S)   # 가시도 같이 사그라든다
+	life.chain().tween_callback(root.queue_free)
+
+
+## 지속형 오오라 즉시 제거(재시전 교체 · 버프 조기 해제용). key 미지정이면 모든 오오라.
+static func clear_aura(unit: Node3D, key: String = "") -> void:
+	if unit == null or not is_instance_valid(unit):
+		return
+	for c in unit.get_children():
+		if c is Node3D and c.has_meta("aura_key") and (key == "" or String(c.get_meta("aura_key")) == key):
+			c.queue_free()
+
+
 ## Smoke Veil (AB-062) — a grey smoke cloud puffing up around the caster (stealth pop).
 static func smoke_puff(parent: Node3D, pos: Vector3) -> void:
 	_ground_pulse(parent, pos, 1.8, Color(0.55, 0.58, 0.62, 0.45), 0.5)

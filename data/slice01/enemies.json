@@ -495,10 +495,10 @@
         "attack_interval_s": 1.8
       },
       "basic_attack": "rom_reaver_cleave",
-      "_role_note": "제3세력 학살자 — 돌진(Rampage)·HP<50% Bloodlust 격화·저HP Devour 처형(처치 시 회복).",
+      "_role_note": "제3세력 학살자 — 강타 기절(AB-011 Toll Stun)·HP<50% Bloodlust 격화·저HP Devour 처형(처치 시 회복).",
       "abilities": [
         {
-          "ref": "AB-104"
+          "ref": "AB-011"
         },
         {
           "ref": "AB-105"

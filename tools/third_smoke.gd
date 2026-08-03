@@ -28,13 +28,15 @@ func _initialize() -> void:
 	await process_frame
 	var want_kind := {
 		"AB-100": "enemy_dash", "AB-101": "enemy_mark", "AB-102": "enemy_root",
-		"AB-103": "enemy_tether", "AB-104": "enemy_dash", "AB-105": "enemy_frenzy", "AB-106": "enemy_execute",
+		"AB-103": "enemy_tether", "AB-105": "enemy_frenzy", "AB-106": "enemy_execute",
 	}
 	for ab in want_kind:
 		var e: Dictionary = sd.get_ability(ab)
 		_chk("%s kind=%s" % [ab, want_kind[ab]], not e.is_empty() and String(e.get("kind", "")) == want_kind[ab])
 	_chk("AB-100 Pounce pin_s>0", float(sd.get_ability("AB-100").get("pin_s", 0.0)) > 0.0)
-	_chk("AB-104 Rampage line", bool(sd.get_ability("AB-104").get("line", false)))
+	# T1 통폐합(DRIFT-101): AB-104 Rampage 폐기 → EN-3RD-03 오프너는 AB-011 Toll Stun.
+	_chk("EN-3RD-03 kit has AB-011 (AB-104 폐기)", "AB-011" in str(sd.get_enemy_row("EN-3RD-03").get("abilities", [])))
+	_chk("AB-104 removed from catalog", sd.get_ability("AB-104").is_empty())
 	_chk("AB-106 Devour on-kill heal", float(sd.get_ability("AB-106").get("on_kill_heal_pct", 0.0)) > 0.0)
 	for b in ["rom_stalker_rip", "rom_snarer_dart", "rom_reaver_cleave"]:
 		_chk("%s resolves" % b, not sd.get_enemy_basic(b).is_empty())
@@ -61,7 +63,7 @@ func _initialize() -> void:
 	# 4) P2-S6a party lootables — the 6 Third-faction skillbook masters resolve with the right kind.
 	var sb_kind := {
 		"AB-100": "skillbook_pin", "AB-101": "skillbook_scent", "AB-102": "skillbook_root",
-		"AB-103": "skillbook_tether", "AB-104": "skillbook_charge", "AB-106": "skillbook_execute",
+		"AB-103": "skillbook_tether", "AB-106": "skillbook_execute",
 	}
 	for ab in sb_kind:
 		var sbm: Dictionary = sd.get_skillbook_master(ab)

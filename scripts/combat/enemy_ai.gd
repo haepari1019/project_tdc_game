@@ -1068,7 +1068,10 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	# Devour (AB-106 enemy_execute): bonus damage vs low-HP prey. ref: DEC-20260621-001.
 	if kind == "enemy_execute" and float(eff.get("execute_under", 0.0)) > 0.0 and is_instance_valid(target) and target.hp <= target.max_hp * float(eff.get("execute_under", 0.0)):
 		dmg *= float(eff.get("execute_mult", 1.0))
-	target.take_damage(dmg, enemy)   # pass attacker → Sentinel Form (IDA-052) reflect
+	# trigger=signature = AB-### 캐스팅 스킬 / basic = rom_* 평타. AB-048b(응수)가 이 구분으로 대상을
+	# 가린다(평타 무시). Sentinel(IDA-052)·AB-048a는 구분 없이 전부 반사. ref: DRIFT-104.
+	var from_ab: bool = String(chosen.get("trigger", "")) == "signature"
+	target.take_damage(dmg, enemy, from_ab)   # attacker → Sentinel/반격 반사 · from_ab → 응수 게이트
 	# Devour kill-feed: a kill restores HP + refunds the cooldown (chain into the next prey).
 	if float(eff.get("on_kill_heal_pct", 0.0)) > 0.0 and (not target.has_method("is_alive") or not target.is_alive()):
 		enemy.heal(enemy.max_hp * float(eff.get("on_kill_heal_pct", 0.0)))
@@ -1123,7 +1126,7 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 			var sfrac := float(eff.get("splash_frac", 0.6))
 			for a in _combat._allies_in_radius(target.global_position, sr):
 				if a != target and is_instance_valid(a) and a.has_method("take_damage"):
-					a.take_damage(dmg * sfrac, enemy)
+					a.take_damage(dmg * sfrac, enemy, from_ab)
 		_:
 			var kb: float = float(eff.get("knockback_m", 0.0))
 			if kb > 0.0:
@@ -1450,7 +1453,7 @@ func _try_cast_retreat(enemy: CharacterBody3D, target: CharacterBody3D, dist: fl
 		enemy.ability_cd[ref] = float(eff.get("cooldown_s", 7.0))
 		var ps := float(eff.get("parting_shot_mult", 0.0))   # AB-007 이탈 통일 — 후퇴하며 마무리 한 방
 		if ps > 0.0 and target != null and target.has_method("take_damage"):
-			target.take_damage(enemy.basic_damage * ps, enemy)
+			target.take_damage(enemy.basic_damage * ps, enemy, true)   # AB-007 이탈 마무리 = 능력 피해
 		SkillVfx.telegraph(self, enemy.global_position, _dash_color(eff))
 		return true
 	return false
@@ -1717,7 +1720,7 @@ func _apply_third_status(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictio
 			target.apply_outcome("Rooted", float(eff.get("root_s", 2.0)))
 			var dm := float(eff.get("damage_mult", 0.0))
 			if dm > 0.0 and target.has_method("take_damage"):
-				target.take_damage(enemy.contact_damage * dm)
+				target.take_damage(enemy.contact_damage * dm, enemy, true)
 		"enemy_tether":
 			target.apply_outcome("Tethered", float(eff.get("tether_s", 4.0)))
 	print("[EN] %s %s (%s) -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), kind, _tname(target)])

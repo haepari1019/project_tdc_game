@@ -13,6 +13,29 @@ static func describe(kind: String, params: Dictionary) -> String:
 	# 「광역 투사체」 원형 = skillbook_bolt(AB-008 Slag Spit). 나머지 볼트는 여기서 갈라지는 변형이라
 	# 문장을 params로 조립한다 — 원형 문장(kind desc)에 실제로 가진 것만 덧붙어 스킬마다 참이 된다.
 	# 집중(cast_s) = 원형이 물려주는 시전 감각 · 전격(lightning) = AB-003 계열이 얹는 속성. DRIFT-085.
+	# skillbook_strike 두 형상 — 기본 = **자기중심**(AB-002 발밑 강타) · `shape:"rect"` = 전방 직선 레인
+	# (AB-005). 예전엔 둘 다 "대상 지역"이라 조준형처럼 읽혔다 — 조준(AB-011 단일)과 구분이 안 됐다.
+	# T1 통폐합(2026-07-28): 남은 Tank 강타 2종의 차이축 = **자기중심 광역 ↔ 조준 단일**이라 문구로 못박는다.
+	if kind == "skillbook_strike" and String(params.get("shape", "radius")) == "rect":
+		prose = Slice01Data.get_skill_desc("skillbook_strike_rect")
+	# skillbook_dr 두 사거리 — 자기(radius≈0.5, AB-046/068) ↔ 주변 아군 전체(radius 4.0, AB-047).
+	# T2 판정(2026-07-28): 같은 문장을 공유하던 DR들의 유일한 실차이가 "나만 ↔ 팀도"라 문구로 못박는다.
+	if kind == "skillbook_dr":
+		if float(params.get("radius_m", 0.0)) > 1.0:
+			prose = Slice01Data.get_skill_desc("skillbook_dr_party")
+		prose += " 피해가 %d%% 줄어든다." % int(round(float(params.get("damage_reduction", 0.0)) * 100.0))
+	# skillbook_reflect 두 변주(DRIFT-104) — 시간형(AB-048a) ↔ 캐스팅 한정 타수형(AB-048b).
+	# 반사율·상한·타수를 params로 실어 튜닝이 문장에 바로 드러나게(볼트 조립과 동형).
+	if kind == "skillbook_reflect":
+		if bool(params.get("reflect_cast_only", false)):
+			prose = Slice01Data.get_skill_desc("skillbook_reflect_cast")
+			prose += " 다음 %d회의 시전 공격에 대해 %d%%를 되돌리며, 시전 1회당 총 %s까지다." % [
+				int(params.get("reflect_hits", 0)),
+				int(round(float(params.get("reflect_frac", 0.0)) * 100.0)),
+				_n(float(params.get("reflect_cap", 0.0)))]
+		else:
+			prose += " 되돌리는 양은 받은 피해의 %d%%이며, 시전 1회당 총 %s까지다." % [
+				int(round(float(params.get("reflect_frac", 0.0)) * 100.0)), _n(float(params.get("reflect_cap", 0.0)))]
 	if kind == "skillbook_bolt":
 		if float(params.get("cast_s", 0.0)) > 0.0:
 			prose = "에너지를 집중한 뒤 " + prose

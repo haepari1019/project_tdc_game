@@ -113,6 +113,28 @@ var _shield_dur: float = 1.0
 var damage_taken_mult: float = 1.0
 var _sentinel_timer_s: float = 0.0
 var _sentinel_reflect: float = 0.0   # IDA-052 reflect fraction of incoming hits while the stance holds
+## IDA-052 Sentinel 전용 피해 배율 — **DR 서브(_dr_stacks)와 완전 분리**한다. 예전엔 둘이
+## `damage_taken_mult` 한 칸 + `_sentinel_timer_s` 한 타이머를 공유해서, 약하고 긴 DR을 덧걸면
+## 강한 DR의 **지속만 연장**되는 버그가 있었다(046 50%/2s → 047 20%/3s = 50%가 3초). DRIFT-103.
+var _sentinel_dr_mult: float = 1.0
+## F-009 DR 서브 스택 — [{frac, t, dur, label, color, blocked}]. **시간 기반**(DRIFT-104 롤백: 타수형은
+## 오히려 체감이 어려웠다 — 언제 닳는지 예측이 안 된다). 여러 개가 동시에 걸리면 **곱연산**(Π(1−frac))으로
+## 합쳐지고 **버프 아이콘도 스택마다 따로** 뜬다(같은 label = 재시전 = 갱신, 다른 label = 별도 칸).
+var _dr_stacks: Array = []
+## AB-048 Counter Stance(skillbook_reflect) — Sentinel과 별개의 순수 반사 태세(DR·이동잠금 없음).
+## `_reflect_cap` = 시전 1회당 반사 **총량 상한**, `_reflect_done` = 그 시전에서 이미 되돌린 누적량.
+## 두 변주(DRIFT-104): **시간형**(AB-048a, 지속 동안 모든 피격) ↔ **타수형**(AB-048b, `_reflect_hits`타 ·
+## `_reflect_cast_only` = **적의 캐스팅 스킬만**, 평타 제외). ⚠️ **둘 다 내 피해는 그대로 들어간다** —
+## 반사는 경감이 아니라 "추가로 되돌리기"다(딜 무효화 = 패링은 후속 특성으로 이연, 사용자 확정).
+var _reflect_frac: float = 0.0
+var _reflect_timer_s: float = 0.0
+var _reflect_dur: float = 0.0
+var _reflect_cap: float = 0.0
+var _reflect_done: float = 0.0
+var _reflect_hits: int = 0            # 0 = 타수 무제한(시간형) · >0 = 남은 타수(타수형)
+var _reflect_hits_max: int = 0
+var _reflect_cast_only: bool = false  # true = 적 캐스팅 스킬 피격만 반사(평타 무시)
+var _reflect_label: String = "반격"
 # F-009 HoT (Renewing Tide AB-065 / 지속치유 IDA-031) — **중첩** 가능: 각 적용이 독립 인스턴스로 쌓인다.
 var _regen_hots: Array = []        # [{pct: maxHP%/s, t: 남은 초}] — 매 프레임 활성분 합산 회복
 var _regen_accum: float = 0.0      # 소수 HP 누적(정수 단위로 heal)
@@ -1016,7 +1038,9 @@ func _apply_controlled_visual(active: bool) -> void:
 	scale = Vector3(s, s, s)
 
 
-func take_damage(amount: float, attacker: Node = null) -> void:
+## `from_ability` = 이 피해가 **적의 캐스팅 스킬(AB-###, trigger=signature)** 에서 왔나. 평타(rom_*)·존·
+## 트랩은 false. AB-048b(캐스팅 한정 반격)가 이 플래그로 대상을 가린다. ref: DRIFT-104.
+func take_damage(amount: float, attacker: Node = null, from_ability: bool = false) -> void:
 	if not _alive:
 		return
 	# AB-007b — "지금 싸우고 있는 상대" 기록. 존/트랩 피해는 attacker=null이라 여기서 안 잡힌다(의도).
@@ -1028,7 +1052,30 @@ func take_damage(amount: float, attacker: Node = null) -> void:
 	if _sentinel_reflect > 0.0 and _sentinel_timer_s > 0.0 and attacker != null \
 			and is_instance_valid(attacker) and attacker.has_method("take_damage"):
 		attacker.take_damage(amount * _sentinel_reflect)
-	amount *= damage_taken_mult   # F-008 Sentinel Form stance DR (IDA-052; 1.0 = none)
+	# AB-048a/b 반격 — 받은 피해의 `_reflect_frac`을 되돌린다(경감 전 amount 기준, Sentinel과 동일 규약).
+	# ⚠️ **amount는 건드리지 않는다** — 내 피해는 그대로 들어가고 반사만 추가된다(패링=딜 무효는 후속 특성).
+	# `_reflect_cast_only`(AB-048b) = 적 캐스팅 스킬 피격만. 타수형은 **반사가 성립한 피격만** 타수를 깎는다.
+	if _reflect_frac > 0.0 and _reflect_timer_s > 0.0 and _reflect_done < _reflect_cap \
+			and (not _reflect_cast_only or from_ability) \
+			and attacker != null and is_instance_valid(attacker) and attacker.has_method("take_damage"):
+		var back: float = minf(amount * _reflect_frac, _reflect_cap - _reflect_done)
+		if back > 0.0:
+			_reflect_done += back
+			attacker.take_damage(back)
+			popup_status("반사 %d" % int(round(back)), Color(1.0, 0.72, 0.35))
+		if _reflect_hits_max > 0:
+			_reflect_hits -= 1
+			if _reflect_hits <= 0:
+				_end_reflect()
+	# 피해 경감 — Sentinel 배율 × DR 스택 곱연산(_recalc_damage_taken_mult가 유지). **막은 양을 보여준다**
+	# (DRIFT-103 B): 예전엔 아군 피격에 숫자 팝업이 아예 없어 "줄었다"를 비교할 기준선이 없었다.
+	# 지속 기반이라 존/DoT도 동일하게 경감된다(예산 개념 없음).
+	var _dmg_raw := amount
+	amount *= damage_taken_mult
+	if damage_taken_mult < 1.0:
+		var _blocked := _consume_dr(_dmg_raw, amount)
+		if _blocked >= 1.0:
+			popup_status("막음 %d" % int(round(_blocked)), Color(0.70, 0.82, 0.95))
 	# 수호-흡수 보호막: 일반 보호막보다 먼저 흡수하고 흡수량을 기록(종료 시 그만큼 치유).
 	if _ward_hp > 0.0 and _ward_timer_s > 0.0 and amount > 0.0:
 		var wa: float = minf(_ward_hp, amount)
@@ -1070,6 +1117,7 @@ func heal(amount: float) -> float:
 ## Floating combat text — 이 멤버 위에 버프/디버프 이름을 잠깐 띄우고 위로 페이드아웃(MMO식). ref: float_text.gd.
 ## preload로 참조(global class-cache 미갱신 시 "not declared" 회피).
 const _FloatText := preload("res://scripts/ui/float_text.gd")
+const _SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 func popup_status(txt: String, color: Color) -> void:
 	_FloatText.popup(self, txt, color, 2.6)
 
@@ -1117,21 +1165,95 @@ func ward_take_absorbed() -> float:
 ## and move-lock for `dur` seconds. Reflects `reflect` of each incoming hit back at the attacker.
 func enter_sentinel(dr: float, dur: float, reflect: float = 0.0) -> void:
 	popup_status("태세", Color(0.7, 0.82, 1.0))
-	damage_taken_mult = clampf(1.0 - dr, 0.0, 1.0)
+	_sentinel_dr_mult = clampf(1.0 - dr, 0.0, 1.0)
+	_recalc_damage_taken_mult()
 	_sentinel_timer_s = dur
 	_sentinel_reflect = clampf(reflect, 0.0, 1.0)   # IDA-052 reflect (40% draft)
 	_outcome.apply("Rooted", dur)   # move-lock (MOVE_MULT 0.0) — self-root, 팝업은 "태세"로 대체
 
 
-## F-009 temporary damage reduction (Shield Wall AB-046 / Aegis Pulse AB-047 subs) — DR WITHOUT the
-## Sentinel move-lock. Shares the Sentinel decay (_sentinel_timer → damage_taken_mult resets to 1.0).
-## Strongest DR wins while active (minf). ref: STATUS Fortified/Warded.
-func apply_damage_reduction(dr: float, dur: float) -> void:
+## F-009 Counter Stance (AB-048, kind=skillbook_reflect) — 반격 태세: 받은 피해의 `frac`을 공격자에게
+## 되돌린다. **DR 없음·이동잠금 없음**(Sentinel과 분리 — 이쪽은 순수 반사). `cap` = 시전 1회 동안 되돌릴 수
+## 있는 **총량 상한**(누적 도달 시 그 시전 동안 반사 중단) — 다수에게 둘러싸일수록 무한히 세지는 걸 막는
+## 밸런싱 레버. frac·cap 두 숫자만 만지면 튜닝이 끝난다. ref: DRIFT-102 · T2 판정(2026-07-28).
+func apply_reflect(frac: float, dur: float, cap: float, hits: int = 0,
+		cast_only: bool = false, label: String = "반격") -> void:
 	if not _alive:
 		return
-	popup_status("피해 감소", Color(0.6, 0.8, 1.0))
-	damage_taken_mult = minf(damage_taken_mult, clampf(1.0 - dr, 0.0, 1.0))
-	_sentinel_timer_s = maxf(_sentinel_timer_s, dur)
+	_reflect_frac = clampf(frac, 0.0, 1.0)
+	_reflect_timer_s = dur
+	_reflect_dur = dur
+	_reflect_cap = maxf(cap, 0.0)
+	_reflect_done = 0.0   # 시전마다 상한 재충전(갱신 시전 = 새 예산)
+	_reflect_hits = maxi(hits, 0)
+	_reflect_hits_max = _reflect_hits
+	_reflect_cast_only = cast_only
+	_reflect_label = label
+	popup_status("%s %s" % [label, ("%d타" % _reflect_hits) if _reflect_hits > 0 else "%.1f초" % dur],
+		Color(1.0, 0.78, 0.45))
+
+
+## 반격 태세 해제(타수 소진 / 시간 만료 공통) — 되돌린 총량을 한 번 보여 주고 정리.
+func _end_reflect() -> void:
+	_SkillVfx.clear_aura(self, "reflect")   # 타수 소진 = 창 시간이 남아도 오오라를 끈다(상태와 화면 일치)
+	if _reflect_done >= 1.0:
+		popup_status("%s 종료 (총 %d 반사)" % [_reflect_label, int(round(_reflect_done))], Color(1.0, 0.78, 0.45))
+	_reflect_frac = 0.0
+	_reflect_timer_s = 0.0
+	_reflect_hits = 0
+	_reflect_done = 0.0
+
+
+## 반격 태세가 살아 있고 상한이 남았나(UI·디버그용).
+func is_countering() -> bool:
+	return _reflect_timer_s > 0.0 and _reflect_done < _reflect_cap
+
+
+## F-009 피해 감소 서브(AB-046 철벽 / AB-047 수호진 / AB-068 수호인) — Sentinel 이동잠금 없음.
+## **T2 체감 개편(2026-07-28, DRIFT-103):**
+##  · **시간 기반**(DRIFT-104 확정) — 한때 타수형으로 갔다가 되돌렸다. 타수는 "언제 닳는지"를 플레이어가
+##    예측할 수 없어(적 공격 타이밍에 의존) 오히려 체감이 나빴다. 지속(초) + 칩 arc가 더 읽힌다.
+##  · **곱연산**(사용자 지시) — 여러 DR이 겹치면 Π(1−frac). 50%+20% = 60% 감소(최강 하나만이 아니라).
+##  · **스택마다 별도 버프 아이콘** — 같은 label(같은 AB) 재시전 = 갱신, 다른 label = 새 칸.
+func apply_damage_reduction(dr: float, dur: float, label: String = "피해 감소",
+		color: Color = Color(0.6, 0.8, 1.0)) -> void:
+	if not _alive:
+		return
+	var frac := clampf(dr, 0.0, 1.0)
+	for st in _dr_stacks:
+		if String(st["label"]) == label:            # 같은 스킬 재시전 = 갱신(칸은 그대로)
+			st["frac"] = frac
+			st["t"] = maxf(float(st["t"]), dur)
+			st["dur"] = maxf(float(st["dur"]), float(st["t"]))
+			_recalc_damage_taken_mult()
+			popup_status("%s %.1f초" % [label, dur], color)
+			return
+	_dr_stacks.append({"frac": frac, "t": dur, "dur": dur,
+		"label": label, "color": color, "blocked": 0.0})
+	_recalc_damage_taken_mult()
+	popup_status("%s %.1f초" % [label, dur], color)
+
+
+## 최종 피해 배율 = Sentinel 배율 × 모든 DR 스택의 **곱연산**. 스택이 바뀔 때마다 재계산.
+func _recalc_damage_taken_mult() -> void:
+	var m := _sentinel_dr_mult
+	for st in _dr_stacks:
+		m *= clampf(1.0 - float(st["frac"]), 0.0, 1.0)
+	damage_taken_mult = clampf(m, 0.0, 1.0)
+
+
+## 피격 1회분 DR 정산 — 경감량을 스택별로 적산한다(만료는 시간이 처리). 반환값 = 이번 피격에서
+## DR이 막아 낸 총량(팝업용). 곱연산이라 스택별 기여 분리가 불가능해 표시용 누적은 **균등 배분**이다.
+func _consume_dr(raw: float, mitigated: float) -> float:
+	if _dr_stacks.is_empty():
+		return 0.0
+	var blocked: float = maxf(raw - mitigated, 0.0)
+	if blocked <= 0.0:
+		return 0.0
+	var share: float = blocked / float(_dr_stacks.size())
+	for st in _dr_stacks:
+		st["blocked"] = float(st["blocked"]) + share
+	return blocked
 
 
 ## F-009 heal-over-time — `pct_per_s` × maxHP/초를 `dur`초간. **중첩**: 매 적용이 독립 인스턴스로 쌓여 합산된다.
@@ -1474,8 +1596,25 @@ func _physics_process(delta: float) -> void:
 	if _sentinel_timer_s > 0.0:
 		_sentinel_timer_s -= delta
 		if _sentinel_timer_s <= 0.0:
-			damage_taken_mult = 1.0   # Sentinel Form expired → normal damage
+			_sentinel_dr_mult = 1.0   # Sentinel Form expired → 이 배율만 해제(DR 스택은 안 건드린다)
 			_sentinel_reflect = 0.0   # reflect ends with the stance
+			_recalc_damage_taken_mult()
+	if not _dr_stacks.is_empty():     # DR 스택 — 지속 감소, 만료 시 "총 N 막음" 정산 후 제거
+		var _dr_keep: Array = []
+		for st in _dr_stacks:
+			st["t"] = float(st["t"]) - delta
+			if float(st["t"]) > 0.0:
+				_dr_keep.append(st)
+			elif float(st["blocked"]) >= 1.0:
+				popup_status("%s 종료 (총 %d 막음)" % [String(st["label"]), int(round(float(st["blocked"])))],
+					st["color"])
+		if _dr_keep.size() != _dr_stacks.size():
+			_dr_stacks = _dr_keep
+			_recalc_damage_taken_mult()
+	if _reflect_timer_s > 0.0:        # AB-048a/b 반격 — 시간 만료(타수형은 ttl 안전장치 역할)
+		_reflect_timer_s -= delta
+		if _reflect_timer_s <= 0.0:
+			_end_reflect()
 	if _channel_timer_s > 0.0:        # AB-054 Rending Beam channel — caster occupied while > 0
 		_channel_timer_s -= delta
 	if not _regen_hots.is_empty():     # F-009 HoT(중첩) — 활성 인스턴스 합산 회복 + 틱 피드백(base 초록/성역 금색) + 예측
@@ -1683,6 +1822,23 @@ func get_status_list() -> Array:
 			"color": Color(0.36, 0.66, 1.0),
 			"ratio": 1.0 - clampf(shield_timer_s / maxf(_shield_dur, 0.01), 0.0, 1.0),
 			"buff": true,
+		})
+	# F-009 DR 스택 — **스택마다 별개 버프 칩**(사용자 지시). arc = 남은 타수 비율, stacks = 남은 타수.
+	# 예전엔 `damage_taken_mult`가 생 float라 이 목록에 아예 없었다 = 화면에 존재하지 않는 버프였다(DRIFT-103 A).
+	for st in _dr_stacks:
+		out.append({
+			"name": "%s −%d%%" % [String(st["label"]), int(round(float(st["frac"]) * 100.0))],
+			"color": st["color"],
+			"ratio": 1.0 - clampf(float(st["t"]) / maxf(float(st["dur"]), 0.01), 0.0, 1.0),
+			"buff": true,
+		})
+	if _reflect_frac > 0.0 and _reflect_timer_s > 0.0:   # buff — 반격(AB-048a 시간형 / AB-048b 타수형)
+		out.append({
+			"name": "%s −%d%%" % [_reflect_label, int(round(_reflect_frac * 100.0))],
+			"color": Color(1.0, 0.78, 0.45),
+			"ratio": (1.0 - clampf(float(_reflect_hits) / maxf(float(_reflect_hits_max), 1.0), 0.0, 1.0)) 				if _reflect_hits_max > 0 else (1.0 - clampf(_reflect_timer_s / maxf(_reflect_dur, 0.01), 0.0, 1.0)),
+			"buff": true,
+			"stacks": _reflect_hits,
 		})
 	if is_veiled():  # buff (Veiled — Smoke Veil AB-062 stealth)
 		out.append({
