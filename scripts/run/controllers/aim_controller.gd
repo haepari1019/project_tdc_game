@@ -11,7 +11,7 @@ var _slot: int = -1
 
 ## 단일타겟 조준(사거리 링 + 조준 커서)으로 다룰 kind. 그 외 targeted = 지면 AoE(원판). 판단은 여기 한 곳.
 const UNIT_AIM_KINDS := [
-	"skillbook_taunt", "skillbook_pull", "skillbook_execute", "skillbook_blink",
+	"skillbook_taunt", "skillbook_execute", "skillbook_blink",
 	"skillbook_pin", "skillbook_tether", "skillbook_scent", "skillbook_root", "skillbook_slow",
 	"skillbook_vulnerable", "skillbook_purge", "skillbook_stun", "skillbook_polymorph", "skillbook_dash",
 ]
@@ -91,7 +91,10 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	# 커서 색으로 대상 진영 구분 — 아군=초록 / 적=빨강(조준 중임도 십자로 표시).
 	Input.set_custom_mouse_cursor(_cursor_ally if ALLY_TARGET_KINDS.has(kind) else _cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))
 	# 단일타겟 → 원판 없음(커서만) / AoE → 효과 반경 원판. 둘 다 시전 사거리를 하얀 링으로 표시.
-	var disc: float = 0.0 if UNIT_AIM_KINDS.has(kind) else float(p.get("radius_m", p.get("aoe_radius_m", 3.0)))
+	# 같은 kind라도 **광역 변주는 원판을 보여준다** — AB-035 광역 도발이 단일 커서로 뜨면 반경을 못 읽는다.
+	# (skillbook_taunt: AB-051=단일 → 커서만 / AB-035 `taunt_all` → 반경 원판. DRIFT-108)
+	var unit_aim: bool = UNIT_AIM_KINDS.has(kind) and not bool(p.get("taunt_all", false))
+	var disc: float = 0.0 if unit_aim else float(p.get("radius_m", p.get("aoe_radius_m", 3.0)))
 	_aim.show_aim(member, _range, disc, cc)
 
 

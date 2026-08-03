@@ -41,6 +41,18 @@ static func describe(kind: String, params: Dictionary) -> String:
 		if String(params.get("shape", "wall")) == "dome":
 			prose = Slice01Data.get_skill_desc("skillbook_barrier_dome")
 		prose += " 내구도 %s." % _n(float(params.get("barrier_hp", 0.0)))
+	# skillbook_taunt 2종(DRIFT-108) — 둘 다 **단일 대상**이라 차이축은 **사거리 ↔ 위협량**뿐.
+	# 문장에 두 수치를 실어 "멀리서 약하게 ↔ 붙어서 강하게"가 툴팁만 읽어도 갈리게 한다.
+	if kind == "skillbook_taunt":
+		if bool(params.get("taunt_all", false)):
+			prose = Slice01Data.get_skill_desc("skillbook_taunt_all")
+			prose += " 사거리 %sm · 반경 %sm 안의 **모든** 적에게 위협 +%s(유지 %s)." % [
+				_n(float(params.get("range_m", 0.0))), _n(float(params.get("radius_m", 0.0))),
+				_n(float(params.get("mark_threat", 0.0))), _n(float(params.get("floor", 0.0)))]
+		else:
+			prose += " 사거리 %sm에서 **단일** 대상에게 위협 +%s(유지 %s)." % [
+				_n(float(params.get("range_m", 0.0))), _n(float(params.get("mark_threat", 0.0))),
+				_n(float(params.get("floor", 0.0)))]
 	if kind == "skillbook_bolt":
 		if float(params.get("cast_s", 0.0)) > 0.0:
 			prose = "에너지를 집중한 뒤 " + prose

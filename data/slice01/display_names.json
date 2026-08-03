@@ -33,7 +33,6 @@
     "skillbook_silence": "침묵",
     "skillbook_bolt": "원거리 탄",
     "skillbook_taunt": "도발",
-    "skillbook_pull": "끌어당김",
     "skillbook_slow": "둔화",
     "skillbook_relocate_ally": "아군 견인",
     "skillbook_reveal": "정찰",
@@ -76,7 +75,6 @@
     "skillbook_silence": "대상 지역의 적을 침묵시켜 액티브 스킬 사용을 막는다.",
     "skillbook_bolt": "원거리 투사체를 발사해 착탄 지점에 광역 피해를 준다.",
     "skillbook_taunt": "대상을 도발해 자신을 공격하도록 강제한다.",
-    "skillbook_pull": "대상을 자신 쪽으로 끌어당긴다.",
     "skillbook_slow": "전방 부채꼴 범위의 적을 둔화시킨다.",
     "skillbook_relocate_ally": "가장 위험한 아군을 안전한 위치로 견인한다.",
     "skillbook_reveal": "주변에 숨은 적을 드러낸다(정찰).",
@@ -100,6 +98,7 @@
     "skillbook_dr_party": "주변 아군 전체가 받는 피해를 감소시킨다.",
     "skillbook_reflect": "잠시 동안 반격 태세를 갖춰, 받은 피해의 일부를 공격자에게 되돌린다. 받는 피해 자체는 줄어들지 않는다.",
     "skillbook_reflect_cast": "적이 집중해서 시전하는 스킬에 한해, 받은 피해의 일부를 공격자에게 되돌린다. 평타는 막지 못하고, 받는 피해 자체도 줄어들지 않는다.",
-    "skillbook_barrier_dome": "자신을 중심으로 전방위 보호 돔을 세워 **모든 방향에서 날아오는 적 투사체를 막는다**. 적의 이동은 막지 못하고, 투사체를 받아낼 때마다 내구도가 닳아 부서진다."
+    "skillbook_barrier_dome": "자신을 중심으로 전방위 보호 돔을 세워 **모든 방향에서 날아오는 적 투사체를 막는다**. 적의 이동은 막지 못하고, 투사체를 받아낼 때마다 내구도가 닳아 부서진다.",
+    "skillbook_taunt_all": "집중해서 포효한 뒤, 지정 범위 안의 적 **전체**를 도발해 자신을 공격하도록 강제한다."
   }
 }

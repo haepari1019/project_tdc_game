@@ -1043,10 +1043,12 @@
         "kind": "skillbook_taunt",
         "cooldown_s": 12,
         "targeted": true,
-        "range_m": 10,
-        "radius_m": 2.0,
+        "range_m": 5.0,
+        "radius_m": 4.0,
         "mark_threat": 120.0,
-        "floor": 50.0
+        "floor": 50.0,
+        "taunt_all": true,
+        "cast_s": 2.5
       },
       "tier": "Basic"
     },
@@ -1054,22 +1056,18 @@
       "base_ability_id": "AB-051",
       "display_name": "Shield Throw",
       "equip_classes": [
-        "Tank",
-        "DPS"
+        "Tank"
       ],
-      "sub_bands": {
-        "DPS": "B2"
-      },
       "range_band": "Mid",
       "charges_max": 60,
       "cast": {
-        "kind": "skillbook_pull",
+        "kind": "skillbook_taunt",
         "cooldown_s": 11,
         "targeted": true,
-        "range_m": 12,
-        "radius_m": 1.8,
-        "pull_m": 5.0,
-        "threat": 60.0
+        "range_m": 10.5,
+        "radius_m": 1.5,
+        "mark_threat": 90.0,
+        "floor": 35.0
       },
       "tier": "Basic"
     },

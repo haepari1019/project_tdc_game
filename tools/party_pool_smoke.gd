@@ -119,6 +119,39 @@ func _initialize() -> void:
 	_chk("Sentinel × DR 곱연산 (0.4×0.4)", is_equal_approx(pmdr.damage_taken_mult, 0.16))
 	pmdr.free()
 
+	# T4 판정(DRIFT-108) — AB-051 견인 → **원거리 단일 도발**(Tank 전용). AB-035와 사거리·위협으로 분화.
+	var c51: Dictionary = sd.get_skillbook_master("AB-051").get("cast", {})
+	var c35: Dictionary = sd.get_skillbook_master("AB-035").get("cast", {})
+	_chk("AB-051 kind=skillbook_taunt", String(c51.get("kind", "")) == "skillbook_taunt")
+	_chk("AB-051 pull 잔재 없음", not c51.has("pull_m"))
+	_chk("AB-051 = Tank 전용", (sd.get_skillbook_master("AB-051").get("equip_classes", []) as Array) == ["Tank"])
+	_chk("AB-051 sub_bands 없음(겸용 해제)", (sd.get_skillbook_master("AB-051").get("sub_bands", {}) as Dictionary).is_empty())
+	_chk("AB-051 사거리 > AB-035", float(c51.get("range_m", 0.0)) > float(c35.get("range_m", 0.0)))
+	_chk("AB-051 위협 < AB-035(사거리 대가)", float(c51.get("mark_threat", 0.0)) < float(c35.get("mark_threat", 0.0)))
+	# 축 확정: AB-035 = 광역 + 캐스트 커밋 / AB-051 = 단일 + 즉발 원거리.
+	_chk("AB-035 = 광역 도발(taunt_all)", bool(c35.get("taunt_all", false)))
+	_chk("AB-035 = 캐스트 커밋 2.5s", is_equal_approx(float(c35.get("cast_s", 0.0)), 2.5))
+	_chk("AB-051 = 단일(taunt_all 없음)", not bool(c51.get("taunt_all", false)))
+	_chk("AB-051 = 즉발(cast_s 없음)", float(c51.get("cast_s", 0.0)) == 0.0)
+	_chk("AB-035 반경 > AB-051(광역이 실제로 넓다)", float(c35.get("radius_m", 0.0)) > float(c51.get("radius_m", 0.0)))
+	_chk("skillbook_pull 폐기(사용자 0)", sd.get_skillbook_master("AB-051").get("cast", {}).get("kind", "") != "skillbook_pull")
+
+	# 도발이 **비전투 적을 교전으로 끌어내는지**(DRIFT-108) — 위협 수치만 올리면 dormant 적은 안 온다.
+	var tn = EN.new()      # 트리 불요 — add_threat/perceive_attacker/pick_target은 순수 상태 조작
+	var tk = PM.new()
+	tn.engaged = false
+	tn.returning = true
+	tn.add_threat(tk, 90.0)
+	_chk("add_threat만으로는 교전 안 됨(원인)", not tn.engaged)
+	tn.perceive_attacker(tk)          # sb_taunt가 부르는 경로
+	tn.returning = false
+	_chk("도발 → 교전 상태 진입", tn.engaged)
+	_chk("도발 → 귀환 취소", not tn.returning)
+	_chk("도발 → 시전자 위치로 수색(LOS 없어도 이동)", tn.has_search)
+	_chk("도발 대상 = 최고 위협(시전자)", tn.pick_target([tk], 1.2) == tk)
+	tn.free()
+	tk.free()
+
 	# T3 판정(DRIFT-107) — AB-033 = shield → **전방위 돔 방벽**(물리 오브젝트). AB-034 벽과 형상·차단축이 갈린다.
 	var c33: Dictionary = sd.get_skillbook_master("AB-033").get("cast", {})
 	var c34: Dictionary = sd.get_skillbook_master("AB-034").get("cast", {})
