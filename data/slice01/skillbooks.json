@@ -813,11 +813,12 @@
       "range_band": "Melee",
       "charges_max": 60,
       "cast": {
-        "kind": "skillbook_shield",
-        "cooldown_s": 8,
-        "radius_m": 4.0,
-        "shield_pct": 0.1,
-        "duration_s": 2.0
+        "kind": "skillbook_barrier",
+        "shape": "dome",
+        "cooldown_s": 14,
+        "radius_m": 3.0,
+        "barrier_hp": 90.0,
+        "duration_s": 5.0
       },
       "tier": "Basic"
     },

@@ -1031,8 +1031,19 @@ const _PROJECTILE_VFX := ["projectile", "shot_venom", "shot_slag", "shot_hex", "
 ## bash / lightning) apply immediately. ref: 사용자 — "락온 유도 + 도달 시 데미지".
 func _deliver_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
 	var vfx := String(eff.get("vfx", ""))
+	# **차단 판정을 배달 시점으로 앞당긴다**(DRIFT-107). 예전엔 VFX를 먼저 무조건 쏘고 도착 후
+	# `_apply_enemy_hit`에서 검사해서, 피해는 막히는데 **오브는 벽을 뚫고 대상까지 날아갔다**.
+	# 이제 막히면 오브가 그 지점에서 터지고 피해 예약 자체를 하지 않는다.
+	var from0: Vector3 = enemy.global_position
+	if from0.distance_to(target.global_position) > RANGED_BLOCK_MIN_M:
+		var bp = _shot_block_point(from0, target.global_position, enemy)
+		if bp != null:
+			if vfx != "":
+				SkillVfx.enemy_vfx(vfx, self, from0, target, bp)   # 막힌 지점까지만 비행 → 그 자리에서 소멸
+			print("[EN] %s ranged shot blocked (wall/Rampart)" % enemy.enemy_id)
+			return
 	if vfx != "":
-		SkillVfx.enemy_vfx(vfx, self, enemy.global_position, target)
+		SkillVfx.enemy_vfx(vfx, self, from0, target)
 	if vfx in _PROJECTILE_VFX:
 		# Homing shot: the hit lands when the orb reaches the target.
 		get_tree().create_timer(SkillVfx.SHOT_FLIGHT_S).timeout.connect(
@@ -1055,12 +1066,9 @@ func _on_shot_arrived(enemy, target, eff: Dictionary, chosen: Dictionary) -> voi
 func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
 	var kind := String(eff.get("kind", "enemy_melee"))
 	var from := enemy.global_position
-	# RP-02 / DRIFT-059 Phase 2b — RANGED shot interception: a wall or PARTY Rampart on the line to
-	# the target blocks the shot (homing stays LOCKED for fairness; only geometry blocks it). Melee
-	# range (≤ RANGED_BLOCK_MIN_M) is exempt — no room for a wall between adjacent units.
-	if from.distance_to(target.global_position) > RANGED_BLOCK_MIN_M and _shot_blocked(from, target.global_position, enemy):
-		print("[EN] %s ranged shot blocked (wall/Rampart)" % enemy.enemy_id)
-		return
+	# ⚠️ RANGED 차단 판정은 **`_deliver_enemy_hit`(배달 시점)** 로 이동했다(DRIFT-107) — 여기서 또
+	# 검사하면 `absorb_projectile`이 두 번 불려 방벽이 발당 2배로 닳는다. 이 함수의 다른 호출자
+	# (돌진 도착·암살 처형)는 전부 근접이라 애초에 차단 대상이 아니다.
 	# Multi-hit rom_* (voltaic double / melee flurry / flank stab) fold into one resolved total
 	# for now (true sequential hits = S2b polish). hits defaults 1.
 	var hits: int = maxi(1, int(eff.get("hits", 1)))
@@ -1147,28 +1155,40 @@ const RANGED_BLOCK_MIN_M := 3.0
 ## blocked). A PARTY Rampart absorbs the shot here (RP-02 정방향). Owner's-own-team Ramparts are
 ## skipped. Raycasts the WORLD layer only (1 = walls + Rampart; units on 2/4 are ignored). DRIFT-059.
 func _shot_blocked(from: Vector3, to: Vector3, attacker) -> bool:
+	return _shot_block_point(from, to, attacker) != null
+
+
+## 차단되면 **막힌 지점**(Vector3), 아니면 null. VFX를 그 지점에서 멈추려면 위치가 필요하다 —
+## 예전엔 bool만 돌려줘서 오브가 벽을 뚫고 대상까지 날아갔다(피해만 막히고 그림은 통과, DRIFT-107).
+func _shot_block_point(from: Vector3, to: Vector3, attacker):
 	if not (attacker is Node3D):
-		return false
+		return null
 	var a := from + Vector3(0, 0.8, 0)
 	var b := to + Vector3(0, 0.8, 0)
 	var space := (attacker as Node3D).get_world_3d().direct_space_state
 	var exclude: Array[RID] = []
 	for _i in 6:
-		var q := PhysicsRayQueryParameters3D.create(a, b, 1)   # world layer = walls + Rampart
+		var q := PhysicsRayQueryParameters3D.create(a, b, 1 | 8)   # world(1)=벽+Rampart · 8=엄폐 돔(AB-033, DRIFT-107)
 		q.exclude = exclude
 		var hit := space.intersect_ray(q)
 		if hit.is_empty():
-			return false
+			return null
 		var c = hit.collider
 		if c != null and c.is_in_group("rampart_barrier"):
 			if c.has_method("blocks_projectile_from") and not c.blocks_projectile_from(attacker):
 				exclude.append(c.get_rid())    # owner's own team → pass through
 				continue
+			# 돔(AB-033)은 **완전히 감싼 대상만** 보호한다 — 가장자리에 걸친 유닛은 그대로 맞는다.
+			# (벽은 방향성 엄폐라 covers_point가 항상 true → 기하가 판정.) DRIFT-107.
+			if c.has_method("covers_point") and not c.covers_point(to):
+				exclude.append(c.get_rid())
+				continue
+			var hp: Vector3 = hit.get("position", b)
 			if c.has_method("absorb_projectile"):
-				c.absorb_projectile()           # party Rampart soaks the enemy shot (RP-02)
-			return true
-		return true                             # a world wall blocks the shot
-	return false
+				c.absorb_projectile(hp)         # party Rampart soaks the enemy shot (RP-02) — 피격 지점에 섬광
+			return hp
+		return hit.get("position", b)           # a world wall blocks the shot
+	return null
 
 
 func _telegraph_color(kind: String) -> Color:

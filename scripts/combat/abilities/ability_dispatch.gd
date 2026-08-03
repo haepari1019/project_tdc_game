@@ -854,6 +854,8 @@ func spawn_projectile(effect, caster: CharacterBody3D, target_pos: Vector3, para
 
 
 ## Projectile hit mask by caster side: ally → world(1) + enemy(4); enemy → world(1) + party(2).
+## **+ 엄폐 레이어(8, `rampart_barrier.LAYER_COVER`)** — AB-033 돔은 이동을 안 막으므로 world(1)에
+## 없다. 투사체는 이 비트로만 돔을 만난다(DRIFT-107).
 ## Rampart Barrier sits on world(1), so it's hit either way. The caster's own layer is excluded.
 func _projectile_mask(caster: CharacterBody3D) -> int:
-	return (1 | 4) if caster.is_in_group("party_member") else (1 | 2)
+	return (1 | 4 | 8) if caster.is_in_group("party_member") else (1 | 2 | 8)

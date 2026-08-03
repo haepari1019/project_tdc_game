@@ -119,6 +119,50 @@ func _initialize() -> void:
 	_chk("Sentinel × DR 곱연산 (0.4×0.4)", is_equal_approx(pmdr.damage_taken_mult, 0.16))
 	pmdr.free()
 
+	# T3 판정(DRIFT-107) — AB-033 = shield → **전방위 돔 방벽**(물리 오브젝트). AB-034 벽과 형상·차단축이 갈린다.
+	var c33: Dictionary = sd.get_skillbook_master("AB-033").get("cast", {})
+	var c34: Dictionary = sd.get_skillbook_master("AB-034").get("cast", {})
+	_chk("AB-033 kind=skillbook_barrier(실드 아님)", String(c33.get("kind", "")) == "skillbook_barrier")
+	_chk("AB-033 shape=dome", String(c33.get("shape", "")) == "dome")
+	_chk("AB-033 shield_pct 잔재 없음", not c33.has("shield_pct"))
+	_chk("AB-034 = wall(기본형)", String(c34.get("shape", "wall")) == "wall")
+	_chk("돔 HP << 벽 HP", float(c33.get("barrier_hp", 0.0)) > 0.0 and float(c33.get("barrier_hp", 0.0)) < float(c34.get("barrier_hp", 0.0)) * 0.5)
+	# 레이어 분리 — 돔은 엄폐 전용(8)이라 이동을 막지 않고, 벽은 world(1)이라 이동까지 막는다.
+	var RBar = load("res://scripts/world/objects/rampart_barrier.gd")
+	var vfx_host := Node3D.new()
+	root.add_child(vfx_host)
+	var dome = RBar.new()
+	root.add_child(dome)
+	dome.setup(null, Vector3.ZERO, Vector3(0, 0, 1), {"shape": "dome", "radius_m": 3.0, "barrier_hp": 90.0, "duration_s": 5.0}, vfx_host)
+	_chk("돔 = 엄폐 레이어(LAYER_COVER 8 — 이동 비차단)", dome.collision_layer == RBar.LAYER_COVER)
+	_chk("돔이 유닛 이동 마스크(1)에 없음", (dome.collision_layer & 1) == 0)
+	var wall = RBar.new()
+	root.add_child(wall)
+	wall.setup(null, Vector3(20, 0, 20), Vector3(0, 0, 1), {"barrier_hp": 300.0, "duration_s": 4.0, "stagger_s": 0.0}, vfx_host)
+	_chk("벽 = world 레이어 1(이동 차단)", wall.collision_layer == 1)
+	# ⚠️ 물리 space query 검증은 **넣지 않는다** — `--script` SceneTree 런에서 콜리전 등록 타이밍이
+	# 불안정했다(process_frame로는 미등록, physics_frame await는 무한 대기). 별도 임시 스크립트로
+	# 수동 실증은 마쳤다: 마스크 `1|8` 레이는 돔 표면(2.89, 0.8, 0)에 적중, 마스크 `1`은 통과.
+	# 여기서는 레이어 상수 + 커버리지 수식만 잠근다(결정론적).
+	# 완전 포함 판정(DRIFT-107) — 중심부는 보호, 가장자리에 걸치면 그대로 맞는다.
+	_chk("돔 중심 = 완전 보호", dome.covers_point(Vector3.ZERO))
+	var sr: float = dome.safe_radius()
+	_chk("안전 반경 < 돔 외곽(걸침 구간 존재)", sr > 0.0 and sr < 3.0)
+	_chk("안전 반경 안쪽 = 보호", dome.covers_point(Vector3(sr - 0.15, 0.0, 0.0)))
+	_chk("안전 반경 바깥(돔 안이어도) = 미보호", not dome.covers_point(Vector3(sr + 0.25, 0.0, 0.0)))
+	_chk("돔 밖 = 미보호", not dome.covers_point(Vector3(4.0, 0.0, 0.0)))
+	_chk("벽은 방향성 엄폐(covers_point 항상 true)", wall.covers_point(Vector3(99, 0, 99)))
+	print("      [dome] r=3.0 · 안전 반경 %.2fm (유닛 r0.40 · h1.60 기준)" % sr)
+	# 투사체 흡수 → HP 감소 → Break. (근접 적은 방벽을 때리지 않는다 — DRIFT-107 §확인 결과)
+	for _i in 9:
+		if is_instance_valid(dome):
+			dome.absorb_projectile()
+	await process_frame
+	_chk("돔 = 투사체 9발(90 HP)에 파괴", not is_instance_valid(dome))
+	if is_instance_valid(wall):
+		wall.queue_free()
+	vfx_host.queue_free()
+
 	# 지속형 오오라(DRIFT-106) — 스폰 · 같은 key 재시전 시 교체(중복 링 방지) · 지속 후 자기 소멸.
 	var SV = load("res://scripts/combat/abilities/skill_vfx.gd")
 	var host := Node3D.new()

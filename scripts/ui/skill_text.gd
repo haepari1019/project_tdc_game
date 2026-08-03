@@ -36,6 +36,11 @@ static func describe(kind: String, params: Dictionary) -> String:
 		else:
 			prose += " 되돌리는 양은 받은 피해의 %d%%이며, 시전 1회당 총 %s까지다." % [
 				int(round(float(params.get("reflect_frac", 0.0)) * 100.0)), _n(float(params.get("reflect_cap", 0.0)))]
+	# skillbook_barrier 두 형상(DRIFT-107) — wall(AB-034 단일 방향·이동차단) ↔ dome(AB-033 전방위·투사체만).
+	if kind == "skillbook_barrier":
+		if String(params.get("shape", "wall")) == "dome":
+			prose = Slice01Data.get_skill_desc("skillbook_barrier_dome")
+		prose += " 내구도 %s." % _n(float(params.get("barrier_hp", 0.0)))
 	if kind == "skillbook_bolt":
 		if float(params.get("cast_s", 0.0)) > 0.0:
 			prose = "에너지를 집중한 뒤 " + prose

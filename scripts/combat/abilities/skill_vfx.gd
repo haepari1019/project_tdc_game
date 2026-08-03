@@ -251,9 +251,15 @@ static func smoke_puff(parent: Node3D, pos: Vector3) -> void:
 
 ## `target` is the struck actor NODE (not a frozen point): flying shots HOME to its live position
 ## so a target-LOCKED hit lands ON it. Instant cues (lightning/strike/bash) use the resolve point.
-static func enemy_vfx(key: String, parent: Node3D, from: Vector3, target: Node3D) -> void:
+## `stop_at`(선택) = 방벽에 막힌 지점. 주면 **호밍을 끄고 그 지점까지만** 날아가 거기서 터진다.
+## 예전엔 이 인자가 없어 오브가 항상 대상까지 호밍해, 피해는 막혔는데 그림만 벽을 통과했다(DRIFT-107).
+static func enemy_vfx(key: String, parent: Node3D, from: Vector3, target: Node3D, stop_at = null) -> void:
 	var y := Vector3(0, 0.8, 0)
-	var to: Vector3 = (target.global_position if is_instance_valid(target) else from)
+	var blocked: bool = stop_at != null
+	if blocked:
+		target = null   # 호밍 해제 — 아래 _enemy_shot들이 고정 지점으로 직진한다
+	# 막힌 경우 `stop_at`은 이미 레이 높이(+0.8)를 포함한 월드 지점이라 아래 `to + y`에서 상쇄되게 뺀다.
+	var to: Vector3 = ((stop_at as Vector3) - y) if blocked else (target.global_position if is_instance_valid(target) else from)
 	match key:
 		"projectile":  # generic basic pebble — round sphere (the plain look ABs break from)
 			_enemy_shot(parent, from + y, to + y, Color(0.7, 0.85, 0.4), "sphere", target)
@@ -261,7 +267,8 @@ static func enemy_vfx(key: String, parent: Node3D, from: Vector3, target: Node3D
 			lightning_bolt(parent, from, to, Color(0.55, 0.8, 1.0))
 		"shot_venom":  # AB-010 Venom — toxic-green ELLIPSOID glob + lingering poison puff (DoT)
 			_enemy_shot(parent, from + y, to + y, Color(0.4, 0.95, 0.3), "ellipsoid", target)
-			_poison_puff(target, Color(0.42, 0.85, 0.22))
+			if not blocked:
+				_poison_puff(target, Color(0.42, 0.85, 0.22))   # 막혔으면 대상에 독 잔류물도 없다
 		"shot_hex":  # AB-012 Hex Bolt — purple CONE dart (rune spike pointing forward)
 			_enemy_shot(parent, from + y, to + y, Color(0.72, 0.4, 0.95), "cone", target)
 		"shot_slag":  # AB-008 Slag Spit — orange CUBE chunk (jagged slag lump)

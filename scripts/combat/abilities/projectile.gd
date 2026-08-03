@@ -89,13 +89,18 @@ func _physics_process(delta: float) -> void:
 				and not c.blocks_projectile_from(_caster):
 			_exclude.append(c.get_rid())   # friendly wall → ignore for the rest of the flight
 			continue
+		# 돔(AB-033)은 착탄 대상을 **완전히 감쌌을 때만** 막는다 — 가장자리에 걸친 유닛은 관통. DRIFT-107.
+		if c != null and c.is_in_group("rampart_barrier") and c.has_method("covers_point") \
+				and not c.covers_point(_dest):
+			_exclude.append(c.get_rid())
+			continue
 		break
 	if not hit.is_empty():
 		var col = hit.collider
 		var pos: Vector3 = hit.get("position", to_point)
 		if col != null and col.is_in_group("rampart_barrier"):
 			if col.has_method("absorb_projectile"):
-				col.absorb_projectile()
+				col.absorb_projectile(pos)   # 섬광은 맞은 자리에(돔은 반경이 커서 중심 섬광이 안 읽힌다)
 			_impact(pos, false)     # HOSTILE Rampart soaks it — no payload (RP-02)
 		elif col != null and (col.is_in_group("enemy") or col.is_in_group("party_member")):
 			_impact(pos, true)      # hostile unit → resolve payload here
