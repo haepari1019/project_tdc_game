@@ -834,7 +834,7 @@
 - **분류\전파:** 서브 3종 폐기(아군 풀 스코프) + **Shared 폐기 대칭 규칙(②)** = **rule/scope → OPS_30 전파 후보**([[DRIFT-078]] 패스 확정분과 동반 배치). 툴팁 워딩·`skillbook_strike_rect` 키 = impl(스키마 변경 없음). Reaver 위협도 = tuning 로깅만. **이 레포 spec md 편집 금지.**
 - **영향 파일:** `data/slice01/{skillbooks,enemies,abilities,display_names}.json` · `scripts/ui/skill_text.gd` · `scripts/combat/abilities/{ability_dispatch,ability_roles,cast_context}.gd` · `effects/sb_charge.gd`(삭제)·`effects/sb_dash.gd`(주석) · `scripts/run/controllers/aim_controller.gd` · `tools/third_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — third_smoke에 `EN-3RD-03 kit has AB-011` · `AB-104 removed from catalog` 검증 2건 신설.
-- **상태:** LOGGED (게임측 확정). 3종 폐기 + Shared 폐기 대칭 규칙 전파 = 사용자 판단 대기.
+- **상태:** ✅ **전파 완료**(spec `0944e6f`, `DEC-20260728-001`) — AB-071/049/104 Deprecated · Shared 폐기 대칭 규칙 신설 · AB-002/011 차이축 SSOT 명시 · EN-3RD-03 킷 교체.
 
 ### DRIFT-102 — T2(Tank 피해 감소) 통폐합: AB-074 폐기 · AB-048 → **반격(반사)** 재정의 · AB-046/047 자기↔파티 분화 🔶 rule/scope/schema (전파 후보)
 - **배경(2026-07-28, 사용자 판정):** [[DRIFT-101]] T1에 이은 T2 판정. Tank 주력 DR 4종(AB-046·047·048·074)이 **툴팁 한 문장을 공유**하고 실차이가 수치뿐이었다(046 0.5/2.0s·048 0.4/1.5s = **같은 자기중심·같은 cd9**, 047 0.2/3.0s·074 0.3/6.0s = 둘 다 광역 r4.0). Tank 서브 슬롯은 3개인데 같은 문장 4종이 경합 = 전수 중 최악의 동일-클래스 중복.
@@ -851,7 +851,7 @@
 - **분류\전파:** **신규 `skillbook_reflect` kind + `reflect_frac`/`reflect_cap` 필드** = schema/rule → **OPS_30 전파 후보**([[DRIFT-100]] `skillbook_dash` 선례와 동일 처리). AB-074 폐기 = scope 전파 후보. 툴팁 분화·`skillbook_dr_party` 키 = impl. `reflect_cap` 값 = tuning 로깅만. **이 레포 spec md 편집 금지.**
 - **영향 파일:** `data/slice01/{skillbooks,display_names}.json` · `scripts/combat/abilities/effects/sb_reflect.gd`(신규)·`sb_dr.gd`(주석) · `ability_dispatch.gd`(등재) · `party/party_member.gd`(`apply_reflect`/`is_countering`/take_damage 훅/만료) · `ui/skill_text.gd` · `run/dungeon_run.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 반격 재정의·074 폐기·046/047 반경 분화 검증 **7건** 신설.
-- **상태:** LOGGED (게임측 확정). `skillbook_reflect` kind + AB-074 폐기 전파 = 사용자 판단 대기. ⏳ **F5 체감 대기**(반사 상한이 실전에서 무는지).
+- **상태:** ✅ **전파 완료**(spec `0944e6f`, `DEC-20260728-001`) — AB-074 Deprecated · AB-048 반사 재정의(spec은 원래 `REFLECT-*`였고 게임이 DR로 드리프트했던 것 → **수렴**). ⏳ F5 체감 대기.
 
 ### DRIFT-103 — 피해 감소 체감 개편: 상태 승격 + 막은 양 표시 + **횟수 기반** 전환 · DR 곱연산 · 타이머 공유 버그 수정 🔶 rule/impl + 🐞 bugfix
 - **배경(2026-07-28, 사용자 지시 "ABE 적용"):** [[DRIFT-102]] T2 직후 *"피해 감소가 너무 체감되지 않는다"*. 실사 결과 원인이 셋으로 갈렸다.
@@ -868,7 +868,7 @@
 - **분류\전파:** **DR 시간→타수 전환 + `dr_hits`/`dr_label`/`dr_ttl_s` 필드 + 곱연산 규칙** = rule/schema → **OPS_30 전파 후보**([[DRIFT-102]] `skillbook_reflect`와 동반 배치). 상태 승격·막은 양 표시 = impl. 타수 값 = tuning 로깅만. 타이머 공유 = **버그 수정**(전파 불요). **이 레포 spec md 편집 금지.**
 - **영향 파일:** `data/slice01/{skillbooks,display_names}.json` · `scripts/party/party_member.gd`(`_dr_stacks`/`_sentinel_dr_mult`/`apply_damage_reduction`/`_recalc_damage_taken_mult`/`_consume_dr`/take_damage 훅/만료/`get_status_list`) · `scripts/combat/abilities/effects/sb_dr.gd` · `scripts/ui/skill_text.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 곱연산(0.5×0.8=0.4)·칩 2개 분리·같은 label 갱신·**Sentinel×DR 분리(0.4×0.4=0.16)** 검증 신설.
-- **상태:** LOGGED (게임측 확정). ⏳ **F5 체감 대기** — 이제 보이는데도 안 느껴지면 원인이 ③(크기)로 확정되고, 그때 타수/감소율을 올리면 된다(지금은 "안 보여서 못 느낀 건지 작아서 못 느낀 건지"가 분리되지 않은 상태였다).
+- **상태:** ✅ **전파 완료**(spec `0944e6f`, `DEC-20260728-001`) — **DR 중첩 = 곱연산** 규칙이 `EFFECT-CORE` 전역 노트로 승격(별개 버프 아이콘·독립 수명 포함). ③ 타수형은 [[DRIFT-104]]에서 롤백돼 전파 대상 아님. ⏳ F5 체감 대기.
 
 ### DRIFT-104 — DR 타수형 **롤백**(시간 기반 복귀) · 반격 2변주 분기(AB-048 → **048a 시간형 / 048b 캐스팅 한정**) 🔶 rule/scope/schema (전파 후보)
 - **배경(2026-07-28, 사용자 판정):** [[DRIFT-103]] ③으로 DR을 타수형(`dr_hits`)으로 바꿨는데 F5 없이 즉시 반려 — *"타수로 했더니 체감하기가 더 어렵다"*. **원인 분석:** 타수는 **소진 시점을 플레이어가 예측할 수 없다**(적 공격 타이밍에 종속). 지속(초)은 칩 arc가 줄어드는 걸 보며 남은 창을 읽을 수 있는데, 타수는 "언제 닳는지"가 외부 변수라 오히려 인지 부하가 늘었다. 반면 **[[DRIFT-103]] ①(상태 승격)·②(막은 양 표시)·④(곱연산)·⑤(버그 수정)는 유지**한다 — 반려된 건 시간→타수 축 하나뿐.
@@ -888,7 +888,7 @@
 - **분류\전파:** **신규 ID `AB-048a`/`AB-048b`** + `reflect_hits`/`reflect_cast_only`/`reflect_label` 필드 + `take_damage(from_ability)` 시그니처 = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-102]]/[[DRIFT-103]]과 동반 배치). ⚠️ **[[DRIFT-085]]가 지적한 "AB-007a/b 신규 ID 미로깅" 선례 반복을 피하려 이번엔 분할 즉시 로깅한다.** DR 롤백 = [[DRIFT-103]] ③ supersede. 수치 = tuning 로깅만.
 - **영향 파일:** `data/slice01/{skillbooks,display_names,id_registry}.json` · `scripts/party/party_member.gd`(take_damage 3인자·`apply_reflect` 6인자·`_end_reflect`·DR 시간 롤백·반격 칩) · `effects/{sb_reflect,sb_dr}.gd` · `scripts/combat/enemy_ai.gd`(from_ability 전달 4곳) · `scripts/ui/skill_text.gd` · `scripts/run/dungeon_run.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **기능 검증** 신설: 응수가 ① 평타를 반사하지 않고 ② 평타 피해는 그대로 들어오며 ③ 캐스팅 스킬은 0.8×20=16 반사하고 ④ **반사해도 내 피해는 그대로**임을 실제 `take_damage` 호출로 확인.
-- **상태:** LOGGED (게임측 확정). 신규 ID 2종 + 반사 필드 전파 = 사용자 판단 대기. ⏳ **F5 체감 대기**(응수 발동 빈도 — 적 캐스팅 스킬이 실전에서 충분히 자주 오는지).
+- **상태:** ✅ **전파 완료**(spec `0944e6f`, `DEC-20260728-001`) — `AB-048a`/`AB-048b` 분할 등재 + preset 2종 신설 + **반사 ≠ 경감** 규칙이 `EFFECT-CORE` 전역 노트로 승격(패링 이연 명시). ⏳ F5 체감 대기(응수 발동 빈도).
 
 ### DRIFT-105 — 피해 감소 지속 상향(오오라형 전환): 2~4s → 6~10s · 쿨 동반 상향 🔶 tuning (로깅만)
 - **배경(2026-07-28, 사용자 판정):** *"2초 너무 짧아. 이런 오오라 류는 길게 지속되면서 버프를 줘야 해."* [[DRIFT-104]]가 미해결로 남긴 "지속 < 적 공격 주기" 문제의 해소. 적 `attack_interval_s` 1.3~1.8s 기준 AB-046의 2.0s는 **1~2타**밖에 못 덮어, 버튼을 눌러도 "무슨 일이 일어났는지" 관측할 표본 자체가 안 생겼다.
@@ -904,7 +904,7 @@
 - **분류\전파:** 전부 **수치 → tuning 로깅만**(전파 불요). 규칙·필드·enum 변경 없음. [[DRIFT-078]] §0 "밸런싱 스킵"의 예외 근거 = **"적 공격 주기보다 짧다"는 구조적 결함 해소**([[DRIFT-104]]에서 이미 구조 문제로 식별).
 - **영향 파일:** `data/slice01/skillbooks.json`(AB-046/047/068 `duration_s`·`cooldown_s`).
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28).
-- **상태:** LOGGED. ⏳ **F5 체감 대기** — 이제 지속·표시·곱연산이 다 갖춰졌으므로, 여기서도 안 느껴지면 원인은 **감소율(크기)** 단독으로 확정된다.
+- **상태:** ✅ **전파 완료**(spec `0944e6f`, `DEC-20260728-001`) — preset 3종 교체(구 ID Deprecated) + AB 문서 지속·쿨 갱신. **감소율 재검토는 spec TODO로 이월**. ⏳ F5 체감 대기.
 
 ### DRIFT-106 — 피해 감소 **지속형 오오라 VFX** 신설(`aura_field`/`clear_aura`) 🔶 impl (로깅만)
 - **배경(2026-07-28, 사용자 지시):** *"수호를 키면 오오라가 지속시간 동안 나오도록 vfx를 추가해줘."* [[DRIFT-105]]로 지속이 6~10초가 됐는데 VFX는 시전 순간 1회 펄스(`sub_sanctuary`)뿐이라, **버프가 켜져 있는 대부분의 시간이 화면에서 비어 있었다** — [[DRIFT-103]] ①(지각 채널 부재)의 잔여분.
@@ -920,4 +920,4 @@
 - **분류\전파:** 순수 표현 → **impl 로깅만**(전파 불요). 규칙·필드·enum 변경 없음.
 - **영향 파일:** `scripts/combat/abilities/skill_vfx.gd`(`aura_field`/`clear_aura`/`AURA_FADE_S`) · `effects/sb_dr.gd`(대상별 호출) · `effects/sb_reflect.gd`(캐스터 호출) · `scripts/party/party_member.gd`(`_end_reflect` → `clear_aura`) · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **수명 검증 7건** 신설: 생성 · 같은 key 재시전 시 교체(중복 없음) · **지속 종료 후 자기 소멸** · `clear_aura` 즉시 제거 · **반격 오오라 부착** · **가시 8개 생성** · **타수 소진 시 즉시 제거(창 시간 남아도)**. (VFX는 게이트가 컴파일까지만 보증하므로 노드 수명을 별도로 잠갔다. 카운트는 `meta("aura_key")` 기준 — `party_member`는 `_ready`에서 체력바 등 자식을 만들어 `child_count`로는 못 센다.)
-- **상태:** LOGGED. ⏳ F5 체감 대기.
+- **상태:** LOGGED (순수 표현 — 전파 불요). ⏳ F5 체감 대기.
