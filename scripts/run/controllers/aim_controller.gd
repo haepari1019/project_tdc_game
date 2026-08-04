@@ -12,7 +12,7 @@ var _slot: int = -1
 ## 단일타겟 조준(사거리 링 + 조준 커서)으로 다룰 kind. 그 외 targeted = 지면 AoE(원판). 판단은 여기 한 곳.
 const UNIT_AIM_KINDS := [
 	"skillbook_taunt", "skillbook_execute", "skillbook_blink",
-	"skillbook_pin", "skillbook_tether", "skillbook_scent", "skillbook_root", "skillbook_slow",
+	"skillbook_pin", "skillbook_tether", "skillbook_scent",   # skillbook_root는 광역(반경 원판) → 제외(DRIFT-109)
 	"skillbook_vulnerable", "skillbook_purge", "skillbook_stun", "skillbook_polymorph", "skillbook_dash",
 ]
 ## 아군을 대상으로 하는 kind(초록 커서). 그 외 = 적 대상(빨강 커서).

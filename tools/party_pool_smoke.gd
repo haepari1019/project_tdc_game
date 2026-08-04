@@ -119,6 +119,35 @@ func _initialize() -> void:
 	_chk("Sentinel × DR 곱연산 (0.4×0.4)", is_equal_approx(pmdr.damage_taken_mult, 0.16))
 	pmdr.free()
 
+	# T4b 판정(DRIFT-109) — AB-050 둔화 폐기 · AB-102 = DPS 「원거리 광역 뭉치기+속박」 콤보 셋업.
+	_chk("AB-050 폐기", sd.get_skillbook_master("AB-050").is_empty())
+	var m102: Dictionary = sd.get_skillbook_master("AB-102")
+	var c102: Dictionary = m102.get("cast", {})
+	_chk("AB-102 = DPS 주력 전용", (m102.get("equip_classes", []) as Array) == ["DPS"])
+	_chk("AB-102 sub_bands 없음(Nuker 미부여)", (m102.get("sub_bands", {}) as Dictionary).is_empty())
+	_chk("AB-102 gather_m > 0 (뭉치기)", float(c102.get("gather_m", 0.0)) > 0.0)
+	# 콤보 성립 조건: 속박이 DPS 주력 광역기의 **최장 캐스트 + 투사체 비행**을 덮어야 한다.
+	var max_dps_cast := 0.0
+	for ab in sd._registry_list("ability_ids"):
+		var mm: Dictionary = sd.get_skillbook_master(String(ab))
+		if mm.is_empty():
+			continue
+		var eqc: Array = mm.get("equip_classes", [])
+		var cc2: Dictionary = mm.get("cast", {})
+		if eqc.has("DPS") and not (mm.get("sub_bands", {}) as Dictionary).has("DPS") 				and float(cc2.get("damage_mult", 0.0)) > 0.0:
+			max_dps_cast = maxf(max_dps_cast, float(cc2.get("cast_s", 0.0)))
+	_chk("AB-102 속박 ≥ DPS 최장 광역기 캐스트(%.1fs) + 비행" % max_dps_cast,
+		float(c102.get("root_s", 0.0)) >= max_dps_cast + 0.4)
+	# ccTenacity 드리프트 수정 — 하드 CC outcome도 저항을 받는다(EFFECT-CORE 규약).
+	var tough = EN.new()
+	tough.cc_tenacity = 2.0
+	tough.hp = 100.0
+	tough.apply_outcome("Rooted", 4.0)
+	_chk("Rooted가 ccTenacity 적용(4.0 → 2.0)", is_equal_approx(tough._outcome._t.get("Rooted", 0.0), 2.0))
+	tough.apply_outcome("Chilled", 3.0)
+	_chk("soft 아웃컴은 지속 그대로(Chilled 3.0)", is_equal_approx(tough._outcome._t.get("Chilled", 0.0), 3.0))
+	tough.free()
+
 	# T4 판정(DRIFT-108) — AB-051 견인 → **원거리 단일 도발**(Tank 전용). AB-035와 사거리·위협으로 분화.
 	var c51: Dictionary = sd.get_skillbook_master("AB-051").get("cast", {})
 	var c35: Dictionary = sd.get_skillbook_master("AB-035").get("cast", {})

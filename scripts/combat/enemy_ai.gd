@@ -1737,10 +1737,28 @@ func _apply_third_status(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictio
 		"enemy_mark":
 			target.apply_outcome("Scented", float(eff.get("scent_s", 6.0)))
 		"enemy_root":
-			target.apply_outcome("Rooted", float(eff.get("root_s", 2.0)))
+			# AB-102 Snare Net — **뭉치기 + 광역 속박**(DRIFT-109, 아군판과 동형). 대상 주변 반경의
+			# 파티원을 대상 쪽으로 끌어모은 뒤 전원 Rooted. 적 광역기를 꽂기 위한 셋업이다.
+			var rr := float(eff.get("radius_m", 0.0))
+			var gm := float(eff.get("gather_m", 0.0))
+			var rs := float(eff.get("root_s", 4.0))
 			var dm := float(eff.get("damage_mult", 0.0))
-			if dm > 0.0 and target.has_method("take_damage"):
-				target.take_damage(enemy.contact_damage * dm, enemy, true)
+			var caught: Array = [target] if rr <= 0.0 else _combat._allies_in_radius(target.global_position, rr)
+			if not caught.has(target):
+				caught.append(target)
+			for a in caught:
+				if a == null or not is_instance_valid(a):
+					continue
+				# 뭉치기 먼저, 속박 나중 — 순서가 반대면 Rooted가 이동을 잠가 안 끌려온다.
+				if gm > 0.0 and a.has_method("apply_knockback"):
+					var toc: Vector3 = target.global_position - a.global_position
+					toc.y = 0.0
+					if toc.length() > 0.1:
+						a.apply_knockback(toc, minf(gm, toc.length()))
+				if a.has_method("apply_outcome"):
+					a.apply_outcome("Rooted", rs)
+				if dm > 0.0 and a.has_method("take_damage"):
+					a.take_damage(enemy.contact_damage * dm, enemy, true)
 		"enemy_tether":
 			target.apply_outcome("Tethered", float(eff.get("tether_s", 4.0)))
 	print("[EN] %s %s (%s) -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), kind, _tname(target)])

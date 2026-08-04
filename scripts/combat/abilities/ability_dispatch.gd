@@ -63,7 +63,7 @@ const _SKILL_SCRIPTS := [
 	# P2-S6a B2 잔여 bespoke — Tank control + Healer utility.
 	preload("res://scripts/combat/abilities/effects/sb_taunt.gd"),       # AB-035 Challenge Mark (Tank)
 	# AB-051 sb_pull 제거 — T4 판정(DRIFT-108): 견인 → **원거리 단일 도발**로 재정의, skillbook_taunt 흡수.
-	preload("res://scripts/combat/abilities/effects/sb_slow.gd"),        # AB-050 Warding Shout (Tank)
+	# AB-050 sb_slow 제거 — T4b 판정(DRIFT-109): 둔화 폐기(정지형 적 72%에 실효 없음).
 	preload("res://scripts/combat/abilities/effects/sb_relocate_ally.gd"), # AB-045 Lifeline (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_reveal.gd"),      # AB-032 Beacon Sight (Healer)
 ]

@@ -214,12 +214,14 @@
     },
     "AB-102": {
       "kind": "enemy_root",
-      "telegraph_s": 0.5,
-      "cooldown_s": 9.0,
-      "range_m": 11.0,
-      "root_s": 2.0,
+      "telegraph_s": 1.0,
+      "cooldown_s": 16.0,
+      "range_m": 14.0,
+      "root_s": 4.0,
       "damage_mult": 0.2,
-      "vfx": "shot_hex"
+      "vfx": "shot_hex",
+      "radius_m": 3.5,
+      "gather_m": 3.0
     },
     "AB-103": {
       "kind": "enemy_tether",

@@ -493,9 +493,15 @@ func tick_outcome(delta: float) -> void:
 
 
 ## Apply an elemental OUTCOME status (STATUS-OUTCOME-CORE). ref: zones / RX (P2-S3).
+## 하드 CC outcome — spec `EFFECT-CORE`: "CC `duration_s`는 base이며 대상 `ccTenacity`로 스케일된다".
+## `apply_stun`/`apply_silence`는 지키고 있었는데 `apply_outcome` 경로만 빠져 있었다(게임 DRIFT-109).
+## 이동 완전잠금 2종만 대상 — 원소 아웃컴(Chilled/Sodden 등 soft)은 지속 그대로.
+const CC_TENACITY_OUTCOMES := {"Rooted": true, "Pinned": true}
 func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if hp <= 0.0:
 		return
+	if CC_TENACITY_OUTCOMES.has(id):
+		dur = dur / maxf(cc_tenacity, 0.01)
 	if not _outcome.has(id) and _FloatText.OUTCOME_KO.has(id):
 		popup_status(_FloatText.OUTCOME_KO[id], Color(0.75, 0.9, 1.0))
 	_outcome.apply(id, dur, mag)

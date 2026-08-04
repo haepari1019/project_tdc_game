@@ -949,3 +949,25 @@
 - **영향 파일:** `data/slice01/{skillbooks,display_names}.json` · `scripts/combat/abilities/effects/sb_taunt.gd`(광역 분기·`_force_engage`) · `effects/sb_pull.gd`(삭제) · `ability_dispatch.gd` · `scripts/run/controllers/aim_controller.gd` · `scripts/ui/skill_text.gd` · `tools/party_pool_smoke.gd` · `docs/_WIP_casting_expansion_pass.md`(§1 밴드 격하 · §2.1 축3 · §5 범례 · T4/T4b).
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **T4 검증 13건**: kind 전환·pull 잔재 0·Tank 전용·sub_bands 소멸·사거리/위협 대소·`taunt_all`·`cast_s 2.5`·051 단일/즉발·반경 대소 + **교전 강제 5건**(`add_threat`만으론 교전 안 됨(원인) → 도발 후 engaged·귀환취소·수색·최고위협 타겟).
 - **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(광역 도발 2.5s 커밋이 실전에서 버틸 만한지).
+
+### DRIFT-109 — T4b 이동 CC 정리: AB-050 폐기 · AB-102 → **DPS 「뭉치기+속박」 콤보 셋업** 이관 · Rooted ccTenacity 수정 🔶 rule/scope/schema (전파 후보) + 🐞 bugfix
+- **배경(2026-07-28, 사용자 제기):** *"이 게임이 액션성을 강조하진 않아서 이동 관련 CC가 플레이테스트상 큰 의미가 있어 보이지 않는다."* → **런 전수 실측**으로 검증: 인카운터 26개 × 적 스폰 97기를 `engage` 프로필별로 집계.
+  | 프로필 | 스폰 | 비율 |
+  |---|---|---|
+  | **advance**(도달 후 정지) | 70 | **72%** |
+  | standoff(사거리 유지) | 11 | 11% |
+  | **orbit + kite**(계속 이동) | **9** | **9%** |
+  | probe·healer·zone | 7 | 8% |
+  - 이동형이 1기라도 나오는 ENC = **8/26**, 그마저 대부분 1기. **결정적 사실:** `Rooted`/`Pinned`는 **이동만 잠그고 행동은 허용**한다([outcome_status.gd](../scripts/combat/outcome_status.gd) 주석) → **이미 붙은 적에게 걸면 효과가 정확히 0.** 진단은 *"액션성 부재"* 가 아니라 **"표적이 9%로 좁은데 그 유효 조건이 스킬 어디에도 안 적혀 있다"**([[DRIFT-103]] DR과 같은 구조 — 기능이 아니라 가시성).
+- **① AB-050 Warding Shout 폐기(scope):** 근접(72%)은 붙으면 정지하니 둔화의 실효가 *"도착 1~2초 지연"* 뿐이고, 정작 카이터·다이버는 60° 부채꼴에 잘 안 들어온다. `threat 30`은 [[DRIFT-108]] 도발 2종이 이미 위협 축을 가져가 중복. **Ally-only라 적측 대칭 처리 불요.** 고아 `sb_slow.gd` 삭제 → **`skillbook_slow` kind 소멸**.
+- **② AB-102 = 폐기 대신 재정의 + DPS 이관(scope/schema — 사용자안):** *"차라리 마법사인 딜러에게 주고, 원거리에서 광역으로 속박 + 한곳으로 뭉치기 효과를 넣어서 다음 DPS 광역스킬을 쉽게 맞출 수 있는 콤보 기술로."* → **Tank → DPS 주력 전용**(Nuker 미부여, 사용자 확정). `gather_m` 신설(중심으로 끌어모으기 — 폐기된 `sb_pull`의 `apply_knockback(중심−대상)` 기법을 `sb_root`로 되살림). `range_m` 11→**14** · `radius_m` 2.5→**3.5** · `cast_s` **1.0** 신설 · `cd` 9→**16**. **표적 빈도가 아니라 자기 광역기와의 연결이 존재 이유**가 되므로 9% 문제가 소멸한다.
+  - **⚠️ 콤보 성립 조건(실사로 확정한 수치):** DPS 주력 광역기 최장 캐스트 = **AB-041 3.5s**(053/008/003 = 3.0s) + 투사체 비행 0.4s → **`root_s` 2.0→4.0.** 종전 값으론 광역기 캐스트가 끝나기 전에 속박이 풀려 **콤보가 물리적으로 성립하지 않았다.** 스모크가 이 부등식(`root_s ≥ max(DPS 주력 광역기 cast_s) + 0.4`)을 **런타임 계산으로 잠근다** — 나중에 광역기 캐스트를 늘리면 게이트가 먼저 깨진다.
+  - **순서 규약:** 뭉치기 → 속박. 반대면 `Rooted`(MOVE_MULT 0)가 이동을 잠가 **끌려오지 않는다**. 아군·적 양쪽 구현 모두 이 순서.
+- **③ 적측 대칭(사용자 승인):** `EN-3RD-02` Snarer도 동형 — **파티를 한곳으로 끌어모은 뒤 전원 속박**(`enemy_root` 분기에 `radius_m`/`gather_m` 반영). 적 입장에서도 자기 광역기 셋업이라 *"뭉치기 = 콤보 셋업"* 이라는 언어가 양 진영에서 같은 의미를 갖는다. `telegraph_s` 0.5→**1.0**(강해진 만큼 읽을 시간).
+- **④ 🐞 `Rooted`가 `ccTenacity`를 무시하던 드리프트:** `apply_stun`/`apply_silence`는 `duration / cc_tenacity`로 저항을 받는데 **`apply_outcome` 경로만 빠져** 있었다. spec `EFFECT-CORE`는 *"CC `duration_s`는 base이며 대상 `ccTenacity`로 최종 지속이 스케일된다"* 로 못박고 있으므로 **spec 위반**. 2초일 땐 가려졌지만 **4초 광역 하드 CC**가 되면 미니보스를 통째로 묶는다 → `enemy_unit.apply_outcome`에 `CC_TENACITY_OUTCOMES`(`Rooted`/`Pinned`) 스케일 적용. **soft 아웃컴**(Chilled/Sodden 등)은 지속 그대로.
+- **⑤ 조준 표시:** `skillbook_root`를 `UNIT_AIM_KINDS`에서 제외 — 반경 3.5m 광역인데 단일 커서로 뜨면 범위를 못 읽는다([[DRIFT-108]] `taunt_all`과 같은 성격의 수정).
+- **결과 — Tank 블록 완결:** 12→**10종**(050 폐기·102 이관), **✅10 / ⬜0**. 전수 57→**56종**, 완료 27→**28** / 미완료 30→**28**. AB-102는 D 블록 신규 클러스터 **D6 군집 제어**로 이동.
+- **분류\전파:** **`skillbook_slow` kind 소멸 · AB-102 클래스/kind 파라미터 전환 · `gather_m` 필드 · 뭉치기→속박 순서 규약** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]·[[DRIFT-108]]과 다음 패킷). ④ = **spec 위반 수정**(전파 시 `EFFECT-CORE` 규약 재확인). 수치 = tuning 로깅만.
+- **영향 파일:** `data/slice01/{skillbooks,abilities,display_names}.json` · `scripts/combat/abilities/effects/sb_root.gd`(뭉치기) · `effects/sb_slow.gd`(삭제) · `ability_dispatch.gd` · `scripts/combat/enemy_ai.gd`(enemy_root 뭉치기) · `scripts/combat/enemy_unit.gd`(ccTenacity) · `scripts/run/controllers/aim_controller.gd` · `scripts/ui/skill_text.gd` · `tools/party_pool_smoke.gd` · WIP(T4b·D6).
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **T4b 검증 8건**: AB-050 폐기 · AB-102 DPS 전용/sub_bands 0 · `gather_m>0` · **콤보 부등식 자동 검증** · `Rooted` ccTenacity(4.0→2.0) · soft 아웃컴 불변.
+- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(뭉치기가 실제로 광역기를 맞히게 해주는지 · 적 Snarer의 파티 뭉치기 압박이 적정한지).

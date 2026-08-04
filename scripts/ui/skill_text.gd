@@ -53,6 +53,11 @@ static func describe(kind: String, params: Dictionary) -> String:
 			prose += " 사거리 %sm에서 **단일** 대상에게 위협 +%s(유지 %s)." % [
 				_n(float(params.get("range_m", 0.0))), _n(float(params.get("mark_threat", 0.0))),
 				_n(float(params.get("floor", 0.0)))]
+	# skillbook_root(AB-102) — 뭉치기 거리·속박 지속을 문장에 실어 **콤보 창**이 몇 초인지 보이게 한다.
+	if kind == "skillbook_root":
+		prose += " 반경 %sm 안의 적을 %sm 끌어모으고 %s초간 속박한다." % [
+			_n(float(params.get("radius_m", 0.0))), _n(float(params.get("gather_m", 0.0))),
+			_n(float(params.get("root_s", 0.0)))]
 	if kind == "skillbook_bolt":
 		if float(params.get("cast_s", 0.0)) > 0.0:
 			prose = "에너지를 집중한 뒤 " + prose
