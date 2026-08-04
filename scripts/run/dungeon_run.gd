@@ -405,13 +405,18 @@ func _unhandled_input(event: InputEvent) -> void:
 				_rmb_max_dy = 0.0
 				_rmb_press_pos = get_viewport().get_mouse_position()
 			else:
+				# ⚠️ **짝 없는 release는 탭이 아니다**(IMPL-DEC-20260728-001): 조준 취소 등으로 press가 위에서
+				# 소비되면 `_cam_dragging`이 false로 남는데, 예전엔 이 분기가 그걸 안 보고 무조건
+				# 탭 판정을 해서 **우클릭 한 번에 「조준 취소 + 이동명령」이 같이 나갔다.**
+				# → press를 실제로 받았을 때만 탭으로 인정. 조준 중 이동은 우클릭 2번(취소→이동).
+				var was_dragging := _cam_dragging
 				_cam_dragging = false
 				# 가로 orbit 이 이미 돌았어도 가로가 CLICK_MAX 안이고 세로 드래그(피치)가 시작되지
 				# 않았으면 클릭으로 인정 — 세로 손떨림으로 이동이 씹히던 걸 막는다. (리셋 전에 판정)
 				var was_pitching := _cam_pitching
 				_cam_orbiting = false
 				_cam_pitching = false
-				if _rmb_max_dx <= InputTuning.click_max_px(get_viewport()) and not was_pitching:
+				if was_dragging and _rmb_max_dx <= InputTuning.click_max_px(get_viewport()) and not was_pitching:
 					_interaction.try_interact()  # RMB click → interact / 클릭이동
 			return
 	if event is InputEventMouseMotion and _cam_dragging:

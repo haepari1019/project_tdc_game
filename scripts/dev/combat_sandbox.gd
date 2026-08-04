@@ -1124,10 +1124,12 @@ func _enc_info_text() -> String:
 
 # --- minimal input (swap + camera) — mirrors dungeon_run's forwarding ---
 func _unhandled_input(event: InputEvent) -> void:
-	# 조준 모달이 켜져 있으면 좌클릭=지면 시전, Esc=취소 (RMB는 카메라 orbit 유지).
+	# 조준 모달이 켜져 있으면 **좌클릭=지면 시전 · 우클릭=시전 취소** · Esc=취소.
+	# 예전엔 좌클릭만 넘기고 "RMB는 카메라 orbit 유지"였는데, 그래서 우클릭이 AimController의
+	# 취소 분기까지 도달하지 못했다 — **던전(dungeon_run)은 이벤트를 통째로 넘겨 이미 취소되던 것**과
+	# 어긋난 입력 파리티 결함. 조준 중에는 카메라 orbit보다 취소가 우선이다(던전과 동일). IMPL-DEC-20260728-001.
 	if _aim_ctrl != null and _aim_ctrl.is_active():
-		if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (event as InputEventMouseButton).pressed:
-			_aim_ctrl.handle_click(event)
+		if _aim_ctrl.handle_click(event):   # LMB=지면 시전 / RMB=취소 (그 외 이벤트는 false)
 			return
 		if event.is_action_pressed("ui_cancel"):
 			_aim_ctrl.cancel()
@@ -1164,12 +1166,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_rmb_max_dy = 0.0
 			_rmb_press_pos = get_viewport().get_mouse_position()
 		else:
+			# ⚠️ **짝 없는 release는 탭이 아니다**(IMPL-DEC-20260728-001) — dungeon_run과 동일 규약.
+			# 조준 취소로 press가 소비되면 `_cam_dragging`이 false로 남는다. 그걸 안 보면
+			# 우클릭 한 번에 「조준 취소 + 이동명령」이 같이 나간다. 조준 중 이동 = 우클릭 2번.
+			var was_dragging := _cam_dragging
 			_cam_dragging = false
 			# 가로가 CLICK_MAX 안이고 세로 드래그(피치)가 시작되지 않았으면 클릭으로 인정. (리셋 전에 판정)
 			var was_pitching := _cam_pitching
 			_cam_orbiting = false
 			_cam_pitching = false
-			if _rmb_max_dx <= InputTuning.click_max_px(get_viewport()) and not was_pitching and not _pointer_over_panel():
+			if was_dragging and _rmb_max_dx <= InputTuning.click_max_px(get_viewport()) and not was_pitching and not _pointer_over_panel():
 				_rmb_move_to_ground()  # 우클릭 탭 → 조종캐 클릭이동
 	if event is InputEventMouseMotion and _cam_dragging:
 		var cur := get_viewport().get_mouse_position()
