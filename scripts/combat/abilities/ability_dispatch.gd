@@ -23,7 +23,7 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_strike.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_poison.gd"),
 	preload("res://scripts/combat/abilities/effects/sb_stun.gd"),
-	preload("res://scripts/combat/abilities/effects/sb_zone.gd"),
+	# sb_zone 제거 — 매질 생성은 **소모품**으로 이관(DRIFT-112). 적은 enemy_ai가 spawn_zone 직접 호출.
 	# sb_fire·sb_cold 제거 — D1+D2 병합(DRIFT-111): element가 SSOT라 skillbook_bolt로 흡수.
 	# P2-S6a — Third-faction lootables (AB-100~106 party side; DEC-20260621-001).
 	preload("res://scripts/combat/abilities/effects/sb_root.gd"),    # AB-102 Snare Net (Tank)

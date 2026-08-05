@@ -1001,3 +1001,23 @@
 - **영향 파일:** `data/slice01/{skillbooks,abilities,display_names,id_registry,enemies}.json` · `scripts/combat/abilities/effects/{sb_bolt,sb_fire(삭제),sb_cold(삭제)}.gd` · `ability_dispatch.gd` · `scripts/ui/skill_text.gd` · `scripts/run/dungeon_run.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 병합 검증: 폐기 4종 · 053/041 kind 이관 · **`skillbook_fire`/`cold` kind 소멸** · 볼트 계열 속성 전수 스캔(fire·cold·lightning 커버 · slag 소멸) · AB-008 무속성 · AB-058 주력.
 - **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기.
+
+### DRIFT-112 — 매질 생성 스킬 5종 폐기 → **소모품(매질 플라스크) 이관** · 적측 `enemy_only` 존치 · 가시덩굴 이동피해 신설 🔶 rule/scope/schema (전파 후보)
+- **배경(2026-07-28, 사용자 판정):** *"D3에서 매질을 까는 건 그냥 스킬로는 다 빼고 차라리 소모품으로 관리하는 건 어떨까"* → 실사 후 *"스킬 하나가 그냥 **셋업으로만** 쓰이는 건 별로"* 로 사유가 확정됐다. **셋업 전용 슬롯을 없애는 것**이 목적이고, 매질 공급은 다른 축으로 옮긴다.
+- **⚠️ 선행 실사 — 그냥 빼면 RX가 죽는다:** 매질 **1차 공급처가 사실상 스킬뿐**이었다. 맵은 매질을 깔지 않고(`map_demo_layout._carve_zone`는 **navmesh 파내기**이지 매질 배치가 아니다), **RX 산출물(Fire·Steam·Water)은 전부 2차**라 1차 매질이 없으면 나오지 않는다. 스킬만 빼면 1차 공급이 **배럴 Oil 하나**로 붕괴 → `surface_grid`·`reaction_system` 투자가 논다. **대체 공급(소모품)을 같이 세우는 것이 전제**였다.
+- **① 아군 스킬 5종 폐기(scope):** ~~`AB-009` Oil~~ · ~~`AB-036` Water~~ · ~~`AB-040` Ice~~ · ~~`AB-042` Wind~~ · ~~`AB-043` Vegetation~~. **`skillbook_zone` kind 소멸**(`sb_zone.gd` 삭제). 전수 54→**49종**. §5.2.1이 지적하던 **"장판은 사실상 Healer 킷인데 힐러 정체성과 무관"** + **"medium 문자열만 다른 중복 4종"** 이 한 번에 해소(Healer 18→14종).
+  - ⚠️ 폐기분엔 완료 판정 2건이 포함된다 — `AB-009`(DPS 초월 결속 safeslick) · `AB-042`(rect 복도 + `apply_drift`, [[DRIFT-098]] 전체). 결속·`apply_drift` 코드는 **남는다**(다른 쓰임 있음).
+- **② 매질 플라스크 5종 신설(schema):** `consumables.json`에 **`effect: "spawn_medium"`** + `medium`/`radius_m`/`ttl_s`/`range_m`. `con_oil_flask`·`con_water_flask`·`con_frost_flask`·`con_gust_flask`·`con_briar_flask`. 전투 중 사용 가능(RX 셋업이 전투 행위). `id_registry.consumable_ids` 등재.
+  - **`MediumConsumableController` 신설** — `ReviveController`와 같은 모달 계약(`is_active`/`cancel`/`handle_click`). Z/X/C 핫키·인벤 우클릭 양쪽 진입, 지면 조준 → 좌클릭 확정 / 우클릭 취소.
+  - **사거리 규약 = 스킬과 동일**(사용자 판정: *"일관된 경험이 더 중요"*): 사거리 밖이면 **navmesh로 걸어가 사거리를 맞춘 뒤 던진다**(`AimController._confirm_cast` 규약). 초안은 "던지는 것이니 거부"였으나 **같은 조작에 다른 결과가 나오면 학습이 깨진다**는 이유로 뒤집혔다.
+  - **소모 시점 = 투척 시점**(조준/오더 시점 아님) — 걸어가다 취소·소진돼도 차감되지 않는다.
+- **③ 적측은 `enemy_only`로 존치(rule 예외 — 사용자 판정):** 5종 전부 Shared였다(EN-004: 009·042 / EN-007: 036·040·043). **적 능력만 남기고 `abilities.json`에 `enemy_only: true`** 표기. [[DRIFT-101]] ② *"Shared 폐기 시 적측도 교체"* 의 **명시적 예외** — 진영별 분기가 아니라 **아군이 다른 시스템(소모품)으로 같은 일을 하게 된 것**이고, 무엇보다 **적이 깐 매질이 플레이어의 RX 재료**가 되므로 존치가 이득이다(적이 깐 기름에 내가 불을 붙이는 그림).
+- **④ 가시덩굴(Vegetation) 이동 피해 신설(rule — 사용자 지시):** 종전 Vegetation은 `"Smoke", "Vegetation": pass  # harmless — flammable only`로 **자체 효과가 0**이었다. 이름값대로 **이동 거리 비례 피해** 부여: `THORN_DMG_PER_M 3.0` · `THORN_MAX_PER_TICK 6.0`(넉백·블링크 폭주 차단) · `THORN_MIN_MOVE_M 0.05`(부동 시 무피해).
+  - **"서 있으면 안 아프고 움직이면 아프다"** — 다른 매질(체류 dps · 상태 부여)과 **축이 겹치지 않는** 유일한 규칙이 된다. 존을 나가면 위치 추적 리셋(재진입 첫 틱 무피해).
+  - 식은 **`HazardZone.thorn_damage()` 한 곳이 SSOT** — 원 모델(`hazard_zone`)·셀 CA(`surface_grid`, `USE_SURFACE_GRID=true`로 현재 권위) **두 경로가 같은 static을 호출**한다. 복제했으면 두 모델이 조용히 갈라졌을 것.
+- **⑤ 후속(사용자 확정):** 매질을 **스킬 결과물로** 얻는 경로(`AB-010`의 ToxicGas 장판이 선례)는 **채용하되 필요할 때마다 점진 적용**. 이번 범위 밖.
+- **부수 발견:** `ALLY_CACHE_POOL`에 **`AB-050` 유령 ID** 잔존([[DRIFT-109]]에서 스킬만 지우고 풀 정리를 빠뜨림) → 카탈로그 대조로 제거. 신규 소모품 미등재는 **`Slice01Data` ID 계약이 로드 거부로 잡아냈다**(계약이 작동한 사례).
+- **분류\전파:** **`skillbook_zone` kind 소멸 + 아군 5종 폐기 + `enemy_only` 예외 + `spawn_medium` 소모품 effect + Vegetation 이동피해 규칙** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]~[[DRIFT-111]]과 한 패킷). 컨트롤러·소모 시점 = impl.
+- **영향 파일:** `data/slice01/{skillbooks,consumables,abilities,display_names,id_registry}.json` · `scripts/run/controllers/medium_consumable_controller.gd`(신규) · `scripts/run/dungeon_run.gd` · `scripts/combat/abilities/effects/sb_zone.gd`(삭제) · `ability_dispatch.gd` · `scripts/world/hazards/{hazard_zone,surface_grid}.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **20건**: 아군 5종 폐기 · 적 5종 `enemy_only` 존치 · `skillbook_zone` 소멸 · 플라스크 5종 해소/`spawn_medium`/medium·ttl · **가시 4건**(첫 틱 무피해 · 정지 무피해 · 1m=DMG_PER_M · 틱 상한).
+- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(플라스크 조작감 · 가시밭 이동 압박).

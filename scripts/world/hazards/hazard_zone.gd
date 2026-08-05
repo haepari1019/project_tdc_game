@@ -58,6 +58,26 @@ const RENDER_ORDER := {
 ## 자신은 lifetime(ttl/telegraph/clear)·geometry(radius/contains_point)·group 멤버십만 유지. false = 기존 원
 ## 자기완결(mesh+자기틱). A/B 폴백 스위치. ref: docs/design/surface_grid.md · IMPL-DEC-20260721-001.
 const USE_SURFACE_GRID := true
+## **가시덩굴(Vegetation) — 이동 거리 비례 피해**(DRIFT-112, 사용자: 이름값대로 "가시").
+## 서 있으면 안 아프고 **움직일 때마다** 아프다 → "가시밭을 헤친다"가 규칙으로 성립하고,
+## 다른 매질(체류 dps·상태부여)과 축이 겹치지 않는다. 틱당 상한으로 순간이동·밀림 폭주를 막는다.
+const THORN_DMG_PER_M := 3.0     # 이동 1m당 피해
+const THORN_MAX_PER_TICK := 6.0  # 틱당 상한(넉백·블링크로 한 번에 몰리는 것 방지)
+const THORN_MIN_MOVE_M := 0.05   # 이보다 적게 움직이면 정지로 간주(부동 시 무피해)
+
+
+## 가시 피해 계산 — `last` = 직전 위치(없으면 null). 반환 [피해, 갱신할 위치].
+## 두 매질 경로(원 모델 `hazard_zone` · 셀 CA `surface_grid`)가 **같은 식**을 쓰도록 여기 한 곳에 둔다.
+static func thorn_damage(u: Node3D, last) -> Array:
+	var cur: Vector3 = u.global_position
+	if last == null:
+		return [0.0, cur]
+	var d: Vector3 = cur - (last as Vector3)
+	d.y = 0.0
+	var moved := d.length()
+	if moved < THORN_MIN_MOVE_M:
+		return [0.0, cur]
+	return [minf(moved * THORN_DMG_PER_M, THORN_MAX_PER_TICK), cur]
 
 var radius: float = 3.0
 var dps: float = 0.0
@@ -71,7 +91,8 @@ var _active: bool = true
 var _tick_accum: float = 0.0
 var _age: float = 0.0
 var _inside: Dictionary = {}   # units currently inside (edge detection → EnterZone/ExitZone events)
-var _poison_accum: Dictionary = {}   # ToxicGas: unit → 마지막 스택 이후 체류 시간(주기 도달 시 스택 +1)
+var _poison_accum: Dictionary = {}
+var _thorn_last: Dictionary = {}   # Vegetation: unit → 직전 위치(이동 거리 산출용)   # ToxicGas: unit → 마지막 스택 이후 체류 시간(주기 도달 시 스택 +1)
 var _mesh: MeshInstance3D
 var _mat: StandardMaterial3D
 var _source: Node = null   # attacker credited for threat when this zone damages enemies
@@ -270,6 +291,7 @@ func _physics_process(delta: float) -> void:
 	for u in _inside:
 		if not now.has(u):
 			_poison_accum.erase(u)   # 존을 나가면 스택 주기 리셋(쌓인 스택은 유닛에 잔류)
+			_thorn_last.erase(u)     # 가시밭을 나가면 위치 추적도 리셋(재진입 시 첫 틱 무피해)
 			if is_instance_valid(u):
 				_emit_zone_event("ExitZone", u)  # exit edge
 	_inside = now
@@ -308,8 +330,15 @@ func _apply_medium(u: Node, dmg: float, dt: float, g: String) -> void:
 			elif u.has_method("take_damage"):   # 독 시스템 없는 유닛 폴백 = 연속 피해
 				u.take_damage(dmg)
 				_credit(u, dmg, g)
-		"Smoke", "Vegetation":
-			pass  # harmless — Smoke = vision (deferred), Vegetation = flammable only
+		"Vegetation":  # 가시덩굴 — **움직인 거리만큼** 찔린다(서 있으면 무피해)
+			if u.has_method("take_damage"):
+				var tr: Array = thorn_damage(u, _thorn_last.get(u))
+				_thorn_last[u] = tr[1]
+				if float(tr[0]) > 0.0:
+					u.take_damage(float(tr[0]))
+					_credit(u, float(tr[0]), g)
+		"Smoke":
+			pass  # harmless — Smoke = vision (deferred)
 		_:
 			if MEDIUM_OUTCOME.has(status) and u.has_method("apply_outcome"):
 				u.apply_outcome(MEDIUM_OUTCOME[status], OUTCOME_DUR)  # Water/Ice/Oil/Steam/Wind

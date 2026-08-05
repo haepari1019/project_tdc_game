@@ -1,5 +1,5 @@
 {
-  "_note": "Unified ability catalog (spec D-016 model). Party Identity (IDA-020/024/025/026) + enemy SIGNATURE / lootable-shared (AB-002/004/008/010/011/012/098). Enemy BASIC attacks are rom_* (enemy_basics.json, EN-COR-000) — NOT here. AB-001/014/015/016 removed (spec→rom_*). AB-S01~04 removed (non-spec demo subs; subs are skillbooks F-009). effect numbers = DEMO PH (spec AB-### Draft 'design examples'). channel:true = winding 중 제자리(EN-AI-000 §2 interruptible channel). Shock = party slow(이동 감소); HEX = 이동 감소 + 나가는 피해 감소(half, hex_weak).",
+  "_note": "Unified ability catalog (spec D-016 model). Party Identity (IDA-020/024/025/026) + enemy SIGNATURE / lootable-shared (AB-002/004/008/010/011/012/098). Enemy BASIC attacks are rom_* (enemy_basics.json, EN-COR-000) — NOT here. AB-001/014/015/016 removed (spec→rom_*). AB-S01~04 removed (non-spec demo subs; subs are skillbooks F-009). effect numbers = DEMO PH (spec AB-### Draft 'design examples'). channel:true = winding 중 제자리(EN-AI-000 §2 interruptible channel). Shock = party slow(이동 감소); HEX = 이동 감소 + 나가는 피해 감소(half, hex_weak). **매질 존 AB-009/036/040/042/043 = enemy_only(DRIFT-112)** — 아군 서브는 폐기하고 매질 생성은 소모품(매질 플라스크)으로 이관했으나, **적은 스킬로 계속 깐다**(적이 깐 매질이 플레이어의 RX 재료가 되므로 존치. 사용자 판정).",
   "abilities": {
     "AB-002": {
       "kind": "enemy_melee",
@@ -74,7 +74,8 @@
       "channel": true,
       "cooldown_s": 8.0,
       "radius_m": 2.0,
-      "ttl_s": 8.0
+      "ttl_s": 8.0,
+      "enemy_only": true
     },
     "AB-036": {
       "kind": "spawn_zone",
@@ -83,7 +84,8 @@
       "channel": true,
       "cooldown_s": 8.0,
       "radius_m": 2.0,
-      "ttl_s": 8.0
+      "ttl_s": 8.0,
+      "enemy_only": true
     },
     "AB-039": {
       "kind": "spawn_zone",
@@ -102,7 +104,8 @@
       "channel": true,
       "cooldown_s": 9.0,
       "radius_m": 2.0,
-      "ttl_s": 9.0
+      "ttl_s": 9.0,
+      "enemy_only": true
     },
     "AB-042": {
       "kind": "spawn_zone",
@@ -114,7 +117,8 @@
       "length_m": 6.0,
       "width_m": 2.5,
       "radius_m": 2.0,
-      "ttl_s": 8.0
+      "ttl_s": 8.0,
+      "enemy_only": true
     },
     "AB-043": {
       "kind": "spawn_zone",
@@ -123,7 +127,8 @@
       "channel": true,
       "cooldown_s": 9.0,
       "radius_m": 2.0,
-      "ttl_s": 9.0
+      "ttl_s": 9.0,
+      "enemy_only": true
     },
     "AB-041": {
       "kind": "enemy_cold",

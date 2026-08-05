@@ -1,5 +1,5 @@
 {
-  "_note": "Consumables (F-010 / D-020 demo). Revive scroll: use 1 OUT OF COMBAT to revive a downed ally. Stacks to max_stack. Bound to Z/X/C hotkeys. In-run revive = SPEC_DRIFT (F-007 §3.6.1 tension), 전파 후보.",
+  "_note": "Consumables (F-010 / D-020 demo). Revive scroll: use 1 OUT OF COMBAT to revive a downed ally. Stacks to max_stack. Bound to Z/X/C hotkeys. In-run revive = SPEC_DRIFT (F-007 §3.6.1 tension), 전파 후보. **매질 플라스크(DRIFT-112):** 지면에 매질을 잠시 소환하는 소모품 — 종전 매질 생성 **스킬 5종을 대체**한다(셋업 전용 슬롯 제거, 사용자 판정). `effect: spawn_medium` + `medium`/`radius_m`/`ttl_s`. 전투 중 사용 가능(RX 셋업이 전투 행위라서). 매질을 **스킬 결과물로 얻는 경로**는 별도·점진 채용.",
   "consumables": [
     {
       "consumable_id": "con_revive_scroll",
@@ -8,7 +8,101 @@
       "max_stack": 10,
       "usable_in_combat": false,
       "price": 20,
-      "color": [0.55, 0.85, 0.55]
+      "color": [
+        0.55,
+        0.85,
+        0.55
+      ]
+    },
+    {
+      "consumable_id": "con_oil_flask",
+      "display_name": "기름 플라스크",
+      "effect": "spawn_medium",
+      "medium": "Oil",
+      "radius_m": 2.2,
+      "ttl_s": 10.0,
+      "range_m": 9.0,
+      "max_stack": 10,
+      "usable_in_combat": true,
+      "price": 12,
+      "color": [
+        0.35,
+        0.28,
+        0.16
+      ],
+      "notes": "가장 반응이 많은 매질 — 불이 닿으면 폭발·연소 확산, 밀린 적은 미끄러진다."
+    },
+    {
+      "consumable_id": "con_water_flask",
+      "display_name": "물 플라스크",
+      "effect": "spawn_medium",
+      "medium": "Water",
+      "radius_m": 2.2,
+      "ttl_s": 10.0,
+      "range_m": 9.0,
+      "max_stack": 10,
+      "usable_in_combat": true,
+      "price": 12,
+      "color": [
+        0.25,
+        0.5,
+        0.95
+      ],
+      "notes": "전격을 전도시키고, 냉기에 얼며, 불을 끈다."
+    },
+    {
+      "consumable_id": "con_frost_flask",
+      "display_name": "서리 플라스크",
+      "effect": "spawn_medium",
+      "medium": "Ice",
+      "radius_m": 2.0,
+      "ttl_s": 9.0,
+      "range_m": 9.0,
+      "max_stack": 10,
+      "usable_in_combat": true,
+      "price": 12,
+      "color": [
+        0.62,
+        0.86,
+        1.0
+      ],
+      "notes": "빙판 — 밟으면 미끄러지고, 불에 닿으면 녹아 물이 된다."
+    },
+    {
+      "consumable_id": "con_gust_flask",
+      "display_name": "돌풍 플라스크",
+      "effect": "spawn_medium",
+      "medium": "Wind",
+      "radius_m": 2.0,
+      "ttl_s": 8.0,
+      "range_m": 9.0,
+      "max_stack": 10,
+      "usable_in_combat": true,
+      "price": 12,
+      "color": [
+        0.7,
+        0.95,
+        0.85
+      ],
+      "notes": "기체·불을 바람 방향으로 밀어낸다. 유닛도 밀린다."
+    },
+    {
+      "consumable_id": "con_briar_flask",
+      "display_name": "가시덩굴 플라스크",
+      "effect": "spawn_medium",
+      "medium": "Vegetation",
+      "radius_m": 2.2,
+      "ttl_s": 9.0,
+      "range_m": 9.0,
+      "max_stack": 10,
+      "usable_in_combat": true,
+      "price": 12,
+      "color": [
+        0.28,
+        0.55,
+        0.22
+      ],
+      "notes": "가연 연료 — 불이 붙어 번지고, 냉기에 얼어붙는다."
     }
   ]
 }

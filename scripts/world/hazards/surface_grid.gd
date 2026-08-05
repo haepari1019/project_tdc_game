@@ -136,6 +136,7 @@ var _last_render_size: int = -1      # 마지막 렌더 시 _cells 수(구조 �
 var _cells: Dictionary = {}          # key:int -> Cell (소유)
 var _stamped: Dictionary = {}        # zone instance_id -> [radius, lethal] (신규/변화 감지)
 var _poison_accum: Dictionary = {}   # ToxicGas: unit → 스택 주기 누적(가스 밖 나가면 리셋)
+var _thorn_last: Dictionary = {}     # Vegetation: unit → 직전 위치(이동 거리 비례 가시 피해)
 var _last_ignite_center: Vector3 = Vector3.ZERO   # 마지막 fire_hits_fuel이 실제 점화한 셀들의 중심(연기/폭발 배치용)
 var _last_ignite_radius: float = 0.0              # 그 점화 영역 반경(셀 수→면적)
 var _smoke_accum: float = 0.0                     # 연기 팽창 틱 누적
@@ -496,8 +497,15 @@ func _apply_medium_outcome(u, medium: String, dps: float, slow: float, source, f
 			elif u.has_method("take_damage"):
 				u.take_damage(dmg)
 				_credit(u, dmg, grp, source)
-		"Smoke", "Vegetation":
-			pass   # harmless — Smoke=vision(deferred), Vegetation=flammable only
+		"Vegetation":  # 가시덩굴 — **움직인 거리만큼** 찔린다(DRIFT-112). 식은 HazardZone이 SSOT.
+			if u.has_method("take_damage"):
+				var tr: Array = HazardZone.thorn_damage(u, _thorn_last.get(u))
+				_thorn_last[u] = tr[1]
+				if float(tr[0]) > 0.0:
+					u.take_damage(float(tr[0]))
+					_credit(u, float(tr[0]), grp, source)
+		"Smoke":
+			pass   # harmless — Smoke=vision(deferred)
 		_:
 			if HazardZone.MEDIUM_OUTCOME.has(medium) and u.has_method("apply_outcome"):
 				u.apply_outcome(HazardZone.MEDIUM_OUTCOME[medium], HazardZone.OUTCOME_DUR)  # Water/Ice/Oil/Steam/Wind

@@ -16,7 +16,7 @@ const ALLY_CACHE_POOL := [
 	# B2 ally-only(usable_by_enemy=false): 적이 안 씀 → 캐시 전용.
 	"AB-030", "AB-033", "AB-048a", "AB-048b", "AB-055", "AB-056", "AB-058", "AB-059", "AB-060", "AB-066", "AB-073",
 	# B2 bespoke(ally-only): taunt/pull/slow/relocate/reveal.
-	"AB-035", "AB-051", "AB-050", "AB-045", "AB-032",
+	"AB-035", "AB-051", "AB-045", "AB-032",
 ]
 const InteractionController := preload("res://scripts/run/controllers/interaction_controller.gd")
 
@@ -48,6 +48,7 @@ const Minimap := preload("res://scripts/ui/minimap.gd")
 const EnemyInfo := preload("res://scripts/ui/enemy_info.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const ConsumableBar := preload("res://scripts/ui/consumable_bar.gd")
+const MediumConsumableController := preload("res://scripts/run/controllers/medium_consumable_controller.gd")  # 매질 플라스크(DRIFT-112)
 const SettlementPanel := preload("res://scripts/ui/settlement_panel.gd")
 const AimMarker := preload("res://scripts/ui/aim_marker.gd")
 const ControlledIndicator := preload("res://scripts/ui/controlled_indicator.gd")
@@ -81,7 +82,8 @@ const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 
 # Modal targeting controllers (aim/revive/torch) + per-kill loot + run-end flow.
 var _aim: MeshInstance3D     # AimMarker (shared aim/throw marker)
-var _aim_ctrl: Node          # AimController (skillbook ground-target modal)
+var _aim_ctrl: Node        # AimController (skillbook ground-target modal)
+var _medium: Node          # MediumConsumableController — 매질 플라스크 모달(DRIFT-112)
 var _revive: Node3D          # ReviveController (targeted revive)
 var _selection: Node3D       # SelectionController (좌클릭 아군 스왑 / 적 인스펙트, 씬 공유)
 var _torch: Node             # TorchCarryController (ENT-TORCH carry/throw)
@@ -199,6 +201,9 @@ func _ready() -> void:
 	_aim_ctrl = AimController.new()  # skillbook ground-target modal
 	add_child(_aim_ctrl)
 	_aim_ctrl.setup(_aim, _combat)
+	_medium = MediumConsumableController.new()  # 매질 플라스크 지면 조준(매질 스킬 대체, DRIFT-112)
+	add_child(_medium)
+	_medium.setup(_party, _combat, _aim, _inventory_ui, $HUD)
 	_loot = LootService.new()  # per-kill loot drops (F-009/F-010)
 	add_child(_loot)
 	_loot.setup(_inventory_ui)
@@ -345,6 +350,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_torch.cancel()
 		elif _revive.is_active():
 			_revive.cancel()
+		elif _medium.is_active():
+			_medium.cancel()
 		elif _aim_ctrl.is_active():
 			_aim_ctrl.cancel()
 		else:
@@ -359,6 +366,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _revive.handle_click(event):
 		return
 	if _aim_ctrl.handle_click(event):
+		return
+	if _medium.handle_click(event):
 		return
 	if _torch.handle_click(event):
 		return
@@ -496,10 +505,13 @@ func _on_consumable_key(slot: int) -> void:
 	var master: Dictionary = Slice01Data.get_consumable_master(cid)
 	if master.is_empty():
 		return
-	if String(master.get("effect", "")) == "revive_ally":
-		_revive.try_start(cid, master)
-	else:
-		_inventory_ui.use_consumable(slot)  # instant consumables
+	match String(master.get("effect", "")):
+		"revive_ally":
+			_revive.try_start(cid, master)   # 대상 조준 모달
+		"spawn_medium":
+			_medium.try_start(cid, master)   # 지면 조준 → 확정 시 매질 소환(DRIFT-112)
+		_:
+			_inventory_ui.use_consumable(slot)  # instant consumables
 
 
 ## Right-click a consumable in the inventory → close it and use the consumable (revive
@@ -510,8 +522,11 @@ func _on_consumable_use_requested(cid: String) -> void:
 	var master: Dictionary = Slice01Data.get_consumable_master(cid)
 	if master.is_empty():
 		return
-	if String(master.get("effect", "")) == "revive_ally":
-		_revive.try_start(cid, master)
+	match String(master.get("effect", "")):
+		"revive_ally":
+			_revive.try_start(cid, master)
+		"spawn_medium":
+			_medium.try_start(cid, master)   # 지면 조준 → 확정 시 매질 소환(DRIFT-112)
 
 
 ## UI-006 — central separation/MIA warning overlay (non-blocking, brief, anti-spam).

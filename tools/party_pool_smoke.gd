@@ -168,6 +168,32 @@ func _initialize() -> void:
 	_chk("skillbook_fire kind 소멸", not kinds.has("skillbook_fire"))
 	_chk("skillbook_cold kind 소멸", not kinds.has("skillbook_cold"))
 
+	# 매질 이관(DRIFT-112) — 아군 매질 스킬 5종 폐기 → 소모품. 적은 enemy_only로 존치.
+	for z in ["AB-009", "AB-036", "AB-040", "AB-042", "AB-043"]:
+		_chk("%s 아군 서브 폐기" % z, sd.get_skillbook_master(z).is_empty())
+		_chk("%s 적 능력 존치 + enemy_only" % z, bool(sd.get_ability(z).get("enemy_only", false)))
+	_chk("skillbook_zone kind 소멸", not kinds.has("skillbook_zone"))
+	for fl in ["con_oil_flask", "con_water_flask", "con_frost_flask", "con_gust_flask", "con_briar_flask"]:
+		var cm: Dictionary = sd.get_consumable_master(fl)
+		_chk("%s 해소 + spawn_medium" % fl, not cm.is_empty() and String(cm.get("effect", "")) == "spawn_medium")
+		_chk("%s medium/ttl 보유" % fl, String(cm.get("medium", "")) != "" and float(cm.get("ttl_s", 0.0)) > 0.0)
+	# 가시덩굴 — 이동 거리 비례 피해(서 있으면 무피해·틱 상한).
+	var HZ = load("res://scripts/world/hazards/hazard_zone.gd")
+	var probe := Node3D.new()
+	root.add_child(probe)
+	probe.global_position = Vector3.ZERO
+	var r0: Array = HZ.thorn_damage(probe, null)
+	_chk("가시: 첫 틱은 무피해(기준 위치만 저장)", is_equal_approx(float(r0[0]), 0.0))
+	var r1: Array = HZ.thorn_damage(probe, Vector3.ZERO)
+	_chk("가시: 정지 시 무피해", is_equal_approx(float(r1[0]), 0.0))
+	probe.global_position = Vector3(1.0, 0.0, 0.0)
+	var r2: Array = HZ.thorn_damage(probe, Vector3.ZERO)
+	_chk("가시: 1m 이동 = DMG_PER_M", is_equal_approx(float(r2[0]), HZ.THORN_DMG_PER_M))
+	probe.global_position = Vector3(50.0, 0.0, 0.0)
+	var r3: Array = HZ.thorn_damage(probe, Vector3.ZERO)
+	_chk("가시: 틱 상한 적용(순간이동 폭주 차단)", is_equal_approx(float(r3[0]), HZ.THORN_MAX_PER_TICK))
+	probe.free()
+
 	# T4b 판정(DRIFT-109) — AB-050 둔화 폐기 · AB-102 = DPS 「원거리 광역 뭉치기+속박」 콤보 셋업.
 	_chk("AB-050 폐기", sd.get_skillbook_master("AB-050").is_empty())
 	var m102: Dictionary = sd.get_skillbook_master("AB-102")
