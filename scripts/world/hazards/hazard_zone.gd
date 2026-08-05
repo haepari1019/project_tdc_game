@@ -167,8 +167,8 @@ func _ready() -> void:
 ## MultiMesh 1개로 수백 개를 한 드로콜에 그린다(존마다 노드 수백 개는 비용이 크다).
 ## ⚠️ 존 노드 기준이라 **바람으로 번진 셀까지 따라가진 않는다**(Vegetation은 자체 확산이 없고
 ## `SPREADABLE_MEDIA` 바람 확산만 있어 실사용에선 대부분 일치). 표현 한계로 기록만.
-const THORN_DENSITY_PER_M2 := 26.0   # 촘촘함 — 1m²당 가시 수
-const THORN_MAX := 420               # 큰 존에서의 인스턴스 상한(성능 가드)
+const THORN_DENSITY_PER_M2 := 13.0   # 촘촘함 — 1m²당 가시 수(26 → 13, 과밀 조정)
+const THORN_MAX := 210               # 큰 존에서의 인스턴스 상한(성능 가드 — 밀도와 함께 1/2)
 func _build_thorns() -> void:
 	var area: float = (length * width) if shape == "rect" else (PI * radius * radius)
 	var n: int = clampi(int(area * THORN_DENSITY_PER_M2), 12, THORN_MAX)
