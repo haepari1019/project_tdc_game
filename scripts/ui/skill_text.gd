@@ -63,6 +63,11 @@ static func describe(kind: String, params: Dictionary) -> String:
 			prose = "에너지를 집중한 뒤 " + prose
 		if String(params.get("element", "")) == "lightning":
 			prose += " 전격 속성이 더해져 맞은 대상을 감전시킨다."
+		# 산탄(AB-055) — 착탄 후 2차 파편. 반경 3종(초탄 > 파편)이 문장에서 갈리게 적는다.
+		if int(params.get("scatter_pellets", 0)) > 0:
+			prose += " 착탄하면 **파편 %d발이 날아가던 방향으로 %d° 부채꼴로 %sm까지 퍼지며**, 각 파편은 맞은 자리에 반경 %sm의 좁은 피해를 준다." % [
+				int(params["scatter_pellets"]), int(round(float(params.get("scatter_cone_deg", 70.0)))),
+				_n(float(params.get("scatter_range_m", 0.0))), _n(float(params.get("scatter_radius_m", 0.0)))]
 	var stm := float(params.get("single_target_mult", 1.0))
 	if stm > 1.0:   # AB-005 — 범위 내 단일 대상이면 피해 증폭(param 있는 스킬만)
 		prose += " 범위 내 적이 단일 개체라면 피해를 %d%% 증폭한다." % int(round((stm - 1.0) * 100.0))

@@ -22,6 +22,7 @@ const ALLY_TARGET_KINDS := [
 ]
 ## 직선형(광선) 조준으로 다룰 kind — 원형 원판/링이 아니라 시전자→마우스 직선 레인으로 표시.
 const LINE_AIM_KINDS := ["skillbook_beam"]
+const _SbBolt := preload("res://scripts/combat/abilities/effects/sb_bolt.gd")   # 산탄 데드존 계산 공유(SSOT)
 
 var _cursor_ally: ImageTexture     # 초록 십자(아군 대상)
 var _cursor_enemy: ImageTexture    # 빨강 십자(적 대상)
@@ -95,7 +96,18 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	# (skillbook_taunt: AB-051=단일 → 커서만 / AB-035 `taunt_all` → 반경 원판. DRIFT-108)
 	var unit_aim: bool = UNIT_AIM_KINDS.has(kind) and not bool(p.get("taunt_all", false))
 	var disc: float = 0.0 if unit_aim else float(p.get("radius_m", p.get("aoe_radius_m", 3.0)))
-	_aim.show_aim(member, _range, disc, cc)
+	# **2단 범위**(AB-055 산탄) — 초탄 원판 + 파편 확산 링. 둘 사이 빈 공간이 곧 파편 데드존이라,
+	# 화면에 보이는 간격이 실제 무장 거리(`arm_after_m`)와 같은 값이다. ref: IMPL-DEC-20260728-002.
+	var band_in: float = 0.0
+	var band_out: float = 0.0
+	var band_cone: float = 360.0
+	if int(p.get("scatter_pellets", 0)) > 0:
+		# 안쪽 = 파편 무장 거리(초탄 반경 + 데드존) · 바깥 = 파편 도달 한계. **sb_bolt와 같은 식**을
+		# 써야 화면과 실제가 어긋나지 않는다(무장 거리 계산은 `deadzone_of` 한 곳이 SSOT).
+		band_in = _SbBolt.deadzone_of(p)
+		band_out = float(p.get("scatter_range_m", 0.0))
+		band_cone = float(p.get("scatter_cone_deg", 360.0))   # 실제 확산과 같은 각도로 그린다
+	_aim.show_aim(member, _range, disc, cc, band_in, band_out, band_cone)
 
 
 func is_active() -> bool:

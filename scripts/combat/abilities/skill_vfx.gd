@@ -869,6 +869,35 @@ static func lightning_bolt(parent: Node3D, from: Vector3, to: Vector3, color: Co
 
 
 ## One thin emissive box spanning p0→p1 (a lightning segment), oriented along the segment.
+## **착탄 후 범위 전기장**(IMPL-DEC-20260728-002) — `lightning_bolt`(캐스터→착탄 한 줄기)와 달리
+## **반경을 읽히게** 하는 게 목적이다. 바닥 링(= 실제 `radius_m`) + 반경 안 무작위 두 점을 잇는
+## 지그재그 아크를 `BURSTS`번 짧은 간격으로 재점화 → "지지직 흐르다 잦아든다".
+## 아크는 묶음(holder)마다 **머티리얼 하나를 공유**해 페이드 트윈 1개로 묶음 전체를 껐다 켠다.
+const ARC_FIELD_BURSTS := 3
+const ARC_FIELD_ARCS := 5
+static func arc_field(parent: Node3D, center: Vector3, radius: float, color: Color, dur: float = 0.8) -> void:
+	if parent == null or not is_instance_valid(parent) or radius <= 0.0:
+		return
+	_ground_pulse(parent, center, radius, Color(color.r, color.g, color.b, 0.30), dur)
+	for b in ARC_FIELD_BURSTS:
+		var holder := Node3D.new()
+		parent.add_child(holder)
+		var mat := _emat(Color(color.r, color.g, color.b, 0.0))   # 투명하게 시작 → 트윈이 점화
+		mat.emission_energy_multiplier = 4.5
+		for _i in ARC_FIELD_ARCS:
+			var p0: Vector3 = center + _disc_off(radius)
+			var p1: Vector3 = center + _disc_off(radius)
+			# 중점을 흔들어 2세그먼트 지그재그로 — 직선 하나면 "전기"보다 "막대"로 읽힌다.
+			var mid: Vector3 = p0.lerp(p1, 0.5) + Vector3(randf_range(-0.4, 0.4), randf_range(0.15, 0.8), randf_range(-0.4, 0.4))
+			_bolt_seg(holder, p0 + Vector3(0, 0.15, 0), mid, mat)
+			_bolt_seg(holder, mid, p1 + Vector3(0, 0.15, 0), mat)
+		var tw := holder.create_tween()
+		tw.tween_interval(dur * 0.28 * float(b))                  # 묶음마다 시차 → 계속 튀는 느낌
+		tw.tween_property(mat, "albedo_color:a", 0.95, 0.05)
+		tw.tween_property(mat, "albedo_color:a", 0.0, 0.22)
+		tw.tween_callback(holder.queue_free)
+
+
 static func _bolt_seg(holder: Node3D, p0: Vector3, p1: Vector3, mat: StandardMaterial3D) -> void:
 	var d := p1 - p0
 	var seg_len := d.length()

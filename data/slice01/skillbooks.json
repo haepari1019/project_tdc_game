@@ -874,13 +874,22 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
-        "cooldown_s": 4,
+        "cooldown_s": 6,
         "targeted": true,
         "range_m": 9,
-        "radius_m": 2.6,
-        "damage_mult": 1.2,
+        "radius_m": 1.5,
+        "damage_mult": 0.8,
         "delivery": "projectile",
-        "speed_mps": 20.0
+        "speed_mps": 20.0,
+        "scatter_pellets": 6,
+        "scatter_range_m": 8.0,
+        "scatter_radius_m": 0.6,
+        "scatter_damage_mult": 0.35,
+        "scatter_speed_mps": 24.0,
+        "scatter_cone_deg": 70.0,
+        "scatter_deadzone_m": 1.2,
+        "scatter_hit_radius_m": 0.55,
+        "cast_s": 3.5
       },
       "tier": "Basic"
     },

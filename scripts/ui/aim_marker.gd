@@ -14,6 +14,12 @@ var _beam_mat: StandardMaterial3D
 var _beam_len: float = 0.0         # 레인 길이(=빔 사거리)
 var _beam_active: bool = false
 var _rect_active: bool = false     # 지면배치 rect 존(AB-042 Wind 복도) — 커서 '중앙' 정렬 + 사거리 링(빔은 캐스터에서 뻗음)
+## **2단 범위 표시**(AB-055 산탄) — 초탄 원판(self)과 별개로 **마우스를 따라다니는 바깥 링**.
+## 색을 살짝 달리해 두 단계가 동시에 읽히고, 그 사이 **빈 공간 = 파편 데드존**이 그대로 보인다.
+var _outer: MeshInstance3D
+var _outer_mat: StandardMaterial3D
+var _outer_active: bool = false
+var _outer_cone: bool = false      # true = 부채꼴 띠(캐스터→커서 방향 정렬) · false = 360° 링
 
 
 func _ready() -> void:
@@ -43,6 +49,17 @@ func _ready() -> void:
 	_ring.material_override = _ring_mat
 	_ring.visible = false
 	add_child(_ring)
+	# 2단 범위 바깥 링 — 원판(self) 스케일에 딸려가면 안 되므로 top_level.
+	_outer = MeshInstance3D.new()
+	_outer.top_level = true
+	_outer_mat = StandardMaterial3D.new()
+	_outer_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_outer_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_outer_mat.no_depth_test = true
+	_outer_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_outer.material_override = _outer_mat
+	_outer.visible = false
+	add_child(_outer)
 	# 직선 빔 레인 — top_level(원판 스케일과 분리). 시전자에서 마우스 방향으로 뻗는 납작한 상자.
 	_beam = MeshInstance3D.new()
 	_beam.top_level = true
@@ -81,6 +98,15 @@ func _process(_delta: float) -> void:
 			_beam.rotation = Vector3(0.0, atan2(dir.x, dir.z), 0.0)                    # 로컬 +Z를 dir로
 		return
 	global_position = ground_pos() + Vector3(0, 0.05, 0)     # 원판/조준점 = 마우스 지면점
+	if _outer_active:                                        # 2단 띠 = 초탄 원판과 같은 중심(마우스)
+		var gp3 := ground_pos()
+		_outer.global_position = Vector3(gp3.x, 0.07, gp3.z)
+		# 부채꼴이면 **탄이 날아가던 방향**(캐스터→커서)으로 정렬 — sb_bolt의 확산 기준축과 동일.
+		if _outer_cone and _follow != null and is_instance_valid(_follow):
+			var oc: Vector3 = _follow.global_position
+			var d3 := Vector3(gp3.x - oc.x, 0.0, gp3.z - oc.z)
+			if d3.length() > 0.05:
+				_outer.rotation = Vector3(0.0, atan2(d3.x, d3.z), 0.0)   # 로컬 +Z → 진행 방향
 	if _ring.visible and _follow != null and is_instance_valid(_follow):
 		var c: Vector3 = _follow.global_position
 		_ring.global_position = Vector3(c.x, 0.08, c.z)       # 링 = 시전자 발밑
@@ -100,7 +126,13 @@ func show_ground(radius: float, color: Color) -> void:
 
 ## 스킬 조준: 시전자(`caster`) 기준 **사거리 링**(`range_m`) + 마우스에 `disc_radius` 원판.
 ## 단일타겟 → disc_radius 작게(조준점) · AoE → disc_radius = 효과 반경(떨어지는 자리). 둘 다 링으로 사거리 표기.
-func show_aim(caster: Node3D, range_m: float, disc_radius: float, color: Color) -> void:
+## **2단 범위**(AB-055 산탄) — 안쪽 원판(초탄 `disc_radius`) + 바깥 **띠**(`band_inner`~`band_outer`).
+## 띠의 안쪽 경계가 **파편 데드존**이라, 원판과 띠 사이의 빈 공간이 곧 "여긴 파편이 안 터진다"이다.
+## 색은 같은 계열에서 **밝기만 이동** — 다른 색을 쓰면 별개 스킬처럼 읽힌다.
+## `band_cone_deg` < 360 이면 **부채꼴 띠**를 그리고 매 프레임 캐스터→커서 축으로 정렬한다.
+## 360° 링으로 그리면 **실제 확산(부채꼴)과 조준선이 다른 모양**이 되어 거짓말이 된다.
+func show_aim(caster: Node3D, range_m: float, disc_radius: float, color: Color,
+		band_inner: float = 0.0, band_outer: float = 0.0, band_cone_deg: float = 360.0) -> void:
 	_follow = caster
 	_beam.visible = false
 	_beam_active = false
@@ -117,6 +149,22 @@ func show_aim(caster: Node3D, range_m: float, disc_radius: float, color: Color) 
 		_mat.albedo_color = Color(color.r, color.g, color.b, 0.32)
 	else:                                                 # 단일타겟: 원판 없음(커서만 — 지연 없이)
 		_mat.albedo_color = Color(color.r, color.g, color.b, 0.0)
+	_outer_active = band_outer > band_inner and band_inner > 0.0
+	_outer_cone = _outer_active and band_cone_deg < 359.0
+	if _outer_active:
+		if _outer_cone:
+			_outer.mesh = _annular_sector(band_inner, band_outer, deg_to_rad(band_cone_deg * 0.5))
+			_outer.rotation = Vector3.ZERO   # _process가 매 프레임 캐스터→커서로 정렬
+		else:
+			var ot := TorusMesh.new()
+			ot.inner_radius = band_inner        # = 파편 무장 거리(데드존 바깥 경계)
+			ot.outer_radius = band_outer        # = 파편 도달 한계
+			ot.rings = 64
+			_outer.mesh = ot
+		_outer_mat.albedo_color = Color(
+			minf(color.r * 0.55 + 0.45, 1.0), minf(color.g * 0.55 + 0.45, 1.0),
+			minf(color.b * 0.55 + 0.45, 1.0), 0.20)   # 띠는 넓으니 옅게(원판보다 흐리게)
+	_outer.visible = _outer_active
 	visible = true
 
 
@@ -160,7 +208,34 @@ func show_zone_rect(caster: Node3D, range_m: float, length_m: float, width_m: fl
 	visible = true
 
 
+## 고리형 부채꼴(annular sector) 메시 — 로컬 **+Z를 중심**으로 ±`half_rad` 벌어진 띠.
+## `inner`~`outer` 사이만 채운다(안쪽 빈 공간 = 파편 데드존). CULL_DISABLED라 winding 무관.
+func _annular_sector(inner: float, outer: float, half_rad: float, segs: int = 28) -> ArrayMesh:
+	var v := PackedVector3Array()
+	for i in segs:
+		var a0: float = lerpf(-half_rad, half_rad, float(i) / float(segs))
+		var a1: float = lerpf(-half_rad, half_rad, float(i + 1) / float(segs))
+		var d0 := Vector3(sin(a0), 0.0, cos(a0))
+		var d1 := Vector3(sin(a1), 0.0, cos(a1))
+		var p00 := d0 * inner
+		var p01 := d0 * outer
+		var p10 := d1 * inner
+		var p11 := d1 * outer
+		v.append(p00); v.append(p01); v.append(p11)
+		v.append(p00); v.append(p11); v.append(p10)
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = v
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return m
+
+
 func hide_marker() -> void:
+	_outer_active = false
+	_outer_cone = false
+	if _outer != null:
+		_outer.visible = false
 	visible = false
 	_ring.visible = false
 	_beam.visible = false

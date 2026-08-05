@@ -971,3 +971,18 @@
 - **영향 파일:** `data/slice01/{skillbooks,abilities,display_names}.json` · `scripts/combat/abilities/effects/sb_root.gd`(뭉치기) · `effects/sb_slow.gd`(삭제) · `ability_dispatch.gd` · `scripts/combat/enemy_ai.gd`(enemy_root 뭉치기) · `scripts/combat/enemy_unit.gd`(ccTenacity) · `scripts/run/controllers/aim_controller.gd` · `scripts/ui/skill_text.gd` · `tools/party_pool_smoke.gd` · WIP(T4b·D6).
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **T4b 검증 8건**: AB-050 폐기 · AB-102 DPS 전용/sub_bands 0 · `gather_m>0` · **콤보 부등식 자동 검증** · `Rooted` ccTenacity(4.0→2.0) · soft 아웃컴 불변.
 - **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(뭉치기가 실제로 광역기를 맞히게 해주는지 · 적 Snarer의 파티 뭉치기 압박이 적정한지).
+
+### DRIFT-110 — D1: AB-055 「산탄」 재구현(부채꼴 파편 + 데드존) · 전격 볼트 착탄 전기장 VFX 🔶 scope/schema (전파 후보) + impl
+- **배경(2026-07-28, 사용자 판정):** D 블록(DPS) 진입. ① *"AB-003은 착탄 후 범위 내에 전기가 흐르는 효과를 VFX로 추가"* ② *"AB-055는 지금 효과가 잘못됐다 — 이름처럼 산탄으로, 착탄 지역에서 투사체 6개를 방사형으로 재생성하고 각 투사체도 충돌하면 좁은 범위 딜"*.
+- **① AB-055 재구현(scope/schema):** 종전 AB-055는 **AB-008(볼트 원형)의 즉발·무속성 판**(반경만 +0.6)이라 이름값과 동작이 따로 놀았다 — D1 중복 실사에서 지적했던 그 항목. → **초탄 + 부채꼴 파편**으로 재정의.
+  - 신규 params: **`scatter_pellets`**(6) · **`scatter_cone_deg`**(70) · **`scatter_range_m`**(8.0) · **`scatter_radius_m`**(0.6) · **`scatter_damage_mult`**(0.35) · **`scatter_speed_mps`**(24) · **`scatter_deadzone_m`**(1.2) · **`scatter_hit_radius_m`**(0.55).
+  - **반경 서열이 설계 축:** 원형 `AB-008`(2.0) > **초탄**(1.5) > **파편**(0.6). 사용자 지시 *"초탄도 08보다는 작게, 산탄은 그보다 훨씬 적게"*.
+  - **확산은 부채꼴** — 처음 360° 방사로 만들었다가 *"조금 더 산탄총처럼"*(사용자)으로 **탄이 날아가던 방향(캐스터→착탄점) 기준 70° 원뿔**로 교체. 파편은 그 안에 균등 배치 + 미세 지터.
+  - **`cast_s 3.5`**(원형 3.0보다 길게) · `cd` 4→6 → 총 주기 9.5s(원형 8.0s). **§0 딜 원칙(긴 캐스트 + 긴 쿨 + 큰 한방)에 합류** — D1 미완료 4종이 전부 즉발이던 상태에서 하나가 빠져나왔다. 초탄 dmg 1.2→**0.8**(파편이 더해지므로).
+  - **파편은 같은 이펙트를 재귀 사용**(`sb_bolt.resolve_at`)하고 **`_pellet` 플래그로 재귀 차단** — 없으면 파편이 또 산탄을 낳아 무한 증식한다.
+- **② 데드존(설계의 핵심):** 파편이 착탄점에서 태어나므로 거기 적이 서 있으면 **6발이 그 자리에서 동시 폭발**해 피해가 몰린다(사용자 제보). 파편에 **무장 거리**(초탄 반경 + `scatter_deadzone_m` = 2.7m)를 줘 퍼진 뒤에야 터진다. 조준 마커도 **원판 → 빈 공간 → 부채꼴 띠** 3단으로 그려 화면과 실제가 일치한다. 구현 상세·함정은 [[IMPL-DEC-20260728-002]].
+- **③ 전격 볼트 착탄 전기장(impl · VFX):** `SkillVfx.arc_field` 신설 — 착탄 후 `radius_m` 안에서 지그재그 아크가 3묶음 시차로 튀고 0.8s에 잦아든다. **`element == lightning`으로 갈리고 크기는 `radius_m` 그대로**라 per-AB 분기 없이 **볼트마다 자기 반경이 그려진다**(003 r4.0 최대 · 004/073 r1.2~1.4 최소). 원형-변형 조립 방식([[DRIFT-085]] ⑤)과 동형. **AB-003 전용 게이트는 두지 않는다**(사용자 확인) — 덤으로 AB-003의 r4.0이 볼트 중 최대라는 사실이 화면에서 처음 보인다(D1/N2 판정 재료).
+- **분류\전파:** **`scatter_*` 8필드 + AB-055 재정의** = scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]·[[DRIFT-108]]·[[DRIFT-109]]와 다음 패킷). 투사체 능력(origin·`arm_after_m`·`hit_radius_m`)·조준 마커·`arc_field` = **impl**([[IMPL-DEC-20260728-002]], 전파 불요). 수치 = tuning 로깅만.
+- **영향 파일:** `data/slice01/skillbooks.json` · `scripts/combat/abilities/{skill_vfx,projectile,ability_dispatch,cast_context}.gd` · `effects/sb_bolt.gd` · `scripts/ui/{aim_marker,skill_text}.gd` · `scripts/run/controllers/aim_controller.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **D1 검증 10건**: 산탄 구조·반경 서열(원형>초탄>파편)·도달>착탄·데드존(초탄보다 큼·도달보다 작아 띠 성립)·부채꼴(<360)·재귀 가드 존재·캐스트 서열(≥원형·총주기>원형).
+- **상태:** LOGGED (게임측 확정 · F5 체감 확인 완료). 전파 = 사용자 판단 대기. **D1 = ✅3 / ⬜1**(AB-058† 무주력 처리만 남음).

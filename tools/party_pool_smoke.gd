@@ -119,6 +119,33 @@ func _initialize() -> void:
 	_chk("Sentinel × DR 곱연산 (0.4×0.4)", is_equal_approx(pmdr.damage_taken_mult, 0.16))
 	pmdr.free()
 
+	# D1 판정 — AB-055 산탄: 착탄 후 방사형 파편. 반경 서열(원형 AB-008 > 초탄 > 파편)이 설계 축이다.
+	var c55: Dictionary = sd.get_skillbook_master("AB-055").get("cast", {})
+	var c08: Dictionary = sd.get_skillbook_master("AB-008").get("cast", {})
+	_chk("AB-055 scatter_pellets>0", int(c55.get("scatter_pellets", 0)) > 0)
+	_chk("AB-055 초탄 반경 < 원형 AB-008", float(c55.get("radius_m", 9.0)) < float(c08.get("radius_m", 0.0)))
+	_chk("AB-055 파편 반경 << 초탄 반경", float(c55.get("scatter_radius_m", 9.0)) < float(c55.get("radius_m", 0.0)) * 0.5)
+	_chk("AB-055 파편이 착탄점보다 멀리 퍼짐", float(c55.get("scatter_range_m", 0.0)) > float(c55.get("radius_m", 0.0)))
+	# 재귀 가드 — 산탄 params를 그대로 재사용하면 파편이 또 산탄을 낳는다(무한 증식).
+	var boltfx = null
+	for sc in AD._SKILL_SCRIPTS:
+		var inst2 = sc.new()
+		if String(inst2.kind()) == "skillbook_bolt":
+			boltfx = inst2
+	_chk("skillbook_bolt 이펙트 해소", boltfx != null)
+	_chk("_scatter 재귀 가드 존재", boltfx != null and boltfx.has_method("_scatter"))
+	# 데드존 — 착탄점에 적이 서 있어도 파편 6발이 그 자리에서 동시 폭발하지 않게 무장 거리를 둔다.
+	# **조준 마커의 빈 공간과 같은 값**이어야 하므로 계산은 `deadzone_of` 한 곳이 SSOT.
+	var SbBolt = load("res://scripts/combat/abilities/effects/sb_bolt.gd")
+	var dz: float = SbBolt.deadzone_of(c55)
+	_chk("AB-055 데드존 > 초탄 반경", dz > float(c55.get("radius_m", 0.0)))
+	_chk("AB-055 데드존 < 파편 도달(띠가 생김)", dz < float(c55.get("scatter_range_m", 0.0)))
+	_chk("AB-055 scatter_cone_deg < 360(부채꼴)", float(c55.get("scatter_cone_deg", 360.0)) < 360.0)
+	# §0 딜 원칙(긴 캐스트 + 긴 쿨 + 큰 한방) — 산탄은 원형 AB-008보다 효과가 크므로 캐스트도 그 이상.
+	_chk("AB-055 캐스트 ≥ 원형 AB-008", float(c55.get("cast_s", 0.0)) >= float(c08.get("cast_s", 0.0)))
+	_chk("AB-055 총 주기 > 원형 AB-008", float(c55.get("cast_s", 0.0)) + float(c55.get("cooldown_s", 0.0))
+		> float(c08.get("cast_s", 0.0)) + float(c08.get("cooldown_s", 0.0)))
+
 	# T4b 판정(DRIFT-109) — AB-050 둔화 폐기 · AB-102 = DPS 「원거리 광역 뭉치기+속박」 콤보 셋업.
 	_chk("AB-050 폐기", sd.get_skillbook_master("AB-050").is_empty())
 	var m102: Dictionary = sd.get_skillbook_master("AB-102")

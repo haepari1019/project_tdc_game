@@ -112,10 +112,13 @@ func deal_damage(target: CharacterBody3D, source: CharacterBody3D, dmg: float) -
 
 
 ## Own spawn so the projectile carries THIS ctx (faction-correct resolve_at) + caster-side mask.
-func spawn_projectile(effect, caster: CharacterBody3D, target_pos: Vector3, params: Dictionary) -> void:
+## `origin` = 발사 시작점. 기본(null) = 캐스터 위치. **착탄점에서 2차 투사체를 뿌리는 산탄**
+## (AB-055)처럼 캐스터가 아닌 곳에서 출발해야 하는 경우에만 지정한다. ref: IMPL-DEC-20260728-002.
+func spawn_projectile(effect, caster: CharacterBody3D, target_pos: Vector3, params: Dictionary, origin = null) -> void:
 	var proj = _Projectile.new()
 	add_child(proj)
-	proj.setup(caster, caster.global_position, target_pos, float(params.get("speed_mps", 18.0)),
+	var from: Vector3 = (origin as Vector3) if origin != null else caster.global_position
+	proj.setup(caster, from, target_pos, float(params.get("speed_mps", 18.0)),
 		_dispatch._projectile_mask(caster), effect, params, self)
 
 

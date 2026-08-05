@@ -13,6 +13,8 @@ const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 const Y := 0.8                  # travel height (chest level — matches unit hit boxes)
 const MAX_LIFETIME_S := 3.0
 const ARRIVE_EPS := 0.35
+## 유닛 레이어(party 2 · enemy 4) — 무장 전 구간에서 이 비트만 빼서 "유닛은 통과, 지형·방벽은 차단".
+const UNIT_LAYERS := 2 | 4
 
 var _caster: CharacterBody3D
 var _dir: Vector3 = Vector3(0, 0, 1)
@@ -26,6 +28,17 @@ var _life := 0.0
 var _done := false
 var _mat: StandardMaterial3D
 var _exclude: Array[RID] = []   # friendly barriers the shot passes through (owner's own team)
+## **무장 거리(데드존)** — 이만큼 날아가기 전에는 충돌 판정을 하지 않는다(수류탄 신관과 같은 개념).
+## AB-055 산탄: 파편이 착탄점에서 태어나는데, 거기 적이 서 있으면 **6발이 그 자리에서 동시에 터져**
+## 피해가 몰린다. 무장 거리를 두면 파편이 퍼진 뒤에야 터지므로 "산탄이 퍼진다"가 실제로 성립한다.
+## `params.arm_after_m`로 지정(기본 0 = 종전 동작). ref: IMPL-DEC-20260728-002.
+var _arm_m: float = 0.0
+var _traveled: float = 0.0
+## **근접 히트 반경** — 세그먼트 레이는 **무한히 얇아** 콜라이더 중심을 정확히 지나야만 맞는다.
+## 대상 지점을 향해 날아가는 일반 볼트는 도착 판정이 있어 가려졌지만, **산탄 파편처럼 임의 방향으로
+## 날아가는 탄은 적을 스치고 지나가 버린다**(사용자 제보). 매 스텝 위치 주변의 **적대 유닛**을
+## 반경 검사해 걸리면 그 자리에서 터진다. `params.hit_radius_m`(기본 0 = 종전 레이 전용 동작).
+var _hit_r: float = 0.0
 
 
 func setup(caster: CharacterBody3D, origin: Vector3, dest: Vector3, speed: float, mask: int, effect, params: Dictionary, ctx) -> void:
@@ -36,6 +49,9 @@ func setup(caster: CharacterBody3D, origin: Vector3, dest: Vector3, speed: float
 	_effect = effect
 	_params = params.duplicate()   # snapshot (captures transient _coeff at cast time)
 	_ctx = ctx
+	_arm_m = maxf(float(params.get("arm_after_m", 0.0)), 0.0)
+	_hit_r = maxf(float(params.get("hit_radius_m", 0.0)), 0.0)
+	_traveled = 0.0
 	global_position = Vector3(origin.x, Y, origin.z)
 	var to := _dest - global_position
 	to.y = 0.0
@@ -74,12 +90,18 @@ func _physics_process(delta: float) -> void:
 	var step := _speed * delta
 	var reached := global_position.distance_to(_dest) <= maxf(step, ARRIVE_EPS) or _life >= MAX_LIFETIME_S
 	var to_point: Vector3 = _dest if reached else global_position + _dir * step
+	# 무장 전 구간 — **유닛만 통과시키고 지형·방벽은 그대로 막는다**. 예전엔 레이캐스트를 통째로
+	# 건너뛰어 **벽 앞에 쏜 산탄이 벽을 뚫고 뒤의 적을 때렸다**(사용자 지적). 판정을 끄는 대신
+	# **마스크에서 유닛 레이어만 빼서** 같은 경로를 태운다 → 방벽 흡수·아군 방벽 통과·돔 커버리지
+	# 규칙이 전부 그대로 적용된다. 도착해 버리면(데드존 안 사거리) 무장과 무관하게 페이로드 해소.
+	var arming: bool = _arm_m > 0.0 and _traveled < _arm_m and not reached
+	var mask: int = (_mask & ~UNIT_LAYERS) if arming else _mask
 	var space := get_world_3d().direct_space_state
 	# Segment-cast, skipping FRIENDLY Rampart barriers (the owner's own team passes through — RP-02:
 	# a wall stops the ENEMY's shots, not your own). Bounded loop in case several stack.
 	var hit := {}
 	for _i in 6:
-		var q := PhysicsRayQueryParameters3D.create(global_position, to_point, _mask)
+		var q := PhysicsRayQueryParameters3D.create(global_position, to_point, mask)
 		q.exclude = _exclude
 		hit = space.intersect_ray(q)
 		if hit.is_empty():
@@ -107,7 +129,14 @@ func _physics_process(delta: float) -> void:
 		else:
 			_impact(pos, false)     # world wall → fizzle
 		return
+	_traveled += global_position.distance_to(to_point)
 	global_position = to_point
+	# 근접 히트 — 레이가 놓친 "스쳐 지나감"을 잡는다. 무장 전에는 유닛을 통과해야 하므로 건너뛴다.
+	# `enemies_in_radius`는 ctx가 진영을 뒤집어 주므로 아군/적 캐스터 양쪽에서 올바른 대상만 잡힌다.
+	if not arming and _hit_r > 0.0 and _ctx != null and _ctx.has_method("enemies_in_radius"):
+		if not (_ctx.enemies_in_radius(global_position, _hit_r) as Array).is_empty():
+			_impact(global_position, true)
+			return
 	if reached:
 		_impact(_dest, true)        # reached the aim point untouched → payload (AoE-on-arrival)
 
