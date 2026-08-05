@@ -61,8 +61,17 @@ static func describe(kind: String, params: Dictionary) -> String:
 	if kind == "skillbook_bolt":
 		if float(params.get("cast_s", 0.0)) > 0.0:
 			prose = "에너지를 집중한 뒤 " + prose
-		if String(params.get("element", "")) == "lightning":
-			prose += " 전격 속성이 더해져 맞은 대상을 감전시킨다."
+		# 속성 맛 — `skillbook_fire`/`skillbook_cold` kind가 볼트로 흡수되면서(DRIFT-111) 문장도
+		# **element로 갈린다**. 원형 문장 + 실제로 가진 속성만 덧붙는 조립 방식(DRIFT-085 ⑤).
+		match String(params.get("element", "")):
+			"lightning":
+				prose += " 전격 속성이 더해져 맞은 대상을 감전시킨다."
+			"fire":
+				prose += " 화염 속성이 더해져 기름 등 가연물에 닿으면 불이 붙는다."
+			"cold":
+				prose += " 냉기 속성이 더해져 맞은 대상을 둔화시키고, 물에 닿으면 얼린다."
+			"poison":
+				prose += " 맹독 속성이 더해져 맞은 대상에 독을 누적시킨다."
 		# 산탄(AB-055) — 착탄 후 2차 파편. 반경 3종(초탄 > 파편)이 문장에서 갈리게 적는다.
 		if int(params.get("scatter_pellets", 0)) > 0:
 			prose += " 착탄하면 **파편 %d발이 날아가던 방향으로 %d° 부채꼴로 %sm까지 퍼지며**, 각 파편은 맞은 자리에 반경 %sm의 좁은 피해를 준다." % [

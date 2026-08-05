@@ -986,3 +986,18 @@
 - **영향 파일:** `data/slice01/skillbooks.json` · `scripts/combat/abilities/{skill_vfx,projectile,ability_dispatch,cast_context}.gd` · `effects/sb_bolt.gd` · `scripts/ui/{aim_marker,skill_text}.gd` · `scripts/run/controllers/aim_controller.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **D1 검증 10건**: 산탄 구조·반경 서열(원형>초탄>파편)·도달>착탄·데드존(초탄보다 큼·도달보다 작아 띠 성립)·부채꼴(<360)·재귀 가드 존재·캐스트 서열(≥원형·총주기>원형).
 - **상태:** LOGGED (게임측 확정 · F5 체감 확인 완료). 전파 = 사용자 판단 대기. **D1 = ✅3 / ⬜1**(AB-058† 무주력 처리만 남음).
+
+### DRIFT-111 — D1+D2 병합: 볼트 단일 클러스터화 · `skillbook_fire`/`cold` kind 소멸 · 중복 4종 폐기 · AB-008 무속성 원형 복귀 🔶 rule/scope/schema (전파 후보)
+- **배경(2026-07-28, 사용자 판정):** [[DRIFT-110]] 직후 *"D1, D2 자체를 하나의 클러스터로 묶고 중복을 제거하자."* → 두 클러스터를 합치자 **§5.2.1이 지적하던 "D1에 fire·cold 없음"이 클러스터 경계 때문에 생긴 착시**였음이 드러났다(D2에 이미 둘 다 있었다). 경계를 지우니 공백이 사라지고 **진짜 중복이 드러났다.**
+- **⚠️ 실패 기록(방법론 교훈):** 병합 직전 *"D1에 다른 element 추가가 필요"* 판단으로 **AB-107 화염탄·AB-108 서리탄을 신설**(ID 발급·`id_registry` 등재까지 완료)했다가, **병합 즉시 AB-053·AB-041과 완전 중복이 되어 폐기**했다. 만들어 보고 나서야 문제가 **스킬 부족이 아니라 클러스터 경계**임이 드러난 사례. → **부족해 보이면 먼저 옆 클러스터를 의심할 것.** 이 패스가 「유사도 × 주력」으로 클러스터를 재정의([[DRIFT-101]])한 이유와 같은 교훈이 한 층 더 적용된다.
+- **① 중복 4종 폐기(scope):** ~~`AB-037` Ember Lance~~(`AB-053`의 **즉발 쌍둥이** — §0 딜 원칙 "긴 캐스트+긴 쿨" 위반) · ~~`AB-072` 우박 세례~~(`AB-041`의 즉발 쌍둥이) · ~~`AB-107`~~·~~`AB-108`~~(신설 즉시 철회). **넷 다 Ally-only**라 [[DRIFT-101]] ② Shared 폐기 대칭 규칙은 해당 없음. ID는 `id_registry` 등록만 잔존.
+- **② `skillbook_fire`·`skillbook_cold` kind 소멸(schema):** 세 이펙트(`sb_bolt`/`sb_fire`/`sb_cold`)의 `resolve_at`을 나란히 놓으니 **구조가 동일**했다 — 피해(radius) → `ctx.element_hit(element)` → VFX. **[[DRIFT-088]]로 `element`가 SSOT가 된 순간 속성별 kind는 존재 이유를 잃었는데** 그대로 남아 있었다. `AB-053`·`AB-041`을 **`skillbook_bolt`로 이관**하고 `sb_fire.gd`·`sb_cold.gd` 삭제.
+  - **동작 흡수:** `sb_fire`에만 있던 **배럴 파괴**(`ctx.damage_destructibles`)를 `sb_bolt`가 흡수 → **모든 볼트가 배럴을 깬다**(전엔 화염만 — 그 자체가 비대칭이었다). 놓쳤으면 조용히 사라졌을 동작.
+  - **툴팁:** 볼트 문장 하나 + **`element`별 후미 조립**(전격=감전 / 화염=가연물 점화 / 냉기=둔화·결빙 / 맹독=독 누적). [[DRIFT-085]] ⑤ 조립 방식의 확장.
+- **③ AB-008 무속성 원형 복귀(scope — 사용자 지시):** `element: "slag"` 제거(아군·적 unified 양쪽). 이제 **원형은 무속성이고 속성은 전부 변형이 진다** — 전엔 원형이 `slag`(elements.gd "의도된 무반응")를 들고 있어 *"원형을 배우면 반응계도 같이 배운다"* 가 성립하지 않았다([[DRIFT-085]] ⑤의 미해결분). 부수: **`slag` 속성 사용처 0.**
+- **④ AB-058 무주력 해소(scope — 사용자 지시):** `sub_bands`에서 Nuker 제거 → **주력 = Nuker**(sub = DPS B1). [[DRIFT-102]]에서 "전수 유일 무주력 서브"로 표기했던 항목 해소 → **무주력 서브 0.** 클러스터도 D1 → **N2**로 이관.
+- **결과:** 전수 **58→54종**(폐기 4). D1 = **6종 전부 ✅**(008 원형·003 lightning·053 fire·041† cold·010 poison·055 산탄) — **클러스터 내부 실중복 0.** RX 속성 커버 = fire·cold·lightning·poison **전부**(공백 해소). **DPS 블록 ✅8/⬜2**(D4 지역강타·D5 빔만 남음).
+- **분류\전파:** **kind 2종 소멸 + AB-053/041 kind 이관 + AB-008 element 제거 + AB-058 주력 확정 + 4종 폐기** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]·[[DRIFT-108]]·[[DRIFT-109]]·[[DRIFT-110]]과 한 패킷). 배럴 파괴 확대·툴팁 조립 = impl.
+- **영향 파일:** `data/slice01/{skillbooks,abilities,display_names,id_registry,enemies}.json` · `scripts/combat/abilities/effects/{sb_bolt,sb_fire(삭제),sb_cold(삭제)}.gd` · `ability_dispatch.gd` · `scripts/ui/skill_text.gd` · `scripts/run/dungeon_run.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 병합 검증: 폐기 4종 · 053/041 kind 이관 · **`skillbook_fire`/`cold` kind 소멸** · 볼트 계열 속성 전수 스캔(fire·cold·lightning 커버 · slag 소멸) · AB-008 무속성 · AB-058 주력.
+- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기.

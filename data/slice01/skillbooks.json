@@ -64,36 +64,6 @@
       "tier": "Basic"
     },
     {
-      "base_ability_id": "AB-037",
-      "display_name": "Ember Lance",
-      "equip_classes": [
-        "DPS",
-        "Nuker"
-      ],
-      "sub_bands": {
-        "Nuker": "B1"
-      },
-      "range_band": "Mid",
-      "charges_max": 80,
-      "cast": {
-        "kind": "skillbook_fire",
-        "element": "fire",
-        "cooldown_s": 5,
-        "targeted": true,
-        "range_m": 12,
-        "radius_m": 3.0,
-        "damage_mult": 1.8,
-        "delivery": "projectile",
-        "speed_mps": 20.0,
-        "proj_color": [
-          1.0,
-          0.5,
-          0.15
-        ]
-      },
-      "tier": "Advanced"
-    },
-    {
       "base_ability_id": "AB-009",
       "display_name": "Spawn Oil Patch",
       "equip_classes": [
@@ -222,7 +192,7 @@
       "range_band": "Long",
       "charges_max": 80,
       "cast": {
-        "kind": "skillbook_cold",
+        "kind": "skillbook_bolt",
         "element": "cold",
         "cooldown_s": 5.5,
         "cast_s": 3.5,
@@ -255,7 +225,7 @@
       "range_band": "Mid",
       "charges_max": 80,
       "cast": {
-        "kind": "skillbook_fire",
+        "kind": "skillbook_bolt",
         "element": "fire",
         "cooldown_s": 5,
         "cast_s": 3.0,
@@ -272,30 +242,6 @@
         ]
       },
       "tier": "Basic"
-    },
-    {
-      "base_ability_id": "AB-072",
-      "display_name": "우박 세례",
-      "equip_classes": [
-        "DPS",
-        "Nuker"
-      ],
-      "sub_bands": {
-        "Nuker": "B2"
-      },
-      "range_band": "Long",
-      "charges_max": 70,
-      "cast": {
-        "kind": "skillbook_cold",
-        "element": "cold",
-        "cooldown_s": 7,
-        "targeted": true,
-        "range_m": 13,
-        "radius_m": 2.6,
-        "damage_mult": 1.6,
-        "chill_dur_s": 3.0
-      },
-      "tier": "Advanced"
     },
     {
       "base_ability_id": "AB-028",
@@ -726,7 +672,6 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
-        "element": "slag",
         "cooldown_s": 5,
         "cast_s": 3.0,
         "targeted": true,
@@ -926,7 +871,6 @@
         "DPS"
       ],
       "sub_bands": {
-        "Nuker": "B2",
         "DPS": "B1"
       },
       "range_band": "Mid",

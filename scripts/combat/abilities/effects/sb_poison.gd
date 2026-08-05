@@ -28,5 +28,5 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	# 독 zone은 base가 아니라 「초월(맹독 폭주)」 payoff — ability_dispatch._dps_overdrive_empower가 생성한다.
 	# (그래서 적/비초월 시전 = 즉발 독 스택만, zone 없음. ref: 사용자 결정 — 독장판 = 초월 결속 능력.)
 	ctx.sub_shake(p)
-	SkillVfx.sub_nova(ctx, center, radius)
+	SkillVfx.element_field("poison", ctx, center, radius)   # 속성별 형태(DRIFT-110)
 	return true

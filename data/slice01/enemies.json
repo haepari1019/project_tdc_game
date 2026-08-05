@@ -405,7 +405,7 @@
         "attack_interval_s": 2.0
       },
       "basic_attack": "rom_trash_spit_poke",
-      "_role_note": "FireCaster (프로토타입 — SPEC_DRIFT). AB-053 작열 폭발(unified) → sb_fire가 배럴 파괴 + Oil 점화(RX-OIL-FIRE) 콤보. axis=fire(신규, drift). stats/basic = EN-005 캐스터 참조·재활용. spec 미정본.",
+      "_role_note": "FireCaster (프로토타입 — SPEC_DRIFT). AB-053 작열 폭발(unified) → skillbook_bolt(element=fire)가 배럴 파괴 + Oil 점화(RX-OIL-FIRE) 콤보. axis=fire(신규, drift). stats/basic = EN-005 캐스터 참조·재활용. spec 미정본.",
       "abilities": [
         {
           "ref": "AB-053"

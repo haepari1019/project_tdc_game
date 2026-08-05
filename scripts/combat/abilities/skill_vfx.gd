@@ -869,6 +869,45 @@ static func lightning_bolt(parent: Node3D, from: Vector3, to: Vector3, color: Co
 
 
 ## One thin emissive box spanning p0→p1 (a lightning segment), oriented along the segment.
+## **속성별 착탄 잔향 디스패처**(DRIFT-110) — 속성마다 **형태가 달라야** 무엇에 맞았는지 읽힌다.
+## 예전엔 lightning만 아크였고 fire/cold는 **색만 다른 같은 원판**(`telegraph`)이라 구분이 안 됐다.
+##   · `lightning` 지그재그 아크가 범위 안을 튄다(`arc_field`)
+##   · `fire`      불길이 여러 갈래로 솟구친다(rising wisp) + 그을음 링
+##   · `cold`      바닥에서 서리 결정이 돋는다(pop spike) + 냉기 링
+##   · `poison`    독 안개가 부풀어 오른다(dome + 낮은 wisp)
+##   · `slag`      녹은 용재가 튄다(pop spike 짧고 굵게, 주황갈색)
+## 크기는 전부 호출자의 `radius`를 따르므로 **스킬마다 자기 반경이 그려진다**(per-AB 분기 없음).
+static func element_field(element: String, parent: Node3D, center: Vector3, radius: float) -> void:
+	if parent == null or not is_instance_valid(parent) or radius <= 0.0:
+		return
+	match element:
+		"lightning":
+			arc_field(parent, center, radius, Color(0.62, 0.84, 1.0), 0.8)
+		"fire":
+			var fc := Color(1.0, 0.5, 0.15)
+			_ground_pulse(parent, center, radius, Color(0.35, 0.18, 0.10, 0.45), 0.9)   # 그을음
+			for _i in 5:
+				_rising_wisp(parent, center + _disc_off(radius * 0.8), Color(fc.r, fc.g, fc.b, 0.75), randf_range(1.2, 2.2))
+		"cold":
+			var cc := Color(0.6, 0.9, 1.0)
+			_ground_pulse(parent, center, radius, Color(cc.r, cc.g, cc.b, 0.35), 1.1)
+			for _i in 7:
+				_pop_spike(parent, center + _disc_off(radius * 0.85), cc)                # 돋아나는 서리 결정
+		"poison":
+			var pc := Color(0.42, 0.9, 0.28)
+			_ground_pulse(parent, center, radius, Color(pc.r, pc.g, pc.b, 0.30), 1.3)
+			_dome(parent, center + Vector3(0, 0.5, 0), maxf(radius * 0.7, 0.9), Color(pc.r, pc.g, pc.b, 0.22), 1.4)
+			for _i in 4:
+				_rising_wisp(parent, center + _disc_off(radius * 0.7), Color(pc.r, pc.g, pc.b, 0.55), randf_range(0.6, 1.1))
+		"slag":
+			var sc := Color(0.95, 0.55, 0.2)
+			_ground_pulse(parent, center, radius, Color(0.4, 0.24, 0.12, 0.5), 0.8)
+			for _i in 6:
+				_pop_spike(parent, center + _disc_off(radius * 0.75), sc)                # 튀는 용재 덩어리
+		_:
+			pass   # 무속성 — 잔향 없음(mark_ruin 임팩트만)
+
+
 ## **착탄 후 범위 전기장**(IMPL-DEC-20260728-002) — `lightning_bolt`(캐스터→착탄 한 줄기)와 달리
 ## **반경을 읽히게** 하는 게 목적이다. 바닥 링(= 실제 `radius_m`) + 반경 안 무작위 두 점을 잇는
 ## 지그재그 아크를 `BURSTS`번 짧은 간격으로 재점화 → "지지직 흐르다 잦아든다".

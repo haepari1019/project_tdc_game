@@ -145,6 +145,28 @@ func _initialize() -> void:
 	_chk("AB-055 캐스트 ≥ 원형 AB-008", float(c55.get("cast_s", 0.0)) >= float(c08.get("cast_s", 0.0)))
 	_chk("AB-055 총 주기 > 원형 AB-008", float(c55.get("cast_s", 0.0)) + float(c55.get("cooldown_s", 0.0))
 		> float(c08.get("cast_s", 0.0)) + float(c08.get("cooldown_s", 0.0)))
+	# D1 속성 커버(DRIFT-110) — 원형 008은 **무속성**으로 되돌리고 속성은 전부 변형이 진다.
+	_chk("AB-008 원형 = 무속성(slag 제거)", not c08.has("element"))
+	_chk("AB-058 주력 = Nuker(무주력 해소)", not (sd.get_skillbook_master("AB-058").get("sub_bands", {}) as Dictionary).has("Nuker"))
+	var elems := {}
+	for ab in sd._registry_list("ability_ids"):
+		var mb: Dictionary = sd.get_skillbook_master(String(ab))
+		if mb.is_empty():
+			continue
+		var cb: Dictionary = mb.get("cast", {})
+		if String(cb.get("kind", "")) == "skillbook_bolt" and String(cb.get("element", "")) != "":
+			elems[String(cb["element"])] = true
+	for want_el in ["fire", "cold", "lightning"]:
+		_chk("볼트 계열 %s 커버" % want_el, elems.has(want_el))
+	_chk("볼트 계열 slag 소멸", not elems.has("slag"))
+	# D1+D2 병합(DRIFT-111) — 속성 전용 kind가 볼트로 흡수되고 즉발 쌍둥이·신설 중복이 폐기됐다.
+	for gone in ["AB-107", "AB-108", "AB-037", "AB-072"]:
+		_chk("%s 폐기(병합 중복/즉발 쌍둥이)" % gone, sd.get_skillbook_master(gone).is_empty())
+	for moved in ["AB-053", "AB-041"]:
+		_chk("%s kind=skillbook_bolt(흡수)" % moved,
+			String(sd.get_skillbook_master(moved).get("cast", {}).get("kind", "")) == "skillbook_bolt")
+	_chk("skillbook_fire kind 소멸", not kinds.has("skillbook_fire"))
+	_chk("skillbook_cold kind 소멸", not kinds.has("skillbook_cold"))
 
 	# T4b 판정(DRIFT-109) — AB-050 둔화 폐기 · AB-102 = DPS 「원거리 광역 뭉치기+속박」 콤보 셋업.
 	_chk("AB-050 폐기", sd.get_skillbook_master("AB-050").is_empty())

@@ -1,8 +1,9 @@
 extends RefCounted
-## Targeted ranged damage bolt (kind=skillbook_bolt) — **「광역 투사체」 원형은 AB-008**, 나머지는 그
-## 변형(DRIFT-085). Damage = enemies in radius_m (single when small) × coeff; 속성 효과는 AB의
-## `element`가 정하고 `ctx.element_hit`이 처리한다(전격=즉시 Shock + 전도 RX / 무속성=없음). Covers the ranged/burst
-## lootables AB-003/004/008/055/056/058/059/073 (multi-hit/fork/charge folded into one damage_mult).
+## **DPS/Nuker 원거리 투사체 단일 kind**(kind=skillbook_bolt) — 원형은 **AB-008**(무속성), 나머지는
+## 전부 그 변형(DRIFT-085/111). 피해 = `radius_m` 안의 적 × coeff, **속성은 AB의 `element`가 정하고**
+## `ctx.element_hit`이 처리한다(전격=즉시 Shock+전도 RX / 화염=조건부 점화 RX / 냉기=즉시 Chilled+RX /
+## 무속성=없음). **`skillbook_fire`·`skillbook_cold` kind는 여기로 흡수·소멸**(DRIFT-111) — DRIFT-088로
+## `element`가 SSOT가 된 뒤 세 kind의 `resolve_at`이 구조적으로 동일해져 존재 이유가 사라졌다.
 ##
 ## DELIVERY (DRIFT-059): `instant` (default) resolves at the aim point now; `projectile` spawns a
 ## traveling Projectile that calls resolve_at() on impact (blocked by walls / absorbed by Rampart).
@@ -43,14 +44,14 @@ func resolve_at(m: CharacterBody3D, center: Vector3, p: Dictionary, ctx) -> void
 			continue
 		ctx.deal_damage(e, m, dmg)
 		hits.append(e)
+	ctx.damage_destructibles(center, radius, dmg)   # 배럴/파괴물 — sb_fire 흡수(DRIFT-111)
 	# 속성은 AB의 `element`가 정한다 — 즉시 효과(전격=Shock) + RX(전도)를 seam이 처리. 무속성이면 no-op.
 	ctx.element_hit(String(p.get("element", "")), center, radius, m, p, hits)
 	SkillVfx.mark_ruin(ctx, center)                             # impact burst
-	# 전격 볼트 — 착탄 **후 범위 안에 전기가 흐르는** 잔향(사용자 요청, AB-003 계기).
+	# **속성별 착탄 잔향** — 속성마다 형태가 다르다(전격=아크 / 화염=불길 / 냉기=서리 …).
 	# `element`로 갈리고 크기는 `radius_m` 그대로라 **볼트마다 자기 반경이 그려진다**
 	# (AB-003 r4.0이 가장 크게, AB-004/073 r1.2~1.4는 작게). 원형-변형 체계와 같은 조립 방식.
-	if String(p.get("element", "")) == "lightning":
-		SkillVfx.arc_field(ctx, center, radius, Elements.color_of("lightning"), ARC_FIELD_S)
+	SkillVfx.element_field(String(p.get("element", "")), ctx, center, radius)
 	_scatter(m, center, p, ctx)
 
 
