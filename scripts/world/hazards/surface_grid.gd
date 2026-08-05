@@ -137,6 +137,7 @@ var _cells: Dictionary = {}          # key:int -> Cell (소유)
 var _stamped: Dictionary = {}        # zone instance_id -> [radius, lethal] (신규/변화 감지)
 var _poison_accum: Dictionary = {}   # ToxicGas: unit → 스택 주기 누적(가스 밖 나가면 리셋)
 var _thorn_last: Dictionary = {}     # Vegetation: unit → 직전 위치(이동 거리 비례 가시 피해)
+var _thorn_pop: Dictionary = {}      # Vegetation: unit → [누적 피해, 누적 시간] (표기 리듬)
 var _last_ignite_center: Vector3 = Vector3.ZERO   # 마지막 fire_hits_fuel이 실제 점화한 셀들의 중심(연기/폭발 배치용)
 var _last_ignite_radius: float = 0.0              # 그 점화 영역 반경(셀 수→면적)
 var _smoke_accum: float = 0.0                     # 연기 팽창 틱 누적
@@ -504,6 +505,7 @@ func _apply_medium_outcome(u, medium: String, dps: float, slow: float, source, f
 				if float(tr[0]) > 0.0:
 					u.take_damage(float(tr[0]))
 					_credit(u, float(tr[0]), grp, source)
+				HazardZone.thorn_popup(u, float(tr[0]), dt, _thorn_pop)
 		"Smoke":
 			pass   # harmless — Smoke=vision(deferred)
 		_:

@@ -193,6 +193,14 @@ func _initialize() -> void:
 	probe.global_position = Vector3(8.0, 0.0, 0.0)
 	var r3: Array = HZ.thorn_damage(probe, Vector3.ZERO)
 	_chk("가시: 8m 돌진 = 선형 8×DMG_PER_M(상한 없음)", is_equal_approx(float(r3[0]), 8.0 * HZ.THORN_DMG_PER_M))
+	# 피해 표기 — 매질 틱(0.2s)마다가 아니라 **DoT와 같은 0.5s 리듬**으로 모아서 올린다.
+	var pacc := {}
+	HZ.thorn_popup(probe, 2.0, 0.2, pacc)
+	_chk("가시 표기: 주기 전에는 누적만", is_equal_approx(float((pacc[probe] as Array)[0]), 2.0))
+	HZ.thorn_popup(probe, 2.0, 0.2, pacc)
+	HZ.thorn_popup(probe, 2.0, 0.2, pacc)   # 누적 0.6s ≥ 0.5s → 플러시
+	_chk("가시 표기: 주기 도달 시 리셋(플러시)", is_equal_approx(float((pacc[probe] as Array)[1]), 0.0))
+	_chk("가시 표기 주기 = DoT 리듬", is_equal_approx(HZ.THORN_POPUP_S, 0.5))
 	probe.free()
 
 	# T4b 판정(DRIFT-109) — AB-050 둔화 폐기 · AB-102 = DPS 「원거리 광역 뭉치기+속박」 콤보 셋업.

@@ -66,6 +66,8 @@ const USE_SURFACE_GRID := true
 ## 상한을 두면 "많이 움직이면 손해"라는 규칙 자체가 무뎌진다.
 const THORN_DMG_PER_M := 3.0     # 이동 1m당 피해 — 상한 없이 선형
 const THORN_MIN_MOVE_M := 0.05   # 이보다 적게 움직이면 정지로 간주(부동 시 무피해)
+const THORN_POPUP_S := 0.5       # 피해 표기 주기 — `OutcomeStatus.DOT_TICK_S`와 같은 리듬(DoT 장판과 통일)
+const THORN_POPUP_COLOR := Color(0.92, 0.96, 0.90)   # 하얀 가시 색과 맞춘 표기색
 
 
 ## 가시 피해 계산 — `last` = 직전 위치(없으면 null). 반환 [피해, 갱신할 위치].
@@ -83,6 +85,20 @@ static func thorn_damage(u: Node3D, last) -> Array:
 		return [0.0, cur]
 	return [moved * THORN_DMG_PER_M, cur]   # 선형 — 크게 움직일수록 크게 아프다
 
+
+## 가시 피해 **표기** — 매질 틱(0.2s)마다 띄우면 시끄러우므로 **DoT와 같은 0.5s 리듬**으로 모아서
+## 한 번에 올린다(사용자: "다른 dot 장판처럼 옆에 데미지 표기"). `acc`는 호출자 소유 딕셔너리
+## (원 모델·셀 CA 두 경로가 각자 갖되 **누적·플러시 규칙은 여기 한 곳**). 반환 없음.
+static func thorn_popup(u, dmg: float, dt: float, acc: Dictionary) -> void:
+	var e: Array = acc.get(u, [0.0, 0.0])   # [누적 피해, 누적 시간]
+	e[0] = float(e[0]) + dmg
+	e[1] = float(e[1]) + dt
+	if float(e[1]) >= THORN_POPUP_S:
+		if float(e[0]) >= 1.0 and u.has_method("popup_status"):
+			u.popup_status("-%d" % int(round(float(e[0]))), THORN_POPUP_COLOR)
+		e = [0.0, 0.0]
+	acc[u] = e
+
 var radius: float = 3.0
 var dps: float = 0.0
 var slow_factor: float = 0.0   # >0 = slows units inside (e.g. Oil slick); refreshed per tick
@@ -96,7 +112,8 @@ var _tick_accum: float = 0.0
 var _age: float = 0.0
 var _inside: Dictionary = {}   # units currently inside (edge detection → EnterZone/ExitZone events)
 var _poison_accum: Dictionary = {}
-var _thorn_last: Dictionary = {}   # Vegetation: unit → 직전 위치(이동 거리 산출용)   # ToxicGas: unit → 마지막 스택 이후 체류 시간(주기 도달 시 스택 +1)
+var _thorn_last: Dictionary = {}   # Vegetation: unit → 직전 위치(이동 거리 산출용)
+var _thorn_pop: Dictionary = {}    # Vegetation: unit → [누적 피해, 누적 시간] (표기 리듬)   # ToxicGas: unit → 마지막 스택 이후 체류 시간(주기 도달 시 스택 +1)
 var _mesh: MeshInstance3D
 var _mat: StandardMaterial3D
 var _source: Node = null   # attacker credited for threat when this zone damages enemies
@@ -139,8 +156,61 @@ func _ready() -> void:
 		_lethal = false
 		get_tree().create_timer(_telegraph_s).timeout.connect(_go_lethal)
 	_build()
+	if status == "Vegetation":
+		_build_thorns()   # 하얀 가시 장식 — 매질 필드(셀 CA)와 별개인 **표현 레이어**
 	if impassable:
 		get_tree().call_group("navmap", "rebake_navigation")  # carve into the navmesh
+
+
+## **가시덩굴 표현**(DRIFT-112) — 이름값대로 **하얀 작은 가시가 촘촘히** 돋은 바닥. 매질 필드
+## (`surface_grid`의 coverage plane)는 색만 칠하므로, 형태는 이 장식 레이어가 준다.
+## MultiMesh 1개로 수백 개를 한 드로콜에 그린다(존마다 노드 수백 개는 비용이 크다).
+## ⚠️ 존 노드 기준이라 **바람으로 번진 셀까지 따라가진 않는다**(Vegetation은 자체 확산이 없고
+## `SPREADABLE_MEDIA` 바람 확산만 있어 실사용에선 대부분 일치). 표현 한계로 기록만.
+const THORN_DENSITY_PER_M2 := 26.0   # 촘촘함 — 1m²당 가시 수
+const THORN_MAX := 420               # 큰 존에서의 인스턴스 상한(성능 가드)
+func _build_thorns() -> void:
+	var area: float = (length * width) if shape == "rect" else (PI * radius * radius)
+	var n: int = clampi(int(area * THORN_DENSITY_PER_M2), 12, THORN_MAX)
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.035      # 얇고 작게 — "가시"
+	cone.height = 0.24
+	cone.radial_segments = 4        # 저폴리(수백 개라 각 하나는 최소로)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.94, 0.97, 0.92)     # 하얀 가시
+	mat.emission_enabled = true
+	mat.emission = Color(0.85, 0.92, 0.86)
+	mat.emission_energy_multiplier = 0.5
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cone.material = mat
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = cone
+	mm.instance_count = n
+	var half_l: float = length * 0.5
+	var half_w: float = width * 0.5
+	for i in n:
+		var off: Vector3
+		if shape == "rect":
+			off = Vector3(randf_range(-half_w, half_w), 0.0, randf_range(-half_l, half_l))
+		else:
+			# 원 안 균등 분포(sqrt 보정 — 안 하면 중심에 몰린다)
+			var a := randf() * TAU
+			var r := radius * sqrt(randf())
+			off = Vector3(cos(a) * r, 0.0, sin(a) * r)
+		var b := Basis()
+		b = b.rotated(Vector3.UP, randf() * TAU)
+		# 살짝 눕혀 제각각 — 똑바로만 서 있으면 인공적으로 보인다
+		b = b.rotated(Vector3(cos(randf() * TAU), 0.0, sin(randf() * TAU)), randf_range(-0.35, 0.35))
+		b = b.scaled(Vector3.ONE * randf_range(0.7, 1.35))
+		mm.set_instance_transform(i, Transform3D(b, off + Vector3(0.0, 0.10, 0.0)))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mmi)
+	if shape == "rect":
+		mmi.rotation = Vector3(0.0, atan2(wind_dir.x, wind_dir.z), 0.0)   # 복도 축 정렬
 
 
 func _go_lethal() -> void:
@@ -296,6 +366,7 @@ func _physics_process(delta: float) -> void:
 		if not now.has(u):
 			_poison_accum.erase(u)   # 존을 나가면 스택 주기 리셋(쌓인 스택은 유닛에 잔류)
 			_thorn_last.erase(u)     # 가시밭을 나가면 위치 추적도 리셋(재진입 시 첫 틱 무피해)
+			_thorn_pop.erase(u)
 			if is_instance_valid(u):
 				_emit_zone_event("ExitZone", u)  # exit edge
 	_inside = now
@@ -341,6 +412,7 @@ func _apply_medium(u: Node, dmg: float, dt: float, g: String) -> void:
 				if float(tr[0]) > 0.0:
 					u.take_damage(float(tr[0]))
 					_credit(u, float(tr[0]), g)
+				thorn_popup(u, float(tr[0]), dt, _thorn_pop)
 		"Smoke":
 			pass  # harmless — Smoke = vision (deferred)
 		_:
