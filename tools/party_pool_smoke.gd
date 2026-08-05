@@ -189,9 +189,10 @@ func _initialize() -> void:
 	probe.global_position = Vector3(1.0, 0.0, 0.0)
 	var r2: Array = HZ.thorn_damage(probe, Vector3.ZERO)
 	_chk("가시: 1m 이동 = DMG_PER_M", is_equal_approx(float(r2[0]), HZ.THORN_DMG_PER_M))
-	probe.global_position = Vector3(50.0, 0.0, 0.0)
+	# 상한 없음(사용자 확정) — 돌진·넉백으로 크게 움직이면 그만큼 크게 아프다(창의적 사용을 여는 축).
+	probe.global_position = Vector3(8.0, 0.0, 0.0)
 	var r3: Array = HZ.thorn_damage(probe, Vector3.ZERO)
-	_chk("가시: 틱 상한 적용(순간이동 폭주 차단)", is_equal_approx(float(r3[0]), HZ.THORN_MAX_PER_TICK))
+	_chk("가시: 8m 돌진 = 선형 8×DMG_PER_M(상한 없음)", is_equal_approx(float(r3[0]), 8.0 * HZ.THORN_DMG_PER_M))
 	probe.free()
 
 	# T4b 판정(DRIFT-109) — AB-050 둔화 폐기 · AB-102 = DPS 「원거리 광역 뭉치기+속박」 콤보 셋업.

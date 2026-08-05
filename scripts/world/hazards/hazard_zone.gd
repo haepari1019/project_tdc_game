@@ -60,13 +60,17 @@ const RENDER_ORDER := {
 const USE_SURFACE_GRID := true
 ## **가시덩굴(Vegetation) — 이동 거리 비례 피해**(DRIFT-112, 사용자: 이름값대로 "가시").
 ## 서 있으면 안 아프고 **움직일 때마다** 아프다 → "가시밭을 헤친다"가 규칙으로 성립하고,
-## 다른 매질(체류 dps·상태부여)과 축이 겹치지 않는다. 틱당 상한으로 순간이동·밀림 폭주를 막는다.
-const THORN_DMG_PER_M := 3.0     # 이동 1m당 피해
-const THORN_MAX_PER_TICK := 6.0  # 틱당 상한(넉백·블링크로 한 번에 몰리는 것 방지)
+## 다른 매질(체류 dps·상태부여)과 축이 겹치지 않는다.
+## **틱 상한 없음(사용자 확정):** 돌진·넉백처럼 한 번에 크게 움직이면 그만큼 크게 아픈 게 맞다 —
+## 가시밭을 깔아 **돌진을 억제**하거나 **넉백으로 추가 딜**을 넣는 창의적 사용을 열어 두기 위함.
+## 상한을 두면 "많이 움직이면 손해"라는 규칙 자체가 무뎌진다.
+const THORN_DMG_PER_M := 3.0     # 이동 1m당 피해 — 상한 없이 선형
 const THORN_MIN_MOVE_M := 0.05   # 이보다 적게 움직이면 정지로 간주(부동 시 무피해)
 
 
 ## 가시 피해 계산 — `last` = 직전 위치(없으면 null). 반환 [피해, 갱신할 위치].
+## ⚠️ **존을 벗어나며 생긴 큰 이동은 계산되지 않는다** — 틱은 "지금 안에 있는 유닛"만 돌고, 나가는
+## 순간 exit 엣지가 `_thorn_last`를 지운다. 즉 안에서 움직인 만큼만 아프다(밖으로 블링크 = 무피해).
 ## 두 매질 경로(원 모델 `hazard_zone` · 셀 CA `surface_grid`)가 **같은 식**을 쓰도록 여기 한 곳에 둔다.
 static func thorn_damage(u: Node3D, last) -> Array:
 	var cur: Vector3 = u.global_position
@@ -77,7 +81,7 @@ static func thorn_damage(u: Node3D, last) -> Array:
 	var moved := d.length()
 	if moved < THORN_MIN_MOVE_M:
 		return [0.0, cur]
-	return [minf(moved * THORN_DMG_PER_M, THORN_MAX_PER_TICK), cur]
+	return [moved * THORN_DMG_PER_M, cur]   # 선형 — 크게 움직일수록 크게 아프다
 
 var radius: float = 3.0
 var dps: float = 0.0
