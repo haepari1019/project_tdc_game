@@ -1023,3 +1023,16 @@
 - **영향 파일:** `data/slice01/{skillbooks,consumables,abilities,display_names,id_registry}.json` · `scripts/run/controllers/medium_consumable_controller.gd`(신규) · `scripts/run/dungeon_run.gd` · `scripts/combat/abilities/effects/sb_zone.gd`(삭제) · `ability_dispatch.gd` · `scripts/world/hazards/{hazard_zone,surface_grid}.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **20건**: 아군 5종 폐기 · 적 5종 `enemy_only` 존치 · `skillbook_zone` 소멸 · 플라스크 5종 해소/`spawn_medium`/medium·ttl · **가시 4건**(첫 틱 무피해 · 정지 무피해 · 1m=DMG_PER_M · 틱 상한).
 - **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(플라스크 조작감 · 가시밭 이동 압박).
+
+### DRIFT-113 — `take_damage` 시그니처 파리티 붕괴(진영전 전용 크래시) · 반사 처치 크레딧 🔷 impl (전파 불필요)
+- **발단:** CI run `31058027571`(커밋 `b4e3b04`) **실패** — `dungeon_run.tscn` 부팅 스모크에서 `SCRIPT ERROR: Invalid call to function 'take_damage' in base 'CharacterBody3D (enemy_unit.gd)'. Expected 2 argument(s).` **다음 커밋(`349b117`)은 통과**했으나 이는 **버그가 고쳐진 게 아니라 조우가 안 뜬 것**이다.
+- **원인:** [[DRIFT-104]](반격 캐스팅 판별)에서 `party_member.take_damage`에 3번째 인자 `from_ability`를 추가하면서 **`enemy_unit` 쪽은 2인자로 남겨뒀다.** `enemy_ai`는 피격 적용 시 **대상 진영을 가리지 않고** 3인자로 부른다(`enemy_ai.gd:1082/1137/1476/1761`). 아군 대상 경로는 항상 열려 있어 매번 정상, **적↔적 피격은 진영전(3세력) 조우가 떴을 때만** 열린다 → **같은 코드가 판에 따라 되고 안 되는** 형태로 잠복했다.
+- **왜 로컬 게이트를 통과했나:** `dungeon_run` 스모크는 16프레임만 돌린다. 그 사이 3세력 교전이 실제로 성립하는지는 **스폰/시드/타이밍 의존**이라 재현이 확률적이다. 로컬 11/11 PASS는 **버그 부재의 증거가 아니었다.**
+- **① 파리티 복원:** `enemy_unit.take_damage(amount, attacker, _from_ability := false)` — 적 쪽엔 반격(AB-048b) 같은 게이트가 없어 **받고 무시**한다. 존재 이유는 동작이 아니라 **호출 계약의 파리티**다(`ctx` 파리티를 `CTX_CONTRACT`로 강제하는 것과 같은 이유).
+- **② 부수 수정 — 반사 처치 크레딧:** `party_member`의 Sentinel/반격 반사가 `attacker.take_damage(back)`으로 **attacker 없이** 때리고 있었다 → `enemy_unit`이 `killed_by_party`를 세우지 못해 **반사딜로 마무리한 적은 파티 킬로 집계되지 않았다**(전리품·잠행 관여 크레딧 누락). `self`를 넘겨 귀속을 복원.
+- **③ 게이트 보강(재발 방지):** 타이밍 의존 스모크에 기대지 않도록 `party_pool_smoke`에 **선언 자체를 비교하는 검사** 추가 — `_argc(pm,"take_damage") == _argc(enemy,"take_damage") == 3` + **3인자 실호출**. 인자 수가 갈리는 변경은 조우 운과 무관하게 여기서 먼저 막힌다.
+- **교훈:** 한쪽 유닛 타입의 시그니처만 늘리면 **호출자가 진영을 안 가리는 경로**에서 조용히 갈라진다. `party_member` ↔ `enemy_unit`은 `take_damage`/`apply_outcome` 등 **공유 호출면**을 가지므로 한쪽만 바꾸지 않는다.
+- **분류\전파:** 순수 구현 결함(스펙에 시그니처 규정 없음) → **전파 불필요.**
+- **영향 파일:** `scripts/combat/enemy_unit.gd` · `scripts/party/party_member.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS** · party_pool_smoke 파리티 2건 신규.
+- **상태:** FIXED.

@@ -1051,7 +1051,7 @@ func take_damage(amount: float, attacker: Node = null, from_ability: bool = fals
 	# (melee 근사: any direct attacker-sourced hit while the stance holds; pre-mitigation amount).
 	if _sentinel_reflect > 0.0 and _sentinel_timer_s > 0.0 and attacker != null \
 			and is_instance_valid(attacker) and attacker.has_method("take_damage"):
-		attacker.take_damage(amount * _sentinel_reflect)
+		attacker.take_damage(amount * _sentinel_reflect, self)   # attacker=self → 반사 처치도 파티 킬(전리품 귀속)
 	# AB-048a/b 반격 — 받은 피해의 `_reflect_frac`을 되돌린다(경감 전 amount 기준, Sentinel과 동일 규약).
 	# ⚠️ **amount는 건드리지 않는다** — 내 피해는 그대로 들어가고 반사만 추가된다(패링=딜 무효는 후속 특성).
 	# `_reflect_cast_only`(AB-048b) = 적 캐스팅 스킬 피격만. 타수형은 **반사가 성립한 피격만** 타수를 깎는다.
@@ -1061,7 +1061,7 @@ func take_damage(amount: float, attacker: Node = null, from_ability: bool = fals
 		var back: float = minf(amount * _reflect_frac, _reflect_cap - _reflect_done)
 		if back > 0.0:
 			_reflect_done += back
-			attacker.take_damage(back)
+			attacker.take_damage(back, self)   # 〃 — 반사딜로 마무리해도 처치 크레딧이 파티에 남는다
 			popup_status("반사 %d" % int(round(back)), Color(1.0, 0.72, 0.35))
 		if _reflect_hits_max > 0:
 			_reflect_hits -= 1

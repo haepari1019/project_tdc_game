@@ -210,7 +210,11 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 
 ## attacker → 마지막 가해자 진영 기억(킬 귀속). 파티 킬만 전리품/재화(loot_service) — 3세력·몬스터 간
 ## 오프스크린 킬은 플레이어에게 드롭/재화 안 줌(S5b P3b). (enemies don't reflect.)
-func take_damage(amount: float, attacker: Node = null) -> void:
+## `from_ability` = 이 피해가 **캐스팅 스킬**에서 왔나. 적 쪽엔 반격(AB-048b) 같은 게이트가 없어
+## 여기선 **받고 무시**한다 — 존재 이유는 party_member.take_damage와의 **시그니처 파리티**다.
+## enemy_ai의 피격 적용은 대상이 아군인지 적인지 가리지 않고 3인자로 부르므로(진영전에서 적↔적
+## 피격이 실제로 일어난다), 인자 수가 갈리면 그 경로에서만 런타임 에러가 난다. ref: DRIFT-104.
+func take_damage(amount: float, attacker: Node = null, _from_ability: bool = false) -> void:
 	if hp <= 0.0:
 		return
 	if attacker != null and is_instance_valid(attacker):

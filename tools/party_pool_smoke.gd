@@ -362,6 +362,12 @@ func _initialize() -> void:
 	pmr.take_damage(20.0, dummy, true)              # 2타째 → 소진 → _end_reflect → clear_aura
 	await process_frame
 	_chk("타수 소진 시 오오라 즉시 제거(창 시간 남아도)", _aura_count(pmr) == 0)
+	# ⚠️ **시그니처 파리티** — enemy_ai는 대상 진영을 가리지 않고 `take_damage(dmg, attacker, from_ab)`
+	# 3인자로 부른다. 적↔적 피격은 **진영전에서만** 열리는 경로라, 인자 수가 갈리면 그 조우가 뜬 판에서만
+	# 런타임 에러가 난다(로컬 게이트는 통과하는데 CI만 실패 — 31058027571). 선언을 직접 비교해
+	# 타이밍과 무관하게 고정한다. 인자 수가 갈리는 변경은 여기서 먼저 막힌다. ref: DRIFT-104.
+	_chk("take_damage 시그니처 파리티(party ↔ enemy)", _argc(pmr, "take_damage") == 3 and _argc(dummy, "take_damage") == 3)
+	dummy.take_damage(0.0, null, true)   # 3인자 실호출 — 선언만 맞고 호출이 깨지는 경우까지 잡는다
 	pmr.free()
 	dummy.free()
 
@@ -686,6 +692,14 @@ func _aura_count(unit: Node) -> int:
 		if ch.has_meta("aura_key"):
 			c += 1
 	return c
+
+
+## 선언된 인자 수(기본값 포함) — 시그니처 파리티 검사용.
+func _argc(node: Object, method: String) -> int:
+	for m in node.get_method_list():
+		if String(m.get("name", "")) == method:
+			return (m.get("args", []) as Array).size()
+	return -1
 
 
 func _chk(label: String, cond: bool) -> void:
