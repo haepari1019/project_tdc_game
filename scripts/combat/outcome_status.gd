@@ -18,7 +18,21 @@ const MOVE_MULT := {
 	"Sodden": 0.7, "Chilled": 0.6, "SteamHaze": 0.85, "Shock": 0.55,
 	"OilSlick": 0.85, "IceGlide": 1.5,   # 기름=끈적(감속)+관성 · 빙판=질주(부스트)+관성. 둘 다 INERTIA
 	"Rooted": 0.0, "Pinned": 0.0,
+	"Frozen": 0.0,                       # 빙결 = 완전 행동불가(아래 ATK_MULT·is_frozen과 한 세트)
 }
+# 공격 속도 배율 — `enemy_unit.attack_interval_now()`가 접는다(간격 = 기본간격 / 배율, 낮을수록 느림).
+# **이동만 늦추는 감속은 원거리 적에게 거의 의미가 없었다** — 제자리에서 같은 속도로 쏘기 때문.
+# 냉각이 "굼떠진다"로 읽히려면 이동·공속 두 축을 같이 눌러야 한다(사용자 판정, DRIFT-115).
+# MOVE_MULT와 같은 **곱연산** 규약.
+const ATK_MULT := {
+	"Chilled": 0.7,   # 냉각 = 공속 −30%(이동 −40%와 짝)
+	"Frozen": 0.0,    # 빙결 = 공격 불가 — is_frozen()이 AI를 통째로 멈추므로 실제론 표기값
+}
+# **냉기 심화도** — `Chilled`의 `mag`(0~1)가 감속의 **깊이**를 정한다. mag 0 = 종전 값 그대로(RX·볼트
+# 등 기존 냉기는 하나도 안 변한다), mag 1 = 아래 값까지 깊어진다. 냉기 폭풍(AB-111)이 틱마다 mag를
+# 올려 "점점 굼떠지다 얼어붙는다"를 만든다 — 상태를 새로 만들지 않고 **기존 Chilled에 깊이 축을 추가**한 것.
+const CHILL_DEEP_MOVE := 0.25
+const CHILL_DEEP_ATK := 0.30
 # 관성(inertial) 이동 상태 → accel scale(낮을수록 관성 큼). 컨트롤러가 SLIP_ACCEL × 이 값으로 미끄럼 강도 조절.
 # `Slippery`(is_slippery)는 이 집합을 가리키는 개념명. 기름=1.0(기준), 빙판=0.7(마찰 더 없음 → 관성 살짝 더 큼).
 const INERTIA := { "OilSlick": 1.0, "IceGlide": 0.7 }
@@ -30,6 +44,7 @@ const COLOR := {
 	"SteamHaze": Color(0.80, 0.85, 0.90), "Shock": Color(0.60, 0.80, 1.0),
 	"OilSlick": Color(0.72, 0.60, 0.32), "IceGlide": Color(0.62, 0.90, 1.0), "Hastened": Color(0.85, 1.0, 0.45),
 	"Ignited": Color(1.0, 0.50, 0.20),
+	"Frozen": Color(0.78, 0.96, 1.0),   # 빙결 — 냉각(0.62,0.86,1.0)보다 밝고 하얗게
 	"Scorched": Color(1.0, 0.72, 0.30),   # 화염존 체류 표식(점화 DoT와 별개 — 나가면 즉시 해제)
 	"WindBuffeted": Color(0.70, 1.0, 0.86),
 	# Third faction (DEC-20260621-001): Scented(추적 마크)·Rooted(이동봉쇄)·Pinned(짧은 고정)·
@@ -48,7 +63,7 @@ const KO := {
 	"Sodden": "침수", "Chilled": "냉각", "SteamHaze": "증기", "Shock": "감전",
 	"OilSlick": "기름", "IceGlide": "빙판", "Hastened": "가속", "Ignited": "점화", "WindBuffeted": "돌풍", "Scorched": "화염",
 	"Scented": "혈향", "Rooted": "속박", "Pinned": "고정", "Tethered": "포박",
-	"Bloodlust": "광폭", "Vulnerable": "취약", "Poison": "중독",
+	"Bloodlust": "광폭", "Vulnerable": "취약", "Poison": "중독", "Frozen": "빙결",
 }
 const DEFAULT_IGNITE_DPS := 8.0
 # ── 지속피해(DoT) 공통 규격 (DRIFT-089) ──────────────────────────────────────────────────────
@@ -162,11 +177,29 @@ func any() -> bool:
 func move_mult() -> float:
 	var m := 1.0
 	for id in _t.keys():
-		if MOVE_MULT.has(id):
+		if id == "Chilled":
+			m *= _chill_scaled(float(MOVE_MULT[id]), CHILL_DEEP_MOVE)
+		elif MOVE_MULT.has(id):
 			m *= float(MOVE_MULT[id])
 	if _t.has("Hastened"):
 		m *= 1.0 + mag("Hastened")
 	return m
+
+
+## 공격 속도 배율(1.0 = none) — move_mult과 같은 곱연산. `attack_interval_now()`가 나눈다.
+func atk_mult() -> float:
+	var m := 1.0
+	for id in _t.keys():
+		if id == "Chilled":
+			m *= _chill_scaled(float(ATK_MULT[id]), CHILL_DEEP_ATK)
+		elif ATK_MULT.has(id):
+			m *= float(ATK_MULT[id])
+	return m
+
+
+## 냉각 심화 보간 — mag 0이면 기본값(하위호환), mag 1이면 deep까지.
+func _chill_scaled(base: float, deep: float) -> float:
+	return lerpf(base, deep, clampf(mag("Chilled"), 0.0, 1.0))
 
 
 ## Active outcomes for the status overlay: [{name, color, ratio (0 fresh → 1 expiring), buff}].

@@ -12,7 +12,7 @@ const FADE_START := 0.45   # 이 수명 비율을 지나면 페이드 시작
 const OUTCOME_KO := {
 	"Sodden": "침수", "Chilled": "냉각", "SteamHaze": "증기", "OilSlick": "기름", "IceGlide": "빙판", "Hastened": "가속",
 	"Shock": "감전", "Ignited": "점화", "WindBuffeted": "돌풍", "Vulnerable": "취약",
-	"Rooted": "속박", "Pinned": "고정", "Scented": "혈향",
+	"Rooted": "속박", "Pinned": "고정", "Scented": "혈향", "Frozen": "빙결",
 }
 
 var _t := 0.0

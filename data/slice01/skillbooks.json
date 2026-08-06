@@ -125,26 +125,6 @@
       "tier": "Basic"
     },
     {
-      "base_ability_id": "AB-028",
-      "display_name": "Guard Break Rhythm",
-      "equip_classes": [
-        "DPS"
-      ],
-      "range_band": "Mid",
-      "charges_max": 80,
-      "cast": {
-        "kind": "skillbook_strike",
-        "cooldown_s": 6,
-        "radius_m": 3.0,
-        "damage_mult": 1.0,
-        "knockback_m": 0.0,
-        "castTier": "B",
-        "rootDuringCast": true,
-        "telegraph_s": 0.9
-      },
-      "tier": "Basic"
-    },
-    {
       "base_ability_id": "AB-064",
       "display_name": "짧은 집중",
       "equip_classes": [
@@ -335,16 +315,86 @@
       "range_band": "Long",
       "charges_max": 60,
       "cast": {
-        "kind": "skillbook_beam",
+        "kind": "skillbook_channeling",
+        "channel_shape": "line",
         "element": "lightning",
         "cooldown_s": 6,
         "targeted": true,
         "range_m": 14,
         "radius_m": 1.6,
-        "ticks": 6,
-        "tick_interval_s": 0.18,
+        "ticks": 14,
+        "tick_interval_s": 0.25,
         "half_deg": 7.0,
-        "tick_mult": 0.25
+        "tick_mult": 0.11
+      },
+      "tier": "Advanced"
+    },
+    {
+      "base_ability_id": "AB-109",
+      "display_name": "화염 분사",
+      "equip_classes": [
+        "DPS"
+      ],
+      "range_band": "Mid",
+      "charges_max": 60,
+      "cast": {
+        "kind": "skillbook_channeling",
+        "channel_shape": "cone",
+        "element": "fire",
+        "cooldown_s": 7,
+        "targeted": true,
+        "range_m": 7.0,
+        "half_deg": 30.0,
+        "ticks": 16,
+        "tick_interval_s": 0.25,
+        "tick_mult": 0.11
+      },
+      "tier": "Advanced"
+    },
+    {
+      "base_ability_id": "AB-110",
+      "display_name": "독무 살포",
+      "equip_classes": [
+        "DPS"
+      ],
+      "range_band": "Mid",
+      "charges_max": 50,
+      "cast": {
+        "kind": "skillbook_channeling",
+        "channel_shape": "cloud",
+        "element": "poison",
+        "cooldown_s": 12,
+        "targeted": true,
+        "range_m": 8.0,
+        "radius_m": 3.5,
+        "ticks": 14,
+        "tick_interval_s": 0.3,
+        "tick_mult": 0.03,
+        "poison_dps": 6.0,
+        "poison_dur_s": 8.0,
+        "poison_stack_cap": 5
+      },
+      "tier": "Advanced"
+    },
+    {
+      "base_ability_id": "AB-111",
+      "display_name": "냉기 폭풍",
+      "equip_classes": [
+        "DPS"
+      ],
+      "range_band": "Melee",
+      "charges_max": 40,
+      "cast": {
+        "kind": "skillbook_channeling",
+        "channel_shape": "nova",
+        "element": "cold",
+        "cooldown_s": 14,
+        "radius_m": 5.0,
+        "ticks": 12,
+        "tick_interval_s": 0.35,
+        "tick_mult": 0.09,
+        "chill_dur_s": 3.0,
+        "freeze_s": 2.0
       },
       "tier": "Advanced"
     },

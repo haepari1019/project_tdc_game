@@ -356,7 +356,9 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	enemy.tick_outcome(delta)  # elemental outcome timers + Ignited DoT
 	# Stunned (EN-AI-000 §2): frozen + INTERRUPT — any channel/cast or dash in progress fails
 	# (no resolve; its cooldown stays consumed). Player counterplay: stun EN-001 mid-Mockery.
-	if enemy.is_stunned():
+	# 빙결(Frozen, AB-111)은 스턴과 **같은 게이트**를 탄다 — "모든 행동 금지"라 캐스트·돌진 중단 + 정지.
+	# 원천만 다르다(스턴=타이머 필드 / 빙결=outcome 컨테이너). ref: DRIFT-115.
+	if enemy.is_stunned() or enemy.is_frozen():
 		if enemy.winding:
 			enemy.winding = false
 			enemy.windup_target = null

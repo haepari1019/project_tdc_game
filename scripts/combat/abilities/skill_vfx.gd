@@ -877,6 +877,67 @@ static func lightning_bolt(parent: Node3D, from: Vector3, to: Vector3, color: Co
 ##   · `poison`    독 안개가 부풀어 오른다(dome + 낮은 wisp)
 ##   · `slag`      녹은 용재가 튄다(pop spike 짧고 굵게, 주황갈색)
 ## 크기는 전부 호출자의 `radius`를 따르므로 **스킬마다 자기 반경이 그려진다**(per-AB 분기 없음).
+## **화염 분사**(AB-109) — 시전자 앞에서 뿜어져 나가는 불길. 예전엔 `fan_telegraph`(지면에 깔리는
+## 반투명 삼각팬)를 재사용했는데 **전조 마커로 읽히고 불로는 안 읽혔다**(사용자 제보).
+## 불처럼 보이게 하는 건 세 가지다 — ① **바깥으로 뻗는 이동**(가만히 있는 불은 그림), ② **식는 색**
+## (노즐=흰노랑 → 중간=주황 → 끝=검붉음), ③ **자라는 크기**. 셋을 한 puff에 tween으로 태운다.
+## 지면 팬은 **그을음 색으로 낮춰** 남긴다 — 부채꼴 각도를 읽을 단서는 있어야 하지만, 불길이
+## 주인공이라 마커처럼 보이면 안 된다.
+static func flame_cone(parent: Node3D, apex: Vector3, dir: Vector3, reach: float, half_rad: float, dur: float) -> void:
+	if parent == null or not is_instance_valid(parent) or reach <= 0.05:
+		return
+	var d := dir
+	d.y = 0.0
+	d = d.normalized() if d.length() > 0.01 else Vector3(0, 0, 1)
+	# 탄 자국 — 원래의 팬을 어둡게. 마커가 아니라 "그을린 바닥"으로 읽히는 밝기.
+	fan_telegraph(parent, apex, d, reach, rad_to_deg(half_rad * 2.0), Color(0.30, 0.13, 0.05, 0.14), dur)
+	var hot := Color(1.0, 0.94, 0.60, 0.95)    # 노즐 — 가장 뜨거운 흰노랑
+	var mid := Color(1.0, 0.52, 0.12, 0.85)    # 중간 불길 주황
+	var cool := Color(0.72, 0.16, 0.04, 0.0)   # 끝 — 식으며 사라지는 검붉음
+	# 노즐 코어 — 분사구에서 짧고 밝게 터진다(불이 "뿜어져 나오는 지점"을 만든다).
+	_flame_puff(parent, apex + d * 0.35 + Vector3(0, 0.95, 0), apex + d * 0.9 + Vector3(0, 1.0, 0),
+		hot, mid, 0.5, 1.1, dur * 0.55)
+	for _i in 12:
+		var a: float = randf_range(-half_rad, half_rad)
+		var od: Vector3 = d.rotated(Vector3.UP, a)
+		var t0: float = randf_range(0.05, 0.35)   # 출발 = 노즐 가까이 · t0가 작을수록 뜨겁게 시작
+		var t1: float = randf_range(0.72, 1.02)   # 도착 = 도달 한계 부근
+		var y: float = randf_range(0.65, 1.15)
+		var from: Vector3 = apex + od * (reach * t0) + Vector3(0, y, 0)
+		var to: Vector3 = apex + od * (reach * t1) + Vector3(0, y + randf_range(0.15, 0.65), 0)
+		var start: Color = hot.lerp(mid, clampf(t0 / 0.35, 0.0, 1.0))
+		_flame_puff(parent, from, to, start, cool, randf_range(0.3, 0.5), randf_range(1.3, 2.1),
+			dur * randf_range(0.8, 1.25))
+	# 끝단 검댕 — 불길이 사라지는 자리에서 연기가 올라간다(불이 "끝난다"를 보여줌).
+	for _j in 2:
+		_rising_wisp(parent, apex + d * (reach * randf_range(0.75, 1.0)) + _disc_off(reach * 0.18) + Vector3(0, 0.8, 0),
+			Color(0.20, 0.16, 0.14, 0.42), randf_range(1.0, 1.8))
+
+
+## 불꽃 한 덩이 — from→to로 날아가며 자라고, `c0`에서 `c1`로 **식으며** 사라진다.
+static func _flame_puff(parent: Node3D, from: Vector3, to: Vector3, c0: Color, c1: Color,
+		s0: float, s1: float, dur: float) -> void:
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.30
+	s.height = 0.60
+	s.radial_segments = 8    # 불꽃은 형태가 흐릿해도 되므로 저해상도로(틱마다 다수 생성)
+	s.rings = 4
+	mi.mesh = s
+	var mat := _emat(c0)
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.global_position = from
+	mi.scale = Vector3(s0, s0, s0)
+	var tw := mi.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "global_position", to, dur)
+	tw.tween_property(mi, "scale", Vector3(s1, s1, s1), dur)
+	tw.tween_property(mat, "albedo_color", c1, dur)          # 색+알파를 한 번에 = 식으면서 사라짐
+	tw.tween_property(mat, "emission_energy_multiplier", 0.2, dur)   # 발광도 같이 식는다
+	tw.chain().tween_callback(mi.queue_free)
+
+
 static func element_field(element: String, parent: Node3D, center: Vector3, radius: float) -> void:
 	if parent == null or not is_instance_valid(parent) or radius <= 0.0:
 		return

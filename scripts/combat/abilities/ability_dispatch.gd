@@ -53,7 +53,7 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_haste.gd"),       # AB-069 Swift Grace (Healer)
 	# P2-S6a B1 잔여 — stealth/buff/channel/barrier/purge/silence (AB-075 reuses skillbook_shield).
 	preload("res://scripts/combat/abilities/effects/sb_stealth.gd"),     # AB-062 Smoke Veil (Nuker, Veiled)
-	preload("res://scripts/combat/abilities/effects/sb_beam.gd"),        # AB-054 Rending Beam (DPS, channel)
+	preload("res://scripts/combat/abilities/effects/sb_channeling.gd"),  # AB-054/109/110/111 채널링 4형상 (DPS)
 	preload("res://scripts/combat/abilities/effects/sb_barrier.gd"),     # AB-034 Rampart Slam (Tank, ENT-RAMPART-001)
 	preload("res://scripts/combat/abilities/effects/sb_purge.gd"),       # AB-070 Purge Light (Healer)
 	preload("res://scripts/combat/abilities/effects/sb_silence.gd"),     # AB-044 Hush Ward (Healer, Silenced)
@@ -179,7 +179,7 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		return
 	if member.has_method("break_veil"):
 		member.break_veil()   # 잠행 은신 중 스킬 = 능동 노출 → 은신 해제(첫 스킬 +보너스는 consume_next_hit_bonus로 명중에 적용)
-	# 채널(AB-054) 중 새 스킬을 쓰면 채널을 막지 않고 대신 중단시킨다(이동 중단은 beam_channel이 처리).
+	# 채널 중 새 스킬을 쓰면 채널을 막지 않고 대신 중단시킨다(이동 중단은 channel_field가 처리).
 	# 이 시점은 차지/쿨 검증을 통과해 새 시전이 실제로 진행될 때뿐 — 실패한 시도로는 채널을 끊지 않는다.
 	if member.has_method("interrupt_active_channel"):
 		member.interrupt_active_channel()
@@ -596,7 +596,13 @@ func _sub_hit_enemies(member: CharacterBody3D, slot_index: int, aim: Vector3) ->
 	if inst == null:
 		return []
 	var kind := String(inst.params.get("kind", ""))
-	if kind == "skillbook_beam":
+	# 채널링 — line/cone은 원뿔 판정(cone은 **최대 사거리** 기준 = 완주해야 닿는 범위), cloud/nova는 원형.
+	if kind == "skillbook_channeling":
+		var cshape := String(inst.params.get("channel_shape", "line"))
+		if cshape == "cloud":
+			return enemies_in_radius(aim, float(inst.params.get("radius_m", 3.0)))
+		if cshape == "nova":
+			return enemies_in_radius(member.global_position, float(inst.params.get("radius_m", 5.0)))
 		var dir: Vector3 = aim - member.global_position
 		dir.y = 0.0
 		if dir.length() < 0.1:

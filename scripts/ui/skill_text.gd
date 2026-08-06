@@ -58,6 +58,28 @@ static func describe(kind: String, params: Dictionary) -> String:
 		prose += " 반경 %sm 안의 적을 %sm 끌어모으고 %s초간 속박한다." % [
 			_n(float(params.get("radius_m", 0.0))), _n(float(params.get("gather_m", 0.0))),
 			_n(float(params.get("root_s", 0.0)))]
+	# skillbook_channeling 4형상(DRIFT-115) — 「빔」이 아니라 **채널링**이 클러스터 축이라 형상마다
+	# 읽는 법이 다르다. 공통으로 **틱 수·총 집중 시간·이동하면 끊긴다**를 실어, 채널이 왜 위험한
+	# 스킬인지가 툴팁에서 먼저 보이게 한다(제자리에 서 있어야 하는 대가로 payoff가 크다).
+	if kind == "skillbook_channeling":
+		var cs := String(params.get("channel_shape", "line"))
+		if cs != "line":
+			prose = Slice01Data.get_skill_desc("skillbook_channeling_" + cs)
+		var tk := int(params.get("ticks", 0))
+		var iv := float(params.get("tick_interval_s", 0.0))
+		match cs:
+			"cone":
+				prose += " 사거리 %sm · %d° 부채꼴." % [
+					_n(float(params.get("range_m", 0.0))), int(round(2.0 * float(params.get("half_deg", 0.0))))]
+			"cloud":
+				prose += " 사거리 %sm · 반경 %sm." % [
+					_n(float(params.get("range_m", 0.0))), _n(float(params.get("radius_m", 0.0)))]
+			"nova":
+				prose += " 반경 %sm · 끝까지 맞은 적은 %s초간 빙결(모든 행동 불가)." % [
+					_n(float(params.get("radius_m", 0.0))), _n(float(params.get("freeze_s", 0.0)))]
+			_:
+				prose += " 사거리 %sm." % _n(float(params.get("range_m", 0.0)))
+		prose += " %d회에 걸쳐 총 %s초간 집중하며, **이동하면 즉시 끊긴다**." % [tk, _n(float(tk) * iv)]
 	if kind == "skillbook_bolt":
 		if float(params.get("cast_s", 0.0)) > 0.0:
 			prose = "에너지를 집중한 뒤 " + prose

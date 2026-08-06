@@ -24,7 +24,7 @@
     "skillbook_vulnerable": "취약 표식",
     "skillbook_haste": "가속",
     "skillbook_stealth": "은신",
-    "skillbook_beam": "관통 빔",
+    "skillbook_channeling": "채널링",
     "skillbook_barrier": "방벽 소환",
     "skillbook_purge": "정화",
     "skillbook_silence": "침묵",
@@ -62,7 +62,7 @@
     "skillbook_vulnerable": "대상에 취약 표식을 남겨 받는 피해를 증폭시킨다.",
     "skillbook_haste": "잠시 동안 공격·이동 속도를 높인다.",
     "skillbook_stealth": "잠시 은신해 적의 표적에서 벗어난다.",
-    "skillbook_beam": "전방으로 관통 빔을 채널링하며 지속 피해를 준다.",
+    "skillbook_channeling": "제자리에 서서 정신을 집중해, 전방으로 관통하는 빔을 여러 차례 내리꽂는다.",
     "skillbook_barrier": "지정 위치에 방벽을 소환해 적의 투사체와 진격을 막는다. 벽에 닿는 적은 중심을 잃고 잠시 스턴에 빠진다.",
     "skillbook_purge": "대상에 걸린 강화 효과를 정화(제거)한다.",
     "skillbook_silence": "대상 지역의 적을 침묵시켜 액티브 스킬 사용을 막는다.",
@@ -91,6 +91,9 @@
     "skillbook_reflect": "잠시 동안 반격 태세를 갖춰, 받은 피해의 일부를 공격자에게 되돌린다. 받는 피해 자체는 줄어들지 않는다.",
     "skillbook_reflect_cast": "적이 집중해서 시전하는 스킬에 한해, 받은 피해의 일부를 공격자에게 되돌린다. 평타는 막지 못하고, 받는 피해 자체도 줄어들지 않는다.",
     "skillbook_barrier_dome": "자신을 중심으로 전방위 보호 돔을 세워 **모든 방향에서 날아오는 적 투사체를 막는다**. 적의 이동은 막지 못하고, 투사체를 받아낼 때마다 내구도가 닳아 부서진다.",
-    "skillbook_taunt_all": "집중해서 포효한 뒤, 지정 범위 안의 적 **전체**를 도발해 자신을 공격하도록 강제한다."
+    "skillbook_taunt_all": "집중해서 포효한 뒤, 지정 범위 안의 적 **전체**를 도발해 자신을 공격하도록 강제한다.",
+    "skillbook_channeling_cone": "제자리에 서서 전방으로 불길을 뿜는다. 불길은 집중을 유지하는 동안 부채꼴로 점점 멀리 뻗어나간다.",
+    "skillbook_channeling_cloud": "조준한 자리에 독무를 피워 올린다. 집중을 유지하는 동안 구름 안의 적에게 독이 계속 쌓인다.",
+    "skillbook_channeling_nova": "제자리에서 냉기 폭풍을 일으킨다. 주위의 적은 맞을수록 굼떠지고, 폭풍이 끝날 때까지 벗어나지 못한 적은 얼어붙는다."
   }
 }

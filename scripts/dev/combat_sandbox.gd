@@ -43,11 +43,15 @@ const ZONE_RADIUS := 3.0
 
 # Skillbooks auto-equipped so Q/E/R subs (incl. Toll Stun for channel-interrupt testing) work
 # without the hub deploy step. slot -> base_ability_id (role gate is bypassed for the sandbox).
+## ⚠️ **폐기된 AB를 넣으면 조용히 빈 슬롯이 된다**(`equip_skillbook_by_id`가 마스터를 못 찾고 무시).
+## `AB-037`(DRIFT-111에서 폐기)이 그대로 남아 DPS·Nuker 슬롯이 비어 있었다 — 샌드박스가 유저의
+## 실제 체감 무대라 여기 목록이 낡으면 "그 스킬 안 나오는데?"로 돌아온다. 폐기 시 여기도 본다.
 const SANDBOX_SUBS := {
-	"Tank": ["AB-002", "AB-011", ""],     # Shield Bash, Toll Stun
-	"DPS": ["AB-037", "AB-011", ""],      # Ember Lance, Toll Stun
-	"Nuker": ["AB-010", "AB-037", ""],    # Venom, Ember Lance
-	"Healer": ["AB-010", "AB-002", ""],   # Venom, Shield Bash
+	"Tank": ["AB-002", "AB-011", ""],           # Shield Bash, Toll Stun
+	# 채널링 4형상(DRIFT-115) 체감용 — DPS/Nuker에 형상이 겹치지 않게 흩어 둔다.
+	"DPS": ["AB-109", "AB-111", "AB-011"],      # 화염 분사(cone), 냉기 폭풍(nova), Toll Stun
+	"Nuker": ["AB-010", "AB-110", "AB-054"],    # Venom, 독무 살포(cloud), 절단 광선(line)
+	"Healer": ["AB-010", "AB-002", ""],         # Venom, Shield Bash
 }
 
 # Per-engage-profile one-line behavior summary (shown in the info panel; matches _engage_move).

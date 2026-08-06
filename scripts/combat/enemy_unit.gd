@@ -500,7 +500,7 @@ func tick_outcome(delta: float) -> void:
 ## 하드 CC outcome — spec `EFFECT-CORE`: "CC `duration_s`는 base이며 대상 `ccTenacity`로 스케일된다".
 ## `apply_stun`/`apply_silence`는 지키고 있었는데 `apply_outcome` 경로만 빠져 있었다(게임 DRIFT-109).
 ## 이동 완전잠금 2종만 대상 — 원소 아웃컴(Chilled/Sodden 등 soft)은 지속 그대로.
-const CC_TENACITY_OUTCOMES := {"Rooted": true, "Pinned": true}
+const CC_TENACITY_OUTCOMES := {"Rooted": true, "Pinned": true, "Frozen": true}
 func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if hp <= 0.0:
 		return
@@ -554,10 +554,20 @@ func _missing_hp_frac() -> float:
 ## Attack interval folding Bloodlust haste — scales with MISSING HP (DRIFT-055 resolve): the stored
 ## bloodlust_spd_mult is the MAX rage (at 0 HP); at the cast threshold it ramps from there by missing HP.
 func attack_interval_now() -> float:
-	if not is_bloodlust():
-		return attack_interval_s
-	var spd: float = 1.0 + (bloodlust_spd_mult - 1.0) * _missing_hp_frac()
+	var spd := 1.0
+	if is_bloodlust():
+		spd = 1.0 + (bloodlust_spd_mult - 1.0) * _missing_hp_frac()
+	# 상태 기반 공속 배율(냉각 감속 등) — **가속과 같은 축에서 곱해진다**(광폭한 적을 얼리면 상쇄).
+	# 이 seam이 생기기 전엔 공속을 건드리는 수단이 Bloodlust 가속 하나뿐이었다. ref: DRIFT-115.
+	spd *= _outcome.atk_mult()
 	return attack_interval_s / maxf(spd, 0.01)
+
+
+## 빙결(Frozen) — **모든 행동 금지**. Stunned와 같은 게이트를 타지만 CC 원천이 달라 상태로 분리한다
+## (스턴은 타이머 필드 · 빙결은 outcome 컨테이너 = 지속·표시·해제가 다른 냉기 상태들과 한 규격).
+## EnemyAI가 is_stunned()와 함께 검사해 캐스트/돌진을 끊고 정지시킨다. ref: DRIFT-115.
+func is_frozen() -> bool:
+	return hp > 0.0 and _outcome.has("Frozen")
 
 ## Damage multiplier from Bloodlust (1.0 when not raging), scaled by missing HP. EnemyAI folds it in.
 func contact_damage_mult() -> float:

@@ -1036,3 +1036,39 @@
 - **영향 파일:** `scripts/combat/enemy_unit.gd` · `scripts/party/party_member.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS** · party_pool_smoke 파리티 2건 신규.
 - **상태:** FIXED.
+
+### DRIFT-114 — D4 폐기: `AB-028` Guard Break Rhythm 삭제(클래스 불일치) 🔶 scope (전파 후보)
+- **판정(사용자):** *"AB-028은 그냥 삭제해도 되지 않을까"* → **폐기 확정.** 48종(49 → 48), DPS 주력 9 → **8**.
+- **근거 — 클러스터 중복이 아니라 「클래스와의 불일치」:** DPS 정체성 2종의 평타 사거리가 **10.0m / 14.0m**(`dps_press_line` HP110 · `dps_arc_weave` HP100 · 둘 다 `threat_mult` 0.6)인데 AB-028만 **자기중심 r3.0**이다. 원거리 클래스에게 어그로 안 끄는 몸으로 3m까지 들어가라 요구하면서 **`knockback_m: 0.0`이라 붙은 뒤 공간을 만들 수단이 없다.** 성능도 지배당한다 — 같은 DPS 풀의 **AB-004(원거리 dmg2.0/cd5)** · **AB-059(dmg4.0/cd9)** vs **AB-028(근접 dmg1.0/cd6)**. **리스크를 더 지는 쪽의 보상이 더 낮다.**
+- **재정의 안을 왜 안 골랐나:** D4 노트의 대안(kb·속성 복구 → "DPS 근접 이탈기")은 **AB-002(Tank 자기중심 강타 + kb3.0)와 축이 그대로 겹치고**, 위 정체성 사거리와는 여전히 어긋난다. **재정의해도 살 자리가 없다**는 게 폐기로 기운 이유.
+- **폐기 비용:** `skillbook_strike` kind는 **AB-002(Tank 자기중심) · AB-005(Nuker rect)** 가 계속 써 **kind 소멸 없음**. **Ally-only**(`abilities.json`에 AB-028 없음)라 [[DRIFT-101]] ②(Shared 폐기 시 적측 교체) **미적용**. 죽은 `castTier=B`/`rootDuringCast`/`telegraph_s` 잔존 스키마도 함께 소멸.
+- **RX:** 속성 없음 + kb 0.0이라 `PhysicalImpact` 축에도 못 끼던 **전수 유일 "RX 접점 0" 피해 스킬**이 사라졌다 → §5.2.1 공백 항목에서 제거.
+- **정리 규약(선례 따름):** `id_registry.json`의 `AB-028`은 **존치**한다 — AB-050/009/071/074/036 등 기폐기 ID 전부 registry에 남아 있다(폐기 = 카탈로그에서 빼는 것이지 ID 반납이 아님). **`ALLY_CACHE_POOL`(dungeon_run.gd)에서는 제거** — [[DRIFT-112]]에서 걸린 `AB-050` 유령 ID의 재발 방지.
+- **분류\전파:** 스킬 1종 폐기 = scope → **OPS_30 전파 후보**([[DRIFT-107]]~[[DRIFT-112]]와 한 패킷).
+- **영향 파일:** `data/slice01/skillbooks.json` · `scripts/run/dungeon_run.gd` · `docs/_WIP_casting_expansion_pass.md`.
+- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기.
+
+### DRIFT-115 — D5 재정의: 「빔」 → **채널링** 클러스터(4형상 × 4속성) · `Frozen` 신설 · 냉각에 공속 축 추가 🔶 rule/scope/schema (전파 후보)
+- **판정(사용자):** *"D5는 '빔'에 초점을 맞추기보다 **채널링**에 초점을 맞춰 클러스터를 유지하고, 이에 맞춰 다른 element 스킬도 생성한다."* → 단일 스킬 클러스터(AB-054)가 **4종 클러스터**가 됐다. 51종(48 → 51), DPS 주력 8 → **11**.
+- **왜 이 방향이 성립하나:** `beam_channel`은 이름만 빔이지 실제로는 **범용 틱커**였다 — 판정이 `enemies_in_cone`이라 빔은 이미 `half_deg 7°`짜리 부채꼴이었고, `element_hit` seam도 틱마다 이미 호출되고 있었다. 즉 **형상·속성 축이 이미 열려 있었는데 스킬이 하나뿐이었던 것**이다. §5.2.1의 "D5는 채널 형태가 lightning에 고정" 진단은 **kind 이름에 갇힌 착시**였다([[DRIFT-111]] D1+D2 병합과 같은 교훈).
+- **① kind 개명 `skillbook_beam` → `skillbook_channeling`**(사용자 선택): 4형상 중 1개만 참인 이름을 버렸다. `sb_beam.gd`→`sb_channeling.gd` · `beam_channel.gd`→`channel_field.gd`.
+- **② 4형상 (`channel_shape`):**
+  - `line`(AB-054 절단 광선 · lightning) — 원형. 좁은 원뿔 = 직선 관통. 변경 없음.
+  - `cone`(**AB-109 화염 분사** · fire) — **틱마다 사거리가 자란다**(reach = range × (i+1)/ticks). 사용자 판정: *"한번에 전범위 아니고 나로부터 뻗어나가는"*. 1틱은 발밑, 마지막 틱에 최대 사거리 → **가까운 적부터 순서대로** 맞고 뒷줄은 완주해야 닿는다.
+  - `cloud`(**AB-110 독무 살포** · poison) — **조준점**에 서는 구름(사거리 8m, *"너무 멀지 않게"*), 틱마다 `apply_poison_stack`. 피해가 아니라 **스택이 payoff**.
+  - `nova`(**AB-111 냉기 폭풍** · cold) — 자기중심 r5.0. 틱마다 냉각 심화, **마지막 틱까지 전부 맞은 대상만 빙결**. 반경을 한 번이라도 벗어나면 연속 카운트가 끊겨 무산된다 = **적에게 빠져나갈 여지가 있는 CC**.
+- **③ `Frozen` 상태 신설(사용자 선택):** 종전엔 빙결 상태가 **없었다** — DPS 초월 `freeze` variant가 `Chilled`를 `Rooted`(이동만 잠금·행동은 가능)로 격상하는 게 유일한 선례였다. 사용자 판정은 *"모든 행동 금지"* → `MOVE_MULT 0.0` + `ATK_MULT 0.0` + **`enemy_ai`가 `is_stunned()`와 같은 게이트에서 검사**(캐스트·돌진 중단 + 정지). 스턴과 원천만 다르다(스턴=타이머 필드 / 빙결=outcome 컨테이너라 지속·표시·해제가 다른 냉기 상태와 한 규격). `CC_TENACITY_OUTCOMES` 등재 — 미니보스 저항이 먹는다.
+- **④ 냉각(`Chilled`)에 공속 축 추가(사용자 지시):** **이동만 늦추는 감속은 원거리 적에게 거의 의미가 없었다**(제자리에서 같은 속도로 쏜다 — [[DRIFT-109]]에서 이동 CC를 폐기한 것과 같은 진단). `ATK_MULT` 표 + `attack_interval_now()`가 접는다. 이 seam이 생기기 전엔 공속을 건드리는 수단이 **Bloodlust 가속 하나뿐**이었다(단방향).
+  - **심화도 = `Chilled.mag`(0~1)** — 상태를 새로 만들지 않고 **기존 Chilled에 깊이 축을 추가**했다. mag 0 = 종전 값 그대로라 **RX·볼트 등 기존 냉기는 하나도 안 변한다**(하위호환). mag 1 = `CHILL_DEEP_MOVE 0.25` / `CHILL_DEEP_ATK 0.30`.
+- **⑤ 화염 = 순수 피해(사용자 결정):** `Elements` 규약(2026-07-19: 점화는 RX 조건부)을 **건드리지 않는다.** 화염 분사는 맨땅에서 틱 피해만 주고, 기름 위에서만 점화가 붙는다. *"향후 데미지 배율에 속성 추가 피해를 추가할 예정"* — 그때 얹는다.
+- **⑥ 조준 분화:** 한 kind가 **네 조준**을 갖는 첫 사례라 `channel_shape`로 갈랐다 — line=레인 / **cone=부채꼴 프리뷰 신설**(`AimMarker.show_fan`) / cloud=지면 원판 / nova=조준 없음(자기중심 즉시). cone을 직선 레인으로 그리면 산탄 때와 같은 "마커와 실제가 다르다" 문제가 난다(IMPL-DEC-20260728-002에서 세운 규칙).
+- **⚠️ 클래스 정합 리스크(명시 기록):** [[DRIFT-114]]에서 AB-028을 *"DPS는 평타 10/14m 원거리라 자기중심 근접은 집이 없다"* 로 폐기했는데, `cone`(전방 7m)·`nova`(자기중심 r5)는 **같은 구조를 다시 만든다.** 게다가 채널은 `MOVE_CANCEL_M 0.3`이라 **제자리에 못 박힌다.** 성립 조건은 하나 — **payoff**다. AB-028은 payoff가 `dmg 1.0`뿐이었고, 여기는 빙결(전 틱 완주)·전방 광역 지속피해가 대가다. **냉기 폭풍이 피해 위주로 튜닝되면 AB-028의 재판이 된다** — 밸런싱 시 이 문장을 먼저 볼 것.
+- **부수 수정:** 샌드박스 로드아웃(`SANDBOX_SUBS`)에 **폐기된 `AB-037`**([[DRIFT-111]])이 남아 DPS·Nuker 슬롯이 **조용히 비어 있었다**(`equip_skillbook_by_id`가 없는 마스터를 무시). 유저의 실제 체감 무대라 목록이 낡으면 "그 스킬 안 나온다"로 돌아온다 → 신규 채널 4형상으로 교체 + **스모크에 전수검증 추가**.
+- **분류\전파:** **kind 개명 + `channel_shape` enum + 신규 AB 3종(AB-109/110/111) + `Frozen` 상태 신설 + `Chilled` 공속 규칙** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]~[[DRIFT-114]]와 한 패킷).
+- **영향 파일:** `data/slice01/{skillbooks,display_names,id_registry}.json` · `scripts/combat/abilities/effects/{sb_channeling,channel_field}.gd`(신규, `sb_beam`·`beam_channel` 삭제) · `scripts/combat/{outcome_status,enemy_unit,enemy_ai}.gd` · `scripts/ui/{aim_marker,float_text,skill_text}.gd` · `scripts/run/controllers/aim_controller.gd` · `scripts/combat/abilities/ability_dispatch.gd` · `scripts/run/dungeon_run.gd` · `scripts/dev/combat_sandbox.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS** — party_pool_smoke에 **30여 건** 신규: kind 소멸/등록 · 4형상 전수 · 4속성 커버 · 형상별 필수 params · 냉각 하위호환(mag 0) · 심화(mag 1) 이동·공속 · 빙결 이동/공격 0 · `is_frozen()` 게이트 · 적 공격 간격 증가 · 샌드박스 슬롯 실재.
+- **⑦ 체감 수정 2건(2026-08-06 F5 피드백):**
+  - **화염 VFX 전면 교체** — `fan_telegraph`(지면 반투명 삼각팬)를 재사용했더니 *"불 느낌이 안 난다"*(사용자). 그건 **전조 마커**용이라 정지·평면·단색이었다 — 구조적으로 불이 될 수 없다. `SkillVfx.flame_cone` 신설: **바깥으로 뻗는 이동 + 식는 색(흰노랑→주황→검붉음, `emission_energy`도 동반 감쇠) + 자라는 크기**를 한 puff에 태우고, 노즐 코어 번쩍 + 끝단 검댕을 얹었다. 퍼프 수명(`interval × 1.6`)이 틱 간격보다 길어 **틱끼리 겹치며 연속 분사**로 보인다. 지면 팬은 **그을음 색으로 낮춰** 존치(부채꼴 각도 단서는 남기되 마커로 안 읽히게).
+  - **채널 지속 2.1~3.2배 연장** — *"너무 짧아서 집중 중인 느낌이 안 난다"*(사용자). 054 1.08→**3.5s** · 109 1.6→**4.0s** · 110 2.0→**4.2s** · 111 1.8→**4.2s**. **총 피해(ticks × tick_mult)는 유지**했다 — 요청은 길이지 세기가 아니다. 스모크에 **3초 하한**을 못박았다(짧으면 즉발과 구분이 안 돼 클러스터의 존재 이유가 사라진다).
+  - ⚠️ **파생 — 냉기 폭풍 빙결이 크게 어려워졌다:** 요건이 "전 틱 연속 적중"이라 **1.8s → 4.2s 동안 반경 안에 붙잡아둬야** 한다. 결과적으로 빙결은 **접근형(advance) 적 전용 CC**가 된다 — 카이팅·standoff 적은 사실상 못 얼린다. 자기방어(붙은 적을 떼어낸다) 프레이밍과는 일관되지만, **F5에서 한 번도 안 걸리면 요건을 "전 틱" → "N틱 이상"으로 완화**할 것.
+- **상태:** LOGGED (게임측 확정). ⏳ F5 체감 대기: 뻗어나가는 화염의 도달 순서 · 독무 배치 사거리 · **냉기 폭풍 완주 난이도(4.2s 연장으로 더 어려워짐 — 위 ⑦ 참조)** · 냉각 공속 감소 체감 · 새 화염 VFX 밀도/속도.

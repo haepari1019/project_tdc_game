@@ -21,7 +21,9 @@ const ALLY_TARGET_KINDS := [
 	"skillbook_relocate_ally", "skillbook_regen",
 ]
 ## 직선형(광선) 조준으로 다룰 kind — 원형 원판/링이 아니라 시전자→마우스 직선 레인으로 표시.
-const LINE_AIM_KINDS := ["skillbook_beam"]
+## 채널링은 kind가 아니라 **`channel_shape`로 갈린다**(line=레인 / cone=부채꼴 / cloud=지면 원판 /
+## nova=자기중심이라 조준 자체가 없다). 한 kind가 여러 조준을 갖는 첫 사례라 아래에서 따로 분기한다.
+const LINE_AIM_KINDS := []
 const _SbBolt := preload("res://scripts/combat/abilities/effects/sb_bolt.gd")   # 산탄 데드존 계산 공유(SSOT)
 
 var _cursor_ally: ImageTexture     # 초록 십자(아군 대상)
@@ -81,6 +83,19 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 		return
 	# 직선 빔(AB-054 절단 광선) / 캐스터에서 뻗는 직사각형(AB-005 근접 rect) — 원형이 아니라 시전자→마우스 직선
 	# 레인으로 조준(적 커서). 확정 시 그 방향으로 즉시 시전(사거리까지 걷지 않음).
+	# 채널링 — `channel_shape`가 조준 형태를 정한다. cone은 실제 판정이 원뿔이라 **부채꼴 프리뷰**로
+	# 그린다(직선 레인으로 그리면 산탄 때와 같은 "마커와 실제가 다르다" 문제가 난다).
+	if kind == "skillbook_channeling":
+		var cshape := String(p.get("channel_shape", "line"))
+		if cshape == "cone" or cshape == "line":
+			_is_line_aim = true   # 방향 조준 = 확정 시 사거리까지 걷지 않고 그 방향으로 즉시 시전
+			Input.set_custom_mouse_cursor(_cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))
+			if cshape == "cone":
+				_aim.show_fan(member, _range, 2.0 * float(p.get("half_deg", 30.0)), cc)
+			else:
+				_aim.show_beam(member, _range, 2.0 * float(p.get("radius_m", 1.0)), cc)
+			return
+		# cloud = 지면 배치 → 아래 일반 경로(사거리 링 + 반경 원판). nova는 targeted가 아니라 여기 안 온다.
 	if LINE_AIM_KINDS.has(kind) or is_rect:
 		_is_line_aim = true
 		Input.set_custom_mouse_cursor(_cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))

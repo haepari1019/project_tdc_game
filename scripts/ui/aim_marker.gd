@@ -14,6 +14,7 @@ var _beam_mat: StandardMaterial3D
 var _beam_len: float = 0.0         # 레인 길이(=빔 사거리)
 var _beam_active: bool = false
 var _rect_active: bool = false     # 지면배치 rect 존(AB-042 Wind 복도) — 커서 '중앙' 정렬 + 사거리 링(빔은 캐스터에서 뻗음)
+var _fan_active: bool = false      # 부채꼴 채널(AB-109 화염 분사) — 시전자가 꼭짓점인 sector
 ## **2단 범위 표시**(AB-055 산탄) — 초탄 원판(self)과 별개로 **마우스를 따라다니는 바깥 링**.
 ## 색을 살짝 달리해 두 단계가 동시에 읽히고, 그 사이 **빈 공간 = 파편 데드존**이 그대로 보인다.
 var _outer: MeshInstance3D
@@ -76,6 +77,15 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if not visible:
 		return
+	# 부채꼴 모드 — 시전자가 **꼭짓점**인 sector를 캐스터→커서로 정렬(레인처럼 중점 보정을 하지 않는다).
+	if _fan_active and _follow != null and is_instance_valid(_follow):
+		var of: Vector3 = _follow.global_position
+		var gpf := ground_pos()
+		var dirf := Vector3(gpf.x - of.x, 0.0, gpf.z - of.z)
+		_beam.global_position = Vector3(of.x, 0.08, of.z)
+		if dirf.length() > 0.05:
+			_beam.rotation = Vector3(0.0, atan2(dirf.x, dirf.z), 0.0)   # 로컬 +Z를 캐스터→커서로
+		return
 	# rect 존 모드 — 커서를 **중앙**으로 캐스터→커서 축의 레인 + 사거리 링(빔과 달리 커서 중앙 정렬 → 실제 스폰과 일치).
 	if _rect_active and _follow != null and is_instance_valid(_follow):
 		var o2: Vector3 = _follow.global_position
@@ -118,6 +128,7 @@ func show_ground(radius: float, color: Color) -> void:
 	_beam.visible = false
 	_beam_active = false
 	_rect_active = false
+	_fan_active = false
 	_follow = null
 	scale = Vector3(radius, 1.0, radius)
 	_mat.albedo_color = color
@@ -137,6 +148,7 @@ func show_aim(caster: Node3D, range_m: float, disc_radius: float, color: Color,
 	_beam.visible = false
 	_beam_active = false
 	_rect_active = false
+	_fan_active = false
 	var t := TorusMesh.new()
 	t.inner_radius = maxf(0.05, range_m - 0.05)          # 얇은 링(선폭 ~0.1)
 	t.outer_radius = range_m + 0.05
@@ -168,12 +180,30 @@ func show_aim(caster: Node3D, range_m: float, disc_radius: float, color: Color,
 	visible = true
 
 
+## 부채꼴 채널 조준(AB-109 화염 분사): **시전자가 꼭짓점**인 반경 `radius_m` · `cone_deg` sector.
+## 직선 레인(show_beam)으로 그리면 실제 판정(원뿔)과 모양이 달라 거짓말이 된다 — 산탄 조준에서
+## 같은 문제를 겪고 세운 규칙이다(IMPL-DEC-20260728-002). ⚠️ 표시 반경 = **최대 사거리**이고,
+## 실제로는 틱마다 거기까지 뻗어나간다(첫 틱은 발밑) — 도달 순서는 채널을 봐야 읽힌다.
+func show_fan(caster: Node3D, radius_m: float, cone_deg: float, color: Color) -> void:
+	_follow = caster
+	_fan_active = true
+	_beam_active = false
+	_rect_active = false
+	_beam.mesh = _annular_sector(0.05, radius_m, deg_to_rad(cone_deg * 0.5))
+	_beam_mat.albedo_color = Color(color.r, color.g, color.b, 0.28)
+	_beam.visible = true
+	_ring.visible = false
+	_mat.albedo_color = Color(color.r, color.g, color.b, 0.0)   # 마우스 원판 숨김
+	visible = true
+
+
 ## 직선 빔 조준(AB-054): 시전자에서 마우스 방향으로 뻗는 길이 `range_m` · 너비 `width_m` 레인.
 ## 원형이 아니라 직선이라 광선 스킬임이 한눈에 보인다. 원판/링은 끄고 레인만 표시.
 func show_beam(caster: Node3D, range_m: float, width_m: float, color: Color) -> void:
 	_follow = caster
 	_beam_active = true
 	_rect_active = false
+	_fan_active = false
 	_beam_len = range_m
 	var b := BoxMesh.new()
 	b.size = Vector3(maxf(width_m, 0.2), 0.05, range_m)   # 너비 × 얇은 높이 × 길이(로컬 +Z)
@@ -191,6 +221,7 @@ func show_zone_rect(caster: Node3D, range_m: float, length_m: float, width_m: fl
 	_follow = caster
 	_rect_active = true
 	_beam_active = false
+	_fan_active = false
 	_beam_len = length_m
 	var b := BoxMesh.new()
 	b.size = Vector3(maxf(width_m, 0.2), 0.05, maxf(length_m, 0.2))   # 너비 × 얇은 높이 × 길이(로컬 +Z)
@@ -241,6 +272,7 @@ func hide_marker() -> void:
 	_beam.visible = false
 	_beam_active = false
 	_rect_active = false
+	_fan_active = false
 	_follow = null
 
 

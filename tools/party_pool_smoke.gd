@@ -68,7 +68,7 @@ func _initialize() -> void:
 
 	# 3) New B1 ally-only skillbooks resolve with the right kind + key params.
 	var want := {
-		"AB-075": "skillbook_shield", "AB-062": "skillbook_stealth", "AB-054": "skillbook_beam",
+		"AB-075": "skillbook_shield", "AB-062": "skillbook_stealth", "AB-054": "skillbook_channeling",
 		"AB-034": "skillbook_barrier", "AB-070": "skillbook_purge", "AB-044": "skillbook_silence",
 	}
 	for ab in want:
@@ -158,6 +158,79 @@ func _initialize() -> void:
 			elems[String(cb["element"])] = true
 	for want_el in ["fire", "cold", "lightning"]:
 		_chk("볼트 계열 %s 커버" % want_el, elems.has(want_el))
+
+	# D5 채널링 재정의(DRIFT-115) — 클러스터 축이 「빔」에서 **채널링**으로 바뀌며 4형상 × 4속성.
+	_chk("skillbook_beam kind 소멸", not kinds.has("skillbook_beam"))
+	_chk("skillbook_channeling kind 등록", kinds.has("skillbook_channeling"))
+	var shapes := {}
+	var ch_elems := {}
+	for ab in sd._registry_list("ability_ids"):
+		var mc: Dictionary = sd.get_skillbook_master(String(ab))
+		if mc.is_empty():
+			continue
+		var cc2: Dictionary = mc.get("cast", {})
+		if String(cc2.get("kind", "")) != "skillbook_channeling":
+			continue
+		shapes[String(cc2.get("channel_shape", "line"))] = String(ab)
+		ch_elems[String(cc2.get("element", ""))] = true
+		# 채널은 **틱으로 성립**한다 — ticks/interval이 없으면 즉발이 되어 클러스터 정의가 깨진다.
+		_chk("%s ticks>1(채널)" % ab, int(cc2.get("ticks", 0)) > 1)
+		_chk("%s tick_interval_s>0" % ab, float(cc2.get("tick_interval_s", 0.0)) > 0.0)
+		# **집중 체감 하한**(사용자 제보: *"너무 짧아서 집중 중인 느낌이 안 난다"*) — 채널이 짧으면
+		# 즉발과 구분이 안 돼 클러스터의 존재 이유(제자리 대가)가 사라진다. 3초를 바닥으로 못박는다.
+		_chk("%s 채널 지속 >=3s(집중 체감)" % ab,
+			float(cc2.get("ticks", 0)) * float(cc2.get("tick_interval_s", 0.0)) >= 3.0)
+	for want_shape in ["line", "cone", "cloud", "nova"]:
+		_chk("채널 형상 %s 존재" % want_shape, shapes.has(want_shape))
+	for want_el2 in ["lightning", "fire", "poison", "cold"]:
+		_chk("채널 속성 %s 커버" % want_el2, ch_elems.has(want_el2))
+	# 형상별 필수 params — 없으면 기하가 기본값으로 조용히 떨어져 툴팁과 실제가 어긋난다.
+	var c109: Dictionary = sd.get_skillbook_master(String(shapes.get("cone", ""))).get("cast", {})
+	var c110: Dictionary = sd.get_skillbook_master(String(shapes.get("cloud", ""))).get("cast", {})
+	var c111: Dictionary = sd.get_skillbook_master(String(shapes.get("nova", ""))).get("cast", {})
+	var c054: Dictionary = sd.get_skillbook_master(String(shapes.get("line", ""))).get("cast", {})
+	_chk("cone half_deg >> line half_deg(부채꼴 ↔ 직선)",
+		float(c109.get("half_deg", 0.0)) > float(c054.get("half_deg", 99.0)) * 2.0)
+	_chk("cone 사거리 < line 사거리(근거리 분사)", float(c109.get("range_m", 99.0)) < float(c054.get("range_m", 0.0)))
+	_chk("cloud radius_m>0", float(c110.get("radius_m", 0.0)) > 0.0)
+	_chk("cloud poison_dps>0(피해 아닌 스택이 payoff)", float(c110.get("poison_dps", 0.0)) > 0.0)
+	_chk("cloud 사거리 = 근거리 배치(<=10m)", float(c110.get("range_m", 99.0)) <= 10.0)
+	_chk("nova = 자기중심(targeted 아님)", not bool(c111.get("targeted", false)))
+	_chk("nova freeze_s>0(완주 payoff)", float(c111.get("freeze_s", 0.0)) > 0.0)
+	# 빙결·냉각 심화 — 상태 규격이 실제로 동작하는가(표 등재만으론 안 걸린다).
+	var OS_ = load("res://scripts/combat/outcome_status.gd")
+	var oc = OS_.new()
+	oc.apply("Chilled", 3.0, 0.0)
+	var chill_base: float = oc.move_mult()
+	var atk_base: float = oc.atk_mult()
+	_chk("냉각 기본 = 종전 값 유지(mag 0 하위호환)", is_equal_approx(chill_base, float(OS_.MOVE_MULT["Chilled"])))
+	_chk("냉각이 공속도 늦춘다", atk_base < 1.0)
+	oc.apply("Chilled", 3.0, 1.0)
+	_chk("냉각 심화(mag 1) → 이동 더 느려짐", oc.move_mult() < chill_base)
+	_chk("냉각 심화(mag 1) → 공속 더 느려짐", oc.atk_mult() < atk_base)
+	var oc2 = OS_.new()
+	oc2.apply("Frozen", 2.0, 0.0)
+	_chk("빙결 = 이동 0", is_equal_approx(oc2.move_mult(), 0.0))
+	_chk("빙결 = 공격 0", is_equal_approx(oc2.atk_mult(), 0.0))
+	var enf = EN.new()
+	root.add_child(enf)
+	enf.max_hp = 100.0
+	enf.hp = 100.0
+	_chk("적: 평시 is_frozen()=false", not enf.is_frozen())
+	enf.apply_outcome("Frozen", 2.0)
+	_chk("적: 빙결 시 is_frozen()=true(AI 정지 게이트)", enf.is_frozen())
+	var base_iv: float = enf.attack_interval_s
+	enf.apply_outcome("Chilled", 3.0, 0.0)
+	_chk("적: 냉각이 공격 간격을 늘린다", enf.attack_interval_now() > base_iv)
+	enf.free()
+	# 샌드박스 로드아웃 유효성 — 유저가 체감하는 무대라 여기 목록이 낡으면 슬롯이 조용히 빈다
+	# (`equip_skillbook_by_id`가 폐기 AB를 무시). AB-037 폐기 후 DPS/Nuker가 실제로 그랬다.
+	var SB = load("res://scripts/dev/combat_sandbox.gd")
+	for cls in SB.SANDBOX_SUBS:
+		for ab_s in SB.SANDBOX_SUBS[cls]:
+			if String(ab_s) == "":
+				continue
+			_chk("샌드박스 %s 슬롯 %s 실재" % [cls, ab_s], not sd.get_skillbook_master(String(ab_s)).is_empty())
 	_chk("볼트 계열 slag 소멸", not elems.has("slag"))
 	# D1+D2 병합(DRIFT-111) — 속성 전용 kind가 볼트로 흡수되고 즉발 쌍둥이·신설 중복이 폐기됐다.
 	for gone in ["AB-107", "AB-108", "AB-037", "AB-072"]:
