@@ -243,6 +243,14 @@ func remove(id: String) -> void:
 	_stacks.erase(id)
 
 
+## 활성 디버프가 하나라도 있나(BUFF 등재분 제외) — 적 서포터가 정화를 켤지 판단할 때 쓴다.
+func has_any_debuff() -> bool:
+	for id in _t.keys():
+		if not BUFF.has(id):
+			return true
+	return false
+
+
 ## Cleanse one debuff — the first active non-buff outcome. Returns the removed id ("" if none).
 func cleanse_one() -> String:
 	for id in _t.keys():

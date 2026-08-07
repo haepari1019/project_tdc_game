@@ -377,10 +377,13 @@
         "attack_interval_s": 1.5
       },
       "basic_attack": "rom_trash_sustain_tap",
-      "_role_note": "SustainTrash (EN-AI-000 PT-016). worldInteractProfile: none (torch carry is ENC-bound, demo home ENC-PAT-003=P2-S3 — NOT a unit property).",
+      "_role_note": "SustainTrash (EN-AI-000 PT-016). 힐(AB-098) + **정화(AB-070)** — 던전 진영의 유일 서포터. worldInteractProfile: none (torch carry는 ENC-bound).",
       "abilities": [
         {
           "ref": "AB-098"
+        },
+        {
+          "ref": "AB-070"
         }
       ],
       "tags": {
@@ -514,6 +517,37 @@
         "axis": "melee",
         "faction": "ThirdFaction",
         "placement_affinity": "Patrol"
+      }
+    },
+    {
+      "enemy_id": "EN-3RD-04",
+      "role": "support",
+      "display_name": "Mender",
+      "pattern_ref": "PT-016",
+      "stats": {
+        "hp": 220,
+        "move_speed": 5.4,
+        "contact_damage": 8,
+        "attack_range_m": 8.0,
+        "attack_interval_s": 1.5
+      },
+      "basic_attack": "rom_trash_sustain_tap",
+      "_role_note": "제3세력 위생병 — 힐(AB-098) + 보호막(AB-067). 3세력은 '다른 추출조'라 상대 분대에 서포터가 있는 게 정상이고, **이 유닛을 먼저 끊는 것**이 누커의 역할이 된다(DRIFT-117). 후열 유지(PT-016 Support/Hold/flee_if_melee).",
+      "abilities": [
+        {
+          "ref": "AB-098"
+        },
+        {
+          "ref": "AB-067"
+        }
+      ],
+      "tags": {
+        "tier": "Trash",
+        "archetype": "SustainTrash",
+        "bucket": "Specialist",
+        "axis": "sustain",
+        "faction": "ThirdFaction",
+        "placement_affinity": "Fixed"
       }
     }
   ]

@@ -922,7 +922,7 @@ func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, plac
 		var row := Slice01Data.get_enemy_row(eid)
 		if row.is_empty():
 			continue
-		var vis: Dictionary = UnitVisuals.enemy_visual(eid)
+		var vis: Dictionary = UnitVisuals.enemy_visual(eid, row)   # 특성 파생 외형(DRIFT-118) — row 필요
 		var s: float = vis["scale"]
 		for _c in count:
 			var unit: CharacterBody3D = EnemyScene.instantiate()

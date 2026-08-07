@@ -165,6 +165,10 @@ var _base_albedo: Color = Color.WHITE
 var _hp_bar: Node3D
 var _flash_tw: Tween
 var _box_size: Vector3 = BOX_BASE   # cached so apply_faction_shape() can swap box→cone post-spawn
+const _UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
+var _shape: String = "box"    # box(근접) / column(원거리) — 3세력은 apply_faction_shape가 cone으로 덮음
+var _crest: String = ""       # halo / orb / horns / crown — 역할 표식(머리 위)
+var _crest_root: Node3D = null
 
 
 func setup(row: Dictionary, color: Color, box_scale: float) -> void:
@@ -194,10 +198,18 @@ func setup(row: Dictionary, color: Color, box_scale: float) -> void:
 	interacts_with_objects = bool(row.get("interacts_with_objects", false))
 	name = enemy_id
 	_base_albedo = color
+	# **특성 → 외형**(DRIFT-118) — 실루엣(교전 거리)·표식(역할)을 데이터에서 뽑는다. 색은 보조 축.
+	var vis: Dictionary = _UnitVisuals.enemy_visual(enemy_id, row)
+	_shape = String(vis.get("shape", "box"))
+	_crest = String(vis.get("crest", ""))
+	# 근접은 넓고 낮게, 원거리는 좁고 높게 — 충돌 박스도 같이 바뀌어야 실루엣과 판정이 안 어긋난다.
 	var box_size := BOX_BASE * box_scale
+	if _shape == "column":
+		box_size = Vector3(box_size.x * 0.72, box_size.y * 1.28, box_size.z * 0.72)
 	_box_size = box_size
 	_apply_collision_size(box_size)
 	_build_box_mesh(color, box_size)
+	_build_crest(color, box_size)
 	_build_hp_bar(box_size)
 	_build_alert_mark(box_size)
 	collision_layer = LAYER_ENEMY
@@ -224,6 +236,18 @@ func take_damage(amount: float, attacker: Node = null, _from_ability: bool = fal
 		accumulated_damage += amount   # 허수아비: 누적딜만 집계, HP 미소모(불사)
 		_flash()
 		return
+	# 보호막 흡수(AB-067 적측) — HP보다 먼저 닳는다. 파티(party_member)와 같은 규약.
+	if shield > 0.0 and amount > 0.0:
+		var absorbed: float = minf(shield, amount)
+		shield -= absorbed
+		amount -= absorbed
+		if _hp_bar:
+			_hp_bar.set_shield_ratio(shield / maxf(max_hp, 1.0))
+		if shield <= 0.0:
+			shield_timer_s = 0.0
+		if amount <= 0.0:
+			_flash()
+			return   # 완전 흡수
 	if poly_timer_s > 0.0 and amount > 0.0:
 		remove_polymorph()   # 개구리는 피해를 받으면 즉시 해제(sheep式, AB-012)
 	hp = maxf(0.0, hp - amount)
@@ -528,6 +552,53 @@ func has_outcome(id: String) -> bool:
 
 ## Purgeable enemy buffs (AB-070 Purge Light removes one). Bloodlust is the live enemy self-buff;
 ## the rest are forward-compat (spec AB-070 removes_status — no enemy carries them yet). ref: AB-070.
+# --- 적 지원 킷(분대 대 분대, DRIFT-117) — 적 진영도 힐/보호막/정화를 갖는다. 3세력은 "다른 추출조"
+# 라는 설정이라 **상대 분대에 서포터가 있는 게 정상**이고, 그 서포터를 먼저 끊는 것이 누커의 일이 된다. ---
+var shield: float = 0.0            # 흡수 보호막 잔량(HP보다 먼저 닳음)
+var shield_timer_s: float = 0.0    # 남은 지속(0이 되면 소멸)
+
+## 흡수 보호막 부여(AB-067 적측). 파티와 같은 IDA-020 규약 — **더 센 것만 덮어쓴다**.
+func add_shield(value: float, duration: float) -> void:
+	if hp <= 0.0 or value < shield:
+		return
+	shield = value
+	shield_timer_s = duration
+	popup_status("보호막", Color(0.4, 0.9, 1.0))
+	if _hp_bar:
+		_hp_bar.set_shield_ratio(shield / maxf(max_hp, 1.0))
+
+
+## 보호막 만료 — CombatController의 유닛 틱이 굴린다.
+func tick_shield(delta: float) -> void:
+	if shield_timer_s <= 0.0:
+		return
+	shield_timer_s = maxf(0.0, shield_timer_s - delta)
+	if shield_timer_s <= 0.0:
+		shield = 0.0
+		if _hp_bar:
+			_hp_bar.set_shield_ratio(0.0)
+
+
+## 정화할 게 있나 — 개구리 or 활성 디버프. 서포터의 캐스트 조건(쓸 데 없으면 쿨을 아낀다).
+func has_any_debuff() -> bool:
+	return hp > 0.0 and (poly_timer_s > 0.0 or _outcome.has_any_debuff())
+
+
+## 디버프 정화 1건(AB-070 적측) — 개구리 우선, 없으면 debuff outcome 하나. 지운 것의 표시명("" = 없음).
+## **기절은 안 푼다**(party_member.cleanse_debuff와 같은 이유 — 하드 CC 해제는 별개 축).
+## 이게 있어야 플레이어의 CC(빙결·속박·중독)가 **되돌려질 수 있고**, 서포터 저격에 값이 생긴다.
+func cleanse_debuff() -> String:
+	if hp <= 0.0:
+		return ""
+	if poly_timer_s > 0.0:
+		remove_polymorph()
+		return "개구리"
+	var id := _outcome.cleanse_one()
+	if id == "":
+		return ""
+	return OutcomeStatus.KO.get(id, id)
+
+
 const PURGEABLE_BUFFS := ["Bloodlust", "Fortified", "Hasted", "Shielded", "Warded", "Regenerating"]
 
 ## Remove one active enemy buff (AB-070 Purge Light). Returns the removed id ("" if none).
@@ -1071,14 +1142,87 @@ func _build_box_mesh(color: Color, box_size: Vector3) -> void:
 	var mesh_node := get_node_or_null("Mesh") as MeshInstance3D
 	if mesh_node == null:
 		return
-	var box := BoxMesh.new()
-	box.size = box_size
-	mesh_node.mesh = box
+	if _shape == "column":
+		# 원거리 실루엣 — 8각 기둥. 박스와 위에서 봤을 때 확실히 다르고(각진 원), 세로로 길어
+		# "뒤에 서서 쏘는 놈"으로 읽힌다. 근접은 그대로 박스(땅에 붙은 덩치).
+		var col := CylinderMesh.new()
+		col.top_radius = box_size.x * 0.46
+		col.bottom_radius = box_size.x * 0.58
+		col.height = box_size.y
+		col.radial_segments = 8
+		mesh_node.mesh = col
+	else:
+		var box := BoxMesh.new()
+		box.size = box_size
+		mesh_node.mesh = box
 	mesh_node.position.y = box_size.y * 0.5
 	_body_material = StandardMaterial3D.new()
 	_body_material.albedo_color = color
 	_body_material.roughness = 0.5
 	mesh_node.material_override = _body_material
+
+
+## **역할 표식**(DRIFT-118) — 머리 위 작은 기하. 색보다 강한 구분자다(부감 시점에서 실루엣 위쪽이
+## 가장 잘 보인다). 몸(Mesh)과 **형제 노드**로 붙어서 `apply_faction_shape()`가 몸을 콘으로 갈아도
+## 표식은 남는다 — 진영(콘/보라)과 역할(표식)이 **직교 축**이어야 3세력 위생병이 3세력이면서
+## 동시에 서포터로 읽힌다. `fodder`는 표식이 없고, **그 없음 자체가 "잡몹"이라는 정보**다.
+func _build_crest(color: Color, box_size: Vector3) -> void:
+	if _crest == "":
+		return
+	var root := Node3D.new()
+	root.name = "Crest"
+	add_child(root)
+	root.position = Vector3(0.0, box_size.y + 0.12, 0.0)
+	var w: float = box_size.x
+	match _crest:
+		"halo":     # 지원 — 머리 위 초록 링. "먼저 끊어야 할 놈"(DRIFT-117)이 한눈에 보여야 한다.
+			var t := TorusMesh.new()
+			t.inner_radius = w * 0.42
+			t.outer_radius = w * 0.60
+			t.rings = 16
+			root.add_child(_crest_mesh(t, Color(0.45, 1.0, 0.55), 2.2, Vector3(0.0, 0.10, 0.0)))
+		"orb":      # 시전자 — 떠 있는 발광 구
+			var sp := SphereMesh.new()
+			sp.radius = w * 0.26
+			sp.height = w * 0.52
+			sp.radial_segments = 10
+			sp.rings = 6
+			root.add_child(_crest_mesh(sp, Color(1.0, 0.78, 0.32), 2.6, Vector3(0.0, w * 0.34, 0.0)))
+		"horns":    # 제어 — 좌우 뿔 2개
+			for side in [-1.0, 1.0]:
+				var hn := CylinderMesh.new()
+				hn.top_radius = 0.0
+				hn.bottom_radius = w * 0.15
+				hn.height = w * 0.62
+				hn.radial_segments = 6
+				var mi := _crest_mesh(hn, Color(0.95, 0.35, 0.55), 1.2,
+					Vector3(side * w * 0.34, w * 0.26, 0.0))
+				mi.rotation = Vector3(0.0, 0.0, -side * 0.42)   # 바깥으로 벌어지게
+				root.add_child(mi)
+		"crown":    # 분대장 — 앞뒤로 선 3개 뿔(왕관)
+			for i in 3:
+				var pk := CylinderMesh.new()
+				pk.top_radius = 0.0
+				pk.bottom_radius = w * 0.13
+				pk.height = w * (0.75 if i == 1 else 0.52)   # 가운데가 높다
+				pk.radial_segments = 6
+				root.add_child(_crest_mesh(pk, Color(1.0, 0.86, 0.38), 1.8,
+					Vector3((float(i) - 1.0) * w * 0.30, w * 0.24, 0.0)))
+	_crest_root = root
+
+
+func _crest_mesh(mesh: Mesh, tint: Color, energy: float, offset: Vector3) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.emission_enabled = true
+	mat.emission = tint
+	mat.emission_energy_multiplier = energy
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mi.material_override = mat
+	mi.position = offset
+	return mi
 
 
 ## Faction visual marker (F-028): a non-Dungeon faction renders as a CONE (vs the default box) + a
@@ -1095,6 +1239,10 @@ func apply_faction_shape() -> void:
 	cone.radial_segments = 14
 	mesh_node.mesh = cone
 	mesh_node.position.y = _box_size.y * 0.5
+	# 표식은 몸의 형제 노드라 콘 교체에도 살아남는다(진영 × 역할 = 직교 축). 콘은 위가 뾰족해
+	# 표식이 파묻히지 않게 살짝만 더 띄운다. ref: DRIFT-118.
+	if _crest_root != null and is_instance_valid(_crest_root):
+		_crest_root.position.y = _box_size.y + 0.22
 	# Tint toward a Third-faction violet (keeps the per-unit hue but pushes the whole pack violet),
 	# update _base_albedo so the hit-flash / heal-flash tweens restore to the tinted colour.
 	_base_albedo = _base_albedo.lerp(Color(0.62, 0.22, 0.92), 0.4)

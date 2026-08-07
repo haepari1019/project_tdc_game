@@ -5,8 +5,20 @@
   "group_size": 4,
   "_note": "Sustain Slow Grind (RP-07 variant). ENC-000 §0.1. EN-014 sustain stub + SlowBulk fodder.",
   "units": [
-    { "enemy_id": "EN-001", "count": 1, "slot": "elite" },
-    { "enemy_id": "EN-014", "count": 1, "slot": "fodder" },
-    { "enemy_id": "EN-012", "count": 2, "slot": "fodder" }
+    {
+      "enemy_id": "EN-001",
+      "count": 1,
+      "slot": "elite"
+    },
+    {
+      "enemy_id": "EN-014",
+      "count": 1,
+      "slot": "support"
+    },
+    {
+      "enemy_id": "EN-012",
+      "count": 2,
+      "slot": "fodder"
+    }
   ]
 }

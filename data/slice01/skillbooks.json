@@ -1,5 +1,5 @@
 {
-  "_note": "Skillbook masters. SSOT: F-009/D-018/D-016 + DEC-20260611-002 (per-kill drop). base_ability_id = the enemy's lootable Shared AB (F-009 §1.1). charges = limited (탄수). equip_classes = Role Equip Gate (= mainClasses ∪ subClasses, D-016 §3.2). sub_bands {classId: band} = 밴드 패널티(D-012 §2.4): 미기재 클래스 = main(B0 full), 기재 = sub(B1/B2/B3). At-Risk even equipped (F-009 §3.7). cast = player-cast effect (effects/sb_*.gd). Subs are looted (start empty, F-009). usable_by_enemy=false ally-only(034/044/054/062/070/075)는 적 드롭 안 됨 → 인-런 ally-cache 상자(S6b).",
+  "_note": "Skillbook masters. SSOT: F-009/D-018/D-016 + DEC-20260611-002 (per-kill drop). base_ability_id = the enemy's lootable Shared AB (F-009 §1.1). charges = limited (탄수). equip_classes = Role Equip Gate (= mainClasses ∪ subClasses, D-016 §3.2). sub_bands {classId: band} = 밴드 패널티(D-012 §2.4): 미기재 클래스 = main(B0 full), 기재 = sub(B1/B2/B3). At-Risk even equipped (F-009 §3.7). cast = player-cast effect (effects/sb_*.gd). Subs are looted (start empty, F-009). usable_by_enemy=false ally-only(034/044/054/062/075)는 적 드롭 안 됨 → 인-런 ally-cache 상자(S6b). AB-067(보호막)·AB-070(정화)는 적 서포터가 보유(EN-3RD-04/EN-014) → **처치 드롭**(DRIFT-117).",
   "skillbooks": [
     {
       "base_ability_id": "AB-002",
@@ -193,9 +193,11 @@
       "cast": {
         "kind": "skillbook_shield",
         "cooldown_s": 9,
-        "radius_m": 0.5,
+        "radius_m": 2.0,
         "shield_pct": 0.12,
-        "duration_s": 6.0
+        "duration_s": 6.0,
+        "targeted": true,
+        "range_m": 10
       },
       "tier": "Basic"
     },
@@ -232,7 +234,7 @@
         "shield_pct": 0.16,
         "ward_s": 4.0
       },
-      "tier": "Basic"
+      "tier": "Master"
     },
     {
       "base_ability_id": "AB-057",
@@ -270,7 +272,7 @@
         "cooldown_s": 11,
         "radius_m": 5.0,
         "haste_pct": 0.2,
-        "duration_s": 4.0
+        "duration_s": 9.0
       },
       "tier": "Advanced"
     },
@@ -289,7 +291,7 @@
         "shield_pct": 0.08,
         "duration_s": 5.0
       },
-      "tier": "Master"
+      "tier": "Advanced"
     },
     {
       "base_ability_id": "AB-062",
@@ -431,7 +433,7 @@
         "cooldown_s": 13,
         "targeted": true,
         "range_m": 9,
-        "radius_m": 2.0
+        "radius_m": 3.0
       },
       "tier": "Basic"
     },
@@ -448,8 +450,8 @@
         "cooldown_s": 12,
         "targeted": true,
         "range_m": 8,
-        "radius_m": 2.0,
-        "silence_s": 3.0
+        "radius_m": 3.5,
+        "silence_s": 4.0
       },
       "tier": "Basic"
     },
@@ -967,10 +969,7 @@
         "kind": "skillbook_relocate_ally",
         "cooldown_s": 14,
         "radius_m": 10.0,
-        "relocate_m": 5.0,
-        "castTier": "B",
-        "rootDuringCast": true,
-        "telegraph_s": 0.9
+        "relocate_m": 5.0
       },
       "tier": "Basic"
     },
@@ -1005,24 +1004,6 @@
         "radius_m": 1.8,
         "damage_mult": 1.2,
         "pin_s": 0.6
-      },
-      "tier": "Advanced"
-    },
-    {
-      "base_ability_id": "AB-101",
-      "display_name": "Scent of Blood",
-      "equip_classes": [
-        "Healer"
-      ],
-      "range_band": "Long",
-      "charges_max": 50,
-      "cast": {
-        "kind": "skillbook_scent",
-        "cooldown_s": 10,
-        "targeted": true,
-        "range_m": 14,
-        "radius_m": 3.0,
-        "scent_s": 6.0
       },
       "tier": "Advanced"
     },

@@ -215,7 +215,8 @@
       "cooldown_s": 10.0,
       "range_m": 14.0,
       "scent_s": 6.0,
-      "vfx": "shot_hex"
+      "vfx": "shot_hex",
+      "enemy_only": true
     },
     "AB-102": {
       "kind": "enemy_root",
@@ -328,6 +329,25 @@
       "hp_below": 0.5,
       "hit_on_arrival": false,
       "parting_shot_mult": 1.5
+    },
+    "AB-067": {
+      "kind": "enemy_shield",
+      "telegraph_s": 0.6,
+      "channel": true,
+      "cooldown_s": 10.0,
+      "radius_m": 8.0,
+      "shield_pct": 0.12,
+      "duration_s": 6.0,
+      "ally_threshold_pct": 0.85,
+      "vfx": "shield_bash"
+    },
+    "AB-070": {
+      "kind": "enemy_cleanse",
+      "telegraph_s": 0.5,
+      "channel": true,
+      "cooldown_s": 13.0,
+      "radius_m": 6.0,
+      "vfx": "shield_bash"
     }
   }
 }

@@ -231,6 +231,83 @@ func _initialize() -> void:
 			if String(ab_s) == "":
 				continue
 			_chk("샌드박스 %s 슬롯 %s 실재" % [cls, ab_s], not sd.get_skillbook_master(String(ab_s)).is_empty())
+
+	# H 블록 교정(DRIFT-116) — 힐러 방어 4종을 **대상**으로 갈랐고, 표적 없는 슬롯 2건을 정리했다.
+	var h67: Dictionary = sd.get_skillbook_master("AB-067").get("cast", {})
+	var h75: Dictionary = sd.get_skillbook_master("AB-075").get("cast", {})
+	var h65: Dictionary = sd.get_skillbook_master("AB-065").get("cast", {})
+	var h68: Dictionary = sd.get_skillbook_master("AB-068").get("cast", {})
+	_chk("AB-067 = 아군 지정(자기중심 아님)", bool(h67.get("targeted", false)) and float(h67.get("range_m", 0.0)) > 0.0)
+	_chk("AB-075 = 광역(미지정)", not bool(h75.get("targeted", false)) and float(h75.get("radius_m", 0.0)) > 1.0)
+	# 힐러 자기 방어는 **AB-068 하나뿐**이어야 한다 — 067이 자기중심이던 시절엔 둘이었다.
+	var self_def := 0
+	for ab in ["AB-067", "AB-068", "AB-065", "AB-075"]:
+		var cd2: Dictionary = sd.get_skillbook_master(String(ab)).get("cast", {})
+		if not bool(cd2.get("targeted", false)) and float(cd2.get("radius_m", 9.0)) <= 1.0:
+			self_def += 1
+	_chk("힐러 자기 방어 슬롯 = 1개(068)", self_def == 1)
+	# tier 서열 = 실성능 서열. 065(흡수+치유 전환)가 최강인데 Basic이고 075가 Master이던 역전을 교정.
+	_chk("AB-065 tier=Master(실성능 최강)", String(sd.get_skillbook_master("AB-065").get("tier", "")) == "Master")
+	_chk("AB-075 tier!=Master(흡수율 최저)", String(sd.get_skillbook_master("AB-075").get("tier", "")) != "Master")
+	_chk("AB-065 흡수율 > AB-075 흡수율", float(h65.get("shield_pct", 0.0)) > float(h75.get("shield_pct", 9.0)))
+	_chk("AB-068 = 유일 DR(감소) — 흡수와 방식이 다름", float(h68.get("damage_reduction", 0.0)) > 0.0)
+	# H5 — 침묵은 **광역**으로 밀어 Tank 단일 스턴(AB-011)과 역할을 가른다.
+	var h44: Dictionary = sd.get_skillbook_master("AB-044").get("cast", {})
+	var t11: Dictionary = sd.get_skillbook_master("AB-011").get("cast", {})
+	_chk("AB-044 침묵 반경 > AB-011 스턴 반경(광역 ↔ 단일)",
+		float(h44.get("radius_m", 0.0)) > float(t11.get("radius_m", 9.0)))
+	_chk("AB-044 침묵 지속 > 스턴 지속", float(h44.get("silence_s", 0.0)) > float(t11.get("stun_s", 9.0)))
+	# H6 — AB-101 아군판 폐기 + kind 소멸. 적측은 abilities.json enemy_only로 존치.
+	_chk("AB-101 아군판 폐기", sd.get_skillbook_master("AB-101").is_empty())
+	_chk("skillbook_scent kind 소멸", not kinds.has("skillbook_scent"))
+	_chk("AB-101 적측 존치(enemy_only)", bool(sd.get_ability("AB-101").get("enemy_only", false)))
+	# H7 — haste는 "오오라류는 길게"(T2 판정) 기준. DR 하한(6s)과 같은 잣대.
+	_chk("AB-069 haste 지속 >=8s(오오라 기준)",
+		float(sd.get_skillbook_master("AB-069").get("cast", {}).get("duration_s", 0.0)) >= 8.0)
+	# H7 — 죽은 스키마(castTier/rootDuringCast/telegraph_s) 전수 0. AB-045가 마지막이었다.
+	for ab in sd._registry_list("ability_ids"):
+		var md: Dictionary = sd.get_skillbook_master(String(ab))
+		if md.is_empty():
+			continue
+		var cs2: Dictionary = md.get("cast", {})
+		_chk("%s 죽은 스키마 없음" % ab,
+			not cs2.has("castTier") and not cs2.has("rootDuringCast") and not cs2.has("telegraph_s"))
+	# H7 — purge 재정의: 아군 정화가 본체(적 강화 제거는 폴백).
+	var pmp = PM.new()
+	root.add_child(pmp)
+	_chk("정화: 지울 게 없으면 빈 문자열", String(pmp.cleanse_debuff()) == "")
+	pmp.apply_outcome("Chilled", 3.0)
+	_chk("정화 전 냉각 보유", pmp.has_outcome("Chilled"))
+	_chk("정화: 디버프 1건 제거", String(pmp.cleanse_debuff()) != "")
+	_chk("정화 후 냉각 해제", not pmp.has_outcome("Chilled"))
+	# 강화(buff)는 지우지 않는다 — 아군 haste를 힐러가 지우면 안 된다.
+	pmp.apply_haste(0.2, 5.0)
+	_chk("정화: 강화는 안 지운다", String(pmp.cleanse_debuff()) == "" and pmp.has_outcome("Hastened"))
+	pmp.free()
+
+	# 적 외형 구분(DRIFT-118) — 색만으로는 안 갈린다(부감·안개·색각). 특성에서 실루엣·표식을 파생한다.
+	var UV = load("res://scripts/core/unit_visuals.gd")
+	var seen_colors := {}
+	var crest_by_role := {}
+	for eid4 in sd.get_enemy_ids():
+		var row4: Dictionary = sd.get_enemy_row(String(eid4))
+		var vis4: Dictionary = UV.enemy_visual(String(eid4), row4)
+		_chk("%s 외형 shape 유효" % eid4, ["box", "column"].has(String(vis4.get("shape", ""))))
+		_chk("%s 외형 scale>0" % eid4, float(vis4.get("scale", 0.0)) > 0.0)
+		seen_colors[str(vis4["color"])] = true   # Color엔 String() 생성자가 없다 — str() 사용
+		crest_by_role[String(row4.get("role", ""))] = String(vis4.get("crest", ""))
+		# 원거리 유닛은 기둥, 근접은 박스 — 실루엣이 교전 거리를 말해야 한다.
+		var reach4 := float((row4.get("stats", {}) as Dictionary).get("attack_range_m", 1.6))
+		_chk("%s 실루엣 = 교전거리(%.1fm)" % [eid4, reach4],
+			String(vis4["shape"]) == ("column" if reach4 > UV.MELEE_RANGE_M else "box"))
+	# **12종이 같은 갈색 박스**이던 문제 — 고유 색이 유닛 수에 가깝게 나와야 한다.
+	_chk("적 색상 고유값 >= 유닛 수의 80%%", seen_colors.size() >= int(float(sd.get_enemy_ids().size()) * 0.8))
+	# 역할 표식 — 위협 우선순위가 실루엣으로 읽혀야 한다. fodder는 **표식 없음이 곧 정보**.
+	for r4 in ["support", "nuker", "cc", "elite"]:
+		if crest_by_role.has(r4):
+			_chk("%s 역할 표식 有" % r4, String(crest_by_role[r4]) != "")
+	if crest_by_role.has("fodder"):
+		_chk("fodder 표식 없음(그 자체가 정보)", String(crest_by_role["fodder"]) == "")
 	_chk("볼트 계열 slag 소멸", not elems.has("slag"))
 	# D1+D2 병합(DRIFT-111) — 속성 전용 kind가 볼트로 흡수되고 즉발 쌍둥이·신설 중복이 폐기됐다.
 	for gone in ["AB-107", "AB-108", "AB-037", "AB-072"]:

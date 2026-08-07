@@ -12,13 +12,15 @@ var _slot: int = -1
 ## 단일타겟 조준(사거리 링 + 조준 커서)으로 다룰 kind. 그 외 targeted = 지면 AoE(원판). 판단은 여기 한 곳.
 const UNIT_AIM_KINDS := [
 	"skillbook_taunt", "skillbook_execute", "skillbook_blink",
-	"skillbook_pin", "skillbook_tether", "skillbook_scent",   # skillbook_root는 광역(반경 원판) → 제외(DRIFT-109)
+	"skillbook_pin", "skillbook_tether",   # skillbook_root는 광역(반경 원판) → 제외(DRIFT-109)
 	"skillbook_vulnerable", "skillbook_purge", "skillbook_stun", "skillbook_polymorph", "skillbook_dash",
 ]
 ## 아군을 대상으로 하는 kind(초록 커서). 그 외 = 적 대상(빨강 커서).
 const ALLY_TARGET_KINDS := [
-	"skillbook_heal", "skillbook_shield", "skillbook_ally_shield", "skillbook_hot",
+	"skillbook_heal", "skillbook_shield", "skillbook_hot",
 	"skillbook_relocate_ally", "skillbook_regen",
+	"skillbook_purge",   # AB-070 재정의(DRIFT-116) — 적 강화 제거 → **아군 디버프 정화**라 초록 커서
+	# ⚠️ `skillbook_ally_shield` 제거 — 그런 kind는 없다(효과 파일명만 그렇고 선언 kind는 skillbook_shield).
 ]
 ## 직선형(광선) 조준으로 다룰 kind — 원형 원판/링이 아니라 시전자→마우스 직선 레인으로 표시.
 ## 채널링은 kind가 아니라 **`channel_shape`로 갈린다**(line=레인 / cone=부채꼴 / cloud=지면 원판 /

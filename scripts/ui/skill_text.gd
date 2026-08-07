@@ -58,6 +58,12 @@ static func describe(kind: String, params: Dictionary) -> String:
 		prose += " 반경 %sm 안의 적을 %sm 끌어모으고 %s초간 속박한다." % [
 			_n(float(params.get("radius_m", 0.0))), _n(float(params.get("gather_m", 0.0))),
 			_n(float(params.get("root_s", 0.0)))]
+	# skillbook_shield 두 대상(DRIFT-116) — 지정 1인(AB-067) ↔ 파티 광역(AB-075). 힐러 방어 4종의
+	# 차이축이 **대상**이라 문구에서 먼저 갈리게 한다(자기 DR / 지정 흡수 / 광역 흡수 / 자동 흡수→치유).
+	if kind == "skillbook_shield":
+		if bool(params.get("targeted", false)):
+			prose = Slice01Data.get_skill_desc("skillbook_shield_single")
+		prose += " 흡수량은 대상 최대 체력의 %d%%." % int(round(float(params.get("shield_pct", 0.0)) * 100.0))
 	# skillbook_channeling 4형상(DRIFT-115) — 「빔」이 아니라 **채널링**이 클러스터 축이라 형상마다
 	# 읽는 법이 다르다. 공통으로 **틱 수·총 집중 시간·이동하면 끊긴다**를 실어, 채널이 왜 위험한
 	# 스킬인지가 툴팁에서 먼저 보이게 한다(제자리에 서 있어야 하는 대가로 payoff가 크다).

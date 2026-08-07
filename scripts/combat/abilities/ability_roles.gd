@@ -57,6 +57,10 @@ const ROLES := {
 
 	# ── ② 지원/유틸 · shared (캡 X) ──────────────────────────────────────────
 	"AB-098": {"kind": "enemy_heal", "role": "support", "exec": "shared"},         # 아군 힐 8% (진영flip)
+	# 적 지원 킷(DRIFT-117) — 분대 대 분대. 3세력은 "다른 추출조"라 서포터가 있는 게 정상이고,
+	# 그 서포터를 먼저 끊는 것이 누커의 역할이 된다. 둘 다 Shared → F-009로 드롭된다.
+	"AB-067": {"kind": "enemy_shield", "role": "support", "exec": "shared"},       # 최저HP 아군 보호막
+	"AB-070": {"kind": "enemy_cleanse", "role": "support", "exec": "shared"},      # 아군 디버프 정화
 	"AB-101": {"kind": "enemy_mark", "role": "utility", "exec": "shared"},         # Scent 표식(무피해)
 	"AB-009": {"kind": "spawn_zone", "role": "utility", "exec": "shared"},         # Oil 미끄럼(무피해)
 	"AB-036": {"kind": "spawn_zone", "role": "utility", "exec": "shared"},         # Water 전도 셋업(무피해)

@@ -354,6 +354,7 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	enemy.tick_silence(delta)  # AB-044 Hush Ward — active-cast block timer
 	enemy.tick_polymorph(delta)  # AB-012 Hex Bolt — 개구리 변이 지속 감소
 	enemy.tick_outcome(delta)  # elemental outcome timers + Ignited DoT
+	enemy.tick_shield(delta)   # AB-067 적측 보호막 만료(DRIFT-117)
 	# Stunned (EN-AI-000 §2): frozen + INTERRUPT — any channel/cast or dash in progress fails
 	# (no resolve; its cooldown stays consumed). Player counterplay: stun EN-001 mid-Mockery.
 	# 빙결(Frozen, AB-111)은 스턴과 **같은 게이트**를 탄다 — "모든 행동 금지"라 캐스트·돌진 중단 + 정지.
@@ -993,6 +994,13 @@ func _resolve_enemy_attack(enemy: CharacterBody3D) -> void:
 	if String(eff.get("kind", "")) == "enemy_heal":
 		_apply_enemy_heal(enemy, eff, chosen)
 		return
+	# 적 지원 킷(DRIFT-117) — 힐과 마찬가지로 **아군 대상**이라 파티 타겟 검증 앞에서 처리한다.
+	if String(eff.get("kind", "")) == "enemy_shield":
+		_apply_enemy_shield(enemy, eff, chosen)
+		return
+	if String(eff.get("kind", "")) == "enemy_cleanse":
+		_apply_enemy_cleanse(enemy, eff, chosen)
+		return
 	if String(eff.get("kind", "")) == "enemy_provoke":
 		_apply_enemy_provoke(enemy, eff, chosen)
 		return
@@ -1211,6 +1219,10 @@ func _telegraph_color(kind: String) -> Color:
 			return Color(0.7, 0.35, 0.95, 0.5)
 		"enemy_heal":  # AB-098 Mire Mend — green ward pulse (녹색 결계)
 			return Color(0.35, 1.0, 0.5, 0.5)
+		"enemy_shield":  # AB-067 적측 보호막 — 하늘색(아군 보호막 팝업과 같은 계열)
+			return Color(0.40, 0.85, 1.0, 0.5)
+		"enemy_cleanse":  # AB-070 적측 정화 — 옅은 금색(무언가 걷어내는 빛)
+			return Color(1.0, 0.92, 0.6, 0.5)
 		"enemy_splash":  # AB-008 Slag — slag orange
 			return Color(0.95, 0.6, 0.25, 0.5)
 		"enemy_dash":  # AB-006/013 dash — sharp cyan crouch-tell
@@ -1230,6 +1242,31 @@ func _telegraph_color(kind: String) -> Color:
 	return Color(0.9, 0.3, 0.2, 0.5)
 
 
+## 적 지원 킷 — 전부 아군 대상 target-less라 한 패스에서 처리한다. ref: DRIFT-117.
+const SUPPORT_KINDS := ["enemy_heal", "enemy_shield", "enemy_cleanse"]
+
+
+## 지금 이 지원기를 쓸 이유가 있나 — 없으면 쿨을 아낀다(AB-098이 세운 규약을 3종으로 일반화).
+func _support_needed(enemy: CharacterBody3D, eff: Dictionary, kind: String) -> bool:
+	var r := float(eff.get("radius_m", 3.0))
+	var thr := float(eff.get("ally_threshold_pct", 0.9))
+	for a in _combat._enemies_in_radius(enemy.global_position, r, enemy.faction):
+		if not is_instance_valid(a) or not a.is_alive():
+			continue
+		match kind:
+			"enemy_cleanse":
+				if a.has_method("has_any_debuff") and a.has_any_debuff():
+					return true
+			"enemy_shield":
+				# 이미 보호막이 있는 대상엔 안 쓴다(덮어써 낭비되는 걸 막는다).
+				if a.hp < a.max_hp * thr and float(a.get("shield")) <= 0.0:
+					return true
+			_:
+				if a.hp < a.max_hp * thr:
+					return true
+	return false
+
+
 ## Target-less heal signature (AB-098): if off its own cooldown and a squad-mate is wounded,
 ## start the channel (telegraph) and reset ability_cd[ref]. Runs early (target-less); provoke/dash
 ## have their own passes. Returns true if a cast began.
@@ -1242,20 +1279,13 @@ func _try_cast_signature(enemy: CharacterBody3D) -> bool:
 		var ref := String(ab.get("ref", ""))
 		var eff: Dictionary = Slice01Data.get_ability(ref)
 		var kind := String(eff.get("kind", ""))
-		if kind != "enemy_heal":
-			continue  # this early pass is heal only (provoke=_try_cast_provoke, dash=_try_cast_dash)
+		# 지원 3종(힐/보호막/정화)은 **전부 target-less 아군 대상**이라 같은 초기 패스를 탄다(DRIFT-117).
+		if not SUPPORT_KINDS.has(kind):
+			continue  # provoke=_try_cast_provoke · dash=_try_cast_dash
 		if float(enemy.ability_cd.get(ref, 0.0)) > 0.0:
 			continue  # AB still on cooldown
-		# Condition: a squad-mate (incl. self) within heal radius below the HP threshold.
-		var r := float(eff.get("radius_m", 3.0))
-		var thr := float(eff.get("ally_threshold_pct", 0.9))
-		var wounded := false
-		for a in _combat._enemies_in_radius(enemy.global_position, r, enemy.faction):
-			if is_instance_valid(a) and a.is_alive() and a.hp < a.max_hp * thr:
-				wounded = true
-				break
-		if not wounded:
-			continue  # nothing to heal → save the cooldown
+		if not _support_needed(enemy, eff, kind):
+			continue  # 쓸 데가 없으면 쿨을 아낀다(힐이 원래 그랬다 — 나머지도 같은 규약)
 		# Begin the channel — windup_target null (target-less); resolved by _resolve_enemy_attack.
 		enemy.winding = true
 		enemy.windup_timer_s = float(eff.get("telegraph_s", 0.55))
@@ -1281,6 +1311,49 @@ func _apply_enemy_heal(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictiona
 			healed += 1
 	# (No resolve telegraph — the channel telegraph at cast is the cue; re-drawing = double-cast look.)
 	print("[EN] %s %s heal x%d (r%.1f %d%%)" % [enemy.enemy_id, String(chosen.get("ref", "")), healed, r, int(pct * 100.0)])
+
+
+## 적측 보호막(AB-067) — **같은 진영에서 가장 다친 1명**에게 흡수 보호막. 아군판이 "지정 1인"이라
+## 적도 단일이어야 대칭이 맞는다(광역으로 주면 같은 AB가 진영에 따라 다른 스킬이 된다).
+## 자기 자신도 후보다 — 서포터가 저격당할 때 스스로를 감싸는 게 자연스럽다.
+func _apply_enemy_shield(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+	var r := float(eff.get("radius_m", 8.0))
+	var pct := float(eff.get("shield_pct", 0.12))
+	var dur := float(eff.get("duration_s", 6.0))
+	var worst: CharacterBody3D = null
+	var worst_ratio := 1.01
+	for a in _combat._enemies_in_radius(enemy.global_position, r, enemy.faction):
+		if not is_instance_valid(a) or not a.is_alive() or not a.has_method("add_shield"):
+			continue
+		var ratio: float = float(a.hp) / maxf(float(a.max_hp), 1.0)
+		if ratio < worst_ratio:
+			worst_ratio = ratio
+			worst = a
+	if worst == null:
+		return
+	worst.add_shield(float(worst.max_hp) * pct, dur)
+	print("[EN] %s %s shield → %s (%d%% / %.1fs)" % [enemy.enemy_id, String(chosen.get("ref", "")),
+		worst.enemy_id, int(pct * 100.0), dur])
+
+
+## 적측 정화(AB-070) — 같은 진영 아군의 디버프를 **각자 1건씩** 걷어낸다. 플레이어가 건 CC(빙결·속박·
+## 중독·취약)가 **되돌려질 수 있다**는 뜻이고, 그래서 **서포터를 먼저 끊는 것**에 값이 생긴다.
+## 지울 게 없으면 조용히 지나간다(쿨은 이미 소모 — 아군판의 "차지 미소모"와 달리 적은 쿨 기반이라 무해).
+func _apply_enemy_cleanse(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictionary) -> void:
+	var r := float(eff.get("radius_m", 6.0))
+	var n := 0
+	var first := ""
+	for a in _combat._enemies_in_radius(enemy.global_position, r, enemy.faction):
+		if not is_instance_valid(a) or not a.is_alive() or not a.has_method("cleanse_debuff"):
+			continue
+		var got := String(a.cleanse_debuff())
+		if got == "":
+			continue
+		if first == "":
+			first = got
+		n += 1
+	if n > 0:
+		print("[EN] %s %s cleanse x%d (%s…)" % [enemy.enemy_id, String(chosen.get("ref", "")), n, first])
 
 
 ## Cooldown provoke signature (AB-099 Iron Mockery): face the engaged target (aim the front fan),

@@ -31,7 +31,8 @@ const _SKILL_SCRIPTS := [
 	preload("res://scripts/combat/abilities/effects/sb_tether.gd"),  # AB-103 Tether (Nuker)
 	# AB-104 Rampage(sb_charge) 제거 — T1 통폐합(DRIFT-101): AB-011로 흡수, 적 EN-3RD-03도 AB-011로 교체.
 	preload("res://scripts/combat/abilities/effects/sb_execute.gd"), # AB-106 Devour (Nuker)
-	preload("res://scripts/combat/abilities/effects/sb_scent.gd"),   # AB-101 Scent of Blood (Healer)
+	# sb_scent 제거 — AB-101 아군판 폐기(DRIFT-116): Scented를 소비하는 코드가 enemy_ai의 팩 표적
+	# 선정 하나뿐이라 **플레이어 쪽 효과가 0**이었다. 적측은 abilities.json `enemy_only`로 존치.
 	# Gear-catalog Identity skills (non-starter identities; spec PT-pending → intent impl, params drift).
 	preload("res://scripts/combat/abilities/effects/beacon_threat.gd"),  # IDA-021 Iron Beacon (Tank)
 	preload("res://scripts/combat/abilities/effects/march_advance.gd"),  # IDA-022 Bulwark March (Tank)

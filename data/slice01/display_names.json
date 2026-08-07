@@ -33,7 +33,6 @@
     "skillbook_relocate_ally": "아군 견인",
     "skillbook_reveal": "정찰",
     "skillbook_pin": "포박",
-    "skillbook_scent": "혈향 추적",
     "skillbook_root": "속박",
     "skillbook_tether": "사슬",
     "skillbook_execute": "처형",
@@ -64,14 +63,13 @@
     "skillbook_stealth": "잠시 은신해 적의 표적에서 벗어난다.",
     "skillbook_channeling": "제자리에 서서 정신을 집중해, 전방으로 관통하는 빔을 여러 차례 내리꽂는다.",
     "skillbook_barrier": "지정 위치에 방벽을 소환해 적의 투사체와 진격을 막는다. 벽에 닿는 적은 중심을 잃고 잠시 스턴에 빠진다.",
-    "skillbook_purge": "대상에 걸린 강화 효과를 정화(제거)한다.",
+    "skillbook_purge": "주변 아군에게 걸린 해로운 효과를 걷어낸다. 걷어낼 것이 없으면 대신 적의 강화 효과를 하나 빼앗는다.",
     "skillbook_silence": "대상 지역의 적을 침묵시켜 액티브 스킬 사용을 막는다.",
     "skillbook_bolt": "원거리 투사체를 발사해 착탄 지점에 광역 피해를 준다.",
     "skillbook_taunt": "대상을 도발해 자신을 공격하도록 강제한다.",
     "skillbook_relocate_ally": "가장 위험한 아군을 안전한 위치로 견인한다.",
     "skillbook_reveal": "주변에 숨은 적을 드러낸다(정찰).",
     "skillbook_pin": "대상을 제자리에 고정한다.",
-    "skillbook_scent": "대상에 혈향을 묻혀 추적 표식을 남긴다.",
     "skillbook_root": "그물을 던져 지정 범위의 적을 **한곳으로 끌어모은 뒤 속박**한다. 묶인 적은 행동은 하지만 이동할 수 없다 — 뒤이을 광역기를 꽂아 넣는 셋업.",
     "skillbook_tether": "대상과 사슬로 연결해 묶어 둔다.",
     "skillbook_execute": "체력이 낮은 대상을 처형해 큰 피해를 준다.",
@@ -94,6 +92,7 @@
     "skillbook_taunt_all": "집중해서 포효한 뒤, 지정 범위 안의 적 **전체**를 도발해 자신을 공격하도록 강제한다.",
     "skillbook_channeling_cone": "제자리에 서서 전방으로 불길을 뿜는다. 불길은 집중을 유지하는 동안 부채꼴로 점점 멀리 뻗어나간다.",
     "skillbook_channeling_cloud": "조준한 자리에 독무를 피워 올린다. 집중을 유지하는 동안 구름 안의 적에게 독이 계속 쌓인다.",
-    "skillbook_channeling_nova": "제자리에서 냉기 폭풍을 일으킨다. 주위의 적은 맞을수록 굼떠지고, 폭풍이 끝날 때까지 벗어나지 못한 적은 얼어붙는다."
+    "skillbook_channeling_nova": "제자리에서 냉기 폭풍을 일으킨다. 주위의 적은 맞을수록 굼떠지고, 폭풍이 끝날 때까지 벗어나지 못한 적은 얼어붙는다.",
+    "skillbook_shield_single": "지정한 아군 한 명에게 피해를 흡수하는 보호막을 두른다."
   }
 }

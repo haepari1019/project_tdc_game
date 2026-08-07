@@ -1526,6 +1526,23 @@ func tick_polymorph(delta: float) -> void:
 			_apply_frog_visual(false)
 
 
+## **디버프 정화 1건**(AB-070 Purge Light 재정의, DRIFT-116) — 개구리(폴리모프)를 최우선으로 풀고,
+## 없으면 활성 debuff outcome 하나를 지운다(`BUFF` 등재분은 건드리지 않는다 — 아군 강화를 지우면 안 됨).
+## 지운 것의 표시명을 돌려준다("" = 지울 게 없었음 → 시전자가 차지를 안 쓴다).
+## ⚠️ **매질을 소모품으로 옮기면서(DRIFT-112) 아군도 장판을 밟게 됐다** — 정화 수요는 그때 생겼다.
+func cleanse_debuff() -> String:
+	if poly_timer_s > 0.0:
+		remove_polymorph()
+		return "개구리"
+	# ⚠️ **기절(stun)은 일부러 안 푼다** — 하드 CC 해제는 별개 축이고, 여기 얹으면 13초 쿨짜리
+	# 스턴 브레이크가 조용히 생긴다. 필요하면 별도 판정으로 넣을 것.
+	var id := _outcome.cleanse_one()
+	if id == "":
+		return ""
+	_update_status_icons()
+	return OutcomeStatus.KO.get(id, id)
+
+
 ## 즉시 해제 — 피해 break(take_damage) / 힐러 정화(AB-070).
 func remove_polymorph() -> void:
 	if poly_timer_s <= 0.0:
