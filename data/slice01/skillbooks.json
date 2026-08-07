@@ -194,10 +194,11 @@
         "kind": "skillbook_shield",
         "cooldown_s": 9,
         "radius_m": 2.0,
-        "shield_pct": 0.12,
-        "duration_s": 6.0,
+        "shield_pct": 0.26,
+        "duration_s": 3.0,
         "targeted": true,
-        "range_m": 10
+        "range_m": 10,
+        "cast_s": 1.0
       },
       "tier": "Basic"
     },
@@ -229,10 +230,11 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_ward_heal",
-        "cooldown_s": 9,
+        "cooldown_s": 11,
         "radius_m": 8.0,
-        "shield_pct": 0.16,
-        "ward_s": 4.0
+        "shield_pct": 0.22,
+        "ward_s": 2.5,
+        "cast_s": 1.1
       },
       "tier": "Master"
     },
@@ -288,8 +290,9 @@
         "kind": "skillbook_shield",
         "cooldown_s": 14,
         "radius_m": 4.0,
-        "shield_pct": 0.08,
-        "duration_s": 5.0
+        "shield_pct": 0.18,
+        "duration_s": 2.5,
+        "cast_s": 1.2
       },
       "tier": "Advanced"
     },
@@ -884,7 +887,7 @@
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 14,
-        "cast_s": 10.0,
+        "cast_s": 5.5,
         "cast_range_disc_m": 6.0,
         "radius_m": 6.0,
         "heal_pct": 0.55

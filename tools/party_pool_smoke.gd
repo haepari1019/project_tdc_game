@@ -251,6 +251,31 @@ func _initialize() -> void:
 	_chk("AB-075 tier!=Master(흡수율 최저)", String(sd.get_skillbook_master("AB-075").get("tier", "")) != "Master")
 	_chk("AB-065 흡수율 > AB-075 흡수율", float(h65.get("shield_pct", 0.0)) > float(h75.get("shield_pct", 9.0)))
 	_chk("AB-068 = 유일 DR(감소) — 흡수와 방식이 다름", float(h68.get("damage_reduction", 0.0)) > 0.0)
+	# **보호막 = 즉응·일시 / 힐 = 사전 대비**(DRIFT-119). 두 계열이 같은 "생존" 축에 있으므로
+	# 사용성이 갈리려면 **캐스트·지속**이 반대 방향이어야 한다. 축이 무너지면 여기서 잡힌다.
+	var heal_min := 9.9
+	var heal_pct_min := 9.9
+	for hab in ["AB-064", "AB-066"]:
+		var hc: Dictionary = sd.get_skillbook_master(hab).get("cast", {})
+		heal_min = minf(heal_min, float(hc.get("cast_s", 0.0)))
+		heal_pct_min = minf(heal_pct_min, float(hc.get("heal_pct", 0.0)))
+	for sab in ["AB-067", "AB-075", "AB-065"]:
+		var sc3: Dictionary = sd.get_skillbook_master(sab).get("cast", {})
+		# 즉발이 아니라 **짧은 캐스트** — §0 캐스터 원칙(즉발 최소)을 지키면서 힐보다 빠르다.
+		_chk("%s 보호막 cast_s > 0(즉발 아님)" % sab, float(sc3.get("cast_s", 0.0)) > 0.0)
+		# 절대 상한(1.5s)과 상대비(힐의 절반 이하)를 **둘 다** 본다 — 상대비만 쓰면 힐 캐스트를
+		# 건드릴 때 경계에 걸리고, 절대값만 쓰면 두 계열의 대비가 무너져도 안 잡힌다.
+		_chk("%s 보호막 cast <= 1.5s(즉응)" % sab, float(sc3.get("cast_s", 9.9)) <= 1.5)
+		_chk("%s 보호막 cast <= 힐 cast(%.1fs)의 1/2" % [sab, heal_min],
+			float(sc3.get("cast_s", 9.9)) <= heal_min * 0.5)
+		# 일시성 — 오래 남으면 힐과 구분이 사라진다.
+		var sdur: float = float(sc3.get("duration_s", sc3.get("ward_s", 99.0)))
+		_chk("%s 보호막 지속 <= 3s(곧 사라짐)" % sab, sdur <= 3.0)
+	# 흡수는 "힐량과 비슷하거나 조금 많게" — 단일 보호막(067)이 최소 힐량 이상이어야 한다.
+	_chk("AB-067 흡수 >= 최소 힐량(%.2f)" % heal_pct_min, float(h67.get("shield_pct", 0.0)) >= heal_pct_min)
+	# ⚠️ 흡수 기준 = **대상** max_hp(힐·보호막 공통). 캐스터 기준이면 힐러 HP가 최저라 수치가 거짓말이 된다.
+	var wsrc := FileAccess.get_file_as_string("res://scripts/combat/abilities/effects/sb_ward_heal.gd")
+	_chk("ward_heal 흡수 기준 = 대상 max_hp", wsrc.contains("target.max_hp") and not wsrc.contains("m.max_hp) * float(p.get(\"shield_pct"))
 	# H5 — 침묵은 **광역**으로 밀어 Tank 단일 스턴(AB-011)과 역할을 가른다.
 	var h44: Dictionary = sd.get_skillbook_master("AB-044").get("cast", {})
 	var t11: Dictionary = sd.get_skillbook_master("AB-011").get("cast", {})

@@ -63,7 +63,13 @@ static func describe(kind: String, params: Dictionary) -> String:
 	if kind == "skillbook_shield":
 		if bool(params.get("targeted", false)):
 			prose = Slice01Data.get_skill_desc("skillbook_shield_single")
-		prose += " 흡수량은 대상 최대 체력의 %d%%." % int(round(float(params.get("shield_pct", 0.0)) * 100.0))
+		prose += " 흡수량은 대상 최대 체력의 %d%%이며, **%s초 뒤 사라진다.**" % [
+			int(round(float(params.get("shield_pct", 0.0)) * 100.0)), _n(float(params.get("duration_s", 0.0)))]
+	# 보호막 계열은 **일시성**이 정체성이다(DRIFT-119) — 힐(3~10초 집중, 영구 회복)과 달리 즉시 걸리고
+	# 곧 사라진다. 지속을 문장 끝에 못박아 "지금 막을 것"과 "미리 채울 것"이 툴팁에서 갈리게 한다.
+	if kind == "skillbook_ward_heal":
+		prose += " 흡수량은 대상 최대 체력의 %d%%이며 **%s초만 유지된다** — 그 안에 막아 낸 만큼이 치유로 돌아온다." % [
+			int(round(float(params.get("shield_pct", 0.0)) * 100.0)), _n(float(params.get("ward_s", 0.0)))]
 	# skillbook_channeling 4형상(DRIFT-115) — 「빔」이 아니라 **채널링**이 클러스터 축이라 형상마다
 	# 읽는 법이 다르다. 공통으로 **틱 수·총 집중 시간·이동하면 끊긴다**를 실어, 채널이 왜 위험한
 	# 스킬인지가 툴팁에서 먼저 보이게 한다(제자리에 서 있어야 하는 대가로 payoff가 크다).

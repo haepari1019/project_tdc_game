@@ -11,7 +11,6 @@ func kind() -> String:
 
 func cast(m: CharacterBody3D, p: Dictionary, _t: Vector3, ctx) -> bool:
 	var radius := float(p.get("radius_m", 8.0))
-	var amount := (float(p.get("shield", 0.0)) + float(m.max_hp) * float(p.get("shield_pct", 0.15))) * float(p.get("_coeff", 1.0))
 	var dur := float(p.get("ward_s", 4.0))
 	# 가장 다친 아군(HP 비율 최저)에 우선 — 없으면 캐스터 자신.
 	var target: CharacterBody3D = m
@@ -25,6 +24,12 @@ func cast(m: CharacterBody3D, p: Dictionary, _t: Vector3, ctx) -> bool:
 			target = a
 	if not target.has_method("apply_ward_shield"):
 		return false
+	# ⚠️ 흡수량은 **대상**의 max_hp 기준이다(DRIFT-119 수정). 예전엔 **캐스터**의 max_hp로 쟀는데,
+	# 힐(`sb_channel_heal`)·보호막(`sb_ally_shield`)이 둘 다 대상 기준이라 같은 계열에서 이것만
+	# 기준이 달랐다. 힐러 HP는 전 클래스 최저(100)라 탱커에게 걸면 **툴팁 수치의 절반 이하**가
+	# 나왔다 — "흡수를 힐량과 비슷하게"라는 설계축 자체가 성립하지 않았다.
+	var amount := (float(p.get("shield", 0.0))
+		+ float(target.max_hp) * float(p.get("shield_pct", 0.15))) * float(p.get("_coeff", 1.0))
 	var node = WardHeal.new()
 	ctx.add_child(node)
 	node.setup(m, target, amount, dur, ctx)
