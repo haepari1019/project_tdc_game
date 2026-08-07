@@ -818,7 +818,7 @@
 - **③ 적(tuning):** `abilities.json` AB-013 `telegraph_s` 0.3→**1.0** · `cooldown_s` 5→**10** · `knockback_m` 1.0→**0.0**. EN-008 하드모델(치고-빠지기) 페이싱 — 로깅만, Phase B 재튜닝.
 - **분류\전파:** 신규 `skillbook_dash` kind + BIND-037/038 = **rule 전파 후보**(OPS_30, [[DRIFT-085]] 발전형 계열 후속 배치 — 085는 ✅전파완료). 적 telegraph/cd/kb = **tuning 로깅만**. 이 레포 spec md 편집 금지.
 - **영향 파일:** `data/slice01/{abilities,skillbooks}.json` · `scripts/combat/abilities/effects/sb_dash.gd`(신규) · `ability_dispatch.gd`(등재+`_nuker_focus_backstab`) · `bindings/binding_overlays.gd`(BIND-037/038) · `party_member.gd`(notify_kill 쿨초기화) · `aim_controller.gd`(UNIT_AIM) · `tools/binding_smoke.gd`(37).
-- **상태:** LOGGED (게임측 확정). skillbook_dash kind + BIND-037/038 전파 = 사용자 판단 대기.
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). skillbook_dash kind + BIND-037/038 전파 = 사용자 판단 대기.
 
 ### DRIFT-101 — T1(Tank 지역 강타) 통폐합: AB-071·049·104 폐기 → AB-002/011 2종 · 강타/기절 툴팁 재정의 🔶 rule/scope (전파 후보)
 - **배경(2026-07-28, 사용자 판정):** [[DRIFT-078]] Phase A를 **「효과 유사도 × 주력 클래스」 클러스터**로 재편(§5)한 뒤 첫 판정. Tank 지역 강타 클러스터(T1) 실사에서 **AB-002↔071이 툴팁·`damage_mult`(1.0) 100% 동일**(차이 = 반경 8.0↔2.2 · kb 3.0↔2.0 · cd 2↔6)이고 **AB-011↔049는 단조 사다리**(stun 1.4↔0.6 · dmg 0.6↔0.3 · cd 8↔10, 049는 반경만 우위)로 확인. AB-104는 AB-011과 역할 중복. 사용자 판정: *"각 스킬이 주는 추가적인 메리트가 없으니 AB-002와 011만 남긴다"*.
@@ -934,7 +934,7 @@
 - **분류\전파:** **`shape: dome` + `LAYER_COVER` + `covers_point` 완전 포함 규칙 + AB-033 kind 전환** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-104]] 등과 다음 패킷). ④⑤ = **버그 수정**(전파 불요). ⑥⑦ = 현황 기록. 수치(r3.0·HP90·5.0s·cd14) = tuning 로깅만.
 - **영향 파일:** `data/slice01/{skillbooks,display_names}.json` · `scripts/world/objects/rampart_barrier.gd`(dome/`covers_point`/`safe_radius`/안전링/피격지점 섬광) · `scripts/combat/abilities/{ability_dispatch,projectile,skill_vfx}.gd` · `scripts/combat/abilities/effects/sb_barrier.gd` · `scripts/combat/enemy_ai.gd`(`_shot_block_point`·배달 시점 차단·중복 제거) · `scripts/ui/skill_text.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **T3 검증 14건**: kind/shape/실드 잔재/벽=wall/돔HP<<벽HP · 레이어 분리 2건 · 커버리지 6건(중심·안전반경 경계 안팎·돔 밖·벽 always-true) · 9발 파괴. ⚠️ 물리 space query 검증은 `--script` 런에서 콜리전 등록 타이밍이 불안정해(process_frame 미등록 / physics_frame 무한대기) **넣지 않았다** — 별도 임시 스크립트로 수동 실증 후 결과를 주석에 남겼다.
-- **상태:** LOGGED (게임측 확정 · F5 체감 확인 완료). 전파 = 사용자 판단 대기. 돔 반경 3.0(안전 2.14m)이 좁으면 **반경 상향이 가장 직접적인 레버**(3.5 → 2.7m) — Phase B.
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정 · F5 체감 확인 완료). 전파 = 사용자 판단 대기. 돔 반경 3.0(안전 2.14m)이 좁으면 **반경 상향이 가장 직접적인 레버**(3.5 → 2.7m) — Phase B.
 
 ### DRIFT-108 — T4 도발 재정의: AB-051 견인→도발(Tank 전용) · AB-035 광역+2.5s 캐스트 · 밴드=레퍼런스 격하 🔶 rule/scope/schema (전파 후보) + 🐞 bugfix
 - **배경(2026-07-28, 사용자 판정):** *"51도 35처럼 도발로 하고, 긴 범위를 갖는 대신 단일 도발로 하자. 탱커만 쓸 수 있게."* → 구현 중 **`sb_taunt`이 원래부터 단일 대상**(첫 적을 잡고 `break`, 주석도 "single-target mark")임이 드러나 그대로 두면 AB-035와 **숫자 두 개만 다른 중복**이 됐다. 보고 후 사용자 확정: *"ab35는 범위 내 전체 도발로 하고 대신 캐스팅을 조금 넣자 2.5초 정도"*.
@@ -948,7 +948,7 @@
 - **분류\전파:** **`skillbook_pull` kind 소멸 + AB-051 kind/클래스 전환 + `taunt_all` 필드 + 도발의 교전 강제 규칙 + 밴드=레퍼런스 규칙** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]과 다음 패킷). ③ = **버그 수정**(전파 불요). 사거리·위협·캐스트 수치 = tuning 로깅만(사용자 지시로 사거리 1/2·2/3 축소).
 - **영향 파일:** `data/slice01/{skillbooks,display_names}.json` · `scripts/combat/abilities/effects/sb_taunt.gd`(광역 분기·`_force_engage`) · `effects/sb_pull.gd`(삭제) · `ability_dispatch.gd` · `scripts/run/controllers/aim_controller.gd` · `scripts/ui/skill_text.gd` · `tools/party_pool_smoke.gd` · `docs/_WIP_casting_expansion_pass.md`(§1 밴드 격하 · §2.1 축3 · §5 범례 · T4/T4b).
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **T4 검증 13건**: kind 전환·pull 잔재 0·Tank 전용·sub_bands 소멸·사거리/위협 대소·`taunt_all`·`cast_s 2.5`·051 단일/즉발·반경 대소 + **교전 강제 5건**(`add_threat`만으론 교전 안 됨(원인) → 도발 후 engaged·귀환취소·수색·최고위협 타겟).
-- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(광역 도발 2.5s 커밋이 실전에서 버틸 만한지).
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(광역 도발 2.5s 커밋이 실전에서 버틸 만한지).
 
 ### DRIFT-109 — T4b 이동 CC 정리: AB-050 폐기 · AB-102 → **DPS 「뭉치기+속박」 콤보 셋업** 이관 · Rooted ccTenacity 수정 🔶 rule/scope/schema (전파 후보) + 🐞 bugfix
 - **배경(2026-07-28, 사용자 제기):** *"이 게임이 액션성을 강조하진 않아서 이동 관련 CC가 플레이테스트상 큰 의미가 있어 보이지 않는다."* → **런 전수 실측**으로 검증: 인카운터 26개 × 적 스폰 97기를 `engage` 프로필별로 집계.
@@ -970,7 +970,7 @@
 - **분류\전파:** **`skillbook_slow` kind 소멸 · AB-102 클래스/kind 파라미터 전환 · `gather_m` 필드 · 뭉치기→속박 순서 규약** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]·[[DRIFT-108]]과 다음 패킷). ④ = **spec 위반 수정**(전파 시 `EFFECT-CORE` 규약 재확인). 수치 = tuning 로깅만.
 - **영향 파일:** `data/slice01/{skillbooks,abilities,display_names}.json` · `scripts/combat/abilities/effects/sb_root.gd`(뭉치기) · `effects/sb_slow.gd`(삭제) · `ability_dispatch.gd` · `scripts/combat/enemy_ai.gd`(enemy_root 뭉치기) · `scripts/combat/enemy_unit.gd`(ccTenacity) · `scripts/run/controllers/aim_controller.gd` · `scripts/ui/skill_text.gd` · `tools/party_pool_smoke.gd` · WIP(T4b·D6).
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **T4b 검증 8건**: AB-050 폐기 · AB-102 DPS 전용/sub_bands 0 · `gather_m>0` · **콤보 부등식 자동 검증** · `Rooted` ccTenacity(4.0→2.0) · soft 아웃컴 불변.
-- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(뭉치기가 실제로 광역기를 맞히게 해주는지 · 적 Snarer의 파티 뭉치기 압박이 적정한지).
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(뭉치기가 실제로 광역기를 맞히게 해주는지 · 적 Snarer의 파티 뭉치기 압박이 적정한지).
 
 ### DRIFT-110 — D1: AB-055 「산탄」 재구현(부채꼴 파편 + 데드존) · 전격 볼트 착탄 전기장 VFX 🔶 scope/schema (전파 후보) + impl
 - **배경(2026-07-28, 사용자 판정):** D 블록(DPS) 진입. ① *"AB-003은 착탄 후 범위 내에 전기가 흐르는 효과를 VFX로 추가"* ② *"AB-055는 지금 효과가 잘못됐다 — 이름처럼 산탄으로, 착탄 지역에서 투사체 6개를 방사형으로 재생성하고 각 투사체도 충돌하면 좁은 범위 딜"*.
@@ -985,7 +985,7 @@
 - **분류\전파:** **`scatter_*` 8필드 + AB-055 재정의** = scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]·[[DRIFT-108]]·[[DRIFT-109]]와 다음 패킷). 투사체 능력(origin·`arm_after_m`·`hit_radius_m`)·조준 마커·`arc_field` = **impl**([[IMPL-DEC-20260728-002]], 전파 불요). 수치 = tuning 로깅만.
 - **영향 파일:** `data/slice01/skillbooks.json` · `scripts/combat/abilities/{skill_vfx,projectile,ability_dispatch,cast_context}.gd` · `effects/sb_bolt.gd` · `scripts/ui/{aim_marker,skill_text}.gd` · `scripts/run/controllers/aim_controller.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **D1 검증 10건**: 산탄 구조·반경 서열(원형>초탄>파편)·도달>착탄·데드존(초탄보다 큼·도달보다 작아 띠 성립)·부채꼴(<360)·재귀 가드 존재·캐스트 서열(≥원형·총주기>원형).
-- **상태:** LOGGED (게임측 확정 · F5 체감 확인 완료). 전파 = 사용자 판단 대기. **D1 = ✅3 / ⬜1**(AB-058† 무주력 처리만 남음).
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정 · F5 체감 확인 완료). 전파 = 사용자 판단 대기. **D1 = ✅3 / ⬜1**(AB-058† 무주력 처리만 남음).
 
 ### DRIFT-111 — D1+D2 병합: 볼트 단일 클러스터화 · `skillbook_fire`/`cold` kind 소멸 · 중복 4종 폐기 · AB-008 무속성 원형 복귀 🔶 rule/scope/schema (전파 후보)
 - **배경(2026-07-28, 사용자 판정):** [[DRIFT-110]] 직후 *"D1, D2 자체를 하나의 클러스터로 묶고 중복을 제거하자."* → 두 클러스터를 합치자 **§5.2.1이 지적하던 "D1에 fire·cold 없음"이 클러스터 경계 때문에 생긴 착시**였음이 드러났다(D2에 이미 둘 다 있었다). 경계를 지우니 공백이 사라지고 **진짜 중복이 드러났다.**
@@ -1000,7 +1000,7 @@
 - **분류\전파:** **kind 2종 소멸 + AB-053/041 kind 이관 + AB-008 element 제거 + AB-058 주력 확정 + 4종 폐기** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]·[[DRIFT-108]]·[[DRIFT-109]]·[[DRIFT-110]]과 한 패킷). 배럴 파괴 확대·툴팁 조립 = impl.
 - **영향 파일:** `data/slice01/{skillbooks,abilities,display_names,id_registry,enemies}.json` · `scripts/combat/abilities/effects/{sb_bolt,sb_fire(삭제),sb_cold(삭제)}.gd` · `ability_dispatch.gd` · `scripts/ui/skill_text.gd` · `scripts/run/dungeon_run.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 병합 검증: 폐기 4종 · 053/041 kind 이관 · **`skillbook_fire`/`cold` kind 소멸** · 볼트 계열 속성 전수 스캔(fire·cold·lightning 커버 · slag 소멸) · AB-008 무속성 · AB-058 주력.
-- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기.
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). 전파 = 사용자 판단 대기.
 
 ### DRIFT-112 — 매질 생성 스킬 5종 폐기 → **소모품(매질 플라스크) 이관** · 적측 `enemy_only` 존치 · 가시덩굴 이동피해 신설 🔶 rule/scope/schema (전파 후보)
 - **배경(2026-07-28, 사용자 판정):** *"D3에서 매질을 까는 건 그냥 스킬로는 다 빼고 차라리 소모품으로 관리하는 건 어떨까"* → 실사 후 *"스킬 하나가 그냥 **셋업으로만** 쓰이는 건 별로"* 로 사유가 확정됐다. **셋업 전용 슬롯을 없애는 것**이 목적이고, 매질 공급은 다른 축으로 옮긴다.
@@ -1022,7 +1022,7 @@
 - **분류\전파:** **`skillbook_zone` kind 소멸 + 아군 5종 폐기 + `enemy_only` 예외 + `spawn_medium` 소모품 effect + Vegetation 이동피해 규칙** = rule/scope/schema → **OPS_30 전파 후보**([[DRIFT-107]]~[[DRIFT-111]]과 한 패킷). 컨트롤러·소모 시점 = impl.
 - **영향 파일:** `data/slice01/{skillbooks,consumables,abilities,display_names,id_registry}.json` · `scripts/run/controllers/medium_consumable_controller.gd`(신규) · `scripts/run/dungeon_run.gd` · `scripts/combat/abilities/effects/sb_zone.gd`(삭제) · `ability_dispatch.gd` · `scripts/world/hazards/{hazard_zone,surface_grid}.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**(2026-07-28) — party_pool_smoke에 **20건**: 아군 5종 폐기 · 적 5종 `enemy_only` 존치 · `skillbook_zone` 소멸 · 플라스크 5종 해소/`spawn_medium`/medium·ttl · **가시 4건**(첫 틱 무피해 · 정지 무피해 · 1m=DMG_PER_M · 틱 상한).
-- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(플라스크 조작감 · 가시밭 이동 압박).
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). 전파 = 사용자 판단 대기. ⏳ F5 체감 대기(플라스크 조작감 · 가시밭 이동 압박).
 
 ### DRIFT-113 — `take_damage` 시그니처 파리티 붕괴(진영전 전용 크래시) · 반사 처치 크레딧 🔷 impl (전파 불필요)
 - **발단:** CI run `31058027571`(커밋 `b4e3b04`) **실패** — `dungeon_run.tscn` 부팅 스모크에서 `SCRIPT ERROR: Invalid call to function 'take_damage' in base 'CharacterBody3D (enemy_unit.gd)'. Expected 2 argument(s).` **다음 커밋(`349b117`)은 통과**했으나 이는 **버그가 고쳐진 게 아니라 조우가 안 뜬 것**이다.
@@ -1046,7 +1046,7 @@
 - **정리 규약(선례 따름):** `id_registry.json`의 `AB-028`은 **존치**한다 — AB-050/009/071/074/036 등 기폐기 ID 전부 registry에 남아 있다(폐기 = 카탈로그에서 빼는 것이지 ID 반납이 아님). **`ALLY_CACHE_POOL`(dungeon_run.gd)에서는 제거** — [[DRIFT-112]]에서 걸린 `AB-050` 유령 ID의 재발 방지.
 - **분류\전파:** 스킬 1종 폐기 = scope → **OPS_30 전파 후보**([[DRIFT-107]]~[[DRIFT-112]]와 한 패킷).
 - **영향 파일:** `data/slice01/skillbooks.json` · `scripts/run/dungeon_run.gd` · `docs/_WIP_casting_expansion_pass.md`.
-- **상태:** LOGGED (게임측 확정). 전파 = 사용자 판단 대기.
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). 전파 = 사용자 판단 대기.
 
 ### DRIFT-115 — D5 재정의: 「빔」 → **채널링** 클러스터(4형상 × 4속성) · `Frozen` 신설 · 냉각에 공속 축 추가 🔶 rule/scope/schema (전파 후보)
 - **판정(사용자):** *"D5는 '빔'에 초점을 맞추기보다 **채널링**에 초점을 맞춰 클러스터를 유지하고, 이에 맞춰 다른 element 스킬도 생성한다."* → 단일 스킬 클러스터(AB-054)가 **4종 클러스터**가 됐다. 51종(48 → 51), DPS 주력 8 → **11**.
@@ -1071,7 +1071,7 @@
   - **화염 VFX 전면 교체** — `fan_telegraph`(지면 반투명 삼각팬)를 재사용했더니 *"불 느낌이 안 난다"*(사용자). 그건 **전조 마커**용이라 정지·평면·단색이었다 — 구조적으로 불이 될 수 없다. `SkillVfx.flame_cone` 신설: **바깥으로 뻗는 이동 + 식는 색(흰노랑→주황→검붉음, `emission_energy`도 동반 감쇠) + 자라는 크기**를 한 puff에 태우고, 노즐 코어 번쩍 + 끝단 검댕을 얹었다. 퍼프 수명(`interval × 1.6`)이 틱 간격보다 길어 **틱끼리 겹치며 연속 분사**로 보인다. 지면 팬은 **그을음 색으로 낮춰** 존치(부채꼴 각도 단서는 남기되 마커로 안 읽히게).
   - **채널 지속 2.1~3.2배 연장** — *"너무 짧아서 집중 중인 느낌이 안 난다"*(사용자). 054 1.08→**3.5s** · 109 1.6→**4.0s** · 110 2.0→**4.2s** · 111 1.8→**4.2s**. **총 피해(ticks × tick_mult)는 유지**했다 — 요청은 길이지 세기가 아니다. 스모크에 **3초 하한**을 못박았다(짧으면 즉발과 구분이 안 돼 클러스터의 존재 이유가 사라진다).
   - ⚠️ **파생 — 냉기 폭풍 빙결이 크게 어려워졌다:** 요건이 "전 틱 연속 적중"이라 **1.8s → 4.2s 동안 반경 안에 붙잡아둬야** 한다. 결과적으로 빙결은 **접근형(advance) 적 전용 CC**가 된다 — 카이팅·standoff 적은 사실상 못 얼린다. 자기방어(붙은 적을 떼어낸다) 프레이밍과는 일관되지만, **F5에서 한 번도 안 걸리면 요건을 "전 틱" → "N틱 이상"으로 완화**할 것.
-- **상태:** LOGGED (게임측 확정). ⏳ F5 체감 대기: 뻗어나가는 화염의 도달 순서 · 독무 배치 사거리 · **냉기 폭풍 완주 난이도(4.2s 연장으로 더 어려워짐 — 위 ⑦ 참조)** · 냉각 공속 감소 체감 · 새 화염 VFX 밀도/속도.
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). ⏳ F5 체감 대기: 뻗어나가는 화염의 도달 순서 · 독무 배치 사거리 · **냉기 폭풍 완주 난이도(4.2s 연장으로 더 어려워짐 — 위 ⑦ 참조)** · 냉각 공속 감소 체감 · 새 화염 VFX 밀도/속도.
 
 ### DRIFT-116 — H 블록 교정: 힐러 방어 4종 대상 분화 · `AB-070` 정화 재정의 · `AB-101` 폐기 · tier 역전 교정 🔶 rule/scope (전파 후보)
 - **판정 기준(신규):** 힐러 정체성은 **평타 사거리 2.0m · dmg 6**(`healer_mend_circle` HP100 / `healer_ward_pulse` HP105)로 **전 클래스 최저**다. 즉 **평타로 기여할 방법이 없다** — 딜러는 애매한 슬롯을 평타로 메우지만 힐러는 못 메운다. 그래서 H 블록 판정 축을 중복이 아니라 **"표적이 실제로 존재하는가"**로 잡았다([[DRIFT-109]] T4b 이동 CC 9% 폐기와 같은 잣대).
@@ -1092,7 +1092,7 @@
 - **분류\전파:** 스킬 1종 폐기 + kind 소멸 + AB-070 효과 재정의 + `enemy_only` 지정 = rule/scope → **OPS_30 전파 후보**([[DRIFT-107]]~[[DRIFT-115]]와 한 패킷). tier·수치 교정 = 로깅만.
 - **영향 파일:** `data/slice01/{skillbooks,abilities,display_names}.json` · `scripts/combat/abilities/effects/{sb_ally_shield,sb_purge}.gd`(`sb_scent.gd` 삭제) · `scripts/combat/abilities/ability_dispatch.gd` · `scripts/party/party_member.gd` · `scripts/run/controllers/aim_controller.gd` · `scripts/ui/skill_text.gd` · `tools/{party_pool_smoke,third_smoke}.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS** — party_pool_smoke에 **20여 건** 신규: 067 지정형/075 광역 · **힐러 자기 방어 슬롯 = 1개** · tier 서열 · 침묵 광역 우위 · AB-101 폐기 + kind 소멸 + `enemy_only` 존치 · haste 8s 하한 · **죽은 스키마 전수 0** · 정화 4건(빈손 무소모 · 디버프 제거 · **강화 미제거**).
-- **상태:** LOGGED (게임측 확정). 각 항목은 사용자 개별 확인 대기. ⏳ F5 체감: 아군 지정 보호막 조작감 · 정화가 실제로 걸 게 있는지 · 광역 침묵 체감.
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). 각 항목은 사용자 개별 확인 대기. ⏳ F5 체감: 아군 지정 보호막 조작감 · 정화가 실제로 걸 게 있는지 · 광역 침묵 체감.
 
 ### DRIFT-117 — 적 진영 지원 킷 신설: 보호막·정화 + 3세력 위생병(EN-3RD-04) 🔶 rule/scope (전파 후보)
 - **판정(사용자):** *"게임의 의도상 **분대 대 분대** 전투가 되어야 하고, 특히 **3세력은 다른 익스트랙션에서 타 유저에 대응하는 구성**이다. 따라서 적도 힐러가 있어야 하고 **그걸 먼저 저격하는 게 누커의 역할**이 될 것. 힐링·보호막·클렌즈 같은 주요 보조 능력은 적들도 들고 있어야 한다."*
@@ -1111,7 +1111,7 @@
 - **분류\전파:** 신규 enemy AB kind 2종 + 신규 enemy 유닛 1종 + ENC 편성 변경 + 획득 경로 이동 = rule/scope → **OPS_30 전파 후보**([[DRIFT-107]]~[[DRIFT-116]]과 한 패킷). 배치 수량 = 튜닝(로깅만).
 - **영향 파일:** `data/slice01/{abilities,enemies,skillbooks,id_registry}.json` · `data/slice01/encounters/{ENC-3RD-001,ENC-HARD-002,ENC-HARD-006,ENC-HARD-008,ENC-HARD-009,ENC-MID-001}.json` · `scripts/combat/{enemy_unit,enemy_ai,outcome_status}.gd` · `scripts/combat/abilities/ability_roles.gd` · `scripts/run/dungeon_run.gd` · `tools/third_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS** — third_smoke에 신규: EN-3RD-04 row 해소 · ENC-3RD-001 서포터 편성 · **적 진영 지원 킷 3종(heal/shield/cleanse) 보유 전수 확인**.
-- **상태:** LOGGED (게임측 확정). ⏳ F5 체감: 서포터가 실제로 분대를 살려내는지(저격 압력이 생기는지) · 정화가 플레이어 CC를 되돌리는 빈도가 과한지 · EN-3RD-04의 후열 유지(flee_if_melee)가 성립하는지.
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED (게임측 확정). ⏳ F5 체감: 서포터가 실제로 분대를 살려내는지(저격 압력이 생기는지) · 정화가 플레이어 CC를 되돌리는 빈도가 과한지 · EN-3RD-04의 후열 유지(flee_if_melee)가 성립하는지.
 
 ### DRIFT-118 — 적 외형 구분: 「특성 → 실루엣·표식」 파생 체계 🔷 impl (전파 불필요)
 - **판정(사용자):** *"적들의 능력이 다양해지고 있으니 적을 구분짓는 것이 필요하다. 지금은 색 정도 빼면 구분할 방법이 쉽지 않아서, **각 특성을 이용해 적의 생김새를 고도화**했으면 좋겠다."*
@@ -1156,7 +1156,7 @@
 - **게이트:** `ci_smoke.sh` **11/11 PASS** — party_pool_smoke 신규 13건: 보호막 3종 **cast_s>0(즉발 아님)** · **cast ≤ 1.5s(절대 상한)** · **cast ≤ 힐의 1/2(상대비)** · **지속 ≤ 3s** · **AB-067 흡수 ≥ 최소 힐량** · **ward_heal 기준 = 대상 max_hp**(소스 검증). 절대·상대 두 축을 같이 보는 이유 = 상대비만 쓰면 힐 캐스트를 건드릴 때 경계에 걸리고, 절대값만 쓰면 계열 대비가 무너져도 안 잡힌다.
 - **동반 튜닝 — AB-066 긴 집중 `cast_s` 10.0 → 5.5**(사용자: *"긴 힐은 너무 길어"*): 10초는 **전투 안에서 성립하지 않는 시전**이었다(채널 중 이동·피격·스턴이 전부 취소 사유인데 10초를 버틸 창이 없다). 5.5초면 "긴 집중"이라는 정체성은 남기고 실제로 완주 가능한 길이가 된다. 밴드 C(궁극기급) 참조값과 어긋나지만 **밴드는 레퍼런스이지 구속이 아니다**([[DRIFT-108]] 판정). 힐량 0.55·cd 14는 유지 — 요청은 길이지 세기가 아니다.
   - 파생: 보호막 계열의 **상대비 기준(최소 힐 캐스트)은 여전히 AB-064의 3.0초**라 [[DRIFT-119]] 축은 그대로 성립한다(보호막 1.0~1.2s ≤ 1.5s).
-- **상태:** LOGGED. ⏳ F5 체감: 1.0~1.2초 시전이 "급박한 대응"으로 느껴지는지 · 2.5~3초 지속이 실제로 한 방을 받아내는지 · 힐↔보호막 선택이 상황에 따라 갈리는지.
+- **상태:** ✅ **전파 완료(2026-08-07, spec `3503004` · `DEC-20260807-001`)** — LOGGED. ⏳ F5 체감: 1.0~1.2초 시전이 "급박한 대응"으로 느껴지는지 · 2.5~3초 지속이 실제로 한 방을 받아내는지 · 힐↔보호막 선택이 상황에 따라 갈리는지.
 
 ### DRIFT-120 — 시전 티어 밴드 재작성: A/B/C 폐기 → **역할 이름 6밴드**(실물 유도) 🔷 doc/reference (전파 불필요)
 - **판정(사용자):** *"밴드 자체도 좀 합리적으로 수정하자."*
