@@ -12,8 +12,8 @@
       "kind": "enemy_charge",
       "telegraph_s": 1.0,
       "channel": true,
-      "cooldown_s": 5.0,
-      "damage_mult": 2.0,
+      "cooldown_s": 12,
+      "damage_mult": 3.6,
       "shock_slow": 0.5,
       "shock_dur_s": 2.0,
       "vfx": "shot_lightning"
@@ -59,11 +59,11 @@
       "kind": "enemy_dash",
       "telegraph_s": 1.0,
       "channel": true,
-      "cooldown_s": 10.0,
+      "cooldown_s": 14,
       "dash_range_m": 10.0,
       "flank": true,
       "hit_on_arrival": true,
-      "damage_mult": 1.5,
+      "damage_mult": 2.6,
       "knockback_m": 0.0,
       "vfx": "strike"
     },
@@ -160,7 +160,7 @@
     "AB-053": {
       "kind": "enemy_fire",
       "channel": true,
-      "cooldown_s": 5.0,
+      "cooldown_s": 10,
       "unified": true
     },
     "IDA-020": {
@@ -201,10 +201,10 @@
       "kind": "enemy_dash",
       "telegraph_s": 0.25,
       "channel": true,
-      "cooldown_s": 6.0,
+      "cooldown_s": 10,
       "dash_range_m": 9.0,
       "hit_on_arrival": true,
-      "damage_mult": 1.2,
+      "damage_mult": 2.0,
       "pin_s": 0.6,
       "vfx": "strike"
     },
@@ -250,8 +250,8 @@
       "kind": "enemy_execute",
       "telegraph_s": 0.5,
       "channel": true,
-      "cooldown_s": 8.0,
-      "damage_mult": 1.0,
+      "cooldown_s": 13,
+      "damage_mult": 2.4,
       "execute_under": 0.3,
       "execute_mult": 2.0,
       "on_kill_heal_pct": 0.2,

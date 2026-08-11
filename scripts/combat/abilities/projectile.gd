@@ -39,6 +39,10 @@ var _traveled: float = 0.0
 ## 날아가는 탄은 적을 스치고 지나가 버린다**(사용자 제보). 매 스텝 위치 주변의 **적대 유닛**을
 ## 반경 검사해 걸리면 그 자리에서 터진다. `params.hit_radius_m`(기본 0 = 종전 레이 전용 동작).
 var _hit_r: float = 0.0
+## **잠금 추적**(DRIFT-122) — `single_target` 볼트는 지면 좌표가 아니라 **그 유닛**을 향해 날아간다.
+## 스냅샷 params에 실려 온 `_target`을 매 프레임 읽어 목적지를 갱신 → 걸어서 피하는 게 통하지 않는다.
+## 대상이 죽거나 사라지면 마지막 목적지로 계속 날아가 그 자리에서 해소(무발동을 만들지 않는다).
+var _track: Node3D = null
 
 
 func setup(caster: CharacterBody3D, origin: Vector3, dest: Vector3, speed: float, mask: int, effect, params: Dictionary, ctx) -> void:
@@ -51,6 +55,9 @@ func setup(caster: CharacterBody3D, origin: Vector3, dest: Vector3, speed: float
 	_ctx = ctx
 	_arm_m = maxf(float(params.get("arm_after_m", 0.0)), 0.0)
 	_hit_r = maxf(float(params.get("hit_radius_m", 0.0)), 0.0)
+	if bool(params.get("single_target", false)):
+		var t = params.get("_target")
+		_track = t as Node3D if t != null and is_instance_valid(t) else null
 	_traveled = 0.0
 	global_position = Vector3(origin.x, Y, origin.z)
 	var to := _dest - global_position
@@ -87,6 +94,17 @@ func _physics_process(delta: float) -> void:
 	if _done:
 		return
 	_life += delta
+	# 잠금 추적 — 대상이 살아 있는 동안 목적지·진행 방향을 매 프레임 갱신(유도). 죽으면 추적만 끊고
+	# 마지막 목적지를 향해 계속 난다.
+	if _track != null:
+		if is_instance_valid(_track):
+			_dest = Vector3(_track.global_position.x, Y, _track.global_position.z)
+			var td := _dest - global_position
+			td.y = 0.0
+			if td.length() > 0.05:
+				_dir = td.normalized()
+		else:
+			_track = null
 	var step := _speed * delta
 	var reached := global_position.distance_to(_dest) <= maxf(step, ARRIVE_EPS) or _life >= MAX_LIFETIME_S
 	var to_point: Vector3 = _dest if reached else global_position + _dir * step

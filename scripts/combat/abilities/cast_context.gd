@@ -35,6 +35,17 @@ func nearest_enemy_in_range(pos: Vector3, r: float) -> CharacterBody3D:
 	return _combat._nearest_in_range(_hostiles(), pos, r)
 
 
+## 단일 대상 잠금(DRIFT-122) 적측 파리티 — **적은 조준 클릭이 없어 잠금이 존재하지 않는다.**
+## `_target`이 실릴 일이 없으므로 그냥 종전 근접 줍기로 떨어진다. ctx 계약(CTX_CONTRACT)을 채우기
+## 위한 구현이지 no-op stub이 아니다 — 같은 sb_* 파일이 양 진영에서 돌기 때문에 거동이 있어야 한다.
+func resolve_target(_p: Dictionary, center: Vector3, radius: float) -> CharacterBody3D:
+	return nearest_enemy_in_range(center, radius)
+
+
+func resolve_targets(_p: Dictionary, center: Vector3, radius: float) -> Array:
+	return enemies_in_radius(center, radius)
+
+
 ## 시전자의 적을 원뿔/전방레인으로(진영 flip) — sb_slow 등.
 func enemies_in_cone(pos: Vector3, axis: Vector3, r: float, half: float) -> Array:
 	return _combat._in_cone(_hostiles(), pos, axis, r, half)

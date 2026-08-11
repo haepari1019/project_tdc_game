@@ -1,0 +1,29 @@
+{
+  "encounter_id": "ENC-NORM-004",
+  "difficulty_profile": "Normal",
+  "risk_pattern_ref": "RP-02",
+  "group_size": 5,
+  "_note": "Cinder Line (ENC-000 §0.1 전형: Elite 1 + Specialist 1 + Fodder 2~4, mechanicAxes 2). Normal 티어에 **후열 캐스터**를 세우는 첫 authored 조우 — EN-015 Cinder Adept(NukerTrash, axis=fire, 9m)가 방패 전선 뒤에서 압박한다. 종전 Normal authored 3종은 전부 Specialist 0이라 '캐스터를 먼저 끊는다'를 Hard(ENC-HARD-001 = EN-001+EN-005+fodder)에 가서야 배웠다. 이 ENC가 그 Normal판이다. fodder는 **근접만**(EN-010 FrontRush / EN-013 Skitter) — EN-011은 BackPester(7.5m)라 EN-015와 겹치면 ENC-000 §3 안티패턴 '원거리 poke 이중'에 걸린다. DRIFT-126.",
+  "units": [
+    {
+      "enemy_id": "EN-001",
+      "count": 1,
+      "slot": "elite"
+    },
+    {
+      "enemy_id": "EN-015",
+      "count": 1,
+      "slot": "specialist"
+    },
+    {
+      "enemy_id": "EN-010",
+      "count": 2,
+      "slot": "fodder"
+    },
+    {
+      "enemy_id": "EN-013",
+      "count": 1,
+      "slot": "fodder"
+    }
+  ]
+}

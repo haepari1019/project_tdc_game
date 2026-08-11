@@ -39,7 +39,7 @@
       "stats": {
         "hp": 300,
         "move_speed": 5.0,
-        "contact_damage": 14,
+        "contact_damage": 16,
         "attack_range_m": 9.0,
         "attack_interval_s": 1.8
       },
@@ -403,7 +403,7 @@
       "stats": {
         "hp": 175,
         "move_speed": 5.0,
-        "contact_damage": 10,
+        "contact_damage": 12,
         "attack_range_m": 9.0,
         "attack_interval_s": 2.0
       },
@@ -493,7 +493,7 @@
       "stats": {
         "hp": 640,
         "move_speed": 4.8,
-        "contact_damage": 22,
+        "contact_damage": 20,
         "attack_range_m": 2.0,
         "attack_interval_s": 1.8
       },

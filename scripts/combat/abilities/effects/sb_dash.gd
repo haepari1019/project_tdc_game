@@ -14,7 +14,7 @@ func kind() -> String:
 func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var radius := float(p.get("radius_m", 2.5))   # 조준점 근처 대상 픽업(선택 어시스트)
 	var aim: Vector3 = target_pos if target_pos != Vector3.ZERO else m.global_position
-	var e: CharacterBody3D = ctx.nearest_enemy_in_range(aim, radius)
+	var e: CharacterBody3D = ctx.resolve_target(p, aim, radius)
 	if e == null or not is_instance_valid(e):
 		return false   # 대상 없음 = no-op(차지·쿨 미소모)
 	# 돌진 — 대상 바로 앞까지 캐스터 이동(gap_m 남겨 겹침 방지)

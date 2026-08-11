@@ -60,7 +60,7 @@
     "skillbook_blink": "지정한 방향으로 순간이동한다.",
     "skillbook_vulnerable": "대상에 취약 표식을 남겨 받는 피해를 증폭시킨다.",
     "skillbook_haste": "잠시 동안 공격·이동 속도를 높인다.",
-    "skillbook_stealth": "잠시 은신해 적의 표적에서 벗어난다.",
+    "skillbook_stealth": "은신해 적의 표적에서 완전히 벗어난다.",
     "skillbook_channeling": "제자리에 서서 정신을 집중해, 전방으로 관통하는 빔을 여러 차례 내리꽂는다.",
     "skillbook_barrier": "지정 위치에 방벽을 소환해 적의 투사체와 진격을 막는다. 벽에 닿는 적은 중심을 잃고 잠시 스턴에 빠진다.",
     "skillbook_purge": "주변 아군에게 걸린 해로운 효과를 걷어낸다. 걷어낼 것이 없으면 대신 적의 강화 효과를 하나 빼앗는다.",

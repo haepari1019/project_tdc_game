@@ -12,7 +12,7 @@ func kind() -> String:
 
 func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var center := Vector3(target_pos.x, m.global_position.y, target_pos.z)
-	var tgt: CharacterBody3D = ctx.nearest_enemy_in_range(center, float(p.get("radius_m", 2.0)))
+	var tgt: CharacterBody3D = ctx.resolve_target(p, center, float(p.get("radius_m", 2.0)))
 	if tgt == null:
 		return false
 	var dmg: float = float(p.get("damage_mult", 0.4)) * m.basic_damage * float(p.get("_coeff", 1.0))

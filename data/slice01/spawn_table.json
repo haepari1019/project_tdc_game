@@ -200,6 +200,15 @@
       "pool_slot": "P-ADV-05",
       "run_phase": "Advance",
       "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-NORM-004",
+      "placement": "Fixed",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-05",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
       "difficulty": "Hard",
       "encounter_ref": "ENC-HARD-012",
       "placement": "Fixed",
@@ -275,6 +284,15 @@
       "difficulty": "Normal",
       "encounter_ref": "ENC-AMB-002",
       "placement": "AmbushHold",
+      "weight": 1
+    },
+    {
+      "pool_slot": "P-ADV-07",
+      "run_phase": "Advance",
+      "world_layer": "Upper",
+      "difficulty": "Normal",
+      "encounter_ref": "ENC-NORM-004",
+      "placement": "Fixed",
       "weight": 1
     },
     {

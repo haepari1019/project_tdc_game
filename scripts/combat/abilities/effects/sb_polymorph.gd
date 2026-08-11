@@ -16,7 +16,7 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	# 타겟팅형 — 조준점 근처 최근접 적 1체를 변이(선택 어시스트). 대상 없으면 no-op(차지 미소모).
 	var radius := float(p.get("radius_m", 1.6))
 	var aim: Vector3 = target_pos if target_pos != Vector3.ZERO else m.global_position
-	var e: CharacterBody3D = ctx.nearest_enemy_in_range(aim, radius)
+	var e: CharacterBody3D = ctx.resolve_target(p, aim, radius)
 	if e == null or not is_instance_valid(e) or not e.has_method("apply_polymorph"):
 		return false
 	e.apply_polymorph(float(p.get("poly_dur_s", 30.0)))

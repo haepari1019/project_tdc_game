@@ -1345,9 +1345,12 @@ func break_veil() -> void:
 	_update_status_icons()
 
 
-## F-009 next-hit bonus (AB-006 · 잠행 결속) — boost the NEXT damaging hit; consumed once on damage.
+## F-009 next-hit bonus (AB-006 · 잠행 결속 · AB-062) — boost the NEXT damaging hit; consumed once on damage.
+## **곱누산(DRIFT-121):** 종전 maxf는 소스가 둘일 때 작은 쪽을 통째로 삼켰다 — AB-007 이탈 결속(+30%)에
+## AB-062(+200%)를 이어 쓰면 결속 델타가 화면에서 사라진다. 축이 다른 것(잠행 본체 band_dmg는 별도
+## 피해 인스턴스)과 달리 이 둘은 **같은 변수**를 공유하므로, 서열을 세우는 대신 곱으로 쌓는다.
 func grant_next_hit_bonus(b: float) -> void:
-	_next_hit_bonus = maxf(_next_hit_bonus, b)
+	_next_hit_bonus = (1.0 + _next_hit_bonus) * (1.0 + b) - 1.0
 
 
 ## Read + clear the next-hit damage bonus (combat_controller._deal_damage calls this per hit). 0 if none.

@@ -89,6 +89,7 @@ const CTX_CONTRACT := [
 	"spawn_projectile", "spawn_zone", "spawn_barrier", "fire_hit", "cold_hit", "lightning_hit",
 	"element_hit",
 	"damage_destructibles", "report_hit_count", "report_hit_target", "nuker_focus_accumulate",
+	"resolve_target", "resolve_targets",
 ]
 
 var _combat: Node3D    # CombatController — spatial queries / damage / threat / shake owner
@@ -161,7 +162,7 @@ func _is_main_class_sub(member: CharacterBody3D, inst) -> bool:
 
 ## Player-cast a sub skillbook from slot Q/E/R. Charges + cooldown gated; on success
 ## -1 charge + set the slot's cooldown. Effect = the Shared AB applied to enemies.
-func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
+func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO, target_unit = null) -> void:
 	if member == null or not is_instance_valid(member) or not member.is_alive():
 		return
 	if member.has_method("is_channeling") and member.is_channeling():
@@ -173,13 +174,29 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	# 모드는 flag=false. 효과는 동일(마무리딜+후퇴+어그로↓), 발동 방식만 다름 — 스킬트리 택1 예정.
 	if bool(inst.params.get("auto_disengage", false)):
 		return
+	# 「오프너 은신」 능동 취소(DRIFT-121) — 은신 중 **은신 스킬을 다시 누르면 취소**(토글 오프). 자동
+	# 공격이 멈춰 있어 은신을 끝내는 유일한 수단이 「때리는 것」인데, 피해 수단이 전부 쿨·탄약 소진이면
+	# 스스로 빠져나올 길이 없다. 차지·쿨 게이트보다 **앞**에 둔다 — 시전 쿨(14s)이 은신(60s)보다 훨씬
+	# 짧아 취소가 필요한 구간 대부분이 쿨 중이기 때문. 취소는 **무비용**(차지·쿨 불변)이되 **대기 중인
+	# next-hit 증폭은 폐기**한다 — 증폭이 남으면 "은신 → 즉시 취소 → 강화 평타"가 은신을 건너뛰고
+	# 보상만 챙기는 경로가 된다. 취소는 탈출구이지 시전 방식이 아니다.
+	if bool(inst.params.get("hold_fire", false)) and member.has_method("holds_fire") and member.holds_fire():
+		member.break_veil()
+		if member.has_method("consume_next_hit_bonus"):
+			member.consume_next_hit_bonus()   # 읽고 버림 = 초기화. 다른 소스(AB-006 등)와 곱해진 값도 함께 사라진다
+		print("[SB] %s 은신 취소(재입력) — 증폭 폐기" % member.class_id)
+		return
 	if int(inst.charges) <= 0:
 		print("[SB] %s depleted" % inst.get("display_name", "?"))
 		return
 	if float(inst.cooldown_s) > 0.0:
 		return
-	if member.has_method("break_veil"):
-		member.break_veil()   # 잠행 은신 중 스킬 = 능동 노출 → 은신 해제(첫 스킬 +보너스는 consume_next_hit_bonus로 명중에 적용)
+	# 은신 해제 시점(DRIFT-121 개정) — 「오프너 은신」(hold_fire)은 **첫 타격까지 유지**한다. 시전 시작에
+	# 풀면 긴 캐스트 내내 표적으로 노출돼 "숨어서 준비한다"가 성립하지 않는다(해제는 combat_controller.
+	# _deal_damage로 이동 = 증폭 소비와 같은 지점). 자동 공격이 계속되는 도주용 은신(잠행 처치 은신 등)은
+	# 종전대로 **시전 = 능동 노출**로 즉시 해제한다 — 그쪽은 캐스팅을 실을 창이 아니라 도망 시간이다.
+	if member.has_method("break_veil") and not (member.has_method("holds_fire") and member.holds_fire()):
+		member.break_veil()
 	# 채널 중 새 스킬을 쓰면 채널을 막지 않고 대신 중단시킨다(이동 중단은 channel_field가 처리).
 	# 이 시점은 차지/쿨 검증을 통과해 새 시전이 실제로 진행될 때뿐 — 실패한 시도로는 채널을 끊지 않는다.
 	if member.has_method("interrupt_active_channel"):
@@ -192,6 +209,13 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	var affix: Dictionary = inst.get("affix", {})
 	p["_coeff"] = _band_coeff(String(member.class_id), bands) * (1.0 + clampf(float(affix.get("coeff", 0.0)), -0.15, 0.15))
 	p["_slot"] = slot_index   # 캐스트 취소 시 쿨/차지 환급용(skill_cast이 이 슬롯을 되돌림)
+	# 단일 대상 잠금(DRIFT-122) — 조준에서 고른 **유닛 자체**를 params로 실어 보낸다(`_coeff`·`_slot`과
+	# 같은 주입 경로). `get_skillbook_master`가 deep-duplicate를 주므로 이 dict는 인스턴스 전용 —
+	# 다른 캐스터·적 unified 경로로 새지 않는다. 조준점도 **대상의 현재 위치**로 덮어써서, 사거리 밖을
+	# 찍어 걸어가서 시전하는 경로(order_move_to 콜백)에서도 그 사이 이동한 대상을 그대로 따라간다.
+	p["_target"] = target_unit
+	if target_unit != null and is_instance_valid(target_unit):
+		target_pos = target_unit.global_position
 	var cd: float = float(p.get("cooldown_s", 6.0)) * (1.0 + float(affix.get("cd_trade", 0.0)))
 	# P4a 「캐스팅 시간」(DRIFT-075) — cast_s>0이면 캐스트바 진행 후 **완료 시점에** 발현+결속(취소 시 환급).
 	# 캐스터(Nuker/DPS/Healer) 스킬은 이 경로가 기본. cast_s=0(즉발)은 아래 즉시 발현.
@@ -672,6 +696,25 @@ func allies_in_radius(pos: Vector3, r: float) -> Array:
 
 func deal_damage(e: CharacterBody3D, source: CharacterBody3D, dmg: float) -> void:
 	_combat._deal_damage(e, source, dmg)
+
+
+## 단일 대상 잠금 해소(DRIFT-122) — `single_target` 스킬은 조준에서 **클릭한 유닛**이 곧 대상이다.
+## 잠금이 없거나(적 시전·AI) 대상이 사라졌으면 종전 근접 줍기로 떨어진다 — 조용한 무발동을 만들지 않는다.
+func resolve_target(p: Dictionary, center: Vector3, radius: float) -> CharacterBody3D:
+	var t = p.get("_target")
+	if bool(p.get("single_target", false)) and t != null and is_instance_valid(t) \
+			and (not t.has_method("is_alive") or t.is_alive()):
+		return t
+	return nearest_enemy_in_range(center, radius)
+
+
+## 광역 형태(pin·vulnerable)의 잠금판 — 잠겼으면 그 하나만, 아니면 종전 반경 전체.
+func resolve_targets(p: Dictionary, center: Vector3, radius: float) -> Array:
+	var t = p.get("_target")
+	if bool(p.get("single_target", false)) and t != null and is_instance_valid(t) \
+			and (not t.has_method("is_alive") or t.is_alive()):
+		return [t]
+	return enemies_in_radius(center, radius)
 
 
 ## AB-007 이탈 — 이 시전자의 전 적 위협을 frac만큼 감소(어그로 흘리기). 아군 전용(적 CastContext는 no-op).

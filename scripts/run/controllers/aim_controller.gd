@@ -26,12 +26,17 @@ const ALLY_TARGET_KINDS := [
 ## 채널링은 kind가 아니라 **`channel_shape`로 갈린다**(line=레인 / cone=부채꼴 / cloud=지면 원판 /
 ## nova=자기중심이라 조준 자체가 없다). 한 kind가 여러 조준을 갖는 첫 사례라 아래에서 따로 분기한다.
 const LINE_AIM_KINDS := []
+## 단일 대상 **잠금**(DRIFT-122) — `single_target:true` 스킬은 지면이 아니라 **클릭한 유닛**이 대상이다.
+## UNIT_AIM_KINDS(표현: 원판 대신 커서)와는 다른 축이다 — 이쪽은 **해소**를 바꾼다. 적 레이어 4 =
+## enemy_unit.collision_layer(selection_controller와 같은 값).
+const LAYER_ENEMY := 4
 const _SbBolt := preload("res://scripts/combat/abilities/effects/sb_bolt.gd")   # 산탄 데드존 계산 공유(SSOT)
 
 var _cursor_ally: ImageTexture     # 초록 십자(아군 대상)
 var _cursor_enemy: ImageTexture    # 빨강 십자(적 대상)
 var _range: float = 0.0            # 이번 조준 스킬의 시전 사거리(range_m)
 var _is_line_aim: bool = false     # 직선 빔 조준 여부(확정 시 사거리까지 안 걷고 그 방향으로 즉시 시전)
+var _single_target: bool = false   # 단일 대상 잠금 — 적 유닛을 찍어야만 시전(빈 지면 = 취소)
 
 
 func setup(aim_marker: Node3D, combat: Node3D) -> void:
@@ -71,6 +76,7 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	var p: Dictionary = inst.params
 	var cc: Color = member.get_class_color()
 	var kind := String(p.get("kind", ""))
+	_single_target = bool(p.get("single_target", false))
 	_range = float(p.get("range_m", 10.0))
 	# Flank Collapse 「잠행」 — 링크된 스킬은 근접 사거리로만 시전(붙어야 함). 원래 range_m를 melee로 대체 → 링도 좁게.
 	if String(BindingOverlays.resolve_effective(String(member.base_gear_id), String(member.ability_id), String(inst.get("base_ability_id", "")), slot_index).get("delta", "")) == "flank_strike":
@@ -111,7 +117,9 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	# 단일타겟 → 원판 없음(커서만) / AoE → 효과 반경 원판. 둘 다 시전 사거리를 하얀 링으로 표시.
 	# 같은 kind라도 **광역 변주는 원판을 보여준다** — AB-035 광역 도발이 단일 커서로 뜨면 반경을 못 읽는다.
 	# (skillbook_taunt: AB-051=단일 → 커서만 / AB-035 `taunt_all` → 반경 원판. DRIFT-108)
-	var unit_aim: bool = UNIT_AIM_KINDS.has(kind) and not bool(p.get("taunt_all", false))
+	# 잠금 스킬은 kind와 무관하게 커서 표현이다 — 반경 1.2m짜리 원판을 그려 두고 "지면을 찍어라"라고
+	# 말하면 조준 방식이 화면과 어긋난다(볼트 4종이 그랬다). 표현과 해소를 같은 플래그로 묶는다.
+	var unit_aim: bool = (UNIT_AIM_KINDS.has(kind) or _single_target) and not bool(p.get("taunt_all", false))
 	var disc: float = 0.0 if unit_aim else float(p.get("radius_m", p.get("aoe_radius_m", 3.0)))
 	# **2단 범위**(AB-055 산탄) — 초탄 원판 + 파편 확산 링. 둘 사이 빈 공간이 곧 파편 데드존이라,
 	# 화면에 보이는 간격이 실제 무장 거리(`arm_after_m`)와 같은 값이다. ref: IMPL-DEC-20260728-002.
@@ -136,6 +144,7 @@ func cancel() -> void:
 	_member = null
 	_slot = -1
 	_is_line_aim = false
+	_single_target = false
 	Input.set_custom_mouse_cursor(null, Input.CURSOR_ARROW)   # 커서 원복(기본 화살표)
 	_aim.hide_marker()
 
@@ -146,7 +155,13 @@ func handle_click(event: InputEvent) -> bool:
 		return false
 	var mb := event as InputEventMouseButton
 	if mb.button_index == MOUSE_BUTTON_LEFT:
-		_confirm_cast(_aim.ground_pos())
+		# 잠금 스킬 — **적 유닛을 찍었을 때만** 시전한다. 빈 지면이면 그냥 취소(차지·쿨 불변): 시전은
+		# `cast_skillbook`에 들어가야 비용이 나가므로, 여기서 안 부르는 것만으로 무비용 취소가 된다.
+		var unit = _pick_enemy_under_mouse() if _single_target else null
+		if _single_target and unit == null:
+			cancel()
+			return true
+		_confirm_cast(_aim.ground_pos(), unit)
 		cancel()
 		return true
 	if mb.button_index == MOUSE_BUTTON_RIGHT:
@@ -155,24 +170,42 @@ func handle_click(event: InputEvent) -> bool:
 	return false
 
 
+## 마우스 아래의 적(레이픽) — 없으면 null. selection_controller._pick과 같은 방식(레이어 4 = 적).
+func _pick_enemy_under_mouse() -> CharacterBody3D:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return null
+	var mp := get_viewport().get_mouse_position()
+	var from := cam.project_ray_origin(mp)
+	var to := from + cam.project_ray_normal(mp) * 1000.0
+	var q := PhysicsRayQueryParameters3D.create(from, to, LAYER_ENEMY)
+	var hit := cam.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return null
+	var c = hit.get("collider")
+	return c as CharacterBody3D if c != null and c.is_in_group("enemy") else null
+
+
 ## 확정: 사거리 안이면 즉시 시전, 밖이면 navmesh로 사거리까지 걸어가서 도착 시 시전(이동 중 WASD로 취소).
-func _confirm_cast(target_pos: Vector3) -> void:
+## `unit`(단일 대상 잠금)은 걸어가는 경로에서도 클로저에 실려 유지된다 — 그 사이 대상이 움직여도
+## 시전 시점의 위치를 `cast_skillbook`이 다시 읽으므로 조준이 따라간다.
+func _confirm_cast(target_pos: Vector3, unit = null) -> void:
 	var m := _member
 	var slot := _slot
 	var rng := _range
 	var cb := _combat
 	# 직선 빔 — 방향만 의미(사거리까지 걷지 않음). 마우스 방향으로 그 자리에서 즉시 시전.
 	if _is_line_aim:
-		cb.cast_skillbook(m, slot, target_pos)
+		cb.cast_skillbook(m, slot, target_pos, unit)
 		return
 	var d: Vector3 = m.global_position - target_pos
 	d.y = 0.0
 	if d.length() <= rng:
-		cb.cast_skillbook(m, slot, target_pos)
+		cb.cast_skillbook(m, slot, target_pos, unit)
 		return
 	var pc := m.get_node_or_null("Control")
 	if pc != null and pc.has_method("order_move_to"):
 		# target_pos까지 걷되 rng만큼 못 미쳐서 멈추고 → 도착 콜백에서 시전(그 지점은 이미 사거리 안).
-		pc.order_move_to(target_pos, func() -> void: cb.cast_skillbook(m, slot, target_pos), rng)
+		pc.order_move_to(target_pos, func() -> void: cb.cast_skillbook(m, slot, target_pos, unit), rng)
 	else:
-		cb.cast_skillbook(m, slot, target_pos)
+		cb.cast_skillbook(m, slot, target_pos, unit)

@@ -108,12 +108,12 @@
       "cast": {
         "kind": "skillbook_bolt",
         "element": "fire",
-        "cooldown_s": 5,
+        "cooldown_s": 10,
         "cast_s": 3.0,
         "targeted": true,
         "range_m": 9,
         "radius_m": 2.6,
-        "damage_mult": 1.2,
+        "damage_mult": 2.4,
         "delivery": "projectile",
         "speed_mps": 20.0,
         "proj_color": [
@@ -252,6 +252,7 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_vulnerable",
+        "single_target": true,
         "cooldown_s": 12,
         "targeted": true,
         "range_m": 8,
@@ -307,7 +308,9 @@
       "cast": {
         "kind": "skillbook_stealth",
         "cooldown_s": 14,
-        "veil_s": 1.5
+        "veil_s": 60.0,
+        "hold_fire": true,
+        "next_hit_bonus": 2.0
       },
       "tier": "Basic"
     },
@@ -500,13 +503,14 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_bolt",
+        "single_target": true,
         "element": "lightning",
-        "cooldown_s": 5,
+        "cooldown_s": 12,
         "cast_s": 4.0,
         "targeted": true,
         "range_m": 14,
         "radius_m": 1.2,
-        "damage_mult": 2.0,
+        "damage_mult": 3.6,
         "shock_s": 2.0
       },
       "tier": "Advanced"
@@ -521,13 +525,13 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_strike",
-        "cooldown_s": 10,
+        "cooldown_s": 16,
         "cast_s": 3.0,
         "targeted": true,
         "shape": "rect",
         "length_m": 5.0,
         "width_m": 3.0,
-        "damage_mult": 3.0,
+        "damage_mult": 4.2,
         "single_target_mult": 1.5,
         "knockback_m": 6.0
       },
@@ -633,6 +637,7 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_polymorph",
+        "single_target": true,
         "cooldown_s": 12,
         "cast_s": 3.0,
         "targeted": true,
@@ -652,13 +657,14 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_dash",
-        "cooldown_s": 10,
+        "single_target": true,
+        "cooldown_s": 14,
         "cast_s": 1.0,
         "targeted": true,
         "range_m": 8,
         "radius_m": 2.5,
         "gap_m": 1.4,
-        "damage_mult": 1.5
+        "damage_mult": 2.6
       },
       "tier": "Advanced"
     },
@@ -676,6 +682,7 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_stun",
+        "single_target": true,
         "cooldown_s": 8,
         "targeted": true,
         "range_m": 10,
@@ -788,12 +795,13 @@
       "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
+        "single_target": true,
         "element": "lightning",
-        "cooldown_s": 4,
+        "cooldown_s": 9,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.2,
-        "damage_mult": 1.2,
+        "damage_mult": 2.2,
         "delivery": "projectile",
         "speed_mps": 22.0
       },
@@ -814,11 +822,11 @@
       "cast": {
         "kind": "skillbook_bolt",
         "element": "lightning",
-        "cooldown_s": 8,
+        "cooldown_s": 14,
         "targeted": true,
         "range_m": 10,
         "radius_m": 3.0,
-        "damage_mult": 2.5,
+        "damage_mult": 3.4,
         "shock_s": 2.0,
         "delivery": "projectile",
         "speed_mps": 18.0
@@ -839,12 +847,13 @@
       "charges_max": 50,
       "cast": {
         "kind": "skillbook_bolt",
-        "cooldown_s": 9,
+        "single_target": true,
+        "cooldown_s": 16,
         "cast_s": 5.0,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.2,
-        "damage_mult": 4.0,
+        "damage_mult": 6.0,
         "delivery": "projectile",
         "speed_mps": 28.0,
         "proj_color": [
@@ -865,11 +874,12 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_execute",
-        "cooldown_s": 7,
+        "single_target": true,
+        "cooldown_s": 12,
         "targeted": true,
         "range_m": 9,
         "radius_m": 2.0,
-        "damage_mult": 1.0,
+        "damage_mult": 2.4,
         "execute_under": 0.3,
         "execute_mult": 2.0,
         "on_kill_heal_pct": 0.0
@@ -908,12 +918,13 @@
       "charges_max": 50,
       "cast": {
         "kind": "skillbook_bolt",
+        "single_target": true,
         "element": "lightning",
-        "cooldown_s": 10,
+        "cooldown_s": 18,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.4,
-        "damage_mult": 3.5,
+        "damage_mult": 5.0,
         "shock_s": 2.0,
         "delivery": "projectile",
         "speed_mps": 24.0
@@ -1001,11 +1012,12 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_pin",
-        "cooldown_s": 6,
+        "single_target": true,
+        "cooldown_s": 10,
         "targeted": true,
         "range_m": 12,
         "radius_m": 1.8,
-        "damage_mult": 1.2,
+        "damage_mult": 2.0,
         "pin_s": 0.6
       },
       "tier": "Advanced"
@@ -1041,6 +1053,7 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_tether",
+        "single_target": true,
         "cooldown_s": 8,
         "targeted": true,
         "range_m": 12,
@@ -1060,11 +1073,12 @@
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_execute",
-        "cooldown_s": 8,
+        "single_target": true,
+        "cooldown_s": 13,
         "targeted": true,
         "range_m": 10,
         "radius_m": 2.0,
-        "damage_mult": 1.0,
+        "damage_mult": 2.4,
         "execute_under": 0.3,
         "execute_mult": 2.0,
         "on_kill_heal_pct": 0.2

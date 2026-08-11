@@ -1094,31 +1094,57 @@ func decay_threat(delta: float) -> void:
 		threat[m] = maxf(float(threat[m]) * k, float(floor_of.get(m, DEFAULT_FLOOR)))
 
 
+## F-022 §3.6 표적 우선순위(DRIFT-125) — **적 진영도 아군과 목적이 같다**([[DRIFT-124]] ⑥):
+## "후열을 먼저 끊는 게 이득"이라는 판단은 양쪽 모두에게 참이다. 그래서 같은 위협량이면
+## **힐러 > 누커 > 딜러 > 탱커** 순으로 노린다.
+## **하드 오버라이드가 아니라 배율인 이유:** 탱커가 위협을 쌓아 되찾아올 수 있어야 어그로 관리가
+## 플레이가 된다. 탱커의 `threat_mult`는 4.5~6.0이고 딜러/누커는 0.6이라 **생성량이 이미 7~10배** —
+## 아래 배율 폭(3배)보다 크므로, 탱커가 제대로 붙으면 반드시 이긴다. 이 표가 지배하는 구간은
+## **교전 초반·탱커가 놓친 후열·원거리 몹**이고, 그게 정확히 노리는 그림이다.
+const TARGET_PRIORITY := {"Healer": 3.0, "Nuker": 2.2, "DPS": 1.6, "Tank": 1.0}
+const TARGET_PRIORITY_DEFAULT := 1.0   # 비-파티(진영전 상대 적 등) — 가중 없음
+
+
+## 위협 × 클래스 우선순위. 진영전에서는 상대가 적 유닛이라 `class_id`가 없다 —
+## `String(null)`은 **throw**하므로 파티 그룹을 먼저 확인한다(기존 `_pick_backline_target` 버그 선례).
+func threat_score(m) -> float:
+	if m == null or not is_instance_valid(m):
+		return -1.0
+	var w: float = TARGET_PRIORITY_DEFAULT
+	var cid = m.get("class_id") if m.is_in_group("party_member") else null
+	if cid != null:
+		w = float(TARGET_PRIORITY.get(String(cid), TARGET_PRIORITY_DEFAULT))
+	return float(threat.get(m, 0.0)) * w
+
+
 ## Highest-threat candidate; keep current target unless a challenger exceeds it
 ## by switch_ratio (F-022 §3.6 hysteresis). Tie → last threat gainer.
+## **후보는 이미 걸러져서 온다**(DRIFT-125) — 인지 범위 필터(`EnemyAI._huntable`: 이미 교전 중이거나
+## `HUNT_RADIUS_M` 안 + LOS)는 호출부가 적용한다. 인지는 AI의 일이고 위협 장부는 유닛의 일이라 층을
+## 나눴다(시야 상수·LOS 레이캐스트가 전부 EnemyAI에 있다).
 func pick_target(candidates: Array, switch_ratio: float) -> CharacterBody3D:
 	var best: CharacterBody3D = null
 	var best_v := -1.0
 	for m in candidates:
-		var v := float(threat.get(m, 0.0))
+		var v := threat_score(m)
 		if v > best_v or (v == best_v and m == last_gainer):
 			best_v = v
 			best = m
 	if best != null and current_target != null and is_instance_valid(current_target) \
 			and current_target != best and candidates.has(current_target):
-		if best_v < float(threat.get(current_target, 0.0)) * switch_ratio:
+		if best_v < threat_score(current_target) * switch_ratio:
 			best = current_target
 	current_target = best
 	# §5.2 imminent switch: highest OTHER candidate within [imminent, switch) of current.
 	imminent_target = null
 	if best != null:
-		var cur_v := float(threat.get(best, 0.0))
+		var cur_v := threat_score(best)
 		var chal: CharacterBody3D = null
 		var chal_v := -1.0
 		for cm in candidates:
 			if cm == best:
 				continue
-			var cv := float(threat.get(cm, 0.0))
+			var cv := threat_score(cm)
 			if cv > chal_v:
 				chal_v = cv
 				chal = cm

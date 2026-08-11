@@ -360,8 +360,8 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 		m.attack_cooldown_s = m.attack_interval()   # Haste(AB-069)-aware
 
 
-func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO) -> void:
-	_ability_dispatch.cast_skillbook(member, slot_index, target_pos)
+func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO, target_unit = null) -> void:
+	_ability_dispatch.cast_skillbook(member, slot_index, target_pos, target_unit)
 
 
 ## PILOT — resolve a UNIFIED skillbook ability CAST BY AN ENEMY through the SAME sb_* effect the ally
@@ -589,6 +589,11 @@ func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float)
 	# consumed here (basic OR sub; threat below reflects it). No-op without a pending bonus.
 	if attacker != null and attacker.has_method("consume_next_hit_bonus"):
 		dmg *= 1.0 + attacker.consume_next_hit_bonus()
+	# 「오프너 은신」(hold_fire)은 **첫 타격에 풀린다**(DRIFT-121) — 증폭 소비와 같은 지점이라 "숨어서
+	# 준비 → 한 방 → 노출"이 한 프레임에 맞물린다. 자동 공격이 멈춰 있으므로 여기 오는 첫 피해는 반드시
+	# 플레이어가 능동으로 낸 것이다. 도주용 은신(hold_fire 아님)은 시간으로만 끝나므로 건드리지 않는다.
+	if attacker != null and attacker.has_method("holds_fire") and attacker.holds_fire():
+		attacker.break_veil()
 	# AB-012 HEX-WEAK — a hexed attacker deals reduced outgoing damage (basic OR sub; the threat
 	# below reflects the reduced dmg). No-op (×1.0) when not hexed.
 	if attacker != null and attacker.has_method("hex_weak_mult"):

@@ -74,7 +74,29 @@ func _initialize() -> void:
 	for ab in want:
 		var c: Dictionary = sd.get_skillbook_master(ab).get("cast", {})
 		_chk("%s kind=%s" % [ab, want[ab]], String(c.get("kind", "")) == want[ab])
-	_chk("AB-062 veil_s>0", float(sd.get_skillbook_master("AB-062").get("cast", {}).get("veil_s", 0.0)) > 0.0)
+	# AB-062 오프너 재정의(DRIFT-121) — 「평타 정지」와 「첫 타격 증폭」은 **한 쌍이어야만** 성립한다.
+	# 증폭만 남고 hold_fire가 빠지면 은신 직후 평타가 증폭을 즉시 삼켜(평타는 은신을 깨지 않는다) 설계가
+	# 통째로 무너지는데, 화면엔 "왜인지 한 방이 안 뜬다"로만 보여 눈으로는 못 잡는다 → 쌍을 게이트로 건다.
+	var c62: Dictionary = sd.get_skillbook_master("AB-062").get("cast", {})
+	_chk("AB-062 veil_s>0", float(c62.get("veil_s", 0.0)) > 0.0)
+	_chk("AB-062 next_hit_bonus>0 (오프너)", float(c62.get("next_hit_bonus", 0.0)) > 0.0)
+	_chk("AB-062 증폭 ⇒ hold_fire (평타 누수 방지)",
+		float(c62.get("next_hit_bonus", 0.0)) <= 0.0 or bool(c62.get("hold_fire", false)))
+	# 「준비 창」이 실제로 시전을 덮어야 성립한다 — 은신이 캐스트보다 짧으면 시전 도중 만료돼 평타가
+	# 재개되고 증폭이 그리로 새어나간다. 누커가 실을 수 있는 **가장 긴 시전**보다 여유 있게 길어야 한다.
+	var nuker_max_cast := 0.0
+	for ab in sd._registry_list("ability_ids"):
+		var mn: Dictionary = sd.get_skillbook_master(String(ab))
+		if mn.is_empty() or not (mn.get("equip_classes", []) as Array).has("Nuker"):
+			continue
+		nuker_max_cast = maxf(nuker_max_cast, float(mn.get("cast", {}).get("cast_s", 0.0)))
+	_chk("AB-062 준비 창 > 누커 최장 시전(%.1fs)" % nuker_max_cast, float(c62.get("veil_s", 0.0)) > nuker_max_cast)
+	# 해제 시점 = **첫 타격**(시전 시작 아님). 시전 시작에 풀면 긴 캐스트 내내 노출돼 위 준비 창이 무의미해진다.
+	# 헤드리스에선 전투 루프를 돌릴 수 없어 두 지점을 소스로 못박는다(DRIFT-119 ward_heal 선례).
+	var adsrc := FileAccess.get_file_as_string("res://scripts/combat/abilities/ability_dispatch.gd")
+	_chk("시전 시작은 오프너 은신을 풀지 않음", adsrc.contains("not (member.has_method(\"holds_fire\") and member.holds_fire())"))
+	var ccsrc := FileAccess.get_file_as_string("res://scripts/combat/combat_controller.gd")
+	_chk("첫 타격이 오프너 은신을 해제", ccsrc.contains("attacker.holds_fire()") and ccsrc.contains("attacker.break_veil()"))
 	_chk("AB-054 ticks>0", int(sd.get_skillbook_master("AB-054").get("cast", {}).get("ticks", 0)) > 0)
 	_chk("AB-044 silence_s>0", float(sd.get_skillbook_master("AB-044").get("cast", {}).get("silence_s", 0.0)) > 0.0)
 	_chk("AB-034 barrier_hp>0", float(sd.get_skillbook_master("AB-034").get("cast", {}).get("barrier_hp", 0.0)) > 0.0)
@@ -568,7 +590,229 @@ func _initialize() -> void:
 	var pm = PM.new()
 	pm.apply_veil(1.5)
 	_chk("party Veiled active", pm.is_veiled())
+	_chk("veil 기본 = 평타 유지", not pm.holds_fire())      # hold_fire 미지정 = 종전 이탈용 은신(잠행 처치 은신 등)
+	pm.apply_veil(1.5, true)
+	_chk("veil hold_fire = 평타 정지", pm.holds_fire())     # AB-062 오프너 경로
+	# next-hit 곱누산(DRIFT-121) — maxf였다면 0.3이 2.0에 통째로 먹혀 ×3.0이 나온다. 곱이면 1.3×3.0=×3.9.
+	pm.grant_next_hit_bonus(0.3)
+	pm.grant_next_hit_bonus(2.0)
+	_chk("next-hit 곱누산 (1.3×3.0=3.9)", is_equal_approx(1.0 + pm.consume_next_hit_bonus(), 3.9))
+	_chk("next-hit 1회만 소비", is_equal_approx(pm.consume_next_hit_bonus(), 0.0))
+	pm.break_veil()
+	_chk("break_veil = 은신·평타정지 동시 해제", not pm.is_veiled() and not pm.holds_fire())
 	pm.free()
+
+	# 「오프너 은신」 능동 취소(DRIFT-121 b) — 은신 중 은신 스킬 재입력 = 토글 오프. **쿨 중에도** 먹혀야
+	# 한다(시전 쿨 14s < 은신 60s라 취소가 필요한 구간 대부분이 쿨 중) → 차지·쿨 게이트보다 앞이라는
+	# 배치 자체가 검증 대상이다. cd/차지를 일부러 채워 두고 눌러, 게이트에 먼저 걸리면 실패로 잡는다.
+	# ── 누커 화력 재조정(DRIFT-123) ──────────────────────────────────────────────
+	# **목표 바닥선(사용자 확정): 은신 증폭(×3.0)을 실은 최대딜이 일반몹 상한(fodder 240)을 한 방에 죽인다.**
+	# 이 한 줄이 이번 튜닝의 존재 이유라 게이트로 건다 — 배율·평타·은신 배수 셋 중 **아무거나** 나중에
+	# 내려가면 목표가 조용히 깨지는데, 세 값이 서로 다른 파일에 있어 눈으로는 절대 못 잡는다.
+	var starter_ba := 0.0
+	for idr in sd.get_identity_rows():
+		if String((idr as Dictionary).get("identity_skill_id", "")) == "nuker_mark_ruin":
+			starter_ba = float((idr as Dictionary).get("combat", {}).get("basic_damage", 0.0))
+	var veil_mult: float = 1.0 + float(sd.get_skillbook_master("AB-062").get("cast", {}).get("next_hit_bonus", 0.0))
+	var top_mult: float = float(sd.get_skillbook_master("AB-059").get("cast", {}).get("damage_mult", 0.0))
+	var FODDER_CAP := 240.0   # EN-012(500)는 이상치로 제외 — DRIFT-123 부수 발견
+	_chk("스타터 누커 평타 위력 확인(%.0f)" % starter_ba, starter_ba > 0.0)
+	_chk("은신 최대딜 %.0f >= 일반몹 상한 240" % (top_mult * starter_ba * veil_mult),
+		top_mult * starter_ba * veil_mult >= FODDER_CAP)
+	# 배율을 올린 만큼 쿨로 갚는다 — 상향 10종이 저쿨로 남으면 "무거운 한 방"이 아니라 그냥 상향이 된다.
+	for ab in ["AB-059", "AB-073", "AB-005", "AB-058", "AB-004", "AB-013", "AB-060", "AB-106", "AB-056", "AB-100"]:
+		var cb2: Dictionary = sd.get_skillbook_master(String(ab)).get("cast", {})
+		_chk("%s 상향분 = 쿨 >= 9s" % ab, float(cb2.get("cooldown_s", 0.0)) >= 9.0)
+	# 유틸은 딜러가 아니다 — 제어기 배율을 같이 올리면 N3·N5 클러스터 분화(제어 ↔ 피해)가 무너진다.
+	var min_dealer: float = float(sd.get_skillbook_master("AB-056").get("cast", {}).get("damage_mult", 0.0))
+	for ab in ["AB-030", "AB-103"]:
+		_chk("%s 유틸 = 최소 딜러(%.1f)보다 낮음" % [ab, min_dealer],
+			float(sd.get_skillbook_master(String(ab)).get("cast", {}).get("damage_mult", 9.0)) < min_dealer)
+
+	# ── 적 캐스터 체감(DRIFT-127) ───────────────────────────────────────────────
+	# 후열 캐스터가 "무시해도 되는 존재"가 되지 않으려면 **한 방이 물몸 체력의 1/4 이상**이어야 한다.
+	# EN-015는 unified AB-053을 쓰므로 피해 = `contact_damage × skillbooks의 damage_mult` — 두 파일에
+	# 나뉜 값의 곱이라 한쪽만 내려가도 조용히 무력해진다. 그래서 곱한 결과를 직접 건다.
+	var SQUISHY_HP := 85.0   # 파티 최저 HP(누커) — 캐스터 위협의 기준선
+	var c053: Dictionary = sd.get_skillbook_master("AB-053").get("cast", {})
+	var en15: Dictionary = sd.get_enemy_row("EN-015").get("stats", {})
+	var cast_hit: float = float(en15.get("contact_damage", 0.0)) * float(c053.get("damage_mult", 0.0))
+	_chk("EN-015 한 방 %.1f >= 물몸 HP의 25%%" % cast_hit, cast_hit >= SQUISHY_HP * 0.25)
+	# 캐스터는 평타가 아니라 스킬이 위협이어야 한다 — 평타 한 대가 스킬만큼 아프면 정체성이 무너진다.
+	_chk("EN-015 스킬 > 평타 2배", cast_hit > float(en15.get("contact_damage", 0.0)) * 2.0)
+	# 배율을 올린 만큼 쿨로 갚았는지(DRIFT-123 원칙) — 안 갚으면 지속 화력이 통째로 2배가 된다.
+	_chk("AB-053 지속 화력 동결(mult/cd <= 0.25)",
+		float(c053.get("damage_mult", 0.0)) / maxf(float(c053.get("cooldown_s", 1.0)), 0.001) <= 0.25)
+	# 3초 캐스트짜리가 1초급 배율이면 "기다린 보람"이 없다 — cast_s 대비 최소 사다리.
+	_chk("AB-053 cast 3.0s 사다리(mult >= 2.0)", float(c053.get("damage_mult", 0.0)) >= 2.0)
+
+	# ── ENC-NORM-004 후열 캐스터 조우(DRIFT-126) ────────────────────────────────
+	# authored `units`는 던전 런에선 제너레이터가 덮지만(`_should_generate`) **샌드박스 ENC 스폰은
+	# 그대로 쓴다** — 즉 이 파일은 "이 조합을 체감하겠다"는 선언이다. 그래서 조합 규칙을 게이트로 건다.
+	var e004: Dictionary = sd.get_encounter("ENC-NORM-004")
+	_chk("ENC-NORM-004 로드", not e004.is_empty())
+	var u004: Array = e004.get("units", [])
+	var ids004: Array = []
+	var n004 := 0
+	for u in u004:
+		ids004.append(String((u as Dictionary).get("enemy_id", "")))
+		n004 += int((u as Dictionary).get("count", 0))
+	_chk("EN-015가 실제로 편성됨", ids004.has("EN-015"))
+	_chk("group_size = 유닛 합(%d)" % n004, int(e004.get("group_size", -1)) == n004)
+	# ENC-000 §2 cap: mechanicAxes = elite 수 + 고유 specialist axis 수 <= 2.
+	var axes004 := 0
+	var seen_ax := {}
+	for eid4 in ids004:
+		var t4: Dictionary = sd.get_enemy_tags(String(eid4))
+		var bk := String(t4.get("bucket", ""))
+		if bk == "Elite":
+			axes004 += 1
+		elif bk == "Specialist":
+			var ax4 := String(t4.get("axis", ""))
+			if not seen_ax.has(ax4):
+				seen_ax[ax4] = true
+				axes004 += 1
+	_chk("mechanicAxes %d <= 2 (ENC-000 §2)" % axes004, axes004 <= 2)
+	# §3 안티패턴 "원거리 poke 이중" — 원거리 Specialist와 원거리 fodder를 같이 두면 전열/후열 경계가
+	# 무너진다. EN-011(BackPester 7.5m)이 그 짝이라 이 조우의 fodder는 근접만이어야 한다.
+	var ranged_spec := false
+	var ranged_fod := false
+	for eid4 in ids004:
+		var t4b: Dictionary = sd.get_enemy_tags(String(eid4))
+		var rng4 := float(sd.get_enemy_row(String(eid4)).get("stats", {}).get("attack_range_m", 0.0))
+		if rng4 >= 5.0:
+			if String(t4b.get("bucket", "")) == "Specialist":
+				ranged_spec = true
+			elif String(t4b.get("bucket", "")) == "Fodder":
+				ranged_fod = true
+	_chk("원거리 poke 이중 없음(§3 안티패턴)", not (ranged_spec and ranged_fod))
+	# 배선 3종 — 하나라도 빠지면 조우가 만들어져도 런에 안 뜨거나 전리품이 0이 된다.
+	_chk("ENC-NORM-004 id 등록", (sd._registry_list("encounter_ids") as Array).has("ENC-NORM-004"))
+	_chk("ENC-NORM-004 haul_drops 있음", (sd.get_haul_drops("ENC-NORM-004") as Array).size() > 0)
+	var stsrc := FileAccess.get_file_as_string("res://data/slice01/spawn_table.json")
+	_chk("ENC-NORM-004 spawn_table 편성", stsrc.contains("ENC-NORM-004"))
+
+	# ── 적 표적 우선순위(DRIFT-125) ─────────────────────────────────────────────
+	# 힐러 > 누커 > 딜러 > 탱커 순으로 노리되 **탱커가 위협을 쌓으면 되찾는다**(하드 오버라이드 아님).
+	# 두 성질이 같이 성립해야 어그로 관리가 플레이가 되므로 둘 다 건다 — 하나만 맞으면 설계가 반쪽이다.
+	var TP: Dictionary = EN.TARGET_PRIORITY
+	_chk("우선순위 사다리 힐러>누커>딜러>탱커",
+		float(TP["Healer"]) > float(TP["Nuker"]) and float(TP["Nuker"]) > float(TP["DPS"])
+		and float(TP["DPS"]) > float(TP["Tank"]))
+	var enp = EN.new()
+	enp.attack_range_m = 100.0   # 전원 사거리 안 → 순수하게 우선순위만 본다
+	var members := {}
+	for cls in ["Healer", "Nuker", "DPS", "Tank"]:
+		var pmx = PM.new()
+		pmx.class_id = cls
+		pmx.add_to_group("party_member")
+		pmx.global_position = Vector3(1, 0, 0)
+		members[cls] = pmx
+		enp.add_threat(pmx, 100.0)   # 위협 동일 → 차이는 우선순위뿐
+	var cand: Array = [members["Healer"], members["Nuker"], members["DPS"], members["Tank"]]
+	_chk("동일 위협 → 힐러를 노림", enp.pick_target(cand, 1.25) == members["Healer"])
+	# 탱커가 위협을 쌓으면 되찾아온다 — 이게 안 되면 어그로 관리가 무의미해진다.
+	enp.add_threat(members["Tank"], 900.0)   # 탱커 1000×1.0 = 1000 > 힐러 100×3.0 = 300
+	_chk("탱커가 위협 쌓으면 되찾음", enp.pick_target(cand, 1.25) == members["Tank"])
+	for cls in members:
+		members[cls].free()
+	enp.free()
+	# **인지 범위 우선**은 런타임으로 못 짚는다 — 거리·LOS 판정이 `global_position`과 물리 레이라
+	# **트리 안**이어야 하는데, EnemyUnit을 root에 붙이면 `_ready`가 오토로드·비주얼을 끌고 오다
+	# 헤드리스에서 **멈춘다**(FAIL이 아니라 hang — [[DRIFT-118]] 기록). 그래서 이 축은 소스로 못박는다.
+	# 위 우선순위·탱커 되찾기는 위치와 무관해 실런타임으로 검증했다.
+	var aisrc := FileAccess.get_file_as_string("res://scripts/combat/enemy_ai.gd")
+	_chk("표적 후보 = 인지 범위(_huntable)", aisrc.contains("enemy.pick_target(_huntable(enemy, hostiles)"))
+	_chk("_huntable = 교전중 or 반경+LOS",
+		aisrc.contains("HUNT_RADIUS_M or not _has_los(enemy, h)"))
+	# 우선순위는 **인지한 것들 중에서만** 적용돼야 한다 — 유닛 쪽에 거리 필터가 남아 있으면 층이 겹쳐
+	# 두 번 걸러진다(근접 몹이 아무도 못 고르는 회귀). 유닛은 위협 장부만, 인지는 AI만.
+	var eusrc := FileAccess.get_file_as_string("res://scripts/combat/enemy_unit.gd")
+	_chk("유닛은 거리 필터를 갖지 않음(층 분리)", not eusrc.contains("attack_range_m * attack_range_m"))
+
+	# ── Shared AB 배율 파리티(DRIFT-124) ────────────────────────────────────────
+	# 같은 AB는 진영이 달라도 **같은 스킬**이어야 한다([[DRIFT-117]] ①). 양측 모두 `basic_damage`에
+	# 곱하는 동일 구조라(적은 `contact_damage`가 그 별칭) 배율이 갈리는 순간 다른 스킬이 된다.
+	# **진영별 세기 차이는 배율이 아니라 유닛 기본치로 낸다** — 이 게이트가 그 규약의 집행부다.
+	# 전역으로 도는 이유: 아군 쪽만 튜닝하다 조용히 깨지는 게 이 규약의 유일한 파손 경로였다(DRIFT-123).
+	# 배율과 쿨을 **같은 잣대로** 본다 — 배율만 맞추고 쿨이 갈리면 스킬의 리듬이 진영별로 달라져
+	# 결국 다른 스킬이 된다. 면제는 사유를 남긴 **기존 미판정 잔여**뿐이고, 여기 없는 신규 이탈은 FAIL.
+	var PARITY_EXEMPT := {
+		"damage_mult": {
+			"AB-002": "Tank 패스에서 아군만 스팸형 저딜(1.0)로 재정의 · 적 EN-001은 2.2 유지 — 미판정 잔여",
+			"AB-005": "적측 정의가 orphan(EN-010에서 제거) — 죽은 데이터",
+		},
+		"cooldown_s": {
+			"AB-002": "위와 같은 미판정 잔여(아군 2 / 적 3)",
+			"AB-005": "orphan",
+			"AB-011": "Tank 패스 잔여(아군 8 / 적 5) — 미판정",
+			"AB-067": "Healer 보호막 패스 잔여(아군 9 / 적 10) — DRIFT-119 튜닝 시 적측 미동기",
+		},
+	}
+	var parity_n := {"damage_mult": 0, "cooldown_s": 0}
+	for ab in sd._registry_list("ability_ids"):
+		var abs2 := String(ab)
+		var acast: Dictionary = sd.get_skillbook_master(abs2).get("cast", {})
+		var ecast: Dictionary = sd.get_ability(abs2)
+		for field in ["damage_mult", "cooldown_s"]:
+			var av = acast.get(field)
+			var ev = ecast.get(field)
+			if av == null or ev == null or (PARITY_EXEMPT[field] as Dictionary).has(abs2):
+				continue
+			parity_n[field] = int(parity_n[field]) + 1
+			_chk("%s %s 파리티(아군 %.2f = 적 %.2f)" % [abs2, field, float(av), float(ev)],
+				is_equal_approx(float(av), float(ev)))
+	# 면제가 늘어 검사 대상이 줄어드는 것도 파손이다(게이트를 비워서 통과시키는 회피 차단).
+	_chk("배율 파리티 대상 >= 7종", int(parity_n["damage_mult"]) >= 7)
+	_chk("쿨 파리티 대상 >= 12종", int(parity_n["cooldown_s"]) >= 12)
+
+	# ── 단일 대상 잠금(DRIFT-122) ────────────────────────────────────────────────
+	# 잠금 대상 12종 = 판정의 SSOT. 목록을 코드에 박아 두는 이유: 반경·kind로는 못 가른다(같은
+	# skillbook_bolt에 r4.0 광역이 섞여 있고, 반경을 튜닝하다 조준 방식이 조용히 바뀌면 안 된다).
+	var LOCK_ABS := ["AB-004", "AB-012", "AB-013", "AB-030", "AB-056", "AB-057",
+		"AB-059", "AB-060", "AB-073", "AB-100", "AB-103", "AB-106"]
+	for ab in LOCK_ABS:
+		var cl: Dictionary = sd.get_skillbook_master(String(ab)).get("cast", {})
+		_chk("%s single_target" % ab, bool(cl.get("single_target", false)))
+	# 광역은 잠금이 아니어야 한다 — 하나라도 잠기면 반경이 죽고 단일기가 된다(조용한 하향).
+	for ab in ["AB-003", "AB-058", "AB-005", "AB-041", "AB-053"]:
+		_chk("%s 광역 = 잠금 아님" % ab,
+			not bool(sd.get_skillbook_master(String(ab)).get("cast", {}).get("single_target", false)))
+	# 잠금은 조준 위에서만 성립한다 — targeted 없이 single_target이면 조준 모달을 안 타 대상을 못 고른다.
+	for ab in sd._registry_list("ability_ids"):
+		var ml: Dictionary = sd.get_skillbook_master(String(ab))
+		if ml.is_empty():
+			continue
+		var cm: Dictionary = ml.get("cast", {})
+		if bool(cm.get("single_target", false)):
+			_chk("%s 잠금 ⇒ targeted" % ab, bool(cm.get("targeted", false)))
+	# 해소 — 잠금이 실리면 반경·최근접과 무관하게 **그 유닛**이 나온다(fallback은 _combat이 필요해 제외).
+	var adl = AD.new()
+	var lock_tgt = EN.new()
+	lock_tgt.hp = 10.0
+	var plock := {"single_target": true, "_target": lock_tgt}
+	_chk("resolve_target = 잠금 유닛", adl.resolve_target(plock, Vector3(999, 0, 999), 0.1) == lock_tgt)
+	var lset: Array = adl.resolve_targets(plock, Vector3(999, 0, 999), 0.1)
+	_chk("resolve_targets = 잠금 1체", lset.size() == 1 and lset[0] == lock_tgt)
+	lock_tgt.free()
+	adl.free()
+	# 빈 지면 클릭 = 시전 안 함(무비용 취소). 조준 모달은 헤드리스에서 마우스를 못 만들어 소스로 못박는다.
+	var acsrc := FileAccess.get_file_as_string("res://scripts/run/controllers/aim_controller.gd")
+	_chk("빈 지면 = 취소(시전 없음)", acsrc.contains("if _single_target and unit == null:"))
+	_chk("잠금 조준 = 유닛 레이픽", acsrc.contains("_pick_enemy_under_mouse"))
+
+	var ad3 = AD.new()
+	var pm4 = PM.new()
+	pm4.set_skillbook(0, {"base_ability_id": "AB-062", "params": c62, "charges": 3, "cooldown_s": 14.0})
+	pm4.apply_veil(60.0, true)
+	pm4.grant_next_hit_bonus(float(c62.get("next_hit_bonus", 0.0)))
+	ad3.cast_skillbook(pm4, 0)
+	_chk("은신 재입력 = 취소(쿨 중에도)", not pm4.is_veiled() and not pm4.holds_fire())
+	_chk("취소는 무비용(차지 불변)", int(pm4.get_skillbook(0).charges) == 3)
+	# 취소로 증폭이 남으면 "은신 → 즉시 취소 → 강화 평타"가 은신을 건너뛰고 보상만 챙기는 경로가 된다.
+	_chk("취소 = 증폭 폐기", is_equal_approx(pm4.consume_next_hit_bonus(), 0.0))
+	pm4.free()
+	ad3.free()
 
 	var en = EN.new()
 	en.apply_silence(3.0)

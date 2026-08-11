@@ -58,6 +58,15 @@ static func describe(kind: String, params: Dictionary) -> String:
 		prose += " 반경 %sm 안의 적을 %sm 끌어모으고 %s초간 속박한다." % [
 			_n(float(params.get("radius_m", 0.0))), _n(float(params.get("gather_m", 0.0))),
 			_n(float(params.get("root_s", 0.0)))]
+	# skillbook_stealth(AB-062, DRIFT-121) — 은신이 **평타를 멈춘다**는 걸 안 적으면 플레이어는 "은신했더니
+	# 공격이 안 나감"을 버그로 읽는다. 대가(평타 정지)와 보상(첫 타격 증폭)을 한 문장에 같이 실어야 은신
+	# 지속이 도망 시간이 아니라 **무엇에 실을지 고르는 창**으로 읽힌다 — 이 스킬은 그 판독이 곧 조작법이다.
+	if kind == "skillbook_stealth":
+		var nhb := float(params.get("next_hit_bonus", 0.0))
+		if nhb > 0.0:
+			prose += " 은신 후 **첫 타격의 피해가 %d%% 증가한다.**" % int(round(nhb * 100.0))
+		if bool(params.get("hold_fire", false)):
+			prose += " 은신 중에는 평타와 정체성이 멈춰 **시전을 준비할 시간이 생기며**, 첫 타격을 넣는 순간 은신이 풀린다. 다시 누르면 은신을 해제하지만, 그때는 증폭이 사라진다."
 	# skillbook_shield 두 대상(DRIFT-116) — 지정 1인(AB-067) ↔ 파티 광역(AB-075). 힐러 방어 4종의
 	# 차이축이 **대상**이라 문구에서 먼저 갈리게 한다(자기 DR / 지정 흡수 / 광역 흡수 / 자동 흡수→치유).
 	if kind == "skillbook_shield":

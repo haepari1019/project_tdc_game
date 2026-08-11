@@ -37,6 +37,13 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 ## Apply the bolt's hit at `center` — shared by the instant cast AND the projectile impact.
 func resolve_at(m: CharacterBody3D, center: Vector3, p: Dictionary, ctx) -> void:
 	var radius := float(p.get("radius_m", 1.5))
+	# 단일 대상 잠금(DRIFT-122) — 착탄 중심을 **대상의 현재 위치**로 옮긴다. 잠금 볼트는 반경이 1.2~1.4m라
+	# 지면 좌표에 고정하면 시전(최대 5.0s)+비행 사이에 적이 걸어가기만 해도 통째로 빗나갔다. 중심만 바꾸고
+	# 반경 판정·속성·VFX는 그대로 두어 광역 볼트와 코드가 갈리지 않는다(잔향 크기도 자기 반경 유지).
+	if bool(p.get("single_target", false)):
+		var lock = p.get("_target")
+		if lock != null and is_instance_valid(lock) and (not lock.has_method("is_alive") or lock.is_alive()):
+			center = lock.global_position
 	var dmg: float = float(p.get("damage_mult", 1.0)) * m.basic_damage * float(p.get("_coeff", 1.0))
 	var hits: Array = []
 	for e in ctx.enemies_in_radius(center, radius):

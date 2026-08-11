@@ -426,7 +426,11 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# far, never-perceived group (e.g. the hidden 본대) is never chased. No threat and
 	# nobody visible → hold; grace will disengage it back to dormant.
 	enemy.decay_threat(delta)
-	var target: CharacterBody3D = enemy.pick_target(_alive_members(hostiles), SWITCH_RATIO)
+	# **인지 범위 안을 먼저**(DRIFT-125) — 표적 후보를 `_huntable`로 좁힌다: 이미 교전 중(위협 보유)이거나
+	# `HUNT_RADIUS_M`(16m) 안 + LOS. 클래스 우선순위(힐러>누커>딜러>탱커)는 **인지한 것들 중에서만** 적용돼야
+	# 한다 — 안 그러면 벽 너머·맵 반대편 힐러를 향해 어그로가 새서 "저격"이 아니라 텔레포트 어그로가 된다.
+	# 아무도 못 알아보면 빈 배열 → 아래 폴백(`_nearest_visible`)이 종전대로 받는다.
+	var target: CharacterBody3D = enemy.pick_target(_huntable(enemy, hostiles), SWITCH_RATIO)
 	if target == null or float(enemy.threat.get(target, 0.0)) <= 0.0:
 		target = _nearest_visible(enemy, hostiles)
 	if target == null:

@@ -4,6 +4,7 @@
     "ENC-NORM-001": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.35}, {"haul": "haul_script_fragment", "qty": 1, "chance": 0.15}],
     "ENC-NORM-002": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.25}],
     "ENC-NORM-003": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}, {"haul": "haul_script_fragment", "qty": 1, "chance": 0.15}],
+    "ENC-NORM-004": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}, {"haul": "haul_script_fragment", "qty": 1, "chance": 0.15}],
     "ENC-PAT-001": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}],
     "ENC-PAT-002": [{"haul": "haul_ward_splinter", "qty": 1, "chance": 0.3}, {"haul": "haul_script_fragment", "qty": 1, "chance": 0.15}],
     "ENC-PAT-003": [{"haul": "haul_script_fragment", "qty": 1, "chance": 0.3}],

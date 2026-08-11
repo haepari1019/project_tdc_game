@@ -15,7 +15,7 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var radius := float(p.get("radius_m", 2.0))
 	var extra := float(p.get("vulnerable_pct", 0.15))
 	var dur := float(p.get("duration_s", 5.0))
-	var foes: Array = ctx.enemies_in_radius(center, radius)
+	var foes: Array = ctx.resolve_targets(p, center, radius)
 	if foes.is_empty():
 		return false
 	for e in foes:
