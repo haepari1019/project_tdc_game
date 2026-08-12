@@ -65,6 +65,7 @@
     "skillbook_barrier": "지정 위치에 방벽을 소환해 적의 투사체와 진격을 막는다. 벽에 닿는 적은 중심을 잃고 잠시 스턴에 빠진다.",
     "skillbook_purge": "주변 아군에게 걸린 해로운 효과를 걷어낸다. 걷어낼 것이 없으면 대신 적의 강화 효과를 하나 빼앗는다.",
     "skillbook_silence": "대상 지역의 적을 침묵시켜 액티브 스킬 사용을 막는다.",
+    "skillbook_silence_single": "조준한 적 1기를 타격하고 침묵시켜 액티브 스킬 사용을 막는다.",
     "skillbook_bolt": "원거리 투사체를 발사해 착탄 지점에 광역 피해를 준다.",
     "skillbook_taunt": "대상을 도발해 자신을 공격하도록 강제한다.",
     "skillbook_relocate_ally": "가장 위험한 아군을 안전한 위치로 견인한다.",

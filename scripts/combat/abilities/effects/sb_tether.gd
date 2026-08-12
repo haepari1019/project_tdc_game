@@ -18,7 +18,12 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var dmg: float = float(p.get("damage_mult", 0.4)) * m.basic_damage * float(p.get("_coeff", 1.0))
 	if dmg > 0.0:
 		ctx.deal_damage(tgt, m, dmg)
-	if tgt.has_method("apply_outcome"):
+	# 시전자를 anchor로 실어 보낸다 — leash 거리 판정에 필요하다. 종전엔 상태만 걸어서
+	# **아무 일도 일어나지 않았다**(Tethered가 MOVE_MULT에도 없는 순수 표시용 배지였다). DRIFT-132.
+	if tgt.has_method("apply_tether"):
+		tgt.apply_tether(float(p.get("tether_s", 4.0)), m, float(p.get("leash_m", 8.0)),
+				float(p.get("tether_dps", 3.0)), float(p.get("tether_pull_mps", 2.5)))
+	elif tgt.has_method("apply_outcome"):
 		tgt.apply_outcome("Tethered", float(p.get("tether_s", 4.0)))
 	ctx.sub_shake(p)
 	SkillVfx.telegraph(ctx, tgt.global_position, Color(0.72, 0.62, 0.25))  # chain amber

@@ -510,9 +510,14 @@ func tick_slow(delta: float) -> void:
 
 ## Elemental outcome timers + Ignited DoT. Called each engaged tick by EnemyAI (like tick_slow).
 func tick_outcome(delta: float) -> void:
-	var burn := _outcome.tick(delta)
+	var burn := _outcome.tick(delta, global_position)
 	if burn > 0.0:
 		take_damage(burn)
+	# Tethered(AB-103) — leash 밖이면 시전자 쪽으로 살짝 끌린다. 신규 이동 경로가 아니라
+	# AB-042 바람 넛지와 같은 `apply_drift`를 재사용(피아 공통 규격). leash 안이면 0벡터.
+	var _tp: Vector3 = _outcome.tether_pull()
+	if _tp.length_squared() > 0.0:
+		apply_drift(_tp, _tp.length())
 	# DoT 피해 표기 — 종류 무관 동일 규격(카메라 기준 우측 빗겨 · 체력바/아이콘 안 가리게). 색만 종류별.
 	for t in _outcome.take_dot_ticks():
 		_FloatText.popup(self, str(int(round(float(t["dmg"])))),
@@ -533,6 +538,17 @@ func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if not _outcome.has(id) and _FloatText.OUTCOME_KO.has(id):
 		popup_status(_FloatText.OUTCOME_KO[id], Color(0.75, 0.9, 1.0))
 	_outcome.apply(id, dur, mag)
+
+## Tethered(AB-103) — 상태만 걸면 거리 판정이 불가능해 **시전자(anchor)와 leash 파라미터를 함께** 싣는다.
+## 피아 공통 API: 아군 `sb_tether` / 적 `enemy_ai._apply_third_status` 둘 다 이 경로를 쓴다. DRIFT-132.
+func apply_tether(dur: float, anchor: Node3D, leash_m: float, dps: float, pull_mps: float) -> void:
+	if not is_alive():
+		return
+	if not _outcome.has("Tethered") and _FloatText.OUTCOME_KO.has("Tethered"):
+		popup_status(_FloatText.OUTCOME_KO["Tethered"], Color(0.75, 0.9, 1.0))
+	_outcome.apply_tether(dur, anchor, leash_m, dps, pull_mps)
+	_update_status_badges()
+
 
 
 ## AB-010 스택형 독 DoT — 재적용마다 dps 누적(스택↑)·지속 갱신. 두 번 걸면 틱 배증. DoT는 tick_outcome이 굴린다.
@@ -683,7 +699,8 @@ func tick_stun(delta: float) -> void:
 
 
 ## Silence (AB-044 Hush Ward) — block active ability casts for `duration` (ccTenacity shortens).
-## Pre-emptive: does NOT interrupt an in-progress cast (that's AB-030). No-op on the dead.
+## 새 시전 차단이 본 효과이고, **진행 중인 시전도 끊는다**(enemy_ai가 winding 취소 — DRIFT-133).
+## 단 침묵 스킬 자신이 캐스트를 가져 반응 인터럽트로는 못 쓴다 — 얻어걸릴 때의 보너스. No-op on the dead.
 func apply_silence(duration: float) -> void:
 	if hp <= 0.0 or duration <= 0.0:
 		return

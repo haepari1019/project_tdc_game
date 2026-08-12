@@ -629,6 +629,76 @@ func _initialize() -> void:
 		_chk("%s 유틸 = 최소 딜러(%.1f)보다 낮음" % [ab, min_dealer],
 			float(sd.get_skillbook_master(String(ab)).get("cast", {}).get("damage_mult", 9.0)) < min_dealer)
 
+	# ── N5 재정의: AB-030 인터럽트 → 침묵 「제압」(DRIFT-133) ───────────────────
+	# 실측이 판정을 뒤집었다 — 적이 쓰는 27종의 telegraph가 0.2~1.0s에 몰려 있어 cast 1.0짜리
+	# 인터럽트로 끊을 수 있는 건 **AB-012 단 1종**이었다. 이름만 인터럽트였다.
+	# 침묵은 **진행 중 시전을 끊지 않고 새 시전만 막는다** → "끊는다"가 아니라 "제압한다".
+	var c030: Dictionary = sd.get_skillbook_master("AB-030").get("cast", {})
+	_chk("AB-030 = 침묵 kind", String(c030.get("kind", "")) == "skillbook_silence")
+	_chk("AB-030 stun 잔재 없음", not c030.has("stun_s"))
+	_chk("AB-030 침묵 지속 > 0", float(c030.get("silence_s", 0.0)) > 0.0)
+	# 「타격 후 침묵」이라 피해가 함께 있어야 한다 — 무피해면 AB-044(광역 봉인)와 형태가 겹친다.
+	_chk("AB-030 타격 동반(damage_mult > 0)", float(c030.get("damage_mult", 0.0)) > 0.0)
+	_chk("AB-030 단일 잠금", bool(c030.get("single_target", false)))
+	# 2변주가 실제로 갈리는지 — 044는 광역·무피해, 030은 단일·타격.
+	var c044: Dictionary = sd.get_skillbook_master("AB-044").get("cast", {})
+	_chk("AB-044 = 광역 무피해(변주 대비)",
+		not bool(c044.get("single_target", false)) and float(c044.get("damage_mult", 0.0)) <= 0.0)
+	# 침묵이 실제로 시전을 막는 경로가 살아 있는지(적 AI 게이트).
+	var aisrc2 := FileAccess.get_file_as_string("res://scripts/combat/enemy_ai.gd")
+	_chk("적 AI가 침묵으로 캐스트를 막는다", aisrc2.contains("is_silenced()"))
+	# 침묵이 **진행 중인 시전도** 끊는다(사용자 추가) — 새 시전 차단만으로는 "얻어걸리는 보너스"가 없다.
+	_chk("침묵이 진행 중 시전을 끊는다", aisrc2.contains("if enemy.is_silenced() and enemy.winding:"))
+	# 인터럽트 역할은 스턴(AB-011 Tank)이 계속 진다 — 누커에서 빠진 자리가 비지 않았는지.
+	_chk("인터럽트 담당 = AB-011 스턴 존치",
+		String(sd.get_skillbook_master("AB-011").get("cast", {}).get("kind", "")) == "skillbook_stun")
+
+	# ── N3 콤보 복원: Tethered 실동작 · ON-KILL-FEED(DRIFT-132) ─────────────────
+	# `Tethered`는 **아무 기제도 없는 표시용 배지**였다(MOVE_MULT·ATK_MULT·CC_TENACITY 어디에도 없고
+	# leash 판정도 없었다). 스킬의 페이로드 전체가 없던 것이라 "툴팁만 참"인 상태였다.
+	# 상태 자체를 런타임으로 돌려 **leash 안=무해 / 밖=피해+끌림**이 실제로 갈리는지 본다.
+	var os1 = OS_.new()   # OS_ = 위(§냉각)에서 이미 로드한 outcome_status.gd
+	var anchor := Node3D.new()
+	root.add_child(anchor)
+	anchor.global_position = Vector3.ZERO
+	os1.apply_tether(4.0, anchor, 8.0, 3.0, 2.5)
+	_chk("Tethered 부여됨", os1.has("Tethered"))
+	# leash 안(3m) — 위치 속박이라 **아무 일도 없어야** 한다(감속·피해 0). AB-050 slow와의 차이축.
+	var d_in := 0.0
+	for i in 8:
+		d_in += os1.tick(0.25, Vector3(3, 0, 0))
+	_chk("leash 안 = 피해 0", is_equal_approx(d_in, 0.0))
+	_chk("leash 안 = 끌림 0", os1.tether_pull().length() < 0.001)
+	_chk("Tethered는 이동 감속이 아니다(위치 속박)", is_equal_approx(os1.move_mult(), 1.0))
+	# leash 밖(12m) — 0.5s 리듬으로 3dps → 틱당 1.5. 끌림은 anchor 방향(−x).
+	var os2 = OS_.new()
+	os2.apply_tether(4.0, anchor, 8.0, 3.0, 2.5)
+	var d_out := 0.0
+	for i in 4:
+		d_out += os2.tick(0.25, Vector3(12, 0, 0))
+	_chk("leash 밖 = break DoT 들어감(%.2f)" % d_out, d_out > 0.0)
+	var pull: Vector3 = os2.tether_pull()
+	_chk("끌림 방향 = 시전자 쪽", pull.x < 0.0 and absf(pull.z) < 0.001)
+	# anchor가 사라지면(시전자 사망) 조용히 멈춘다 — 죽은 참조로 피해가 계속되면 안 된다.
+	anchor.queue_free()
+	_chk("AB-103 leash 파라미터 실재",
+		float(sd.get_skillbook_master("AB-103").get("cast", {}).get("leash_m", 0.0)) > 0.0
+		and float(sd.get_skillbook_master("AB-103").get("cast", {}).get("tether_dps", 0.0)) > 0.0)
+	# 적측 파리티 — 같은 AB가 진영에 따라 다른 스킬이 되면 안 된다(DRIFT-124).
+	var e103: Dictionary = sd.get_ability("AB-103")
+	for k in ["leash_m", "tether_dps", "tether_s"]:
+		_chk("AB-103 %s 진영 파리티" % k,
+			is_equal_approx(float(e103.get(k, -1.0)),
+				float(sd.get_skillbook_master("AB-103").get("cast", {}).get(k, -2.0))))
+	# ON-KILL-FEED — 처치 보상이 회복만이고 쿨 환급이 없으면 「다음 먹이로 연쇄」가 성립하지 않는다.
+	var c106: Dictionary = sd.get_skillbook_master("AB-106").get("cast", {})
+	_chk("AB-106 on_kill 회복 + 쿨 환급 둘 다",
+		float(c106.get("on_kill_heal_pct", 0.0)) > 0.0 and float(c106.get("on_kill_cd_refund", 0.0)) > 0.0)
+	_chk("AB-106 쿨 환급 < 전액(무한 연발 방지)", float(c106.get("on_kill_cd_refund", 1.0)) < 1.0)
+	# 환급은 효과가 직접 못 깎는다 — `cast_s>0`은 해소 **뒤** 쿨을 덮어쓰므로 보고 채널이어야 한다.
+	var adsrc2 := FileAccess.get_file_as_string("res://scripts/combat/abilities/ability_dispatch.gd")
+	_chk("쿨 환급 = 보고 채널(덮어쓰기 뒤 적용)", adsrc2.contains("cd * (1.0 - _cd_refund_frac)"))
+
 	# ── range_band ↔ 실사거리 정합(DRIFT-131) ───────────────────────────────────
 	# `range_band`는 표기가 아니라 **잠행 결속(IDA-029)의 보상 계수를 정하는 실효 필드**다
 	# (`FLANK.band_dmg` Melee 0.15 / Mid 0.25 / Long 0.5 · `band_cd` 0 / 0.10 / 0.20).

@@ -370,6 +370,16 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 		enemy.velocity = Vector3.ZERO
 		enemy.move_and_slide()
 		return
+	# Silenced (AB-044 광역 봉인 / AB-030 전격 제압) — 새 시전 차단은 `_try_cast_*`가 하고,
+	# **진행 중인 시전은 여기서 끊는다**(DRIFT-133). 스턴과 달리 이동·평타는 그대로 두는 soft CC라
+	# `return`하지 않고 흘려보낸다. 침묵 자체는 **반응해서 끊는 도구가 아니다**(제압이 목적) —
+	# 시전 도중에 얻어걸리면 그 캐스트가 무산되는 **보너스**로만 작동한다. 사용자 판정.
+	if enemy.is_silenced() and enemy.winding:
+		enemy.winding = false
+		enemy.windup_target = null
+		enemy.windup_unified = {}
+		_clear_cast_bar(enemy)
+		print("[EN] %s cast interrupted (silence)" % enemy.enemy_id)
 	# Polymorphed (AB-012 Hex Bolt): 개구리 — 공격/시전 전면 불가, AI 대신 랜덤 hop만. 시전 중이면 인터럽트.
 	# 피해를 받으면 enemy_unit.take_damage가 즉시 해제(sheep式). 이 takeover가 winding/attack 로직을 전부 스킵.
 	if enemy.is_polymorphed():
@@ -1839,7 +1849,13 @@ func _apply_third_status(enemy: CharacterBody3D, eff: Dictionary, chosen: Dictio
 				if dm > 0.0 and a.has_method("take_damage"):
 					a.take_damage(enemy.contact_damage * dm, enemy, true)
 		"enemy_tether":
-			target.apply_outcome("Tethered", float(eff.get("tether_s", 4.0)))
+			# 적 시전도 같은 경로 — anchor(포획꾼)를 실어야 leash가 성립한다. 종전엔 상태만 걸려
+			# **아무 효과도 없었다**(EN-3RD-02의 킷 절반이 무효였다). 피아 파리티. DRIFT-132.
+			if target.has_method("apply_tether"):
+				target.apply_tether(float(eff.get("tether_s", 4.0)), enemy, float(eff.get("leash_m", 8.0)),
+						float(eff.get("tether_dps", 3.0)), float(eff.get("tether_pull_mps", 2.5)))
+			else:
+				target.apply_outcome("Tethered", float(eff.get("tether_s", 4.0)))
 	print("[EN] %s %s (%s) -> %s" % [enemy.enemy_id, String(chosen.get("ref", "")), kind, _tname(target)])
 
 

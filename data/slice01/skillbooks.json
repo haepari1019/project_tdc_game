@@ -671,7 +671,7 @@
     },
     {
       "base_ability_id": "AB-030",
-      "display_name": "Voltaic Interrupt",
+      "display_name": "전격 제압",
       "equip_classes": [
         "Nuker",
         "DPS"
@@ -682,15 +682,15 @@
       "range_band": "Mid",
       "charges_max": 60,
       "cast": {
-        "kind": "skillbook_stun",
+        "kind": "skillbook_silence",
         "single_target": true,
         "cooldown_s": 8,
-        "cast_s": 1.0,
+        "cast_s": 1.5,
         "targeted": true,
         "range_m": 10,
         "radius_m": 2.0,
         "damage_mult": 0.4,
-        "stun_s": 0.5
+        "silence_s": 3.0
       },
       "tier": "Basic"
     },
@@ -1045,6 +1045,9 @@
         "range_m": 12,
         "radius_m": 2.0,
         "tether_s": 4.0,
+        "leash_m": 8.0,
+        "tether_dps": 3.0,
+        "tether_pull_mps": 2.5,
         "damage_mult": 0.4
       },
       "tier": "Advanced"
@@ -1068,7 +1071,8 @@
         "damage_mult": 2.4,
         "execute_under": 0.3,
         "execute_mult": 2.0,
-        "on_kill_heal_pct": 0.2
+        "on_kill_heal_pct": 0.2,
+        "on_kill_cd_refund": 0.5
       },
       "tier": "Advanced"
     }

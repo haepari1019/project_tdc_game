@@ -67,6 +67,12 @@ static func describe(kind: String, params: Dictionary) -> String:
 			prose += " 은신 후 **첫 타격의 피해가 %d%% 증가한다.**" % int(round(nhb * 100.0))
 		if bool(params.get("hold_fire", false)):
 			prose += " 은신 중에는 평타와 정체성이 멈춰 **시전을 준비할 시간이 생기며**, 첫 타격을 넣는 순간 은신이 풀린다. 다시 누르면 은신을 해제하지만, 그때는 증폭이 사라진다."
+	# skillbook_silence 두 변주(DRIFT-133) — 광역·무피해(AB-044 힐러) ↔ **단일 잠금 + 타격**(AB-030 누커).
+	# 단일 변주에 "대상 지역의 적"이라고 적으면 거짓말이 된다(잠금이라 조준한 1기만 맞는다).
+	if kind == "skillbook_silence":
+		if bool(params.get("single_target", false)):
+			prose = Slice01Data.get_skill_desc("skillbook_silence_single")
+		prose += " 침묵은 %s초간 지속되며, 시전 중이던 스킬이 있었다면 그 시전도 끊긴다." % _n(float(params.get("silence_s", 0.0)))
 	# skillbook_shield 두 대상(DRIFT-116) — 지정 1인(AB-067) ↔ 파티 광역(AB-075). 힐러 방어 4종의
 	# 차이축이 **대상**이라 문구에서 먼저 갈리게 한다(자기 DR / 지정 흡수 / 광역 흡수 / 자동 흡수→치유).
 	if kind == "skillbook_shield":

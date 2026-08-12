@@ -1428,3 +1428,38 @@
 - **영향 파일:** `data/slice01/skillbooks.json` · `scripts/combat/abilities/bindings/binding_overlays.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS** — party_pool_smoke 신규 20건(밴드 정합 19종 + 대상 수 하한).
 - **상태:** LOGGED. ⏳ **AB-035(Melee/5.0m)는 미판정으로 남음** — 근접 상한을 몇 m로 볼지 정해지면 같이 정리할 것.
+
+### DRIFT-132 — N3 완결: 🐞 **`Tethered` 전면 미구현 복원** · `AB-106` ON-KILL-FEED 쿨 환급 🔶 impl/rule (전파 후보)
+- **발단:** N3 중복 실사 중 `sb_tether.gd` 주석의 *"DoT on distance-break is **handled by the status carrier**"* 가 **존재하지 않는 구현**을 가리키는 걸 발견.
+- **① N3는 애초에 중복이 아니었다(판정 정정):** §5 N3는 *"같은 누커 주력의 「묶는다」 2종 — 지속 0.6↔4.0과 dmg가 전부"* 로 남아 있었는데, 스펙 `AB-103_Tether.md`가 **누커 암살 콤보 `AB-100` Pounce → `AB-103` Tether → `AB-106` Devour**를 명시한다. 둘은 같은 콤보의 **다른 단계**(고정=시작 / 도주 차단=유지)다. **종전 중복 실사가 콤보 역할을 못 본 것**이었다 — 통폐합할 뻔했다.
+- **🐞 ② `Tethered`가 아무 기제도 없었다:** `MOVE_MULT`·`ATK_MULT`·`CC_TENACITY_OUTCOMES` 어디에도 없고 leash 거리 판정도 break DoT도 없었다. 소비처는 **색상·라벨·오브 우선순위뿐** — 순수 표시용 배지. 즉 **AB-103 = 배율 0.4 피해 + 아무 일도 안 하는 상태이상**이었고, 툴팁만 *"사슬로 묶어 둔다"* 고 말했다([[DRIFT-128]] 감전 누락과 같은 유형인데 **스킬의 페이로드 전체가 없는** 규모). 적측 **EN-3RD-02 포획꾼도 킷 절반이 무효**였다.
+- **③ 스펙대로 구현 + 끌려오기(사용자 판정):** `leash 8m` · 이탈 시 **break DoT 3dps** (스펙 Draft 값) + **끌림 2.5m/s**(사용자 추가 — *"사슬"이 화면에서 읽히게*).
+  - **상태가 anchor(시전자)를 들어야 한다** — 거리 판정에 시전자 위치가 필요해 `outcome_status.apply_tether(dur, anchor, leash, dps, pull)` 신설. 유닛 API도 `apply_tether`로 열어 **아군 `sb_tether`와 적 `enemy_ai` 둘 다 같은 경로**를 쓴다.
+  - **조건부 DoT라 `DOT_IDS`에 못 넣는다**(그건 무조건 틱) → `_tick_tether`가 같은 `DOT_TICK_S` 리듬으로 돌되 **leash 밖일 때만** 피해·끌림을 낸다. 안에 있으면 틱 타이머도 리셋 — *"벗어난 동안만 아프다"* 가 위치 속박의 뜻이고, 이게 `AB-050` slow와의 차이축이다.
+  - **끌림은 신규 이동 경로를 만들지 않았다** — `apply_drift`(AB-042 바람 넛지, 피아 공통)를 재사용.
+  - **부수:** `float_text.OUTCOME_KO`에 `Tethered`가 누락돼 **부여 팝업이 아예 안 떴다** — `포박` 추가.
+- **④ `AB-106` ON-KILL-FEED 쿨 환급:** 스펙이 *"처치 시 회복 **+ 쿨 환급**(다음 먹이로 연쇄) — AB-060(단순 보너스뎀)과 달리 **킬-보상 루프**"* 로 060과의 차별점을 못박았는데 **회복만 있었다.** → 처치 시 **남은 쿨 50% 환급**(사용자 판정 — *전액이면 저HP 무리에서 무한 연발*).
+  - **🐞 효과가 `inst.cooldown_s`를 직접 깎으면 무효다:** `cast_s>0` 경로는 `_resolve_sub` **뒤에** `inst.cooldown_s = cd`로 통째 덮어쓴다. (잠행 AB-013의 kill-reset이 *자기 캐스트의 처치*엔 안 먹던 것도 같은 이유 — 기존 버그를 여기서 이해했다.) → `report_cd_refund` **보고 채널** 신설(`report_hit_target` 규약과 동형), 디스패처가 쿨을 건 **직후** 접는다.
+  - [[DRIFT-130]]의 AB-060 폐기는 스펙 구분(060=단순 보너스뎀 / 106=킬-보상 루프)과 일치했지만, **그 루프의 절반이 미구현이라 "축이 0"이었던 데엔 구현 누락 지분도 있었다.** 이제 106이 온전해졌다.
+- **분류\전파:** ⑴ `Tethered`·`ON-KILL-FEED` 구현은 **스펙에 이미 있는 것을 코드가 안 지킨 것**이라 impl(로깅만). ⑵ 다만 **끌려오기는 스펙 밖 추가**(스펙은 DoT만)이므로 `AB-103` effects/`APPLY-TETHER-4S`에 반영 필요 → **rule = OPS_30 전파 후보**. 개별 수치(3dps·2.5m/s·50%)는 튜닝.
+- **영향 파일:** `data/slice01/{skillbooks,abilities}.json` · `scripts/combat/outcome_status.gd` · `party_member.gd` · `enemy_unit.gd` · `abilities/{ability_dispatch,cast_context}.gd` · `effects/{sb_tether,sb_execute}.gd` · `enemy_ai.gd` · `ui/float_text.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS** — party_pool_smoke 신규 15건: **leash 안 = 피해 0·끌림 0·감속 아님**(위치 속박의 정의 — 감속으로 대체되면 AB-050과 축이 겹친다) · **leash 밖 = break DoT 실제 발생 + 끌림이 시전자 쪽** · leash 파라미터 실재 · **진영 파리티 3종**(leash/dps/지속) · **AB-106 회복+환급 둘 다 · 환급 < 전액** · **환급이 보고 채널 경로인지 소스 검증**(직접 깎으면 조용히 무효가 되므로).
+  - **🐞 게이트 함정(신종·기록):** `_FloatText.OUTCOME_KO["Tethered"]`처럼 **상수 딕셔너리를 리터럴 키로 인덱싱하면 GDScript가 파스 타임에 접는다** → 키가 없으면 **런타임 오류가 아니라 Parse Error**, 그래서 헤드리스가 또 **hang**(FAIL이 아님). [[DRIFT-118]]·[[DRIFT-125]]·[[DRIFT-130]]에 이어 네 번째 hang인데 **원인 종류가 처음**이다. 기존 코드가 `OUTCOME_KO[id]`처럼 **변수 키**를 쓴 건 우연이 아니었다.
+- **상태:** LOGGED. **N3 ✅완결 → Nuker 14/15, 전체 48/49.** ⏳ F5 체감: leash 8m가 실제로 도주를 막는지 · 끌림 2.5m/s가 보이는지(너무 약하면 사슬로 안 읽힌다) · 쿨 50% 환급이 연쇄로 느껴지는지 · 적 포획꾼(EN-3RD-02)에게 묶였을 때 위협으로 읽히는지.
+
+### DRIFT-133 — N5 재정의: `AB-030` 인터럽트 → **침묵 「제압」** · 침묵이 진행 중 시전도 끊게 🔶 rule/scope (전파 후보)
+- **판정(사용자):** *"누커 역할은 저격이기 때문에 상대 스킬을 끊는다 느낌보다는 **제압한다** 느낌이 나는 게 좋을 듯해. 차라리 타격 후 **3초간 침묵** 디버프를 준다."* + 추가: *"침묵은 지금 캐스팅인 것도 끊는 것도 넣어줘 … 아다리 맞아서 캐스팅 중에 딜이 들어가면 스킬 끊겨서 **보너스** 느낌도 받도록."*
+- **① §5의 미판정 사유가 틀린 전제였다:** 표에는 *"이름=인터럽트지만 데이터엔 **캐스트 차단 필드 없음**(짧은 stun뿐)"* 이라고 적혀 있었는데, **stun 자체가 양 진영에서 시전을 끊는다** — [enemy_ai.gd:362](../scripts/combat/enemy_ai.gd#L362)가 `winding`을 취소하며 주석에 *"INTERRUPT"* 라고 명시하고, [skill_cast.gd:50](../scripts/combat/abilities/effects/skill_cast.gd#L50)이 `is_stunned()`에 `_cancel()`한다. **별도 필드는 필요 없었다.**
+- **🔴 ② 실측이 판정을 뒤집었다 — 이름만 인터럽트였다:** 적이 실제로 쓰는 **27종**의 `telegraph_s`를 전수로 뽑으니 **`cast_s 1.0`으로 끊을 수 있는 건 `AB-012`(3.0s) 단 1종**이었다. 나머지 **20종은 0.2~1.0s**(0.25·0.35·0.4·0.5·0.55·0.85·1.0)에 몰려 누르는 사이에 끝나고, 6종은 텔레그래프가 아예 없다.
+  - 더 나쁜 대조: **`AB-011` Toll Stun(Tank)은 즉발**이라([[DRIFT-129]]는 누커에만 적용) 그 20종을 반응해서 끊는다 → **탱커가 누커보다 인터럽트를 훨씬 잘 하는 역전**. 정작 이름이 "Interrupt"인 쪽이 누커였다.
+  - **내 [[DRIFT-129]] 서술이 낙관적이었다.** 거기서 *"적의 1.0초 미만 시전은 못 끊게 되어 「무엇을 끊을 수 있나」가 규칙이 된다"* 고 긍정적으로 적었는데, **실측 결과 그 규칙의 내용은 "사실상 아무것도 못 끊는다"** 였다. 데이터를 안 보고 논리로만 유추한 것이 틀렸다.
+- **③ 재정의 — 「끊는다」에서 「제압한다」로:** `stun 0.5` → **`silence 3.0`**. `kind`도 `skillbook_stun` → **`skillbook_silence`**, 이름 `Voltaic Interrupt` → **전격 제압**. `cast_s`는 1.0 → **1.5**([[DRIFT-129]] 사다리에서 1.0은 *"반응 속도가 페이로드인 것"* 자리인데 더는 반응기가 아니다).
+  - **`sb_silence`를 2변주로 일반화:** `AB-044` Hush Ward(Healer) = **광역·무피해** ↔ `AB-030`(Nuker) = **단일 잠금 + 타격**. 차이축이 *대상 수와 피해 유무*뿐이라 한 파일에서 받는다(`sb_dr`·`sb_shield` 변주와 같은 방식). 대상 선정은 [[DRIFT-122]]의 `resolve_targets`가 잠금을 존중하므로 분기 없이 성립.
+  - 툴팁도 단일 변주 문장을 따로 뒀다 — 광역 문구(*"대상 지역의 적"*)를 잠금 스킬에 쓰면 거짓말이 된다.
+- **④ 침묵이 진행 중 시전도 끊는다(사용자 추가):** `enemy_ai`에 `is_silenced() and winding` → 캐스트 취소를 넣었다. **스턴과 달리 `return`하지 않는다** — 이동·평타는 남는 soft CC라 그 자리에서 흘려보낸다.
+  - **이건 "반응 인터럽트"가 아니다.** AB-030 자신의 `cast_s 1.5`가 적 텔레그래프(0.2~1.0s)보다 길어 **노리고 쓸 수 없다.** 얻어걸릴 때만 캐스트가 무산되는 **보너스**다(사용자 표현 그대로). 인터럽트 역할은 **Tank `AB-011` 스턴**이 계속 진다 — 역할 분담이 오히려 선명해졌다.
+  - 이 변경은 `Silenced` **상태 자체의 성질**이라 `AB-044`(힐러 광역 봉인)에도 같이 적용된다.
+- **분류\전파:** ⑴ `AB-030`의 `effects`/`applies_status`가 `Stunned` → `Silenced`로 바뀌고 displayName도 달라진다 → **rule/scope = OPS_30 전파 후보**(D-016 카탈로그 정정). ⑵ **`Silenced`가 진행 중 시전을 끊는다**는 STATUS-ACTOR-CORE의 *"액티브 스킬 시전 불가"* 정의를 넓히므로 같은 패킷. 개별 수치(3.0s·1.5s)는 튜닝.
+- **영향 파일:** `data/slice01/{skillbooks,display_names}.json` · `scripts/combat/abilities/effects/sb_silence.gd` · `enemy_ai.gd` · `enemy_unit.gd` · `scripts/ui/skill_text.gd` · `scripts/autoload/backpack.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS** — party_pool_smoke 신규 9건: AB-030 kind=침묵 · **stun 잔재 없음** · 침묵 지속>0 · **타격 동반**(무피해면 044와 형태가 겹친다) · 단일 잠금 · **044는 광역·무피해**(2변주가 실제로 갈리는지) · 적 AI 침묵 게이트 존재 · **침묵이 진행 중 시전을 끊는 경로** · **인터럽트 담당 AB-011 존치**(누커에서 뺀 자리가 비지 않았는지).
+- **상태:** LOGGED. ✅ **N5 완결 → Nuker 15/15 · 전체 49/49 — §5 Phase A 전수 완결.** ⏳ F5 체감: 3초 침묵이 "제압"으로 읽히는지 · 캐스트 끊김 보너스가 실제로 가끔 터지는지 · 타격 0.4 배율이 너무 미미한지.

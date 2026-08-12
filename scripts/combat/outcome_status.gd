@@ -74,6 +74,7 @@ const DOT_IDS := ["Poison", "Ignited"]       # 틱형 DoT (새 DoT는 여기 + D
 const DOT_COLOR := {                         # 팝업 색 — 상태 오브 색과 별개(가독성 우선)
 	"Poison": Color(0.72, 0.38, 0.95),       # 보라
 	"Ignited": Color(1.0, 0.55, 0.15),       # 주황
+	"Tethered": Color(0.85, 0.72, 0.30),     # 사슬 호박색(상태 오브와 같은 계열)
 }
 
 var _t: Dictionary = {}    # id -> remaining seconds
@@ -82,6 +83,15 @@ var _dur: Dictionary = {}  # id -> full duration (for overlay arc)
 var _dot_accum: Dictionary = {}   # id -> 경과 시간(DOT_TICK_S 주기 타이머)
 var _dot_ticks: Array = []        # [{id, dmg}] 직전 틱들 — 유닛이 take_dot_ticks()로 소비해 팝업
 var _stacks: Dictionary = {}     # id -> 스택 수(누적 표시용; apply_stack이 갱신)
+# --- Tethered(AB-103 · DRIFT-132) — **조건부** DoT라 DOT_IDS의 무조건 틱에 넣을 수 없다. -----------
+# 스펙: leash 8m 밖으로 이탈하면 지속 피해(도주 차단). AB-050 slow와 달리 **위치 속박**이라
+# 이동 자체는 자유롭고 "멀어지는 것"만 응징한다 → 거리 판정에 **시전자 위치**가 필요해 anchor를 든다.
+# 끌려오기는 신규 이동 경로를 만들지 않고 units의 `apply_drift`(AB-042 바람 넛지)를 재사용한다.
+var _tether_anchor: Node3D = null
+var _tether_leash_m: float = 8.0
+var _tether_dps: float = 3.0
+var _tether_pull_mps: float = 2.5
+var _tether_pull: Vector3 = Vector3.ZERO   # 이번 프레임 넛지(유닛이 tether_pull()로 읽어 apply_drift)
 
 
 ## Apply / refresh an outcome status. `mag` optional (Ignited: dps; others use MOVE_MULT consts).
@@ -90,6 +100,20 @@ func apply(id: String, dur: float, mag: float = 0.0) -> void:
 	_dur[id] = maxf(float(_dur.get(id, 0.0)), _t[id])
 	if mag > 0.0:
 		_mag[id] = mag
+
+
+## Tethered 부여 — 시전자(anchor)와 leash 파라미터를 함께 든다. 상태만 걸면 거리 판정이 불가능하다.
+func apply_tether(dur: float, anchor: Node3D, leash_m: float, dps: float, pull_mps: float) -> void:
+	apply("Tethered", dur)
+	_tether_anchor = anchor
+	_tether_leash_m = maxf(leash_m, 0.1)
+	_tether_dps = maxf(dps, 0.0)
+	_tether_pull_mps = maxf(pull_mps, 0.0)
+
+
+## 이번 프레임 끌려오기 넛지(leash 밖일 때만 non-zero). 유닛이 읽어 `apply_drift`로 적용.
+func tether_pull() -> Vector3:
+	return _tether_pull
 
 
 ## 스택형 상태 — mag를 누적(add)하며 지속 갱신. 독 스택처럼 재적용마다 세짐. cap로 폭주 방지. ref: AB-010.
@@ -104,7 +128,7 @@ func apply_stack(id: String, dur: float, add_mag: float, cap_mag: float, unit_ma
 
 
 ## Decrement timers (expire), and return the whole-HP Ignited DoT to apply this frame (0 if none).
-func tick(delta: float) -> float:
+func tick(delta: float, self_pos: Vector3 = Vector3.ZERO) -> float:
 	for id in _t.keys():
 		_t[id] = float(_t[id]) - delta
 		if _t[id] <= 0.0:
@@ -126,7 +150,35 @@ func tick(delta: float) -> float:
 		if per > 0.0:
 			dmg += per
 			_dot_ticks.append({"id": id, "dmg": per})
+	dmg += _tick_tether(delta, self_pos)
 	return dmg
+
+
+## Tethered 해소 — leash **밖**일 때만 피해 + 끌려오기. 안에 있으면 아무 일도 없다(위치 속박의 뜻).
+## 같은 `DOT_TICK_S` 리듬을 쓰므로 팝업이 독·점화와 한 박자로 뜬다.
+func _tick_tether(delta: float, self_pos: Vector3) -> float:
+	_tether_pull = Vector3.ZERO
+	if not _t.has("Tethered"):
+		_dot_accum.erase("Tethered")
+		_tether_anchor = null
+		return 0.0
+	if _tether_anchor == null or not is_instance_valid(_tether_anchor):
+		return 0.0
+	var to: Vector3 = _tether_anchor.global_position - self_pos
+	to.y = 0.0
+	if to.length() <= _tether_leash_m:
+		_dot_accum.erase("Tethered")   # 안으로 들어오면 틱 타이머도 리셋 — "벗어난 동안만" 아프다
+		return 0.0
+	_tether_pull = to.normalized() * (_tether_pull_mps * delta)
+	_dot_accum["Tethered"] = float(_dot_accum.get("Tethered", 0.0)) + delta
+	if float(_dot_accum["Tethered"]) < DOT_TICK_S:
+		return 0.0
+	_dot_accum["Tethered"] = float(_dot_accum["Tethered"]) - DOT_TICK_S
+	var per := _tether_dps * DOT_TICK_S
+	if per <= 0.0:
+		return 0.0
+	_dot_ticks.append({"id": "Tethered", "dmg": per})
+	return per
 
 
 ## 직전 틱들 [{id, dmg}] — 읽으면 비운다. 유닛이 매 tick 후 조회해 **DoT별 색으로 팝업**한다.
@@ -227,6 +279,8 @@ func orb_color():
 
 
 func clear() -> void:
+	_tether_anchor = null
+	_tether_pull = Vector3.ZERO
 	_t.clear()
 	_mag.clear()
 	_dur.clear()

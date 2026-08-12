@@ -72,7 +72,7 @@ func _seed() -> void:
 	loose = [
 		{"id": "Intercept Step", "kind": "skillbook", "base_ability_id": "AB-033", "w": 1, "h": 1, "at_risk": true},
 		{"id": "Slag Spit", "kind": "skillbook", "base_ability_id": "AB-008", "w": 1, "h": 1, "at_risk": true},
-		{"id": "Voltaic Interrupt", "kind": "skillbook", "base_ability_id": "AB-030", "w": 1, "h": 1, "at_risk": true},
+		{"id": "전격 제압", "kind": "skillbook", "base_ability_id": "AB-030", "w": 1, "h": 1, "at_risk": true},
 		{"id": "Hush Ward", "kind": "skillbook", "base_ability_id": "AB-044", "w": 1, "h": 1, "at_risk": true},
 		{"id": "Lifeline", "kind": "skillbook", "base_ability_id": "AB-045", "w": 1, "h": 1, "at_risk": true},
 		{"id": "con_revive_scroll", "kind": "consumable", "consumable_id": "con_revive_scroll", "count": 3, "w": 1, "h": 1},

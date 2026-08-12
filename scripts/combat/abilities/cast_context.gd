@@ -108,6 +108,11 @@ func report_hit_target(_t: CharacterBody3D) -> void:
 	pass
 
 
+## 적은 슬롯/쿨 인스턴스가 아니라 `ability_cd[ref]`로 굴러 이 채널을 쓰지 않는다 — 계약 충족용 no-op.
+func report_cd_refund(_frac: float) -> void:
+	pass
+
+
 func nuker_focus_accumulate(_member, _enemy) -> float:
 	return 0.0
 

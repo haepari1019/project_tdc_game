@@ -1694,9 +1694,14 @@ func _physics_process(delta: float) -> void:
 	if _hp_bar:
 		_hp_bar.set_shield_ratio(shield / maxf(max_hp, 1.0))  # white overlay on the HP bar
 	_tick_status(delta)
-	var burn := _outcome.tick(delta)  # elemental outcome timers + Ignited DoT (bypasses shield)
+	var burn := _outcome.tick(delta, global_position)  # outcome timers + Ignited/Tethered DoT (bypasses shield)
 	if burn > 0.0:
 		_apply_dot(burn)
+	# Tethered(AB-103) — leash 밖이면 시전자 쪽으로 살짝 끌린다. 신규 이동 경로가 아니라
+	# AB-042 바람 넛지와 같은 `apply_drift`를 재사용(피아 공통 규격). leash 안이면 0벡터.
+	var _tp: Vector3 = _outcome.tether_pull()
+	if _tp.length_squared() > 0.0:
+		apply_drift(_tp, _tp.length())
 	# DoT 피해 표기 — 종류 무관 동일 규격(카메라 기준 우측 빗겨). 색만 종류별(중독=보라/점화=주황).
 	for t in _outcome.take_dot_ticks():
 		_FloatText.popup(self, str(int(round(float(t["dmg"])))),
@@ -1806,6 +1811,17 @@ func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 		popup_status(_FloatText.OUTCOME_KO[id], Color(1.0, 0.7, 0.55))
 	_outcome.apply(id, dur, mag)
 	_update_status_icons()
+
+## Tethered(AB-103) — 상태만 걸면 거리 판정이 불가능해 **시전자(anchor)와 leash 파라미터를 함께** 싣는다.
+## 피아 공통 API: 아군 `sb_tether` / 적 `enemy_ai._apply_third_status` 둘 다 이 경로를 쓴다. DRIFT-132.
+func apply_tether(dur: float, anchor: Node3D, leash_m: float, dps: float, pull_mps: float) -> void:
+	if not _alive:
+		return
+	if not _outcome.has("Tethered") and _FloatText.OUTCOME_KO.has("Tethered"):
+		popup_status(_FloatText.OUTCOME_KO["Tethered"], Color(1.0, 0.7, 0.55))
+	_outcome.apply_tether(dur, anchor, leash_m, dps, pull_mps)
+	_update_status_icons()
+
 
 
 ## AB-010 스택형 독 DoT — 재적용마다 dps 누적(스택↑)·지속 갱신. 두 번 걸면 틱 배증. DoT는 _outcome tick이 굴린다.

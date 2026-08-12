@@ -89,7 +89,7 @@ const CTX_CONTRACT := [
 	"spawn_projectile", "spawn_zone", "spawn_barrier", "fire_hit", "cold_hit", "lightning_hit",
 	"element_hit",
 	"damage_destructibles", "report_hit_count", "report_hit_target", "nuker_focus_accumulate",
-	"resolve_target", "resolve_targets",
+	"resolve_target", "resolve_targets", "report_cd_refund",
 ]
 
 var _combat: Node3D    # CombatController — spatial queries / damage / threat / shake owner
@@ -98,6 +98,11 @@ var _skills: Dictionary = {}  # kind -> skill instance (built from _SKILL_SCRIPT
 ## AB-005 focus_dump — 직전 서브 이펙트가 때린 적 수(sb_strike가 report). 단일(1)→집중 소모 / 그외→빌드.
 var _last_hit_count: int = 0
 var _last_hit_target: CharacterBody3D = null   # 직전 서브가 맞춘 주 대상(AB-007 이탈 마무리딜 대상 → 집중 결속이 조회)
+## ON-KILL-FEED 쿨 환급(AB-106 · DRIFT-132) — 효과가 직접 `inst.cooldown_s`를 깎을 수 없다.
+## `cast_s>0` 경로는 **효과 해소 뒤에** `inst.cooldown_s = cd`로 통째 덮어쓰기 때문(잠행 AB-013의
+## kill-reset이 자기 캐스트의 처치엔 안 먹던 것도 같은 이유). 효과는 여기 프랙션만 보고하고,
+## 디스패처가 쿨을 건 **직후**에 접는다. `report_hit_target` 규약과 같은 채널.
+var _cd_refund_frac: float = 0.0
 
 
 func setup(combat: Node3D, reactions: Node3D) -> void:
@@ -228,16 +233,20 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		# 쿨은 캐스트 '완료' 시점에 시작(취소 시 미발동·환급) — 캐스트 중엔 is_channeling이 재시전을 막는다.
 		# (쿨 시작을 시전에 걸면 캐스트 도중 쿨이 소모돼 cd≈cast_s일 때 '무한쿨'처럼 됨.)
 		var on_done := func() -> void:
+			_cd_refund_frac = 0.0
 			_resolve_sub(member, slot_index, pd, target_pos)
-			inst.cooldown_s = cd
+			inst.cooldown_s = cd * (1.0 - _cd_refund_frac)   # ON-KILL-FEED 환급(DRIFT-132)
+			_cd_refund_frac = 0.0
 		node.setup(member, slot_index, cast_s, self, on_done,
 			float(p.get("cast_range_disc_m", 0.0)), _cast_bar_color(String(p.get("kind", ""))),
 			_cast_charge_color(p))
 		return
 	# 즉발 — 발현 성공 시에만 차감.
+	_cd_refund_frac = 0.0
 	if _resolve_sub(member, slot_index, p, target_pos):
 		inst.charges = int(inst.charges) - 1
-		inst.cooldown_s = cd
+		inst.cooldown_s = cd * (1.0 - _cd_refund_frac)   # ON-KILL-FEED 환급(DRIFT-132)
+	_cd_refund_frac = 0.0
 
 
 ## 서브 발현(즉발/캐스트 완료 공용) — effect 실행 + **결속 델타를 발현 시점에** 적용 + 집중 소모 아키타입. 성공 여부 반환.
@@ -668,6 +677,11 @@ func report_hit_count(n: int) -> void:
 
 func report_hit_target(t: CharacterBody3D) -> void:
 	_last_hit_target = t
+
+
+## 이번 서브 해소가 「처치 보상」으로 남은 쿨의 frac(0~1)을 돌려받는다고 보고. 디스패처가 쿨 설정 직후 적용.
+func report_cd_refund(frac: float) -> void:
+	_cd_refund_frac = maxf(_cd_refund_frac, clampf(frac, 0.0, 1.0))
 
 
 func enemies_in_radius(pos: Vector3, r: float) -> Array:
