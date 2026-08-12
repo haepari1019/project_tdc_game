@@ -2,7 +2,11 @@
 
 > **용도:** spec repo(`project_tdc` @`staging`)에서 `OPS_30`(impact_scan → 매퍼×4 → DecisionLog `DEC-` → TODO → SpecScopeTracker) → `OPS_20`(lint) → PR로 집행할 **역전파 목록**.
 > **이 레포는 spec md를 직접 편집하지 않는다**(AGENTS.md §Spec drift). 집행 후 [`spec_ref.json`](../spec_ref.json) 핀 bump가 이 레포의 유일한 spec-관련 쓰기.
-> **현재 핀:** `3503004` (2026-08-07) · **패킷 작성:** 2026-08-12 · **근거:** [SPEC_DRIFT.md](SPEC_DRIFT.md) DRIFT-121~134
+> ✅ **집행 완료 (2026-08-12)** — spec `204c20c` · `DEC-20260812-001` · 25파일(신규 `ENC-NORM-004` 포함).
+> 검증: `mapper_sync_check` 0건 · `RelationGraph` 재생성 · `spec_xref_check` **BLOCKER 0**(잔여 NOTE 1건 `F-025→F-023`은 기존 부채).
+> **핀 bump 완료:** `3503004` → `204c20c`. 아래 본문은 **집행 기록**으로 보존한다(§5 미판정 이월은 여전히 유효).
+>
+> **패킷 작성:** 2026-08-12 · **근거:** [SPEC_DRIFT.md](SPEC_DRIFT.md) DRIFT-121~134
 
 ---
 
