@@ -41,7 +41,7 @@ const SIGNATURE := {
 	},
 	"IDA-052": {
 		"name": "응보",
-		"covenant": "태세를 갖추고 버티는 동안 받은 피해가 응보로 쌓인다. 링크된 스킬을 쓰면 쌓아 둔 응보를 실어 되돌려준다. 태세가 끝나면 쓰지 않은 응보는 사라지니, 얻어맞는 동안 모아서 태세 안에서 터뜨려야 한다 — 버틸수록 반격이 무거워지는 정체성이다.",
+		"covenant": "태세를 갖추고 버티는 동안 받은 피해가 응보로 쌓인다. 링크된 스킬을 쓰면 쌓아 둔 응보를 실어 되돌려준다. 응보는 마지막으로 맞은 뒤 잠시만 유지되니, 태세가 풀린 뒤라도 그 안에 갚으러 가면 된다 — 버틸수록 반격이 무거워지는 정체성이다.",
 	},
 	"IDA-025": {
 		"name": "집중",
@@ -80,6 +80,8 @@ const FOCUS_SPEND_KINDS := ["skillbook_execute"]
 const MARCH := {"shove_m": 2.0, "window_s": 4.0, "root_s": 1.2, "radius_m": 6.0}
 # Sentinel Form 「응보」 — 태세 중 받은 피해를 누적(party_member._retribution), 링크 서브 시전 시
 # release_mult를 곱해 대상에게 터뜨린다. cap_mult = 캐스터 max_hp 대비 1회 상한(폭주 방지).
+# **소멸은 태세 종료가 아니라 시간**(party_member._RETRIB_WINDOW_S = 마지막 피격 이후) — 태세 종료와
+# 동시에 증발하면 "맞고 갚는다"가 아니라 타이밍 퍼즐이 된다(사용자, 2026-08-13).
 const RETRIB := {"release_mult": 0.8, "cap_mult": 1.0, "radius_m": 6.0}
 # Flank Collapse 잠행 — 링크 스킬을 근접 사거리로 강제하고, 원래 range_band이 멀수록 큰 이득(1차 피해/2차 쿨감).
 # 처치 시 veil_s초 은신(apply_veil = 적 표적 드롭 = 어그로 감소). band_dmg=basic_damage 배수, band_cd=쿨 감소율.
@@ -134,7 +136,7 @@ const GENERIC := {
 	"IDA-022": {"delta": "march_shove", "theme": "march",
 		"desc_ko": "적을 밀어낸다. 이미 밀려 자세가 무너진 적을 다시 밀면 넘어뜨린다."},
 	"IDA-052": {"delta": "retribution_release", "theme": "retribution",
-		"desc_ko": "태세 중 쌓아 둔 응보를 실어 되돌려준다(태세 밖에서는 평범하게 발동)."},
+		"desc_ko": "쌓아 둔 응보를 실어 되돌려준다(응보가 없으면 평범하게 발동)."},
 	"IDA-024": {"delta": "overdrive_charge", "variant": "", "theme": "overdrive",
 		"desc_ko": "명중 시 초월 게이지를 채운다."},
 	"IDA-027": {"delta": "blood_soak", "variant": "burst", "theme": "bloodgale",

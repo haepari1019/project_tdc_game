@@ -113,9 +113,13 @@ var _shield_dur: float = 1.0
 var damage_taken_mult: float = 1.0
 var _sentinel_timer_s: float = 0.0
 var _sentinel_reflect: float = 0.0   # IDA-052 reflect fraction of incoming hits while the stance holds
-## IDA-052 「응보」 결속 누적 — 태세 중 받은 피해 총량(경감 전 amount). 링크 서브 시전이 소모하고,
-## 태세가 끝나면 **쓰지 않고 남은 분은 소멸**한다(버티기만 하고 반격 안 하면 보상 없음).
+## IDA-052 「응보」 결속 누적 — 태세 중 받은 피해 총량(경감 전 amount). 링크 서브 시전이 소모한다.
+## **소멸은 태세 종료가 아니라 자체 시간**(사용자, 2026-08-13): 태세가 끝나는 순간 증발하면 4초 안에
+## 반드시 터뜨려야 해서 "맞고 → 갚는다"가 아니라 "타이밍 맞추기 퍼즐"이 된다. 마지막 누적 이후
+## `RETRIB.window_s`가 지나면 사라지므로, 태세가 끝난 뒤에도 잠깐 들고 갚으러 갈 수 있다.
+## 누적 **자체는 여전히 태세 중에만** 쌓인다(버티는 선택의 보상이라는 규약은 유지).
 var _retribution: float = 0.0
+var _retribution_timer_s: float = 0.0   # 마지막 누적 이후 남은 유지 시간(0 = 없음)
 ## IDA-052 Sentinel 전용 피해 배율 — **DR 서브(_dr_stacks)와 완전 분리**한다. 예전엔 둘이
 ## `damage_taken_mult` 한 칸 + `_sentinel_timer_s` 한 타이머를 공유해서, 약하고 긴 DR을 덧걸면
 ## 강한 DR의 **지속만 연장**되는 버그가 있었다(046 50%/2s → 047 20%/3s = 50%가 3초). DRIFT-103.
@@ -181,6 +185,8 @@ var provoke_source: Node = null
 # (NC never casts subs, F-020 §3.3). Applied by AbilityDispatch after a base sub cast; ticked here.
 # ref: F-020 §3.7 · binding_overlays.gd. All cleared on debug_reset.
 const BULWARK_STACK_WINDOW := 5.0  # 이 시간 안에 다음 스택을 안 쌓으면 방벽 스택 리셋(누적 방지)
+## 「응보」 유지 시간 — 마지막 피격 이후 이만큼 지나면 누적이 사라진다(태세 종료와 무관, 2026-08-13).
+const _RETRIB_WINDOW_S := 6.0
 var bulwark_stacks: int = 0        # BIND-001 — Intercept accrues; 3-stack consume → stun + reset
 var _bulwark_icd_s: float = 0.0    # ICD after a consume (pilot: member-wide; spec = per-enemy 8s)
 var _bulwark_stack_timer: float = 0.0  # 스택 만료 타이머(마지막 스택 이후 경과)
@@ -389,8 +395,14 @@ func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Diction
 # ============================================================================
 
 func _tick_binding(delta: float) -> void:
-	if _sentinel_timer_s > 0.0 and _retribution > 0.0:   # 「응보」 누적을 머리 위에 상시 노출(얼마나 모았나)
-		_badge_strip().set_badge("retribution", "응보 %d" % int(_retribution), true)
+	if _retribution_timer_s > 0.0:                       # 「응보」 — 자체 시간으로 만료(태세와 분리)
+		_retribution_timer_s -= delta
+		if _retribution_timer_s <= 0.0:
+			_retribution = 0.0
+			if _badges != null:
+				_badges.clear_badge("retribution")
+		else:
+			_badge_strip().set_badge("retribution", "응보 %d" % int(_retribution), true)
 	if _bulwark_icd_s > 0.0:
 		_bulwark_icd_s -= delta
 	if _bulwark_stack_timer > 0.0:                 # 스택 만료: 창 안에 안 쌓이면 리셋(오발 방지)
@@ -469,6 +481,8 @@ func binding_bulwark_add(needed: int, icd_s: float) -> bool:
 
 ## 픽스처 적용/재시작 시 결속 트랜지언트 상태 초기화(잔여 스택으로 인한 오발 방지).
 func binding_reset() -> void:
+	_retribution = 0.0
+	_retribution_timer_s = 0.0
 	bulwark_stacks = 0
 	_bulwark_icd_s = 0.0
 	_bulwark_stack_timer = 0.0
@@ -493,14 +507,15 @@ func _badge_strip():
 func retribution_take() -> float:
 	var r := _retribution
 	_retribution = 0.0
-	if r > 0.0:
-		_badge_strip().clear_badge("retribution")
+	_retribution_timer_s = 0.0
+	if r > 0.0 and _badges != null:
+		_badges.clear_badge("retribution")
 	return r
 
 
-## 태세 중 쌓인 응보(표시·판정용). 태세 밖이면 0.
+## 지금 들고 있는 응보(표시·판정용). 유지 시간이 끝났으면 0 — 태세 여부와 무관하다.
 func retribution_amount() -> float:
-	return _retribution if _sentinel_timer_s > 0.0 else 0.0
+	return _retribution if _retribution_timer_s > 0.0 else 0.0
 
 
 ## BIND-003 — self shield (never lowers an existing larger shield). Uses the IDA-020 shield channel.
@@ -1081,6 +1096,7 @@ func take_damage(amount: float, attacker: Node = null, from_ability: bool = fals
 	# 규약 게이트(정체성 착용 여부)는 시전 쪽(ability_dispatch)이 본다 — 여기선 누적만 한다.
 	if _sentinel_timer_s > 0.0:
 		_retribution += amount
+		_retribution_timer_s = _RETRIB_WINDOW_S   # 맞을 때마다 유지 시간 갱신
 	# AB-048a/b 반격 — 받은 피해의 `_reflect_frac`을 되돌린다(경감 전 amount 기준, Sentinel과 동일 규약).
 	# ⚠️ **amount는 건드리지 않는다** — 내 피해는 그대로 들어가고 반사만 추가된다(패링=딜 무효는 후속 특성).
 	# `_reflect_cast_only`(AB-048b) = 적 캐스팅 스킬 피격만. 타수형은 **반사가 성립한 피격만** 타수를 깎는다.
@@ -1190,15 +1206,20 @@ func ward_take_absorbed() -> float:
 	return a
 
 
-## F-008 Sentinel Form (IDA-052) — enter the turtle stance: reduce incoming damage by `dr` (0..1)
-## and move-lock for `dur` seconds. Reflects `reflect` of each incoming hit back at the attacker.
-func enter_sentinel(dr: float, dur: float, reflect: float = 0.0) -> void:
+## F-008 Sentinel Form (IDA-052) — 거북이 태세: 받는 피해를 `dr`(0..1)만큼 줄이고 `dur`초간 **둔화**된다.
+## 피격의 `reflect`만큼을 공격자에게 되돌린다.
+##
+## ⚠️ **이동 잠금(Rooted) → 둔화로 교체**(사용자, 2026-08-13): 정체성은 쿨마다 자동 발동하는데
+## 완전 속박이 주기적으로 걸리면 조작감이 끊긴다 — *"주기적으로 속박되는 건 경험이 안 좋다"*.
+## 「버티는 대가로 굼떠진다」는 의도는 둔화로도 그대로 서고, 플레이어가 위치를 포기하지 않아도 된다.
+## `move_slow` = 이동속도 배수(0.45 = −55%). 0.0을 주면 사실상 구 Rooted와 같아진다.
+func enter_sentinel(dr: float, dur: float, reflect: float = 0.0, move_slow: float = 0.45) -> void:
 	popup_status("태세", Color(0.7, 0.82, 1.0))
 	_sentinel_dr_mult = clampf(1.0 - dr, 0.0, 1.0)
 	_recalc_damage_taken_mult()
 	_sentinel_timer_s = dur
 	_sentinel_reflect = clampf(reflect, 0.0, 1.0)   # IDA-052 reflect (40% draft)
-	_outcome.apply("Rooted", dur)   # move-lock (MOVE_MULT 0.0) — self-root, 팝업은 "태세"로 대체
+	apply_slow(clampf(move_slow, 0.0, 1.0), dur, true)   # 둔화(구 Rooted 대체) · quiet = "태세" 팝업과 중복 방지
 
 
 ## F-009 Counter Stance (AB-048, kind=skillbook_reflect) — 반격 태세: 받은 피해의 `frac`을 공격자에게
@@ -1647,7 +1668,6 @@ func _physics_process(delta: float) -> void:
 		if _sentinel_timer_s <= 0.0:
 			_sentinel_dr_mult = 1.0   # Sentinel Form expired → 이 배율만 해제(DR 스택은 안 건드린다)
 			_sentinel_reflect = 0.0   # reflect ends with the stance
-			_retribution = 0.0        # 응보도 태세와 함께 소멸 — 태세 안에서 터뜨려야 한다
 			_recalc_damage_taken_mult()
 	if not _dr_stacks.is_empty():     # DR 스택 — 지속 감소, 만료 시 "총 N 막음" 정산 후 제거
 		var _dr_keep: Array = []
@@ -1765,10 +1785,12 @@ func apply_poison(duration: float, dps: float) -> void:
 
 
 ## Movement slow (e.g. Oil slick) — multiplies move speed while active (피아무구분).
-func apply_slow(factor: float, duration: float) -> void:
+## `quiet` = 팝업 억제 — 시전자가 이미 자기 팝업을 띄운 경우(Sentinel 「태세」)에 쓴다. 한 번의 시전에
+## "태세"와 "둔화"가 겹쳐 뜨면 읽기만 나빠진다.
+func apply_slow(factor: float, duration: float, quiet: bool = false) -> void:
 	if not _alive:
 		return
-	if _slow_timer <= 0.0:
+	if _slow_timer <= 0.0 and not quiet:
 		popup_status("둔화", Color(0.5, 0.75, 1.0))
 	_slow_factor = factor
 	_slow_timer = maxf(_slow_timer, duration)

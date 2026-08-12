@@ -285,7 +285,8 @@
       "cooldown_s": 10,
       "duration_s": 4.0,
       "damage_reduction": 0.6,
-      "reflect": 0.4
+      "reflect": 0.4,
+      "move_slow": 0.45
     },
     "IDA-027": {
       "kind": "arc_line",
