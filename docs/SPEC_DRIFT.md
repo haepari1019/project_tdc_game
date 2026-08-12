@@ -1629,3 +1629,16 @@
 - **영향 파일:** `data/slice01/abilities.json` · `scripts/party/party_member.gd` · `scripts/combat/abilities/effects/sentinel_form.gd` · `binding_overlays.gd`(규약 문구) · `scripts/dev/combat_sandbox.gd`(검증 문구).
 - **게이트:** `ci_smoke.sh` **11/11 PASS** · 결속 스윕 작동 27종 유지.
 - **상태:** LOGGED · 구현 완료 · **스펙 역전파 대기**.
+- **후속 정정(같은 날):** 「진격」 캡스톤 순서 — 2타째에 **속박부터 걸고 넉백**하던 것을 **넉백 → 그 자리에서 속박**으로 뒤집었다(사용자: *"밀린 후 밀린 자리에서 속박"*). 적 넉백은 `kb_vel` 채널이라 `Rooted`(이동 배수 0)와 독립적으로 굴러가므로 두 효과가 모두 성립하지만, 속박을 먼저 걸면 *"붙잡혔으니 안 밀린다"*로 읽혀 **진격이라는 축 자체가 죽는다.** 같은 교훈이 이미 `enemy_ai.gd`(AB-102 뭉치기+속박)에 주석으로 남아 있었다 — *"뭉치기 먼저, 속박 나중"*. 「밀림」은 캡스톤에서 소모한다(유지하면 밀 때마다 재속박 = 영구 CC).
+
+### DRIFT-142 — 표시명 한글 통일: 정체성·기어 (impl · 로깅만)
+- **판정(사용자, 2026-08-13):** *"정체성도 스킬명 한글로 통일하자."*
+- **현황이었던 것:** 서브 스킬은 [[DRIFT-134]]에서 한글화됐고 정체성도 `display_names.json` `identities`에 **이미 한글 표시명이 있었다**(불굴의 수호·응징의 표식·강철 진군·가시 방패·파상 공세·관통 난격·파멸의 각인·섬멸 급습·생명의 성역·가호의 파동). **그 레이어를 안 쓰던 화면들이 문제였다:**
+  - `gear.json` `display_name` **27종 전부 영문**("Ward Anchor Bulwark" 등) — 허브 장착 슬롯·인벤 툴팁·상점까지 전파되는 마스터 필드.
+  - 샌드박스(사용자의 실제 플테 무대) — GEAR/Identity 드롭다운·LOADOUT 검증 패널·결속 픽스처 상태줄이 **영문 슬러그**(`tank_anchor_guard`)를 그대로 노출.
+- **처리:** ① `gear.json` `display_name` 27종 한글화(Ward 접두는 생략 — `gear_kind`가 데이터·툴팁에 이미 있다 / Magitech 2종은 「마총」을 이름에 남겨 계열 구분 / armory 세트는 `(B)`/`(C)` 등급 표기 유지). ② 샌드박스 4개 지점을 `get_identity_display`/`get_role_label`로 교체.
+- **경계:** **ID·슬러그는 원문 유지**한다 — `base_gear_id`·`identity_skill_id`·`IDA-###`는 grep 대상이자 세이브 키다. 화면 문자열만 바꿨고, 검증 패널처럼 개발자가 보는 곳은 **한글명(ID) 병기**로 두어 대조가 끊기지 않게 했다. `print()` 디버그 로그는 콘솔이라 그대로 둔다.
+- **분류·전파:** 표시 레이어 = **impl**. spec은 `displayName`을 영문으로 못박지 않았고(로컬라이즈 대상), 규칙·필드·enum 변화 없음 → **전파 없음, 로깅만.**
+- **영향 파일:** `data/slice01/gear.json` · `scripts/dev/combat_sandbox.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**.
+- **상태:** LOGGED.

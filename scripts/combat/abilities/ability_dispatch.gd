@@ -362,8 +362,15 @@ func _march_shove(member: CharacterBody3D, aim: Vector3) -> void:
 		dir.y = 0.0
 		if dir.length() < 0.05:
 			dir = Vector3.FORWARD
-		if e.has_method("is_shoved") and e.is_shoved():
-			# 캡스톤 — 이미 무너진 자세에 한 번 더. 넘어뜨려 붙잡고 「밀림」은 소모한다.
+		# **밀어내기가 먼저**다. 2타째(캡스톤)에도 밀림은 그대로 일어나고, **밀려난 그 자리에서** 속박이
+		# 걸린다(사용자, 2026-08-13) — 속박부터 걸면 "붙잡혔으니 안 밀린다"로 읽혀 진격이라는 축이 죽는다.
+		# 넉백은 kb_vel 채널이라 Rooted(이동 배수 0)와 독립적으로 굴러간다 → 순서만 맞추면 둘 다 성립.
+		var capstone: bool = e.has_method("is_shoved") and e.is_shoved()
+		if e.has_method("apply_knockback"):
+			e.apply_knockback(dir.normalized(), float(mc["shove_m"]))
+		if capstone:
+			# 캡스톤 — 이미 무너진 자세에 한 번 더. 밀어낸 뒤 그 자리에 붙잡고 「밀림」은 소모한다
+			# (소모 안 하면 밀 때마다 재속박 = 영구 CC).
 			if e.has_method("apply_outcome"):
 				e.apply_outcome("Rooted", float(mc["root_s"]))
 			if e.has_method("clear_shove"):
@@ -372,8 +379,6 @@ func _march_shove(member: CharacterBody3D, aim: Vector3) -> void:
 				e.popup_status("넘어짐", Color(1.0, 0.8, 0.35))
 		elif e.has_method("apply_shove"):
 			e.apply_shove(float(mc["window_s"]))
-		if e.has_method("apply_knockback"):
-			e.apply_knockback(dir.normalized(), float(mc["shove_m"]))
 
 
 ## Sentinel Form 「응보」 — 태세 중 받아 낸 피해가 `_retribution`에 쌓여 있다. 링크 서브를 쓰면 그 누적을

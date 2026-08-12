@@ -470,7 +470,8 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	_gear_dd.set_item_metadata(0, "")
 	for row in Slice01Data.get_gear_rows():
 		var cls := String((row.get("equip_classes", ["?"]) as Array)[0])
-		_gear_dd.add_item("%s [%s] → %s" % [row.get("display_name", "?"), cls, row.get("bundled_identity_skill_id", "?")])
+		_gear_dd.add_item("%s [%s] → %s" % [row.get("display_name", "?"), Slice01Data.get_role_label(cls),
+			Slice01Data.get_identity_display(String(row.get("bundled_identity_skill_id", "")))])
 		_gear_dd.set_item_metadata(_gear_dd.item_count - 1, String(row.get("base_gear_id", "")))
 	_gear_dd.item_selected.connect(_on_gear_changed)
 	box.add_child(_gear_dd)
@@ -498,7 +499,8 @@ func _build_control_panel(layer: CanvasLayer) -> void:
 	_identity_dd.add_item("ID: (OFF)")
 	_identity_dd.set_item_metadata(0, "")
 	for row in Slice01Data.get_identity_rows():
-		_identity_dd.add_item("ID: %s (%s)" % [row.get("identity_skill_id", "?"), row.get("ability_id", "?")])
+		_identity_dd.add_item("ID: %s (%s)" % [Slice01Data.get_identity_display(String(row.get("identity_skill_id", ""))),
+			row.get("ability_id", "?")])
 		_identity_dd.set_item_metadata(_identity_dd.item_count - 1, String(row.get("identity_skill_id", "")))
 	_identity_dd.item_selected.connect(_on_identity_changed)
 	box.add_child(_identity_dd)
@@ -852,7 +854,8 @@ func _on_bind_fixture(which: String) -> void:
 	_refresh_loadout_ui()
 	_show_loadout_verify(member)
 	_status.text = "결속 → %s | %s + Q/E/R %s — %s로 스왑(1-4) 후 Q/E/R (착용 즉시 결속 적용)" % [
-		cfg["label"], member.get("identity_skill_id"), ", ".join(PackedStringArray(subs)), cfg["role"]]
+		cfg["label"], Slice01Data.get_identity_display(String(member.get("identity_skill_id"))),
+		", ".join(PackedStringArray(subs)), Slice01Data.get_role_label(String(cfg["role"]))]
 
 
 var _dummy: Node = null   # 허수아비 참조 (스킬샷 테스트 표적)
@@ -928,7 +931,9 @@ func _show_loadout_verify(m: CharacterBody3D) -> void:
 func _loadout_verify_text(m: CharacterBody3D) -> String:
 	if m == null or not is_instance_valid(m):
 		return "[i]조작 멤버 없음[/i]"
-	var t := "[b]LOADOUT 검증 — %s (%s)[/b]\n" % [m.get("identity_skill_id"), m.get("class_id")]
+	var t := "[b]LOADOUT 검증 — %s (%s)[/b]\n" % [
+		Slice01Data.get_identity_display(String(m.get("identity_skill_id"))),
+		Slice01Data.get_role_label(String(m.get("class_id")))]
 	# 평타
 	t += "\n[color=#9fd][b]평타[/b][/color]  "
 	if not bool(m.get("basic_enabled")):
@@ -953,7 +958,10 @@ func _loadout_verify_text(m: CharacterBody3D) -> String:
 		if kind == "":
 			t += "(없음)\n"
 		else:
-			t += "%s · kind %s\n%s\n" % [m.get("ability_id"), kind, IDENTITY_VERIFY.get(kind, "(설명 없음)")]
+			# 한글 표시명 우선, ID는 병기(grep 대상이라 화면에서 지우지 않는다).
+			t += "%s (%s) · kind %s\n%s\n" % [
+				Slice01Data.get_identity_display(String(m.get("identity_skill_id"))),
+				m.get("ability_id"), kind, IDENTITY_VERIFY.get(kind, "(설명 없음)")]
 			var parts: Array = []
 			for k in p.keys():
 				if String(k) != "kind":
