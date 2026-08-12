@@ -251,7 +251,24 @@ func attempt_upgrade(id: String) -> bool:
 
 
 # --- Derived reads (D-029 §6) — 다른 Feature가 시설 Tier를 조회 ---
+
+## 플레이테스트 한정 창고 무제한(사용자 결정 D4 — 전 카탈로그 개방, P4b_WORK_ORDER §M0-6).
+## `stash` T0 capacity는 20인데 전 카탈로그 시드는 19 gear + 49 서브 = 68이라, 이 게이트를 켠 채로는
+## 스태시 입금이 즉시 막혀 스킬 교정 검증이 불가능하다. **끄면 F-029 창고 승급 압력이 그대로 돌아온다** —
+## 이건 밸런스 결정이 아니라 플테 도구다. 서브가 gear 슬롯으로 이관되면(M4) 스태시에서 서브 타일이
+## 사라지므로 자연히 불필요해진다. ref: DRIFT-139.
+const PLAYTEST_UNCAPPED_STASH := true
+const PLAYTEST_STASH_CAP := 9999
+
 func stash_capacity() -> int:
+	if PLAYTEST_UNCAPPED_STASH:
+		return PLAYTEST_STASH_CAP
+	return int(Slice01Data.get_facility_value("stash", facility_tier("stash"), 20))
+
+
+## 승급 UI가 보여줄 **실제 tier 용량**(플테 우회와 무관) — "capacity 20 → 28"이 우회 때문에
+## 9999로 보이면 시설 승급이 의미 없어 보인다. 표시는 진실을, 게이트만 우회한다.
+func stash_capacity_tier() -> int:
 	return int(Slice01Data.get_facility_value("stash", facility_tier("stash"), 20))
 
 func run_inventory_capacity() -> int:

@@ -169,9 +169,10 @@ func _unhandled_input(event: InputEvent) -> void:
 ## deploy 시 _sync_stash_from_source(에디터 = 스태시 최종 상태)가 표시 안 된 항목을 잃지 않는다.
 ## (구 버그: 기어 4·스킬북 4개만 표시 → deploy 동기화가 나머지를 스태시에서 삭제. 사용자 버그.)
 func _build_stash_items() -> Array:
+	_stash.ensure_seeded()   # 오토로드 순서로 시드가 밀렸으면 여기서 확정(카탈로그 파생, DRIFT-139)
 	var items: Array = []
 	var cols: int = int(_stash_src.cols) if _stash_src != null and "cols" in _stash_src else 10
-	var gear_per_row: int = maxi(1, cols / 2)   # 기어 2×2
+	var gear_per_row: int = maxi(1, cols / 2)   # 기어 2×2 — 위쪽 블록에 고정 배치
 	var g := 0
 	for i in _stash.gear.size():
 		var it: Dictionary = _inv.make_gear_stash_item(_stash.gear[i])   # 인스턴스 dict(rolled/rolls 포함)
@@ -181,26 +182,17 @@ func _build_stash_items() -> Array:
 		it["row"] = floori(float(g) / float(gear_per_row)) * 2
 		items.append(it)
 		g += 1
-	var gear_rows: int = int(ceil(float(g) / float(gear_per_row))) * 2   # 기어가 쓴 행 수
-	var s := 0
+	# 스킬북·소비는 **좌표를 주지 않는다** — open_loot의 자동 배치(first-fit)에 맡겨 기어 블록이
+	# 남긴 빈칸까지 채운다. 예전엔 여기서 행을 직접 계산했는데, 카탈로그가 커지자(서브 49종)
+	# 계산상 행이 그리드 밖으로 넘어가 배치가 통째로 실패했다. 자동 배치는 셀이 남아 있는 한 성공한다.
 	for i in _stash.skillbooks.size():
 		var it: Dictionary = _inv.make_skillbook_stash_item(_stash.skillbooks[i])   # 인스턴스(affix/탄 포함)
-		if it.is_empty():
-			continue
-		it["col"] = s % cols
-		it["row"] = gear_rows + floori(float(s) / float(cols))
-		items.append(it)
-		s += 1
-	var sb_rows: int = int(ceil(float(s) / float(cols)))
-	var c := 0
+		if not it.is_empty():
+			items.append(it)
 	for cid in _stash.consumables:
 		var it: Dictionary = _inv.make_consumable_stash_item(String(cid), int(_stash.consumables[cid]))
-		if it.is_empty():
-			continue
-		it["col"] = c % cols
-		it["row"] = gear_rows + sb_rows + floori(float(c) / float(cols))
-		items.append(it)
-		c += 1
+		if not it.is_empty():
+			items.append(it)
 	return items
 
 
@@ -253,7 +245,11 @@ func _sync_stash_from_source() -> void:
 	var gear: Array = []
 	var skillbooks: Array = []
 	var consumables: Dictionary = {}
-	for it in _stash_src.items:
+	# 그리드에 자리가 없어 표시되지 못한 소유분을 **먼저 되돌려 넣는다.** 이 sync는 Stash를 통째로
+	# 재작성하므로, 안 보인 아이템 = 영구 삭제였다(과거 실사고). 이제 그리드 크기와 소유가 분리된다.
+	var src: Array = (_stash_src.items as Array).duplicate()
+	src.append_array(_inv.loot_overflow())
+	for it in src:
 		match String(it.get("kind", "")):
 			"gear":
 				# 보관분만(장착=Backpack.equipped로 빠짐). F-008 §3.7 인스턴스 — 스페어도 굴린 정체성·옵션 보존.

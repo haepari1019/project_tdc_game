@@ -18,7 +18,10 @@ func _ready() -> void:
 	var s: Dictionary = sp.section("stash") if sp != null else {}
 	if s.is_empty():     # 섹션 없음(최초) → 시드 + 저장. 빈 배열로 저장된 상태는 키가 있어 apply.
 		_seed()
-		save_stash()
+		if _seeded:
+			save_stash()   # ⚠️ 시드 실패(Slice01Data 미준비) 시엔 저장하지 않는다 — 빈 스태시를
+			               # 저장해 버리면 다음 부팅에 섹션이 "존재"해서 apply_dict가 _seeded를
+			               # 세우고 **영구히 빈 스태시**가 된다. 미저장으로 두면 ensure_seeded가 채운다.
 	else:
 		apply_dict(s)
 
@@ -59,23 +62,54 @@ func _normalize_skillbooks() -> void:
 			skillbooks[i] = {"base_ability_id": String(skillbooks[i])}
 
 
+## 플레이테스트 시드 = **전 카탈로그 개방**(사용자 결정 D4, 2026-08-12 · P4b_WORK_ORDER §0).
+## 스킬 교정(DRIFT-101~136)을 실제로 체감하려면 서브 49종·gear 19종에 전부 손이 닿아야 한다.
+## P4b 이후엔 "gear 전량 소유 + 스킬 트리 전 노드 해금"으로 재해석된다(M3/M4).
+const PLAYTEST_FULL_CATALOG := true
+
+
+## 시드를 **카탈로그에서 파생**한다 — 하드코딩 목록은 AB/gear가 폐기될 때마다 유령 참조가 됐다
+## (`AB-037`이 DRIFT-111 폐기 후에도 남아 조용히 3권만 들어오던 버그, DRIFT-139). 파생이면
+## 카탈로그가 곧 시드라 어긋날 수가 없다. Slice01Data가 아직 안 떴으면(오토로드 순서 방어)
+## 빈 시드로 두고 `ensure_seeded()`가 나중에 채운다 — 잘못된 하드코딩 폴백보다 낫다.
 func _seed() -> void:
 	if _seeded:
 		return
+	if not _seed_from_catalog():
+		return          # Slice01Data 미준비 — _seeded를 세우지 않아 다음 접근에서 재시도
 	_seeded = true
-	# Demo stash — SPARE Identity Gear: the full GEAR catalog (17 alternatives to swap to; worn
-	# starters live in Backpack.equipped, not here — F-008 ownership). Looted-AB skillbooks, revives.
-	# 15 spare gear + 4 skillbooks = 19 ≤ stash T0 capacity 20 (F-029 — 시작부터 1슬롯 여유, 이후 창고 승급 압력).
-	gear = [
-		"gear_ward_tank_kite_shield", "gear_ward_tank_beacon_hook", "gear_ward_tank_march_plate", "gear_ward_tank_rampart_wall", "gear_ward_tank_sentinel_aegis",
-		"gear_ward_dps_weave_staff", "gear_ward_dps_rift_needle", "gear_ward_dps_ember_wand", "gear_ward_dps_brand_foci",
-		"gear_ward_nuker_scout_frame", "gear_ward_nuker_flank_knife", "gear_mag_nuker_coil_rifle", "gear_mag_nuker_volt_lance",
-		"gear_ward_healer_ward_sigil", "gear_ward_healer_beacon_lantern",
-	]
-	skillbooks = ["AB-002", "AB-010", "AB-011", "AB-037"]
+
+
+## 카탈로그 파생 시드. 성공 시 true. 소유 규칙(F-008): **스타터 4종은 Backpack.equipped(착용 중)**
+## 이라 스태시엔 없고, armory 세트(Purchasable)는 상점 물건이라 제외 → 남는 "스페어" 아키타입만.
+func _seed_from_catalog() -> bool:
+	var sd := get_node_or_null("/root/Slice01Data")
+	if sd == null or not sd.has_method("is_loaded") or not sd.is_loaded():
+		return false
+	gear = []
+	for row in sd.get_gear_rows():
+		if bool(row.get("starter", false)):
+			continue                                            # 착용 중 = Backpack.equipped 소관
+		if String(row.get("unlock_state", "")) == "Purchasable":
+			continue                                            # armory 세트 = 상점 물건
+		gear.append(String(row.get("base_gear_id", "")))
+	skillbooks = []
+	if PLAYTEST_FULL_CATALOG:
+		for row in sd.get_skillbook_rows():
+			skillbooks.append(String(row.get("base_ability_id", "")))
 	consumables = {"con_revive_scroll": 8}
 	_normalize_gear()         # 시드는 문자열로 적고 인스턴스로 정규화(roll/affix 없음=base)
 	_normalize_skillbooks()
+	return true
+
+
+## `_ready` 시점에 Slice01Data가 없었으면 첫 접근에서 시드를 채운다(허브가 스태시를 읽기 전).
+func ensure_seeded() -> void:
+	if _seeded:
+		return
+	if _seed_from_catalog():
+		_seeded = true
+		save_stash()
 
 
 ## 테스트/디버그 — 스태시를 데모 시드로 초기화.
@@ -85,7 +119,8 @@ func reset_to_seed() -> void:
 	consumables = {}
 	_seeded = false
 	_seed()
-	save_stash()
+	if _seeded:
+		save_stash()
 
 
 ## Remove one consumable from the stash (taken into the run). Returns true if available.

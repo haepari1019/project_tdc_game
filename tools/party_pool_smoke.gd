@@ -1178,10 +1178,15 @@ func _initialize() -> void:
 	st2.apply_dict(st.to_dict())
 	_chk("Stash round-trip rolled 유지", String((st2.gear[1] as Dictionary).get("rolled_identity_skill_id", "")) == "dps_arc_weave" and is_equal_approx(float((st2.gear[1] as Dictionary).get("rolls", {}).get("dmg_mult", 0.0)), 1.2))
 	st.free(); st2.free()
-	# S7 — 시드 stash가 창고 T0 capacity(20) 안에 들어오는지(15기어+4스킬북=19). item_count=기어+스킬북.
+	# M0(D4, DRIFT-139) — 시드는 이제 **카탈로그 파생 전량**이다. 구 단언("15기어+4스킬북=19 ≤ T0 20")은
+	# 하드코딩 목록을 전제했고, 그 목록이 낡아 폐기 AB(AB-037)를 물고 있던 게 이번 사고였다.
+	# capacity 게이트는 플테 동안 우회(HubProfile.PLAYTEST_UNCAPPED_STASH) — 서브가 gear 슬롯으로
+	# 이관되면(M4) 스태시에서 서브 타일이 사라져 자연 복원된다.
 	var stseed = StashScript.new()
+	root.add_child(stseed)          # _seed_from_catalog가 /root/Slice01Data를 조회한다
 	stseed.reset_to_seed()
-	_chk("stash 시드 item_count 19 ≤ T0 20", stseed.item_count() == 19)
+	_chk("stash 시드 = 카탈로그 파생(기어 %d + 서브 %d)" % [stseed.gear.size(), stseed.skillbooks.size()],
+		stseed.gear.size() > 0 and stseed.skillbooks.size() == sd.get_skillbook_rows().size())
 	stseed.free()
 
 	# 15b) Stash 스킬북 인스턴스화(D-018 §7.3) — 문자열 정규화 + affix 보존 + remove는 plain 우선(affix본 보존).

@@ -1560,6 +1560,39 @@
 - **상태:** ✅ RESOLVED — 게임측 시드 반영 + 스펙 역전파 + 재핀 완료. `ci_smoke.sh` 11/11 PASS.
 - **부수(같은 서베이):** spec 9곳이 스킬 트리 SSOT로 `F-029` §3.6(레거시 분석/상점 진행 스파인)을 가리켰으나 실내용은 **§3.2a**(통합 금고·시설 개편 — `chapel` 트리 Tier·`scribe_shop` Tier)에 있었다. **포인터 오참조이므로 `OPS_20` 정정으로 처리**(규칙 변경 아님) — spec 레포에서 `D-011`·`F-008`·`F-009`×5·`F-020`×2 = **9건 수정**, `spec_xref_check` 신규 지적 0. `DecisionLog`의 2건은 **이력이라 보존**.
 
-### DRIFT-138 (예약) — 결속 해소 키: `bindingProfileId` 기본값 `baseGearId` → `effectiveIdentitySkillId` 🔶 rule · 미착수
-- 작업 지시서 **M0b**에서 구현 시 본 번호로 로깅한다. 근거·구현안 = `docs/plan/P4b_WORK_ORDER.md` §1b/§2b.
-- 요지: `binding_overlays.gd`의 정체성 게이트 8종 + `signature_for`가 `(base_gear_id, identity_ab)` 쌍을 요구해 **스페어 gear 19종 중 11종의 시그니처가 죽어 있다**. gear 인스턴스가 정체성을 굴리는 이상 gear 아키타입 ID를 결속 키로 쓰는 모델은 구조적으로 어긋난다.
+### DRIFT-138 — 결속 해소 키: `bindingProfileId` 기본값 `baseGearId` → `effectiveIdentitySkillId` 🔶 rule · `PENDING-PROP`
+- **증상:** `binding_overlays.gd`의 정체성 게이트 8종(`identity_marks`/`focuses`/`flanks`/`dot_heals`/`sanctuaries`/`overdrive`/`bloodgale`) + `signature_for`가 전부 **`(base_gear_id, identity_ab)` 쌍이 `OVERLAYS`에 등재돼야** true를 돌려줬다. 등재 gear는 8종뿐 → **스페어 gear 17종 중 13종의 시그니처가 죽어 있었다.**
+  | gear | identity | 죽은 규약 |
+  |---|---|---|
+  | `rampart_wall` | IDA-020 | 방벽 충전 |
+  | `beacon_hook` | IDA-021 | 표식 |
+  | `scout_frame`·`hex_scope`·`coil_rifle`·`volt_lance` | IDA-025 | 집중 |
+  | `beacon_lantern` | IDA-026 | 성역 |
+  | `ember_wand`·`brand_foci` | IDA-024 | 초월 |
+  | `rift_needle`·`tide_censer` | IDA-027 | 혈풍 |
+  | `march_plate`·`sentinel_aegis` | IDA-022·IDA-052 | **규약 자체가 미정의**(U2) |
+  - armory 세트 6종도 같은 이유로 전부 미작동이었다.
+- **🐞 반쪽 고장이라 안 보였다:** `resolve_effective`는 `GENERIC`(identity 단독 키)으로 폴백하므로 **슬롯 델타는 살아 있고 시그니처만 죽는다.** 스킬은 나가는데 방벽이 안 쌓이고 집중이 안 붙는 식이라, "결속이 원래 이 gear엔 없나 보다"로 읽힌다.
+- **근본 원인:** gear 인스턴스는 정체성을 **굴린다**(`rolled_identity_skill_id`, F-008 §3.7). 아키타입 ID를 결속 키로 쓰면 **굴림 결과와 영구히 어긋난다** — 같은 정체성을 굴린 다른 gear가 전부 결속 밖으로 떨어진다. 등재를 늘려도 gear가 추가될 때마다 같은 구멍이 다시 생긴다.
+- **① 구현 = 프로필 간접화(spec 필드 재사용).** `D-019` §3에 **`bindingProfileId`**(`effectiveBindingProfileId = bindingProfileId ?? master ?? baseGearId`)가 이미 있다 — 스펙은 결속 키를 gear ID에 **고정하지 않고** 프로필로 간접화해 두었다. 그 **기본값만** `baseGearId` → `effectiveIdentitySkillId`로 바꿨다.
+  - `binding_profile(gear, identity)` 신설 — gear 마스터가 `binding_profile_id`를 명시하면 그것이 이기고(아키타입 고유 변주용), 없으면 정체성.
+  - `OVERLAYS`의 `gear` 키 → **`authored_for`**(저작 맥락 기록, **매칭 미관여**). 매칭은 `_ov_matches` = `profile` + `identity_ab`.
+  - **호출부 30여 곳 시그니처 무변경** — 공개 함수는 여전히 `(base_gear_id, identity_ab)`를 받고 내부에서 프로필을 해소한다. 회귀면을 최소화하려는 의도.
+- **② 대안 기각:** `identity_ab`를 직접 키로 쓰는 안(a)은 거동이 같으면서 `F-020` §3.7 step 2/3 + Edge case를 **더 크게** 뜯어야 했다. 프로필 안은 스펙 이격이 "기본값 정의 1줄"로 줄고, gear별 변주 여지도 남는다.
+- **③ 뒤집힌 단언 2건:** `binding_smoke`의 *"gear가 다르면 결속 없음"*(`F-020` §3.7 Edge의 IDA-020+GEAR-012 예시)이 **의도적으로 반전**됐다. 굴림 정체성이 gear를 건너 따라가는 게 이제 정답이다. 정체성이 다르면 여전히 안 걸린다 — 프로필 키가 identity를 무시한다는 뜻이 아니다.
+- **분류·전파:** `D-019` §2/§3 `bindingProfileId` **기본값** + `F-020` §3.7 Edge case = **rule** → `OPS_30` 전파 대상. **미전파(`PENDING-PROP`)**.
+- **영향 파일:** `scripts/combat/abilities/bindings/binding_overlays.gd` · `tools/binding_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**. **신규 전수 스윕**(`binding_smoke` M0b-5): 카탈로그 전 gear × 자기 정체성 → 시그니처 **작동 24종**(구 8종) · **규약미확정 3종**(`march_plate`·`march_set` IDA-022 / `sentinel_aegis` IDA-052 = U2, 곧 추가) · **죽은 것 0**. 굴림 교차검증(임의 Tank gear에 IDA-021 굴림 → 표식 유지) 포함.
+- **상태:** LOGGED · 구현 완료 · **스펙 역전파 대기**.
+
+### DRIFT-139 — 스태시 시드가 하드코딩이라 폐기 AB를 물고 있었음 + 전 카탈로그 개방 🔷 code-bug + tuning(로깅만)
+- **① 유령 참조:** `stash.gd::_seed()`의 `skillbooks = ["AB-002","AB-010","AB-011","AB-037"]` 중 **`AB-037`은 [[DRIFT-111]]에서 폐기**(D1+D2 볼트 병합) — 카탈로그에 없다. `equip_skillbook_by_id`가 마스터 미발견 시 **조용히 return**하므로 실제로 3권만 들어왔고 아무도 몰랐다. gear도 하드코딩 15종이라 `tide_censer`·`hex_scope` 2종이 누락돼 있었다.
+- **🐞 같은 실패 모드 3회째:** [[DRIFT-130]] 샌드박스 픽스처 `AB-009` → [[DRIFT-137]] 스타터 `AB-028` → 본 건 `AB-037`. **전부 "폐기 AB가 조용히 빈 슬롯이 되는" 같은 경로.** 130에서 코멘트 경고만 달고 **자동 게이트를 안 세운 게** 두 번의 재발을 허용했다. 사람이 기억할 일이 아니었다.
+- **② 교정:** 시드를 **카탈로그에서 파생**(`_seed_from_catalog`) — 스타터 4종(= `Backpack.equipped` 착용분)과 armory `Purchasable` 6종을 뺀 스페어 **17종** + 서브 **전량**. 파생이면 카탈로그가 곧 시드라 어긋날 수가 없다.
+- **③ 게이트 신설:** `hub_smoke`에 **유령 참조 감사** — `Backpack._seed` · `Stash._seed_from_catalog` · 샌드박스 `SANDBOX_SUBS` · `_BIND_FIXTURES`가 가리키는 모든 AB/gear ID가 카탈로그에 실재하는지 전수 확인(현재 **0건**). `equip_skillbook_by_id`도 이제 조용히 넘어가지 않고 `push_warning`.
+- **④ 전 카탈로그 개방(D4, 사용자 결정):** 서브 49종 전량 시드 — 스킬 교정(DRIFT-101~136)을 플테로 검증하려면 손이 닿아야 한다. `stash` T0 capacity 20과 충돌하므로 **`HubProfile.PLAYTEST_UNCAPPED_STASH`로 게이트만 우회**하고, 승급 UI 표시는 `stash_capacity_tier()`로 **실제 tier 값을 유지**한다(우회 때문에 "9999"가 보이면 시설 승급이 무의미해 보인다). M4에서 서브가 gear 슬롯으로 이관되면 스태시에서 서브 타일이 사라져 **자연 복원**된다.
+- **⑤ 부수 — 소유 유실 경로 차단(실사고 예방):** 스태시 편집을 닫으면 `main.gd::_sync_stash_from_source`가 그리드 내용으로 Stash를 **통째로 재작성**한다. 즉 그리드에 자리가 없어 표시되지 못한 아이템 = **영구 삭제**였다(과거 실사고가 주석으로 남아 있었다). 시드가 커지면 바로 재발할 자리 → `inventory_ui._loot_overflow`에 붙들고 sync가 되돌려 넣도록 했다. **그리드 크기와 소유를 분리**한 것이라 앞으로 시드가 얼마나 커져도 안전하다. 더불어 스킬북·소비는 좌표를 주지 않고 `open_loot` 자동 배치(first-fit)에 맡겨 기어 블록의 빈칸까지 채운다(구 수동 행 계산은 49종에서 그리드 밖으로 넘어갔다).
+- **분류·전파:** 시드 내용·capacity 우회 = **tuning/impl(로깅만, 전파 금지)**. 조용한 실패·유실 경로 = **code-bug**(스펙 무관). **전파 없음.**
+- **영향 파일:** `scripts/autoload/stash.gd` · `scripts/autoload/hub_profile.gd` · `scripts/ui/inventory/inventory_ui.gd` · `scripts/ui/hub_economy_panel.gd` · `scripts/main.gd` · `scripts/party/party_member.gd` · `tools/hub_smoke.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS** — 신규 "유령 참조 0건(시드·픽스처 전수)" + "Stash 시드 = 카탈로그 전량 49종".
+- **상태:** LOGGED. **교훈:** *조용한 실패는 두 번째부터 게이트로 막아야 한다 — 세 번째까지 코멘트로 버틴 대가가 이번 서베이 전체였다.*

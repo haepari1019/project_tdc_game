@@ -358,6 +358,11 @@ func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Diction
 		return
 	var master: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
 	if master.is_empty():
+		# ⚠️ 여기서 조용히 return하면 **슬롯이 빈 채로 아무 말 없이 지나간다.** 폐기된 AB가 시드·
+		# 픽스처·세이브에 남아 있을 때 정확히 이 경로로 새어 나왔다 — DRIFT-130(샌드박스 AB-009),
+		# DRIFT-137(스타터 AB-028), DRIFT-139(스태시 시드 AB-037). 세 번 같은 방식으로 당했으므로
+		# 이제는 소리를 낸다. 부팅 시 전수 검증은 tools/hub_smoke.gd(시드·픽스처 감사).
+		push_warning("[TDC] 스킬북 마스터 없음 — '%s' 슬롯 %d 미장착(폐기 AB 유령 참조?)" % [base_ability_id, sb_slot])
 		return
 	# D-018 §7.6 affix_charges_small → chargesMax 가산(coeff affix와 별도).
 	var cmax := int(master.get("charges_max", 30)) + int(affix.get("charges", 0))

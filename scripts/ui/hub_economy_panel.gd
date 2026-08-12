@@ -149,10 +149,12 @@ func _refresh_stash() -> void:
 	if _stash == null or _stash_grid == null:
 		return
 	_stash_grid.clear()
-	var cap: int = int(_hub.stash_capacity()) if _hub != null else 0
+	# 표시는 **실제 tier 용량**(승급 의미 보존), 게이트만 플테 우회를 쓴다 — hub_profile 참조.
+	var cap: int = int(_hub.stash_capacity_tier()) if _hub != null and _hub.has_method("stash_capacity_tier") else 0
 	var n: int = int(_stash.item_count())
-	_stash_cap_lbl.text = "용량 %d / %d" % [n, cap]
-	_stash_cap_lbl.modulate = BAD if (cap > 0 and n >= cap) else ACCENT
+	var uncapped: bool = _hub != null and int(_hub.stash_capacity()) > cap
+	_stash_cap_lbl.text = "용량 %d / %d%s" % [n, cap, "  (플테: 한도 해제)" if uncapped else ""]
+	_stash_cap_lbl.modulate = ACCENT if uncapped else (BAD if (cap > 0 and n >= cap) else ACCENT)
 	for g in _stash.gear:
 		var inst: Dictionary = g if typeof(g) == TYPE_DICTIONARY else {"base_gear_id": String(g)}
 		var m: Dictionary = Slice01Data.get_gear_master(String(inst.get("base_gear_id", "")))

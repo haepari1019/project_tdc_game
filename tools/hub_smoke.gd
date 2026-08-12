@@ -31,7 +31,7 @@ func _init() -> void:
 	_expect(hp.attempt_upgrade("stash"), "stash 승급 적용")
 	_expect(hp.facility_tier("stash") == 1, "stash Tier 1")
 	_expect(hp.vault_count("haul_ward_splinter") == 0, "재료 차감(0)")
-	_expect(hp.stash_capacity() == 28, "stash capacity 28")
+	_expect(hp.stash_capacity_tier() == 28, "stash capacity 28 (tier 실값 — 플테 우회와 분리)")
 
 	# prereq 게이트 — scribe_shop T1은 scriptorium≥1 선행
 	_expect(String(hp.upgrade_check("scribe_shop").get("reason", "")) == "prereq", "scribe_shop 선행 차단")
@@ -122,9 +122,80 @@ func _init() -> void:
 	hp.facilities["quartermaster"] = 2
 	_expect(hp.run_inventory_capacity() == 16, "군수 capacity T2=16")
 	hp.facilities["stash"] = 0
-	_expect(hp.stash_capacity() == 20, "창고 capacity T0=20")
+	_expect(hp.stash_capacity_tier() == 20, "창고 capacity T0=20")
 	hp.facilities["stash"] = 2
-	_expect(hp.stash_capacity() == 36, "창고 capacity T2=36")
+	_expect(hp.stash_capacity_tier() == 36, "창고 capacity T2=36")
+
+
+	# ==========================================================================
+	# 유령 참조 감사 (M0-4 · DRIFT-139) — 시드·픽스처가 가리키는 AB/gear ID가 카탈로그에
+	# **실재**하는지 전수 확인. 이 게이트가 없어서 같은 사고가 세 번 났다:
+	#   DRIFT-130 샌드박스 픽스처 AB-009 · DRIFT-137 스타터 AB-028 · DRIFT-139 스태시 시드 AB-037.
+	# 전부 `equip_skillbook_by_id`가 마스터를 못 찾고 조용히 빈 슬롯을 만드는 경로였다 —
+	# 게임은 정상으로 보이고 스킬만 안 나온다. 폐기는 앞으로도 계속 생기므로 사람이 아니라
+	# 게이트가 잡아야 한다.
+	# ==========================================================================
+	var ghosts: Array = []
+
+	# ① Backpack 스타터 시드 (StarterGrant)
+	var bp = load("res://scripts/autoload/backpack.gd").new()
+	bp._seed()
+	for it in bp.loose:
+		var aid := String(it.get("base_ability_id", ""))
+		if aid != "" and sd.get_skillbook_master(aid).is_empty():
+			ghosts.append("Backpack.loose 스킬북 %s" % aid)
+		var gid_l := String(it.get("base_gear_id", ""))
+		if gid_l != "" and sd.get_gear_master(gid_l).is_empty():
+			ghosts.append("Backpack.loose 기어 %s" % gid_l)
+	for key in bp.equipped:
+		var e: Dictionary = bp.equipped[key]
+		var wg := String(e.get("gear", ""))
+		if wg != "" and sd.get_gear_master(wg).is_empty():
+			ghosts.append("Backpack.equipped[%s].gear %s" % [key, wg])
+		for sub in e.get("subs", []):
+			if typeof(sub) == TYPE_DICTIONARY:
+				var sid := String(sub.get("base_ability_id", ""))
+				if sid != "" and sd.get_skillbook_master(sid).is_empty():
+					ghosts.append("Backpack.equipped[%s].subs %s" % [key, sid])
+	var bp_loose: int = bp.loose.size()
+	var bp_equipped: int = bp.equipped.size()
+	bp.free()
+	_expect(bp_loose > 0 and bp_equipped == 4, "Backpack 시드 — 낱개 %d · 착용 %d역할" % [bp_loose, bp_equipped])
+
+	# ② Stash 시드 — 카탈로그 파생이라 유령이 나올 수 없어야 한다(파생이 곧 증명).
+	var st = load("res://scripts/autoload/stash.gd").new()
+	root.add_child(st)          # Slice01Data를 /root 경로로 찾으므로 트리에 붙인다
+	st._seed_from_catalog()
+	for g in st.gear:
+		var gid := String(g.get("base_gear_id", "")) if typeof(g) == TYPE_DICTIONARY else String(g)
+		if sd.get_gear_master(gid).is_empty():
+			ghosts.append("Stash.gear %s" % gid)
+	for sb in st.skillbooks:
+		var sbid := String(sb.get("base_ability_id", "")) if typeof(sb) == TYPE_DICTIONARY else String(sb)
+		if sd.get_skillbook_master(sbid).is_empty():
+			ghosts.append("Stash.skillbooks %s" % sbid)
+	_expect(st.gear.size() > 0, "Stash 시드 기어 %d종(카탈로그 파생)" % st.gear.size())
+	_expect(st.skillbooks.size() == sd.get_skillbook_rows().size(),
+		"Stash 시드 서브 = 카탈로그 전량 %d종 (D4 전 카탈로그 개방)" % sd.get_skillbook_rows().size())
+	st.free()
+
+	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
+	var sandbox = load("res://scripts/dev/combat_sandbox.gd")
+	for cls in sandbox.SANDBOX_SUBS:
+		for aid2 in sandbox.SANDBOX_SUBS[cls]:
+			if String(aid2) != "" and sd.get_skillbook_master(String(aid2)).is_empty():
+				ghosts.append("SANDBOX_SUBS[%s] %s" % [cls, aid2])
+	for key2 in sandbox._BIND_FIXTURES:
+		var cfg: Dictionary = sandbox._BIND_FIXTURES[key2]
+		if sd.get_gear_master(String(cfg.get("gear", ""))).is_empty():
+			ghosts.append("_BIND_FIXTURES[%s].gear %s" % [key2, cfg.get("gear", "")])
+		for aid3 in cfg.get("subs", []):
+			if String(aid3) != "" and sd.get_skillbook_master(String(aid3)).is_empty():
+				ghosts.append("_BIND_FIXTURES[%s] %s" % [key2, aid3])
+
+	for gh in ghosts:
+		print("  GHOST  " + gh)
+	_expect(ghosts.is_empty(), "유령 참조 0건 (시드·픽스처 전수)")
 
 	hp.free()
 	if _ok:

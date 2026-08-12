@@ -2,7 +2,7 @@ extends RefCounted
 class_name BindingOverlays
 ## Kit Binding (결속) — 정본 결속 오버레이 레지스트리. **게임이 SSOT** (IMPL-DEC-20260709-001: spec 로드맵 스텁 역전).
 ## 결속 = effectiveAbility = baseAbilityId + bindingOverlayId(활성 시). AB effect 파일은 복제하지 않음 —
-## 오버레이는 base 서브 캐스트 **후** 적용되는 런타임 DELTA. resolve = triple-match(gear + identity_ab + slot_ab + slot).
+## 오버레이는 base 서브 캐스트 **후** 적용되는 런타임 DELTA. resolve = match(**profile** + identity_ab + slot_ab + slot).
 ## id_registry 미등재 = 오버레이는 **독립 능력이 아니라** effectiveAbility 합성 요소(별 네임스페이스 BIND-###) —
 ## spec CombatContentMap도 bindings 미등재. 정식 spec 등재는 P4b 정본화 배치(OPS_30).
 ## ref: F-020 §3.7 resolveEffectiveAbility · F-008 §3.9 · D-019 §10 · ROLE-010 §4.5 · QA-005 §2.12 · spec 77d9532.
@@ -12,8 +12,12 @@ class_name BindingOverlays
 ## 상태일 때 추가효과] → [상태 소모 시 캡스톤 보상]. 스펙 테마(ROLE-010 §4.5): Anchor Guard = 방벽 충전
 ## (누적 → 기절), Iron Beacon = 표식(낙인 → 응징), Mark & Ruin = 집중(누적 증폭 → 처형 폭발). NC 미적용(F-020 §3.3, 조작 전용).
 ##
-## Triple-match (F-020 §3.7): bindingProfileId(=`base_gear_id` slug) + identity `baseAbilityId` + slot
-## `baseAbilityId` @ `slotIndex` 모두 일치해야 오버레이 활성. 불일치 → base only. gear ID = 게임 슬러그.
+## Match (F-020 §3.7): `bindingProfileId` + identity `baseAbilityId` + slot `baseAbilityId` @ `slotIndex`
+## 가 일치해야 **변주** 오버레이 활성. 불일치 → 정체성 기본 델타(GENERIC) 또는 base only.
+##
+## ⚠️ **프로필 기본값 = `effectiveIdentitySkillId`** (구: `baseGearId`, DRIFT-138). gear 인스턴스가
+## 정체성을 굴리므로 gear 아키타입 ID를 키로 쓰면 굴림 결과와 어긋난다 — 상세는 `binding_profile()`.
+## 엔트리의 `authored_for`는 **저작 맥락 기록**이며 매칭에 관여하지 않는다.
 
 ## 결속은 기어+정체성+서브를 착용한 순간 내재적으로 적용된다(on/off 토글 없음 — triple-match면 항상 활성).
 
@@ -127,139 +131,139 @@ const GENERIC := {
 # Anchor 서브: 전부 방벽 +1(공통 버프). Beacon 서브: 전부 표식 대상 조건부 위협(공통), R은 표식 갱신 추가.
 const OVERLAYS := [
 	{
-		"id": "BIND-001", "gear": "gear_ward_tank_anchor_bulwark",
+		"id": "BIND-001", "authored_for": "gear_ward_tank_anchor_bulwark",
 		"identity_ab": "IDA-020", "slot_ab": "AB-033", "slot_index": 0, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Intercept → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
-		"id": "BIND-002", "gear": "gear_ward_tank_anchor_bulwark",
+		"id": "BIND-002", "authored_for": "gear_ward_tank_anchor_bulwark",
 		"identity_ab": "IDA-020", "slot_ab": "AB-034", "slot_index": 1, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Barrier → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
-		"id": "BIND-003", "gear": "gear_ward_tank_anchor_bulwark",
+		"id": "BIND-003", "authored_for": "gear_ward_tank_anchor_bulwark",
 		"identity_ab": "IDA-020", "slot_ab": "AB-035", "slot_index": 2, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Mark → BulwarkCharge +1", "desc_ko": "방벽을 한 겹 쌓는다.",
 	},
 	{
-		"id": "BIND-004", "gear": "gear_ward_tank_kite_shield",
+		"id": "BIND-004", "authored_for": "gear_ward_tank_kite_shield",
 		"identity_ab": "IDA-021", "slot_ab": "AB-033", "slot_index": 0, "theme": "mark", "delta": "beacon_mark",
 		"payoff": "Intercept → +threat vs marked", "desc_ko": "표식 대상에게 추가 위협 효과를 부여한다.",
 	},
 	{
-		"id": "BIND-005", "gear": "gear_ward_tank_kite_shield",
+		"id": "BIND-005", "authored_for": "gear_ward_tank_kite_shield",
 		"identity_ab": "IDA-021", "slot_ab": "AB-034", "slot_index": 1, "theme": "mark", "delta": "beacon_mark",
 		"payoff": "Barrier → +threat vs marked", "desc_ko": "표식 대상에게 추가 위협 효과를 부여한다.",
 	},
 	{
-		"id": "BIND-006", "gear": "gear_ward_tank_kite_shield",
+		"id": "BIND-006", "authored_for": "gear_ward_tank_kite_shield",
 		"identity_ab": "IDA-021", "slot_ab": "AB-035", "slot_index": 2, "theme": "mark", "delta": "beacon_mark_refresh",
 		"payoff": "Challenge → +threat vs marked + 표식 갱신", "desc_ko": "표식 대상에게 추가 위협을 주고, 표식의 유지 시간을 갱신한다.",
 	},
 	# Nuker Mark&Ruin 「집중」 링크 서브(빌더): 집중 대상 명중 시 누적 +1 & 누적 비례 추가타(공통).
 	# 소모는 슬롯 오버레이가 아니라 아키타입 규칙(FOCUS_SPEND_KINDS / is_focus_spender)이 담당 — 특정 처형 스킬에 묶지 않음.
 	{
-		"id": "BIND-007", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-007", "authored_for": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-004", "slot_index": 0, "theme": "focus", "delta": "focus_stack",
 		"payoff": "전격사격 → Focus +1 & 누적 비례 추가타", "desc_ko": "명중한 적을 집중 대상으로 새기고 집중을 한 겹 쌓아, 쌓인 만큼 추가 피해를 준다. 다른 적을 명중하면 집중이 그 적으로 옮겨가며 초기화된다.",
 	},
 	{
-		"id": "BIND-008", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-008", "authored_for": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-059", "slot_index": 1, "theme": "focus", "delta": "focus_spread",
 		"payoff": "공허창 → 누적 추가타 + 집중을 근처 적으로 전이", "desc_ko": "집중 대상을 명중하면 누적+추가 피해를 준 뒤, 집중을 근처의 다른 적으로 전이시킨다(누적 유지).",
 	},
 	{
-		"id": "BIND-027", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-027", "authored_for": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-005", "slot_index": 0, "theme": "focus", "delta": "focus_dump",
 		"payoff": "Melee Flurry — 단일: 집중 소모 처형 / 광역: 집중 유지·빌드", "desc_ko": "레인에 적이 하나뿐이면 쌓아둔 집중을 모두 소모해 처형 폭발을 일으킨다. 여럿이면 집중을 유지·누적하며 쓸어버린다.",
 	},
 	# Nuker Flank Collapse 「잠행」 링크 서브: 근접 사거리로만 시전 + 원래 range_band 비례 이득(1차 뎀/2차 쿨감).
 	# 처치 시 은신은 슬롯 오버레이가 아니라 kill 훅(identity_flanks 게이트)이 담당 — 어떤 처치든 vanish.
 	{
-		"id": "BIND-010", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-010", "authored_for": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-004", "slot_index": 0, "theme": "flank", "delta": "flank_strike",
 		"payoff": "전격사격(Long) → 근접화 + 사거리 비례 이득(큼)", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
 	},
 	{
-		"id": "BIND-011", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-011", "authored_for": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-059", "slot_index": 1, "theme": "flank", "delta": "flank_dash",
 		"payoff": "공허창(Long) → 근접화 + 사거리 비례 이득 + 타격 후 반대편 이탈", "desc_ko": "근접에서만 시전된다. 원래 사거리 비례 이득에 더해, 발현 후 적의 반대편으로 원래 사거리만큼 순간 이탈한다.",
 	},
 	{
 		# AB-060 폐기(DRIFT-130) → 유일하게 남은 처형기 AB-106으로 재배선. 106의 `range_band`는
 		# 실사거리 10m에 맞춰 Melee → **Mid**로 교정됐으므로(DRIFT-131) 근접화 보상은 060과 동일한 +25%다.
-		"id": "BIND-012", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-012", "authored_for": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-106", "slot_index": 2, "theme": "flank", "delta": "flank_strike",
 		"payoff": "Devour(Mid) → 근접화 + 사거리 비례 이득", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
 	},
 	{
-		"id": "BIND-028", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-028", "authored_for": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-005", "slot_index": 0, "theme": "flank", "delta": "flank_strike",
 		"payoff": "Melee Flurry(근접) → generic +15% 추가타(합연산)", "desc_ko": "이미 근접 스킬이라 근접화 보상으로 +15% 추가 피해를 얻는다(합연산).",
 	},
 	# Tank Toll Stun(AB-011) — 타겟 단일 기절. 방벽/표식 둘 다 generic delta로 링크(코드 무변경).
 	{
-		"id": "BIND-029", "gear": "gear_ward_tank_anchor_bulwark",
+		"id": "BIND-029", "authored_for": "gear_ward_tank_anchor_bulwark",
 		"identity_ab": "IDA-020", "slot_ab": "AB-011", "slot_index": 0, "theme": "bulwark", "delta": "bulwark_charge",
 		"payoff": "Toll Stun → 방벽 충전", "desc_ko": "적을 기절시키며 방벽을 한 겹 쌓는다.",
 	},
 	{
-		"id": "BIND-030", "gear": "gear_ward_tank_kite_shield",
+		"id": "BIND-030", "authored_for": "gear_ward_tank_kite_shield",
 		"identity_ab": "IDA-021", "slot_ab": "AB-011", "slot_index": 0, "theme": "mark", "delta": "beacon_mark",
 		"payoff": "Toll Stun → 표식", "desc_ko": "기절시킨 적을 표식해 추가 위협을 부여한다.",
 	},
 	# Healer 지속치유(가호 폐지) 링크 힐 서브: 실제 전환은 deal_heal/deal_regen choke(정체성 게이트)가 담당 —
 	# 오버레이는 킷 등록 + 툴팁용(delta "dot_heal"은 _apply_binding에서 no-op, 전환은 choke에서).
 	{
-		"id": "BIND-013", "gear": "gear_ward_healer_ward_sigil",
+		"id": "BIND-013", "authored_for": "gear_ward_healer_ward_sigil",
 		"identity_ab": "IDA-031", "slot_ab": "AB-064", "slot_index": 0, "theme": "dot_heal", "delta": "dot_heal",
 		"payoff": "QuickMend → 지속 치유 전환", "desc_ko": "즉시 치유가 지속 치유로 바뀌어 더 오래 나눠 들어오고, 총 회복량이 늘어난다.",
 	},
 	{
-		"id": "BIND-014", "gear": "gear_ward_healer_ward_sigil",
+		"id": "BIND-014", "authored_for": "gear_ward_healer_ward_sigil",
 		"identity_ab": "IDA-031", "slot_ab": "AB-065", "slot_index": 1, "theme": "dot_heal", "delta": "dot_heal",
 		"payoff": "RenewingTide → 지속 치유 강화", "desc_ko": "지속 치유의 총 회복량이 늘어난다.",
 	},
 	{
-		"id": "BIND-015", "gear": "gear_ward_healer_ward_sigil",
+		"id": "BIND-015", "authored_for": "gear_ward_healer_ward_sigil",
 		"identity_ab": "IDA-031", "slot_ab": "AB-066", "slot_index": 2, "theme": "dot_heal", "delta": "dot_heal",
 		"payoff": "SanctuaryFont → 지속 치유 강화", "desc_ko": "지속 치유의 총 회복량이 늘어난다.",
 	},
 	# Healer 성역 링크 힐 서브: 실제 증폭은 deal_heal/deal_regen choke(in_sanctuary 게이트) — 오버레이는 등록+툴팁용.
 	{
-		"id": "BIND-016", "gear": "gear_ward_healer_mend_lantern",
+		"id": "BIND-016", "authored_for": "gear_ward_healer_mend_lantern",
 		"identity_ab": "IDA-026", "slot_ab": "AB-064", "slot_index": 0, "theme": "sanctuary", "delta": "sanct",
 		"payoff": "QuickMend → 성역 안 증폭", "desc_ko": "성역 안에 머문 채 시전하면 회복량이 늘어난다. 성역을 벗어나면 평범해진다.",
 	},
 	{
-		"id": "BIND-017", "gear": "gear_ward_healer_mend_lantern",
+		"id": "BIND-017", "authored_for": "gear_ward_healer_mend_lantern",
 		"identity_ab": "IDA-026", "slot_ab": "AB-065", "slot_index": 1, "theme": "sanctuary", "delta": "sanct",
 		"payoff": "RenewingTide → 성역 안 증폭", "desc_ko": "성역 안에 머문 채 시전하면 회복량이 늘어난다. 성역을 벗어나면 평범해진다.",
 	},
 	{
-		"id": "BIND-018", "gear": "gear_ward_healer_mend_lantern",
+		"id": "BIND-018", "authored_for": "gear_ward_healer_mend_lantern",
 		"identity_ab": "IDA-026", "slot_ab": "AB-066", "slot_index": 2, "theme": "sanctuary", "delta": "sanct",
 		"payoff": "SanctuaryFont → 성역 안 증폭", "desc_ko": "성역 안에 머문 채 시전하면 회복량이 늘어난다. 성역을 벗어나면 평범해진다.",
 	},
 	# DPS press_line 「초월」 링크 서브(광역 3종 + bolt 대체 슬롯): 명중 시 초월 게이지 충전, 초월 중이면 서브가 강화 변형으로 발동.
 	# 강화는 kind로 분기(fire→화상 / beam→끌어당김 / cold→빙결 / bolt→감전 폭주) — _dps_overdrive. delta 공통 overdrive_charge.
 	{
-		"id": "BIND-019", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-019", "authored_for": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-053", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge", "variant": "burn",
 		"payoff": "작열 폭발 → 초월 충전 / (초월)겁화: 화상 DoT", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「겁화」로 발동 — 명중한 적에게 화상 지속딜을 남긴다.",
 	},
 	{
-		"id": "BIND-026", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-026", "authored_for": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-003", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge", "variant": "silence",
 		"payoff": "Arc Bolt Volley → 초월 충전 / (초월)감전 폭주: 침묵", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「감전 폭주」로 발동 — 명중한 적을 침묵시켜 액티브 스킬을 봉쇄한다.",
 	},
 	{
-		"id": "BIND-020", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-020", "authored_for": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-054", "slot_index": 1, "theme": "overdrive", "delta": "overdrive_charge", "variant": "gravity",
 		"payoff": "절단 광선 → 초월 충전 / (초월)중력광선: 끌어당김", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「중력 광선」으로 발동 — 빔에 맞은 적을 중심선으로 끌어당긴다.",
 	},
 	{
-		"id": "BIND-021", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-021", "authored_for": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-041", "slot_index": 2, "theme": "overdrive", "delta": "overdrive_charge", "variant": "freeze",
 		"payoff": "빙결 파동 → 초월 충전 / (초월)절대영도: 빙결", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「절대영도」로 발동 — 감속이 빙결(속박)로 격상된다.",
 	},
@@ -271,69 +275,100 @@ const OVERLAYS := [
 	#    재배선할지 폐기할지가 판정 사안이라 여기서 결정하지 않는다.
 	# DPS arc_weave 「혈풍」 링크 서브(광역 3종): 시전당 HP 소모 + 명중 적 수 비례 회복(3기+ 이득). delta 공통 blood_soak.
 	{
-		"id": "BIND-022", "gear": "gear_ward_dps_weave_staff",
+		"id": "BIND-022", "authored_for": "gear_ward_dps_weave_staff",
 		"identity_ab": "IDA-027", "slot_ab": "AB-053", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak", "variant": "burst",
 		"payoff": "작열 폭발 → 흡수 폭발(기본 회복)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다(3기 이상이면 이득).",
 	},
 	{
-		"id": "BIND-023", "gear": "gear_ward_dps_weave_staff",
+		"id": "BIND-023", "authored_for": "gear_ward_dps_weave_staff",
 		"identity_ab": "IDA-027", "slot_ab": "AB-054", "slot_index": 1, "theme": "bloodgale", "delta": "blood_soak", "variant": "siphon",
 		"payoff": "절단 광선 → 흡혈 광선(채널 사이펀·회복 증폭)", "desc_ko": "체력을 대가로 시전하는 흡혈 광선. 채널로 빨아들여 맞춘 적 수 대비 더 많이 회복한다(사이펀).",
 	},
 	{
-		"id": "BIND-024", "gear": "gear_ward_dps_weave_staff",
+		"id": "BIND-024", "authored_for": "gear_ward_dps_weave_staff",
 		"identity_ab": "IDA-027", "slot_ab": "AB-041", "slot_index": 2, "theme": "bloodgale", "delta": "blood_soak", "variant": "iceblood",
 		"payoff": "빙결 파동 → 혈빙(과회복 → 임시 보호막)", "desc_ko": "체력을 대가로 시전하고, 광역으로 맞춘 적 수에 비례해 회복한다. 최대 체력을 넘긴 과회복분은 임시 보호막이 된다.",
 	},
 	# DPS Venom Spit(AB-010, 스택 독 DoT) — 초월(맹독 폭주: 스택 즉시 폭증) / 혈풍(중독 적 비례 회복).
 	{
-		"id": "BIND-031", "gear": "gear_ward_dps_press_rod",
+		"id": "BIND-031", "authored_for": "gear_ward_dps_press_rod",
 		"identity_ab": "IDA-024", "slot_ab": "AB-010", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge", "variant": "venom",
 		"payoff": "독 살포 → 초월 충전 / (초월)맹독 폭주: 독 스택 폭증", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「맹독 폭주」로 발동 — 명중한 적에게 독 스택을 한 번에 여러 겹 쌓아 지속딜을 폭증시킨다.",
 	},
 	{
-		"id": "BIND-032", "gear": "gear_ward_dps_weave_staff",
+		"id": "BIND-032", "authored_for": "gear_ward_dps_weave_staff",
 		"identity_ab": "IDA-027", "slot_ab": "AB-010", "slot_index": 0, "theme": "bloodgale", "delta": "blood_soak", "variant": "burst",
 		"payoff": "독 살포 → 흡수 폭발(기본 회복)", "desc_ko": "체력을 대가로 시전하고, 중독시킨 적 수에 비례해 회복한다(3기 이상이면 이득).",
 	},
 	# --- AB-007 이탈 결속(Nuker; 007a/007b 공통, slot 무관 = -1) ---
 	{
-		"id": "BIND-033", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-033", "authored_for": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-007a", "slot_index": -1, "theme": "focus", "delta": "disengage_focus",
 		"payoff": "이탈 마무리 → 대상 집중 +1", "desc_ko": "이탈의 마무리 한 방을 맞은 대상에게 집중을 1스택 누적한다(처형 준비).",
 	},
 	{
-		"id": "BIND-034", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-034", "authored_for": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-007b", "slot_index": -1, "theme": "focus", "delta": "disengage_focus",
 		"payoff": "이탈 마무리 → 대상 집중 +1", "desc_ko": "이탈의 마무리 한 방을 맞은 대상에게 집중을 1스택 누적한다(처형 준비).",
 	},
 	{
-		"id": "BIND-035", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-035", "authored_for": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-007a", "slot_index": -1, "theme": "flank", "delta": "disengage_veil",
 		"payoff": "이탈 → 은신 유지 · 은신 첫 스킬 강타", "desc_ko": "이탈 후 은신을 유지한다(은신 중 평타 정지). 은신에서 쓰는 첫 스킬이 추가 피해 — 시전/은신해제 시 종료.",
 	},
 	{
-		"id": "BIND-036", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-036", "authored_for": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-007b", "slot_index": -1, "theme": "flank", "delta": "disengage_veil",
 		"payoff": "이탈 → 은신 유지 · 은신 첫 스킬 강타", "desc_ko": "이탈 후 은신을 유지한다(은신 중 평타 정지). 은신에서 쓰는 첫 스킬이 추가 피해 — 시전/은신해제 시 종료.",
 	},
 	# AB-013 Backstab Dash bespoke 변주(슬롯 무관). 집중 = 2스택 + max 시 캐스터 보호막 / 잠행 = 사거리 패널티 없음(돌진=이미 근접) + 주변 처치 시 쿨 초기화(암살 연쇄).
 	{
-		"id": "BIND-037", "gear": "gear_ward_nuker_ruin_sight",
+		"id": "BIND-037", "authored_for": "gear_ward_nuker_ruin_sight",
 		"identity_ab": "IDA-025", "slot_ab": "AB-013", "slot_index": -1, "theme": "focus", "delta": "focus_backstab",
 		"payoff": "돌진 명중 → Focus +2 & max 도달/이미 max면 데미지만큼 캐스터 보호막(1s)", "desc_ko": "명중한 적에게 집중을 두 겹 쌓는다. 집중이 가득 차면(또는 이미 가득 찬 대상이면) 준 피해만큼 잠시 보호막을 얻는다.",
 	},
 	{
-		"id": "BIND-038", "gear": "gear_ward_nuker_flank_knife",
+		"id": "BIND-038", "authored_for": "gear_ward_nuker_flank_knife",
 		"identity_ab": "IDA-029", "slot_ab": "AB-013", "slot_index": -1, "theme": "flank", "delta": "flank_backstab",
 		"payoff": "이미 근접 돌진 → 사거리 패널티 없음 · 주변에서 적 처치 시 이 스킬 쿨 초기화", "desc_ko": "근접 사거리로 강제되지 않는다(이미 돌진). 주변에서 적이 처치되면 이 스킬의 대기시간이 초기화된다(암살 연쇄).",
 	},
 ]
 
+## **결속 프로필** — 오버레이 매칭 키. 기본값은 **착용 중인 effective identity**이고, gear 마스터가
+## `binding_profile_id`를 명시하면 그것이 이긴다(아키타입 고유 변주용). `D-019` §3
+## `effectiveBindingProfileId = bindingProfileId ?? master ?? <기본>`의 **기본값만** 바꾼 것.
+##
+## **왜 gear ID가 키일 수 없나:** gear 인스턴스는 정체성을 **굴린다**(`rolled_identity_skill_id`).
+## 아키타입 ID를 키로 쓰면 같은 정체성을 굴린 다른 gear가 전부 결속 밖으로 떨어진다 — 실제로 스페어
+## gear 17종 중 **13종의 시그니처가 죽어 있었다**(`rampart_wall`이 IDA-020인데 방벽이 안 쌓이는 식).
+## 정체성을 키로 삼으면 프로필이 굴림 결과를 따라간다. ref: DRIFT-138 · P4b_WORK_ORDER §2b.
+static func binding_profile(base_gear_id: String, identity_ab: String) -> String:
+	if base_gear_id != "":
+		var ml := Engine.get_main_loop()
+		var sd = ml.root.get_node_or_null("/root/Slice01Data") if ml != null and "root" in ml else null
+		if sd != null and sd.has_method("get_gear_master"):
+			var pid := String((sd.get_gear_master(base_gear_id) as Dictionary).get("binding_profile_id", ""))
+			if pid != "":
+				return pid
+	return identity_ab
+
+
+## 오버레이 엔트리의 프로필 — 명시 `profile`이 있으면 그것, 없으면 `identity_ab`(기본).
+## `authored_for`(구 `gear`)는 **저작 맥락 기록일 뿐 매칭에 쓰지 않는다.**
+static func _ov_profile(ov: Dictionary) -> String:
+	return String(ov.get("profile", ov.get("identity_ab", "")))
+
+
+## 이 오버레이가 (프로필, 정체성)에 걸리는가 — resolve + 시그니처 게이트 8종의 공통 술어.
+static func _ov_matches(ov: Dictionary, prof: String, identity_ab: String) -> bool:
+	return _ov_profile(ov) == prof and String(ov["identity_ab"]) == identity_ab
+
+
 ## resolveEffectiveAbility (F-020 §3.7) — active overlay for a member's slot, or {} (base only). 착용 즉시 활성.
 static func resolve(base_gear_id: String, identity_ab: String, slot_ab: String, slot_index: int) -> Dictionary:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+		if _ov_matches(ov, prof, identity_ab) \
 				and String(ov["slot_ab"]) == slot_ab \
 				and (int(ov["slot_index"]) == slot_index or int(ov["slot_index"]) == -1):   # -1 = 슬롯 무관(이탈 결속)
 			return ov
@@ -358,8 +393,9 @@ static func resolve_effective(base_gear_id: String, identity_ab: String, slot_ab
 
 ## 이 gear+identity가 「표식」 킷(Beacon)인가 — identity가 시전 시 대상에 표식을 남기는지.
 static func identity_marks(base_gear_id: String, identity_ab: String) -> bool:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+		if _ov_matches(ov, prof, identity_ab) \
 				and String(ov.get("theme", "")) == "mark":
 			return true
 	return false
@@ -373,8 +409,9 @@ static func is_focus_spender(kind: String) -> bool:
 
 ## 이 gear+identity가 「집중」 킷(Mark&Ruin)인가 — identity가 시전 시 단일 표적을 집중 대상으로 새기는지.
 static func identity_focuses(base_gear_id: String, identity_ab: String) -> bool:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+		if _ov_matches(ov, prof, identity_ab) \
 				and String(ov.get("theme", "")) == "focus":
 			return true
 	return false
@@ -382,8 +419,9 @@ static func identity_focuses(base_gear_id: String, identity_ab: String) -> bool:
 
 ## 이 gear+identity가 「잠행」 킷(Flank Collapse)인가 — 처치 시 은신(veil) 게이트 + 툴팁용.
 static func identity_flanks(base_gear_id: String, identity_ab: String) -> bool:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+		if _ov_matches(ov, prof, identity_ab) \
 				and String(ov.get("theme", "")) == "flank":
 			return true
 	return false
@@ -391,8 +429,9 @@ static func identity_flanks(base_gear_id: String, identity_ab: String) -> bool:
 
 ## 이 gear+identity가 「지속 치유」 킷(DoT heal)인가 — 치유 choke가 즉시 치유→HoT 전환할지 게이트.
 static func identity_dot_heals(base_gear_id: String, identity_ab: String) -> bool:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+		if _ov_matches(ov, prof, identity_ab) \
 				and String(ov.get("theme", "")) == "dot_heal":
 			return true
 	return false
@@ -400,8 +439,9 @@ static func identity_dot_heals(base_gear_id: String, identity_ab: String) -> boo
 
 ## 이 gear+identity가 「성역」 킷(Mend Circle)인가 — 정체성이 성역을 세우고 치유 choke가 in-zone 증폭할지 게이트.
 static func identity_sanctuaries(base_gear_id: String, identity_ab: String) -> bool:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+		if _ov_matches(ov, prof, identity_ab) \
 				and String(ov.get("theme", "")) == "sanctuary":
 			return true
 	return false
@@ -409,8 +449,9 @@ static func identity_sanctuaries(base_gear_id: String, identity_ab: String) -> b
 
 ## 이 gear+identity가 「초월」 킷(DPS press_line)인가 — 명중으로 게이지 충전 + 초월 중 서브 강화 변형 게이트.
 static func identity_overdrive(base_gear_id: String, identity_ab: String) -> bool:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+		if _ov_matches(ov, prof, identity_ab) \
 				and String(ov.get("theme", "")) == "overdrive":
 			return true
 	return false
@@ -418,8 +459,9 @@ static func identity_overdrive(base_gear_id: String, identity_ab: String) -> boo
 
 ## 이 gear+identity가 「혈풍」 킷(DPS arc_weave)인가 — 서브 시전당 HP 대가 + 명중 적 비례 회복 게이트.
 static func identity_bloodgale(base_gear_id: String, identity_ab: String) -> bool:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab \
+		if _ov_matches(ov, prof, identity_ab) \
 				and String(ov.get("theme", "")) == "bloodgale":
 			return true
 	return false
@@ -427,7 +469,8 @@ static func identity_bloodgale(base_gear_id: String, identity_ab: String) -> boo
 
 ## 이 gear+identity가 결속 킷이면 그 정체성 규약({name, covenant})을, 아니면 {}. identity 툴팁용.
 static func signature_for(base_gear_id: String, identity_ab: String) -> Dictionary:
+	var prof := binding_profile(base_gear_id, identity_ab)
 	for ov in OVERLAYS:
-		if String(ov["gear"]) == base_gear_id and String(ov["identity_ab"]) == identity_ab:
+		if _ov_matches(ov, prof, identity_ab):
 			return SIGNATURE.get(identity_ab, {})
 	return {}

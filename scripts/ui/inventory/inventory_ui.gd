@@ -29,6 +29,10 @@ var _loot_box: VBoxContainer     # loot column wrapper (shown only while looting
 var _loot_label: Label
 var _chest: Node = null          # currently looted chest (null = none)
 var _loot_is_stash: bool = false # the loot grid currently shows the persistent Stash (hub), not a chest
+## 컨테이너 그리드에 자리가 없어 **표시되지 못한** 아이템들. 스태시 편집을 닫을 때 호스트가
+## 그리드 내용으로 Stash를 재작성하므로, 이게 없으면 안 보이는 아이템이 곧 소유 삭제가 된다.
+## `loot_overflow()`로 읽어 sync 결과에 되돌려 넣는다(main.gd `_sync_stash_from_source`).
+var _loot_overflow: Array = []
 # 금고(재료) — 스태시 편집 시 stash 그리드 '아래'에 함께 표시(탭 대신). 읽기 전용 표시(_grids 미등록 →
 # 드롭 대상 아님, _on_item_pressed에서 드래그 차단) + '재료 모두 금고로' 버튼이 유일 입금 경로.
 var _vault: InventoryGrid = null
@@ -87,6 +91,7 @@ func open_loot(chest: Node) -> void:
 	_loot_is_stash = chest != null and chest.has_method("is_stash_source")
 	_loot_label.text = chest.title if "title" in chest else "CONTAINER"
 	_loot.clear()
+	_loot_overflow.clear()
 	var c: int = int(chest.cols) if "cols" in chest else 5   # container sets its own size
 	var r: int = int(chest.rows) if "rows" in chest else 5   # (stash >> backpack; chest defaults 5x5)
 	_loot.resize(c, r)
@@ -97,10 +102,18 @@ func open_loot(chest: Node) -> void:
 		# Trust the stored (col,row) only when it actually fits + is free (stash layout). A chest's
 		# naive col=idx%COLS ignores item width, so a 2×2 gear at the right edge would overflow →
 		# _mark writes _occ[y][cols] out of range (crash). Fall back to auto-placement in that case.
-		if _loot.can_place(int(d.get("w", 1)), int(d.get("h", 1)), col, row):
+		# 좌표를 안 준 아이템 = "아무 데나" — 자동 배치(first-fit)로 남은 빈칸을 채운다. 좌표를 준
+		# 아이템만 그 자리를 시도한다(스태시 상단 기어 블록 등).
+		var pinned := d.has("col") or d.has("row")
+		if pinned and _loot.can_place(int(d.get("w", 1)), int(d.get("h", 1)), col, row):
 			_loot.place(d, col, row)
 		elif not _loot.add_item_dict(d):
-			push_warning("open_loot: no room for %s in container" % String(d.get("id", "?")))
+			# 자리가 없다 = **표시만 못 하는 게 아니라 소유가 날아갈 수 있다.** 스태시 편집을 닫으면
+			# 호스트(main.gd)가 그리드 내용으로 Stash를 통째로 재작성하므로, 여기서 흘린 아이템은
+			# 영구 삭제된다(과거 실사고 — main.gd `_sync_stash_from_source` 주석). 그리드 크기와
+			# 무관하게 소유를 지키도록 따로 붙들어 두고, 호스트가 sync 때 되돌려 넣는다.
+			_loot_overflow.append(d)
+			push_warning("open_loot: no room for %s — overflow 보관(소유 유지)" % String(d.get("id", "?")))
 	_loot_box.visible = true
 	# 금고(재료) 섹션 — 스태시 편집일 때만 stash 아래에 함께 표시. 월드 상자엔 숨김.
 	_vault_label.visible = _loot_is_stash
@@ -115,6 +128,11 @@ func open_loot(chest: Node) -> void:
 
 func is_open() -> bool:
 	return visible
+
+
+## 그리드에 못 들어간 컨테이너 아이템(소유는 유지). 스태시 호스트가 sync 때 되돌려 넣는다.
+func loot_overflow() -> Array:
+	return _loot_overflow
 
 
 ## Add an item to the player backpack (from a world pickup). False if there is no room.

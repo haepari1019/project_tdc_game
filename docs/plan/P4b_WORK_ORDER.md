@@ -38,11 +38,12 @@ spec `e328aaa`(2026-07-04)에서 서브 경제가 **스킬북 → gear 슬롯 �
 
 코드 전역에 `slot_abilities` / `manastone` / `skill_tree` 심볼 **0건**.
 
-### 1b. 결속이 gear ID 하드바인딩 → 스태시 gear 11종의 시그니처가 죽어 있음
+### 1b. 결속이 gear ID 하드바인딩 → 스페어 gear 13종의 시그니처가 죽어 있었음 ✅ **M0b 해소**
 
 [binding_overlays.gd:352-425](../../scripts/combat/abilities/bindings/binding_overlays.gd)의 게이트 8종(`identity_marks` / `identity_focuses` / `identity_flanks` / `identity_dot_heals` / `identity_sanctuaries` / `identity_overdrive` / `identity_bloodgale` / `signature_for`)이 전부 **`(base_gear_id, identity_ab)` 쌍이 `OVERLAYS`에 등재돼야** true를 돌려준다. 등재된 gear는 **8종뿐**.
 
-정체성을 가진 스페어 gear 19종 중 **11종이 규약 미작동**:
+스페어 gear는 **17종**(카탈로그 27 − 스타터 4 − armory 세트 6). 그중 **13종이 규약 미작동**이었다
+(11종 = SIGNATURE는 있으나 gear 미등재 · 2종 = SIGNATURE 자체가 없음). armory 세트 6종도 동일:
 
 | gear | identity | 죽은 규약 |
 |------|----------|-----------|
@@ -53,18 +54,24 @@ spec `e328aaa`(2026-07-04)에서 서브 경제가 **스킬북 → gear 슬롯 �
 | `gear_ward_dps_ember_wand` · `brand_foci` | IDA-024 | 초월 |
 | `gear_ward_dps_rift_needle` · `tide_censer` | IDA-027 | 혈풍 |
 
-추가로 **IDA-022**(bulwark_march) · **IDA-052**(sentinel_form)는 `SIGNATURE` 항목 자체가 없다.
+| `gear_ward_tank_march_plate` · `march_set` | IDA-022 | **규약 미정의**(U2) |
+| `gear_ward_tank_sentinel_aegis` | IDA-052 | **규약 미정의**(U2) |
+
+> **해소:** M0b가 결속 키를 프로필(기본 = effective identity)로 바꿔 **작동 8종 → 24종**. 잔여 3종은
+> U2(IDA-022·IDA-052 규약 미확정)이며 `binding_smoke` 전수 스윕이 「규약미확정」으로 분류해 추적한다.
 
 `resolve_effective`는 `GENERIC`(identity 단독 키)으로 폴백하므로 **슬롯 델타는 살아 있고 시그니처만 죽는 반쪽 상태**다. 구조적 원인: gear 인스턴스는 정체성을 **굴리므로**(`rolled_identity_skill_id`) gear 아키타입 ID를 키로 쓰면 굴림 결과와 영구히 어긋난다.
 
-### 1c. 스태시/백팩 시드가 현행 카탈로그와 불일치
+### 1c. 스태시/백팩 시드가 현행 카탈로그와 불일치 ✅ **M0 해소**
 
 [stash.gd:69-76](../../scripts/autoload/stash.gd):
 - `skillbooks = ["AB-002","AB-010","AB-011","AB-037"]` — **AB-037은 DRIFT-111에서 폐기**되어 카탈로그에 없다. `equip_skillbook_by_id`가 마스터 미발견 시 **조용히 무시**하므로 실제로 3권만 들어온다.
 - gear 15종 하드코딩 — `gear_ward_dps_tide_censer` · `gear_ward_nuker_hex_scope` 누락 (카탈로그 27종 = 스타터 4 + 스페어 17 + armory set 6).
 - **서브 카탈로그 49종 중 스태시 3종** → 교정한 스킬을 플테로 확인할 경로가 사실상 없다. 49종 접근은 샌드박스 `SANDBOX_SUBS` / `_BIND_FIXTURES`에만 존재.
 
-> **재발 이력:** 동일한 "폐기 AB → 조용한 빈 슬롯" 사고가 DRIFT-130에서 샌드박스 픽스처(AB-009)로 한 번 발생했다. 코멘트로만 경고돼 있고 **자동 게이트가 없다**.
+> **재발 이력:** 동일한 "폐기 AB → 조용한 빈 슬롯" 사고가 DRIFT-130(샌드박스 `AB-009`) · DRIFT-137(스타터 `AB-028`) · DRIFT-139(스태시 `AB-037`) = **3회**. 130에서 코멘트 경고만 달고 게이트를 안 세운 대가.
+>
+> **해소:** 시드를 카탈로그 파생으로 바꾸고, `hub_smoke`에 **유령 참조 전수 감사**를 신설했다(현재 0건).
 
 ### 1d. 허브가 구식
 
@@ -126,8 +133,8 @@ spec 9곳이 스킬 트리 SSOT로 **`F-029` §3.6**을 가리켰으나, 그 절
 ## 3. 마일스톤 순서
 
 ```
-M0  데이터 위생 + 게이트 ─┐
-M0b 결속 키 교정        ─┴─→ ★ 여기서 이미 플레이테스트 가능 (구 장착 모델)
+M0  데이터 위생 + 게이트 ─┐ ✅ 완료 (2026-08-12)
+M0b 결속 키 교정        ─┴─→ ★ **플레이테스트 1차 게이트 도달** (구 장착 모델)
                               │
 M1 마석 ─┬─ M2 참 ─┐          │
          └─────────┴─→ M3 트리 ─→ M4 금고 + gear 슬롯 귀속·소멸 + 건 모딩 UI
@@ -145,7 +152,7 @@ M1 마석 ─┬─ M2 참 ─┐          │
 
 ## 4. 마일스톤 상세
 
-### M0 — 데이터 위생 + 조용한 실패 게이트  *(저위험 · 선행)*
+### M0 — 데이터 위생 + 조용한 실패 게이트 ✅ **완료 (2026-08-12 · DRIFT-139)**
 
 | # | 작업 | 파일 |
 |---|------|------|
@@ -162,7 +169,7 @@ M1 마석 ─┬─ M2 참 ─┐          │
 
 ---
 
-### M0b — 결속 해소 키 교정  *(M0와 병렬 가능)*
+### M0b — 결속 해소 키 교정 ✅ **완료 (2026-08-12 · DRIFT-138)**
 
 | # | 작업 | 파일 |
 |---|------|------|
@@ -273,7 +280,7 @@ M1 마석 ─┬─ M2 참 ─┐          │
 | # | 내용 | 대상 SSOT | 상태 |
 |---|------|-----------|------|
 | 1 | **DRIFT-137** DPS 스타터 프리모딩 `AB-028`(폐기) → **`AB-053`** | `F-008` · `F-009` · `F-020` · `D-012` · `ROLE-020` · `CombatContentMap` · `AB-028`/`AB-053` | ✅ **전파 완료** — spec `baf0806` · `DEC-20260812-004` · 재핀 완료 |
-| 2 | **DRIFT-138** 결속 프로필 기본값 `baseGearId` → `effectiveIdentitySkillId` | `D-019` §2/§3 · `F-020` §3.7 Edge | ⏸ M0b 구현 후 |
+| 2 | **DRIFT-138** 결속 프로필 기본값 `baseGearId` → `effectiveIdentitySkillId` | `D-019` §2/§3 · `F-020` §3.7 Edge | 🔶 `PENDING-PROP` — **구현 완료**, 전파 승인 대기 |
 | 3 | 스킬 트리 포인터 `F-029` §3.6 → **§3.2a** (9건) | `D-011` · `F-008` · `F-009`×5 · `F-020`×2 | ✅ **전파 완료** (같은 커밋, `OPS_20` 급 부수 정정) |
 | 4 | M0b-3에서 IDA-022 · IDA-052 규약을 신설하면 결속 카탈로그 확장 | `docs/combat/bindings/` | ⏸ 규약 확정 후 |
 
@@ -297,6 +304,7 @@ M1 마석 ─┬─ M2 참 ─┐          │
 
 ## 7. 다음 액션
 
-1. **M0 + M0b 착수 승인** → 완료 시 ★ 플레이테스트 1차 게이트.
-2. 플테 피드백 수령 후 M1 착수 여부 재판단.
-3. U1 · U2는 M0b/M3 착수 전까지 확정 필요.
+1. ✅ **M0 + M0b 완료** (2026-08-12) — ★ 플레이테스트 1차 게이트 도달. 스태시에서 gear 17종 · 서브 49종을 꺼내 쓸 수 있고, 어느 gear를 껴도 그 정체성 규약이 작동한다.
+2. **플레이테스트** → 피드백 수령 후 M1(마석) 착수 여부 재판단.
+3. **DRIFT-138 전파**(`OPS_30`) — 승인 시 `D-019` §2/§3 + `F-020` §3.7 Edge.
+4. **U2 확정** — IDA-022 · IDA-052 규약. 확정 전까지 두 정체성은 시그니처 없이 GENERIC 델타만 받는다(`binding_smoke`가 「규약미확정 3종」으로 상시 보고).
