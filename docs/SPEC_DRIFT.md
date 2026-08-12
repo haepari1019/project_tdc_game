@@ -1539,3 +1539,27 @@
 - **영향 파일:** `tools/party_pool_smoke.gd`(게이트 모델) · `spec_ref.json`(재핀).
 - **게이트:** `ci_smoke.sh` **11/11 PASS** — `Melee ⇒ 자기중심 or ≤ 4.0m`로 교체(전 클래스 적용 — 계수를 구동하는 건 누커뿐이지만 규약 자체는 밴드 의미에 관한 것이다).
 - **상태:** LOGGED. **교훈:** *실물 분포를 규약으로 승격할 때는 "지금 그런가"가 아니라 **"앞으로도 그래야 하는가"**를 물어야 한다.* 이번 세션에서 관찰→규약 과잉이 두 번째다(첫 번째 = [[DRIFT-134]]의 결번/미구현 혼동).
+
+### DRIFT-137 — DPS 스타터 프리모딩 AB가 폐기된 `AB-028` (spec 유령 참조) ✅ **전파 완료(2026-08-12, spec `baf0806` · `DEC-20260812-004`)** 🔶 rule
+- **발견 경위:** P4b 이관 작업 지시서(`docs/plan/P4b_WORK_ORDER.md`) 작성 중 spec `F-008` §3.10.2 「스타터 프리모딩」 표를 게임 카탈로그와 대조하다 적발. 4행 중 **DPS 행만** 실재하지 않는 AB를 가리키고 있었다.
+  | class | spec §3.10.2 Q | 게임 |
+  |---|---|---|
+  | Tank | `AB-033` | ✅ |
+  | **DPS** | **`AB-028`** | ❌ [[DRIFT-115]]에서 **폐기**(D4 → 채널링 클러스터 재정의) |
+  | Nuker | `AB-030` | ✅ |
+  | Healer | `AB-044` | ✅ |
+- **왜 조용했나:** `party_member.equip_skillbook_by_id`가 마스터를 못 찾으면 **아무 말 없이 빈 슬롯**이 된다. 같은 실패 모드가 [[DRIFT-130]]에서 샌드박스 픽스처(`AB-009`)로 한 번 터졌는데 그때 코멘트 경고만 달고 **자동 게이트를 안 세웠다** — 그래서 두 번째로 같은 방식으로 새어 나왔다. 게이트 신설은 작업 지시서 M0-3/M0-4.
+- **① 대체 = `AB-053` 작열 폭발.** 발명이 아니라 **이미 저작된 자리**를 채택한 것:
+  - `docs/design/dps_binding_kit.md` §공유3서브 — 스타터 gear `gear_ward_dps_press_rod`의 **Q 슬롯**이 원래 `AB-053`.
+  - **`BIND-019`**(`press_rod` × `IDA-024` × `AB-053` @ `slot_index` 0)가 `binding_overlays.gd`에 **이미 등재** → 스타터가 **첫 런부터 「초월」 결속을 실제로 발동**한다. 이게 결정적이다 — 스타터의 목적은 `F-020` §3.2.0 "빈 서브로 ENC 진입 금지"를 채우는 것만이 아니라 **결속이라는 축을 처음부터 보여주는 것**이다.
+  - Basic tier · `sub_bands` = `{Nuker: B2}` → **DPS는 주력(패널티 0)**.
+- **② 탈락 후보:** 게임 시드가 쓰던 `AB-008`(광재 분출)은 Basic·DPS 주력이지만 **`press_rod` slot-0 결속이 없다** → `resolve_effective`가 `GENERIC` 폴백만 준다. `AB-010`은 `BIND-031`이 있으나 DPS 전용 poison이라 「DPS = 애초에 광역」(dps_binding_kit §역할 원칙)과 어긋난다.
+- **③ 3중 불일치였다:** spec `AB-028`(폐기) / `backpack.gd` 시드 `AB-008` / 샌드박스 `_BIND_FIXTURES["overdrive"]` Q `AB-010` — 같은 질문에 세 답이 있었다. 이번에 **spec·게임 시드를 `AB-053`으로 일치**시켰다. 샌드박스 픽스처는 `BIND-031` 검증이 목적이라 손대지 않았다(용도가 다름) — 다만 라벨의 *"§3 문서가 정한 대로 AB-010"* 은 `dps_binding_kit.md`와 상충하므로 M0-5 정합 게이트에서 재확인한다.
+- **분류·전파:** 스펙 표의 값이 실재하지 않는 ID를 가리킴 = **rule** → **`OPS_30` 전파 완료**(spec `baf0806`, `DEC-20260812-004`). impact_scan이 **7곳**을 잡았다 — `F-008` §3.10.2 · `F-009` §3.1.1 · `F-020` §3.2.2(B 승격) · `D-012`(행) · `ROLE-020` · `CombatContentMap` · `AB-028` `ssot_note`. `D-012`에 `dps_searing_volley` 행 신설, `dps_guard_break`는 `deprecated` 강등. 매퍼 drift 0 · `spec_xref` 신규 0 · 정의 ID 453→454. **재핀 `e18f6c3` → `baf0806`**(`spec_ref.json` + `id_registry.json` — 후자는 `bc22c38`에 멈춰 있던 중복 주석이라 함께 동기화).
+- **영향 파일:** `scripts/autoload/backpack.gd`(스타터 시드) · `docs/plan/P4b_WORK_ORDER.md`(§2a/§6 U1).
+- **상태:** ✅ RESOLVED — 게임측 시드 반영 + 스펙 역전파 + 재핀 완료. `ci_smoke.sh` 11/11 PASS.
+- **부수(같은 서베이):** spec 9곳이 스킬 트리 SSOT로 `F-029` §3.6(레거시 분석/상점 진행 스파인)을 가리켰으나 실내용은 **§3.2a**(통합 금고·시설 개편 — `chapel` 트리 Tier·`scribe_shop` Tier)에 있었다. **포인터 오참조이므로 `OPS_20` 정정으로 처리**(규칙 변경 아님) — spec 레포에서 `D-011`·`F-008`·`F-009`×5·`F-020`×2 = **9건 수정**, `spec_xref_check` 신규 지적 0. `DecisionLog`의 2건은 **이력이라 보존**.
+
+### DRIFT-138 (예약) — 결속 해소 키: `bindingProfileId` 기본값 `baseGearId` → `effectiveIdentitySkillId` 🔶 rule · 미착수
+- 작업 지시서 **M0b**에서 구현 시 본 번호로 로깅한다. 근거·구현안 = `docs/plan/P4b_WORK_ORDER.md` §1b/§2b.
+- 요지: `binding_overlays.gd`의 정체성 게이트 8종 + `signature_for`가 `(base_gear_id, identity_ab)` 쌍을 요구해 **스페어 gear 19종 중 11종의 시그니처가 죽어 있다**. gear 인스턴스가 정체성을 굴리는 이상 gear 아키타입 ID를 결속 키로 쓰는 모델은 구조적으로 어긋난다.

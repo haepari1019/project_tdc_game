@@ -64,14 +64,18 @@ func _seed() -> void:
 		return
 	_seeded = true
 	# F-009 §3.1.1 Hub Starter Skillbooks (StarterGrant) — 역할별 1권(Healer 2권), 분석 불요·
-	# DPS 자리는 AB-008 Slag Spit = 「광역 투사체」 원형(다른 볼트 6종이 여기서 갈라지는 변형, DRIFT-085).
 	# 즉시 장착 가능. + 부활 소비. Gear는 equipped, haul은 런 중 드롭. (구 데모 Ember 스타터 → 스펙 정렬)
+	# DPS 자리 = **AB-053 작열 폭발** (DRIFT-137). spec F-008 §3.10.2가 지정한 `AB-028`이 DRIFT-115
+	# (D4 → 채널링 클러스터 재정의)에서 폐기돼 유령 참조가 됐다. 대체 기준 = 스타터 gear(press_rod)의
+	# 저작된 Q 슬롯 — `docs/design/dps_binding_kit.md` §공유3서브 + `BIND-019`(press_rod × IDA-024 ×
+	# AB-053 @ slot 0)가 이미 등재돼 있어 **첫 런부터 「초월」 결속이 실제로 걸린다**. Basic tier·DPS 주력
+	# 밴드(sub_bands = Nuker만 B2). 구 시드 AB-008은 slot-0 결속이 없어 GENERIC 폴백만 됐다.
 	# 스킬북 탄환수는 PIN하지 않음 — 로드 시 add_skillbook_to_backpack가 master(skillbooks.json charges_max,
 	# 현재 50~80)로 채움. (구 하드코딩 6/8/5가 새 값을 덮어쓰던 버그 수정. Slice01Data는 autoload 순서상
 	# _seed 시점엔 미준비 → 여기서 조회 불가, 그래서 charges 생략으로 master 위임.)
 	loose = [
 		{"id": "전방위 방벽", "kind": "skillbook", "base_ability_id": "AB-033", "w": 1, "h": 1, "at_risk": true},
-		{"id": "광재 분출", "kind": "skillbook", "base_ability_id": "AB-008", "w": 1, "h": 1, "at_risk": true},
+		{"id": "작열 폭발", "kind": "skillbook", "base_ability_id": "AB-053", "w": 1, "h": 1, "at_risk": true},
 		{"id": "전격 제압", "kind": "skillbook", "base_ability_id": "AB-030", "w": 1, "h": 1, "at_risk": true},
 		{"id": "침묵 결계", "kind": "skillbook", "base_ability_id": "AB-044", "w": 1, "h": 1, "at_risk": true},
 		{"id": "구명 견인", "kind": "skillbook", "base_ability_id": "AB-045", "w": 1, "h": 1, "at_risk": true},

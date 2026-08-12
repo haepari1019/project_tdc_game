@@ -18,6 +18,14 @@ class_name BindingOverlays
 ## 결속은 기어+정체성+서브를 착용한 순간 내재적으로 적용된다(on/off 토글 없음 — triple-match면 항상 활성).
 
 ## 정체성 규약 — identity 툴팁에 자기완결적으로 표시(상태 생성·의미·활용을 한 문단). {name, covenant}.
+##
+## ⚠️ **미등재 2종 — 규약 곧 추가 예정(설계 미확정, 2026-08-12 사용자 확인):**
+##   · **IDA-022** `tank_bulwark_march` (gear: march_plate / march_set)
+##   · **IDA-052** `tank_sentinel_form` (gear: sentinel_aegis)
+## 두 정체성은 현재 규약이 없어 시그니처가 붙지 않는다(슬롯 델타는 GENERIC 폴백으로 동작). 규약이
+## 확정되면 여기 + `GENERIC` + 필요 시 `OVERLAYS` 변주에 함께 등재하고, 결속 카탈로그(spec
+## `docs/combat/bindings/`)로 역전파한다. 그때까지 "결속 없는 정체성"이 **의도가 아니라 미결**임에
+## 유의 — 툴팁 문구 처리는 별건. ref: docs/plan/P4b_WORK_ORDER.md §U2 · M0b-3.
 const SIGNATURE := {
 	"IDA-020": {
 		"name": "방벽 충전",
