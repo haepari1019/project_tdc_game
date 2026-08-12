@@ -70,11 +70,11 @@ func _seed() -> void:
 	# 현재 50~80)로 채움. (구 하드코딩 6/8/5가 새 값을 덮어쓰던 버그 수정. Slice01Data는 autoload 순서상
 	# _seed 시점엔 미준비 → 여기서 조회 불가, 그래서 charges 생략으로 master 위임.)
 	loose = [
-		{"id": "Intercept Step", "kind": "skillbook", "base_ability_id": "AB-033", "w": 1, "h": 1, "at_risk": true},
-		{"id": "Slag Spit", "kind": "skillbook", "base_ability_id": "AB-008", "w": 1, "h": 1, "at_risk": true},
+		{"id": "전방위 방벽", "kind": "skillbook", "base_ability_id": "AB-033", "w": 1, "h": 1, "at_risk": true},
+		{"id": "광재 분출", "kind": "skillbook", "base_ability_id": "AB-008", "w": 1, "h": 1, "at_risk": true},
 		{"id": "전격 제압", "kind": "skillbook", "base_ability_id": "AB-030", "w": 1, "h": 1, "at_risk": true},
-		{"id": "Hush Ward", "kind": "skillbook", "base_ability_id": "AB-044", "w": 1, "h": 1, "at_risk": true},
-		{"id": "Lifeline", "kind": "skillbook", "base_ability_id": "AB-045", "w": 1, "h": 1, "at_risk": true},
+		{"id": "침묵 결계", "kind": "skillbook", "base_ability_id": "AB-044", "w": 1, "h": 1, "at_risk": true},
+		{"id": "구명 견인", "kind": "skillbook", "base_ability_id": "AB-045", "w": 1, "h": 1, "at_risk": true},
 		{"id": "con_revive_scroll", "kind": "consumable", "consumable_id": "con_revive_scroll", "count": 3, "w": 1, "h": 1},
 	]
 	# Worn starter Identity Gear per role (F-008 §3.7). Gear lives in equipped (Safe on death),

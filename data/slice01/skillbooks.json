@@ -3,7 +3,7 @@
   "skillbooks": [
     {
       "base_ability_id": "AB-002",
-      "display_name": "Shield Bash",
+      "display_name": "방패 강타",
       "equip_classes": [
         "Tank"
       ],
@@ -20,7 +20,7 @@
     },
     {
       "base_ability_id": "AB-010",
-      "display_name": "Venom Spit",
+      "display_name": "맹독 분사",
       "unified": true,
       "equip_classes": [
         "DPS"
@@ -46,7 +46,7 @@
     },
     {
       "base_ability_id": "AB-011",
-      "display_name": "Toll Stun",
+      "display_name": "일격 기절",
       "equip_classes": [
         "Tank"
       ],
@@ -126,7 +126,7 @@
     },
     {
       "base_ability_id": "AB-064",
-      "display_name": "짧은 집중",
+      "display_name": "집중 치유",
       "equip_classes": [
         "Healer"
       ],
@@ -144,7 +144,7 @@
     },
     {
       "base_ability_id": "AB-046",
-      "display_name": "Shield Wall",
+      "display_name": "철벽 태세",
       "equip_classes": [
         "Tank"
       ],
@@ -162,7 +162,7 @@
     },
     {
       "base_ability_id": "AB-047",
-      "display_name": "Aegis Pulse",
+      "display_name": "수호 파동",
       "equip_classes": [
         "Tank",
         "Healer"
@@ -184,7 +184,7 @@
     },
     {
       "base_ability_id": "AB-067",
-      "display_name": "Aegis Blessing",
+      "display_name": "수호 축복",
       "equip_classes": [
         "Healer"
       ],
@@ -204,7 +204,7 @@
     },
     {
       "base_ability_id": "AB-068",
-      "display_name": "Warding Sigil",
+      "display_name": "수호 인장",
       "equip_classes": [
         "Healer"
       ],
@@ -222,7 +222,7 @@
     },
     {
       "base_ability_id": "AB-065",
-      "display_name": "수호막",
+      "display_name": "환류 보호막",
       "equip_classes": [
         "Healer"
       ],
@@ -240,7 +240,7 @@
     },
     {
       "base_ability_id": "AB-057",
-      "display_name": "Focus Fire",
+      "display_name": "취약 표식",
       "equip_classes": [
         "Healer",
         "Nuker"
@@ -264,7 +264,7 @@
     },
     {
       "base_ability_id": "AB-069",
-      "display_name": "Swift Grace",
+      "display_name": "신속 가호",
       "equip_classes": [
         "Healer"
       ],
@@ -281,7 +281,7 @@
     },
     {
       "base_ability_id": "AB-075",
-      "display_name": "Blessed Barrier",
+      "display_name": "축복의 방벽",
       "equip_classes": [
         "Healer"
       ],
@@ -299,7 +299,7 @@
     },
     {
       "base_ability_id": "AB-062",
-      "display_name": "Smoke Veil",
+      "display_name": "연막 은신",
       "equip_classes": [
         "Nuker"
       ],
@@ -409,7 +409,7 @@
     },
     {
       "base_ability_id": "AB-034",
-      "display_name": "성벽 강타",
+      "display_name": "성벽 전개",
       "equip_classes": [
         "Tank"
       ],
@@ -429,7 +429,7 @@
     },
     {
       "base_ability_id": "AB-070",
-      "display_name": "Purge Light",
+      "display_name": "정화의 빛",
       "equip_classes": [
         "Healer"
       ],
@@ -446,7 +446,7 @@
     },
     {
       "base_ability_id": "AB-044",
-      "display_name": "Hush Ward",
+      "display_name": "침묵 결계",
       "equip_classes": [
         "Healer"
       ],
@@ -464,7 +464,7 @@
     },
     {
       "base_ability_id": "AB-003",
-      "display_name": "Arc Bolt Volley",
+      "display_name": "전격 연사",
       "unified": true,
       "equip_classes": [
         "DPS",
@@ -518,7 +518,7 @@
     },
     {
       "base_ability_id": "AB-005",
-      "display_name": "Melee Flurry",
+      "display_name": "연격 난무",
       "equip_classes": [
         "Nuker"
       ],
@@ -540,7 +540,7 @@
     },
     {
       "base_ability_id": "AB-006",
-      "display_name": "Gap-Close Dash",
+      "display_name": "쇄도 도약",
       "equip_classes": [
         "Nuker"
       ],
@@ -558,7 +558,7 @@
     },
     {
       "base_ability_id": "AB-007a",
-      "display_name": "Retreat Hop",
+      "display_name": "이탈 도약",
       "equip_classes": [
         "Nuker"
       ],
@@ -579,7 +579,7 @@
     },
     {
       "base_ability_id": "AB-007b",
-      "display_name": "Retreat Reflex",
+      "display_name": "반사 이탈",
       "equip_classes": [
         "Nuker"
       ],
@@ -600,7 +600,7 @@
     },
     {
       "base_ability_id": "AB-008",
-      "display_name": "Slag Spit",
+      "display_name": "광재 분출",
       "unified": true,
       "equip_classes": [
         "DPS",
@@ -626,7 +626,7 @@
     },
     {
       "base_ability_id": "AB-012",
-      "display_name": "Hex Bolt",
+      "display_name": "변이 저주",
       "equip_classes": [
         "Healer",
         "Nuker"
@@ -650,7 +650,7 @@
     },
     {
       "base_ability_id": "AB-013",
-      "display_name": "Backstab Dash",
+      "display_name": "배후 급습",
       "equip_classes": [
         "Nuker"
       ],
@@ -696,7 +696,7 @@
     },
     {
       "base_ability_id": "AB-033",
-      "display_name": "철벽 차단",
+      "display_name": "전방위 방벽",
       "equip_classes": [
         "Tank"
       ],
@@ -714,7 +714,7 @@
     },
     {
       "base_ability_id": "AB-048a",
-      "display_name": "Counter Stance",
+      "display_name": "반격 태세",
       "equip_classes": [
         "Tank"
       ],
@@ -732,7 +732,7 @@
     },
     {
       "base_ability_id": "AB-048b",
-      "display_name": "Riposte",
+      "display_name": "간파 반격",
       "equip_classes": [
         "Tank"
       ],
@@ -785,7 +785,7 @@
     },
     {
       "base_ability_id": "AB-056",
-      "display_name": "Longshot Bolt",
+      "display_name": "서리 저격",
       "equip_classes": [
         "Nuker",
         "DPS"
@@ -871,7 +871,7 @@
     },
     {
       "base_ability_id": "AB-066",
-      "display_name": "긴 집중",
+      "display_name": "대치유 의식",
       "equip_classes": [
         "Healer"
       ],
@@ -889,7 +889,7 @@
     },
     {
       "base_ability_id": "AB-073",
-      "display_name": "Overcharge",
+      "display_name": "과부하 방전",
       "equip_classes": [
         "Nuker",
         "DPS"
@@ -938,7 +938,7 @@
     },
     {
       "base_ability_id": "AB-051",
-      "display_name": "Shield Throw",
+      "display_name": "방패 도발",
       "equip_classes": [
         "Tank"
       ],
@@ -957,7 +957,7 @@
     },
     {
       "base_ability_id": "AB-045",
-      "display_name": "Lifeline",
+      "display_name": "구명 견인",
       "equip_classes": [
         "Healer"
       ],
@@ -973,7 +973,7 @@
     },
     {
       "base_ability_id": "AB-032",
-      "display_name": "Beacon Sight",
+      "display_name": "정찰 신호",
       "equip_classes": [
         "Healer"
       ],
@@ -988,7 +988,7 @@
     },
     {
       "base_ability_id": "AB-100",
-      "display_name": "Pounce",
+      "display_name": "급습 고정",
       "equip_classes": [
         "Nuker"
       ],
@@ -1009,7 +1009,7 @@
     },
     {
       "base_ability_id": "AB-102",
-      "display_name": "Snare Net",
+      "display_name": "포획 그물",
       "equip_classes": [
         "DPS"
       ],
@@ -1030,7 +1030,7 @@
     },
     {
       "base_ability_id": "AB-103",
-      "display_name": "Tether",
+      "display_name": "사슬 포박",
       "equip_classes": [
         "Nuker"
       ],
@@ -1054,7 +1054,7 @@
     },
     {
       "base_ability_id": "AB-106",
-      "display_name": "Devour",
+      "display_name": "포식 처형",
       "equip_classes": [
         "Nuker"
       ],

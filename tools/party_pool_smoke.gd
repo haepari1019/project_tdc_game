@@ -629,6 +629,53 @@ func _initialize() -> void:
 		_chk("%s 유틸 = 최소 딜러(%.1f)보다 낮음" % [ab, min_dealer],
 			float(sd.get_skillbook_master(String(ab)).get("cast", {}).get("damage_mult", 9.0)) < min_dealer)
 
+	# ── 이름·ID 위생(DRIFT-134) ─────────────────────────────────────────────────
+	# ① 표시명은 **전부 한글**(사용자 확정). 영문이 섞이면 한글 UI에 영문 스킬명이 리 상태로 굳는다.
+	#    스펙 `displayName`은 영문 카탈로그로 남으므로 **이 축은 전파 대조에서 제외**된다.
+	var name_bad: Array = []
+	var name_dup := {}
+	for row in sd.get_skillbook_rows():
+		var mn2: Dictionary = row
+		var ab := String(mn2.get("base_ability_id", ""))
+		var nm := String(mn2.get("display_name", ""))
+		var has_ko := false
+		for ch in nm:
+			if ch >= "가" and ch <= "힣":
+				has_ko = true
+				break
+		if not has_ko:
+			name_bad.append(ab)
+		if name_dup.has(nm):
+			name_bad.append("%s(중복명 %s)" % [ab, nm])
+		name_dup[nm] = true
+	_chk("표시명 전부 한글 · 중복 없음 (%s)" % ("ok" if name_bad.is_empty() else str(name_bad)), name_bad.is_empty())
+	# ② kind 라벨 = 그 스킬이 거는 상태 라벨. 어긋나면 「포박」처럼 한 단어가 둘을 가리킨다(DRIFT-134).
+	var KIND_STATUS_KO := {"skillbook_pin": "고정", "skillbook_tether": "포박",
+		"skillbook_root": "속박", "skillbook_haste": "가속"}
+	for k in KIND_STATUS_KO:
+		_chk("%s 라벨 = 상태 라벨(%s)" % [k, KIND_STATUS_KO[k]],
+			sd.get_effect_label(String(k)) == String(KIND_STATUS_KO[k]))
+	# ③ 번호 1~111이 **4분류로 빈틈없이 덮이는가** — 구현 / 미구현 백로그 / 영구 결번 / IDA 이관.
+	#    "왜 비었지?"를 남기지 않는 것이 이 표들의 존재 이유다. 게이트를 처음 돌렸을 때 **미구현 17종을
+	#    결번으로 잘못 묶은 내 분류 오류가 여기서 잡혔다** — 덮개 검사라 분류 자체의 오류도 걸린다.
+	var regsrc := FileAccess.get_file_as_string("res://data/slice01/id_registry.json")
+	var reg: Dictionary = JSON.parse_string(regsrc)
+	var gaps: Dictionary = reg.get("ability_id_gaps", {})
+	var have := {}
+	for ab in (reg.get("ability_ids", []) as Array):
+		var mm := (String(ab) as String).substr(3, 3)
+		if mm.is_valid_int():
+			have[int(mm)] = true
+	var uncovered: Array = []
+	for n in range(1, 112):
+		if have.has(n):
+			continue
+		var key := "AB-%03d" % n
+		if not gaps.has(key) and not (reg.get("ability_ids_pending", []) as Array).has(key):
+			uncovered.append(key)
+	_chk("번호 1~111 전수 분류 (미분류 %s)" % str(uncovered), uncovered.is_empty())
+	_chk("ID 재사용 금지 규약 명시", String(reg.get("_note_ability_id_policy", "")).contains("재사용 금지"))
+
 	# ── N5 재정의: AB-030 인터럽트 → 침묵 「제압」(DRIFT-133) ───────────────────
 	# 실측이 판정을 뒤집었다 — 적이 쓰는 27종의 telegraph가 0.2~1.0s에 몰려 있어 cast 1.0짜리
 	# 인터럽트로 끊을 수 있는 건 **AB-012 단 1종**이었다. 이름만 인터럽트였다.
