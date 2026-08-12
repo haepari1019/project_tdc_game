@@ -3,6 +3,7 @@
   "skillbooks": [
     {
       "base_ability_id": "AB-002",
+      "unified": true,
       "display_name": "방패 강타",
       "equip_classes": [
         "Tank"
@@ -921,7 +922,7 @@
       "equip_classes": [
         "Tank"
       ],
-      "range_band": "Melee",
+      "range_band": "Mid",
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_taunt",

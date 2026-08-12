@@ -9,7 +9,7 @@
       "stats": {
         "hp": 760,
         "move_speed": 5.5,
-        "contact_damage": 18,
+        "contact_damage": 21,
         "attack_range_m": 1.8,
         "attack_interval_s": 1.4
       },

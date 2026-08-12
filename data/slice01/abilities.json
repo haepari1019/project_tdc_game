@@ -3,9 +3,9 @@
   "abilities": {
     "AB-002": {
       "kind": "enemy_melee",
-      "cooldown_s": 3.0,
-      "damage_mult": 2.2,
-      "knockback_m": 2.6,
+      "cooldown_s": 2,
+      "damage_mult": 1.0,
+      "knockback_m": 3.0,
       "vfx": "shield_bash"
     },
     "AB-004": {
@@ -42,7 +42,7 @@
       "kind": "enemy_stun",
       "telegraph_s": 0.5,
       "channel": true,
-      "cooldown_s": 5.0,
+      "cooldown_s": 8,
       "damage_mult": 0.6,
       "stun_s": 1.4,
       "vfx": "shield_bash"
@@ -338,7 +338,7 @@
       "kind": "enemy_shield",
       "telegraph_s": 1.0,
       "channel": true,
-      "cooldown_s": 10.0,
+      "cooldown_s": 9,
       "radius_m": 8.0,
       "shield_pct": 0.26,
       "duration_s": 3.0,

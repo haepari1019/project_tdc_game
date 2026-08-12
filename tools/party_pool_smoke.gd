@@ -752,23 +752,33 @@ func _initialize() -> void:
 	# 밴드가 실사거리와 어긋나면 **"10m에서 쏘는데 근접이라 보상은 최소"** 처럼 조용히 손해를 본다 —
 	# AB-106이 정확히 그랬다. 계수를 구동하는 건 잠행뿐이라 **누커 장착 가능 스킬만** 검사한다
 	# (Tank 전용 AB-035는 밴드가 아무것도 구동하지 않아 대상 밖).
-	var BAND_RANGE := {"Melee": [0.0, 4.0], "Mid": [4.0, 12.0], "Long": [10.0, 9999.0]}
+	# ⚠️ **모델 정정(DRIFT-135):** 처음엔 `Melee ≤ 4m`로 검사했는데 실물을 보니 틀린 모델이었다 —
+	#    `Melee` 밴드 9종 중 **8종이 `range_m` 자체가 없다**(자기중심). 즉 Melee의 실제 뜻은
+	#    "근접 사거리"가 아니라 **「자기중심 = 사거리 개념 없음」**이고, 임계값 문제가 아니었다.
+	#    유일한 예외 AB-035(5.0m 조준 광역 도발)는 잘못 붙어 있던 것이라 Mid로 정정했다.
+	var BAND_RANGE := {"Mid": [4.0, 12.0], "Long": [10.0, 9999.0]}
 	var band_n := 0
 	for ab in sd._registry_list("ability_ids"):
 		var mb: Dictionary = sd.get_skillbook_master(String(ab))
-		if mb.is_empty() or not (mb.get("equip_classes", []) as Array).has("Nuker"):
+		if mb.is_empty():
 			continue
-		var rm = mb.get("cast", {}).get("range_m")
-		if rm == null:
-			continue   # 자기중심·자동 = 사거리 개념이 없다
 		var bd := String(mb.get("range_band", ""))
-		if not BAND_RANGE.has(bd):
+		var rm = mb.get("cast", {}).get("range_m")
+		# ① Melee = 자기중심. 사거리를 가지면 그건 Melee가 아니다(전 클래스 적용 — 계수와 무관한 규약).
+		if bd == "Melee":
+			band_n += 1
+			_chk("%s Melee = 자기중심(range_m 없음)" % ab, rm == null)
+			continue
+		# ② Mid/Long은 실사거리와 정합해야 한다 — 밴드가 잠행 결속 계수를 구동하므로 누커 장착분만.
+		if rm == null or not BAND_RANGE.has(bd):
+			continue
+		if not (mb.get("equip_classes", []) as Array).has("Nuker"):
 			continue
 		band_n += 1
 		var lo: float = float((BAND_RANGE[bd] as Array)[0])
 		var hi: float = float((BAND_RANGE[bd] as Array)[1])
 		_chk("%s band %s ↔ 사거리 %s 정합" % [ab, bd, str(rm)], float(rm) > lo - 0.001 and float(rm) <= hi)
-	_chk("밴드 정합 검사 대상 >= 15종", band_n >= 15)
+	_chk("밴드 정합 검사 대상 >= 20종", band_n >= 20)
 
 	# ── 폐기 스킬의 유령 참조(DRIFT-130) ────────────────────────────────────────
 	# 스킬북만 지우고 **획득 풀·결속·픽스처**를 놔두면 존재하지 않는 책을 가리키게 된다.
@@ -957,14 +967,10 @@ func _initialize() -> void:
 	# 결국 다른 스킬이 된다. 면제는 사유를 남긴 **기존 미판정 잔여**뿐이고, 여기 없는 신규 이탈은 FAIL.
 	var PARITY_EXEMPT := {
 		"damage_mult": {
-			"AB-002": "Tank 패스에서 아군만 스팸형 저딜(1.0)로 재정의 · 적 EN-001은 2.2 유지 — 미판정 잔여",
 			"AB-005": "적측 정의가 orphan(EN-010에서 제거) — 죽은 데이터",
 		},
 		"cooldown_s": {
-			"AB-002": "위와 같은 미판정 잔여(아군 2 / 적 3)",
 			"AB-005": "orphan",
-			"AB-011": "Tank 패스 잔여(아군 8 / 적 5) — 미판정",
-			"AB-067": "Healer 보호막 패스 잔여(아군 9 / 적 10) — DRIFT-119 튜닝 시 적측 미동기",
 		},
 	}
 	var parity_n := {"damage_mult": 0, "cooldown_s": 0}
