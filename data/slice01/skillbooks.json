@@ -333,6 +333,7 @@
         "ticks": 14,
         "tick_interval_s": 0.25,
         "half_deg": 7.0,
+        "shock_s": 0.4,
         "tick_mult": 0.11
       },
       "tier": "Advanced"
@@ -684,6 +685,7 @@
         "kind": "skillbook_stun",
         "single_target": true,
         "cooldown_s": 8,
+        "cast_s": 1.0,
         "targeted": true,
         "range_m": 10,
         "radius_m": 2.0,
@@ -796,12 +798,14 @@
       "cast": {
         "kind": "skillbook_bolt",
         "single_target": true,
-        "element": "lightning",
+        "element": "cold",
         "cooldown_s": 9,
+        "cast_s": 1.5,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.2,
         "damage_mult": 2.2,
+        "chill_dur_s": 2.0,
         "delivery": "projectile",
         "speed_mps": 22.0
       },
@@ -823,6 +827,7 @@
         "kind": "skillbook_bolt",
         "element": "lightning",
         "cooldown_s": 14,
+        "cast_s": 2.5,
         "targeted": true,
         "range_m": 10,
         "radius_m": 3.0,
@@ -865,28 +870,6 @@
       "tier": "Advanced"
     },
     {
-      "base_ability_id": "AB-060",
-      "display_name": "파열 처형",
-      "equip_classes": [
-        "Nuker"
-      ],
-      "range_band": "Mid",
-      "charges_max": 60,
-      "cast": {
-        "kind": "skillbook_execute",
-        "single_target": true,
-        "cooldown_s": 12,
-        "targeted": true,
-        "range_m": 9,
-        "radius_m": 2.0,
-        "damage_mult": 2.4,
-        "execute_under": 0.3,
-        "execute_mult": 2.0,
-        "on_kill_heal_pct": 0.0
-      },
-      "tier": "Advanced"
-    },
-    {
       "base_ability_id": "AB-066",
       "display_name": "긴 집중",
       "equip_classes": [
@@ -921,6 +904,7 @@
         "single_target": true,
         "element": "lightning",
         "cooldown_s": 18,
+        "cast_s": 4.5,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.4,
@@ -1014,6 +998,7 @@
         "kind": "skillbook_pin",
         "single_target": true,
         "cooldown_s": 10,
+        "cast_s": 1.0,
         "targeted": true,
         "range_m": 12,
         "radius_m": 1.8,
@@ -1055,6 +1040,7 @@
         "kind": "skillbook_tether",
         "single_target": true,
         "cooldown_s": 8,
+        "cast_s": 2.0,
         "targeted": true,
         "range_m": 12,
         "radius_m": 2.0,
@@ -1069,12 +1055,13 @@
       "equip_classes": [
         "Nuker"
       ],
-      "range_band": "Melee",
+      "range_band": "Mid",
       "charges_max": 60,
       "cast": {
         "kind": "skillbook_execute",
         "single_target": true,
         "cooldown_s": 13,
+        "cast_s": 1.5,
         "targeted": true,
         "range_m": 10,
         "radius_m": 2.0,

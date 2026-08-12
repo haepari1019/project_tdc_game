@@ -818,11 +818,13 @@ func _on_gear_changed(index: int) -> void:
 const _BIND_FIXTURES := {
 	"anchor": {"gear": "gear_ward_tank_anchor_bulwark", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK 방벽 충전"},
 	"beacon": {"gear": "gear_ward_tank_kite_shield", "subs": ["AB-033", "AB-034", "AB-035"], "role": "Tank", "label": "TANK 표식"},
-	"nuker": {"gear": "gear_ward_nuker_ruin_sight", "subs": ["AB-004", "AB-059", "AB-060"], "role": "Nuker", "label": "NUKER 집중"},
-	"flank": {"gear": "gear_ward_nuker_flank_knife", "subs": ["AB-004", "AB-059", "AB-060"], "role": "Nuker", "label": "NUKER 잠행"},
+	"nuker": {"gear": "gear_ward_nuker_ruin_sight", "subs": ["AB-004", "AB-059", "AB-106"], "role": "Nuker", "label": "NUKER 집중"},
+	"flank": {"gear": "gear_ward_nuker_flank_knife", "subs": ["AB-004", "AB-059", "AB-106"], "role": "Nuker", "label": "NUKER 잠행"},
 	"dothealer": {"gear": "gear_ward_healer_ward_sigil", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 지속치유"},
 	"sanctuary": {"gear": "gear_ward_healer_mend_lantern", "subs": ["AB-064", "AB-065", "AB-066"], "role": "Healer", "label": "HEALER 성역"},
-	"overdrive": {"gear": "gear_ward_dps_press_rod", "subs": ["AB-009", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 초월(AB-009@Q 아군안심기름 · E/R로 게이지 충전 후 초월 중 Q)"},
+	# AB-009는 [[DRIFT-112]]에서 아군 스킬북 폐기(장판 → 소모품 이관)됐는데 이 픽스처만 남아 있었다
+	# — 존재하지 않는 책을 Q에 꽂으려던 유령 참조(DRIFT-130 게이트가 적발). §3 문서가 정한 대로 AB-010.
+	"overdrive": {"gear": "gear_ward_dps_press_rod", "subs": ["AB-010", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 초월(AB-010@Q 맹독폭주·독장판 · E/R로 게이지 충전 후 초월 중 Q)"},
 	"bloodgale": {"gear": "gear_ward_dps_weave_staff", "subs": ["AB-053", "AB-054", "AB-041"], "role": "DPS", "label": "DPS 혈풍(HP대가·광역흡수)"},
 }
 func _on_bind_fixture(which: String) -> void:

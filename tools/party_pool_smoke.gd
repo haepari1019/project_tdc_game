@@ -620,7 +620,7 @@ func _initialize() -> void:
 	_chk("은신 최대딜 %.0f >= 일반몹 상한 240" % (top_mult * starter_ba * veil_mult),
 		top_mult * starter_ba * veil_mult >= FODDER_CAP)
 	# 배율을 올린 만큼 쿨로 갚는다 — 상향 10종이 저쿨로 남으면 "무거운 한 방"이 아니라 그냥 상향이 된다.
-	for ab in ["AB-059", "AB-073", "AB-005", "AB-058", "AB-004", "AB-013", "AB-060", "AB-106", "AB-056", "AB-100"]:
+	for ab in ["AB-059", "AB-073", "AB-005", "AB-058", "AB-004", "AB-013", "AB-106", "AB-056", "AB-100"]:
 		var cb2: Dictionary = sd.get_skillbook_master(String(ab)).get("cast", {})
 		_chk("%s 상향분 = 쿨 >= 9s" % ab, float(cb2.get("cooldown_s", 0.0)) >= 9.0)
 	# 유틸은 딜러가 아니다 — 제어기 배율을 같이 올리면 N3·N5 클러스터 분화(제어 ↔ 피해)가 무너진다.
@@ -628,6 +628,107 @@ func _initialize() -> void:
 	for ab in ["AB-030", "AB-103"]:
 		_chk("%s 유틸 = 최소 딜러(%.1f)보다 낮음" % [ab, min_dealer],
 			float(sd.get_skillbook_master(String(ab)).get("cast", {}).get("damage_mult", 9.0)) < min_dealer)
+
+	# ── range_band ↔ 실사거리 정합(DRIFT-131) ───────────────────────────────────
+	# `range_band`는 표기가 아니라 **잠행 결속(IDA-029)의 보상 계수를 정하는 실효 필드**다
+	# (`FLANK.band_dmg` Melee 0.15 / Mid 0.25 / Long 0.5 · `band_cd` 0 / 0.10 / 0.20).
+	# 밴드가 실사거리와 어긋나면 **"10m에서 쏘는데 근접이라 보상은 최소"** 처럼 조용히 손해를 본다 —
+	# AB-106이 정확히 그랬다. 계수를 구동하는 건 잠행뿐이라 **누커 장착 가능 스킬만** 검사한다
+	# (Tank 전용 AB-035는 밴드가 아무것도 구동하지 않아 대상 밖).
+	var BAND_RANGE := {"Melee": [0.0, 4.0], "Mid": [4.0, 12.0], "Long": [10.0, 9999.0]}
+	var band_n := 0
+	for ab in sd._registry_list("ability_ids"):
+		var mb: Dictionary = sd.get_skillbook_master(String(ab))
+		if mb.is_empty() or not (mb.get("equip_classes", []) as Array).has("Nuker"):
+			continue
+		var rm = mb.get("cast", {}).get("range_m")
+		if rm == null:
+			continue   # 자기중심·자동 = 사거리 개념이 없다
+		var bd := String(mb.get("range_band", ""))
+		if not BAND_RANGE.has(bd):
+			continue
+		band_n += 1
+		var lo: float = float((BAND_RANGE[bd] as Array)[0])
+		var hi: float = float((BAND_RANGE[bd] as Array)[1])
+		_chk("%s band %s ↔ 사거리 %s 정합" % [ab, bd, str(rm)], float(rm) > lo - 0.001 and float(rm) <= hi)
+	_chk("밴드 정합 검사 대상 >= 15종", band_n >= 15)
+
+	# ── 폐기 스킬의 유령 참조(DRIFT-130) ────────────────────────────────────────
+	# 스킬북만 지우고 **획득 풀·결속·픽스처**를 놔두면 존재하지 않는 책을 가리키게 된다.
+	# [[DRIFT-109]]가 `AB-050`으로 정확히 그랬고(ALLY_CACHE_POOL 잔존, 나중에 눈으로 발견),
+	# 이번 `AB-060` 폐기도 같은 경로를 **6곳** 갖고 있었다. AB별 검사가 아니라 **참조처 전수**를
+	# 카탈로그와 대조한다 — 다음 폐기 때도 자동으로 걸린다.
+	var catalog := {}
+	for ab in sd._registry_list("ability_ids"):
+		if not sd.get_skillbook_master(String(ab)).is_empty():
+			catalog[String(ab)] = true
+	var DR = load("res://scripts/run/dungeon_run.gd")
+	for ab in (DR.ALLY_CACHE_POOL as Array):
+		_chk("ALLY_CACHE_POOL %s 실재" % ab, catalog.has(String(ab)))
+	var BO = load("res://scripts/combat/abilities/bindings/binding_overlays.gd")
+	for ov in (BO.OVERLAYS as Array):
+		var sab := String((ov as Dictionary).get("slot_ab", ""))
+		if sab == "":
+			continue
+		_chk("%s slot_ab %s 실재" % [String((ov as Dictionary).get("id", "?")), sab], catalog.has(sab))
+	var CS = load("res://scripts/dev/combat_sandbox.gd")
+	for fk in (CS._BIND_FIXTURES as Dictionary):
+		for sub in ((CS._BIND_FIXTURES as Dictionary)[fk] as Dictionary).get("subs", []):
+			_chk("픽스처 %s sub %s 실재" % [fk, sub], catalog.has(String(sub)))
+	# N4 통폐합 결과 — 처형은 1종만 남는다(중복 쌍 해소, DRIFT-130).
+	_chk("AB-060 아군판 폐기", sd.get_skillbook_master("AB-060").is_empty())
+	var exec_n := 0
+	for ab in sd._registry_list("ability_ids"):
+		if String(sd.get_skillbook_master(String(ab)).get("cast", {}).get("kind", "")) == "skillbook_execute":
+			exec_n += 1
+	_chk("처형 스킬북 = 1종(중복 해소)", exec_n == 1)
+
+	# ── 누커 = 캐스터: 즉발은 예외뿐(DRIFT-129) ─────────────────────────────────
+	# **누커 주력에 즉발이 있으면 안 된다** — 화이트리스트 4종만 예외다. [[DRIFT-120]] ③이 즉발에
+	# 자리를 준 건 "도발·DR·반격 같은 **반응·유지형**"이고, 누커는 그 계열이 아니다(딜·제어 중심).
+	# 화이트리스트를 코드에 박는 이유: 신규 누커 스킬을 즉발로 추가하는 게 가장 흔한 이탈 경로인데,
+	# 즉발은 화면에서 "편하다"로만 보여 리뷰로는 절대 안 잡힌다.
+	var NUKER_INSTANT_OK := {
+		"AB-062": "은신 — 맞고 나서 켜는 것. 시전을 붙이면 존재 이유가 사라진다(DRIFT-121)",
+		"AB-007a": "이탈 — 위급할 때 누르는 도망. 시전을 붙이면 못 도망간다",
+		"AB-007b": "저HP 자동 발동(패시브) — 시전 개념 자체가 없다",
+		"AB-006": "접근 이동 · 무피해 — 목적지 이동이라 페이로드가 0",
+	}
+	var nuker_main := 0
+	for ab in sd._registry_list("ability_ids"):
+		var mnk: Dictionary = sd.get_skillbook_master(String(ab))
+		if mnk.is_empty() or not (mnk.get("equip_classes", []) as Array).has("Nuker"):
+			continue
+		if String(mnk.get("sub_bands", {}).get("Nuker", "B0")) != "B0":
+			continue   # 서브밴드로 빌려 쓰는 것은 원 클래스 규칙을 따른다
+		nuker_main += 1
+		if NUKER_INSTANT_OK.has(String(ab)):
+			continue
+		_chk("%s 누커 주력 = 캐스트(즉발 아님)" % ab, float(mnk.get("cast", {}).get("cast_s", 0.0)) > 0.0)
+	_chk("누커 주력 표본 >= 16종", nuker_main >= 16)   # AB-060 폐기로 17 → 16(DRIFT-130)
+	# 예외 목록이 조용히 늘어나는 것도 이탈이다 — "예외적"이 4종을 넘으면 원칙이 아니라 관행이 된다.
+	_chk("즉발 예외 <= 4종", NUKER_INSTANT_OK.size() <= 4)
+
+	# ── 속성 = 즉시 효과 정합(DRIFT-128) ────────────────────────────────────────
+	# 툴팁은 `element`만 보고 "감전시킨다 / 둔화시킨다"를 붙이는데, 실제 부여는 `Elements.TABLE`의
+	# `dur_key`를 params에서 읽어 결정된다. **lightning만 `dur_default`가 0.0**이라 `shock_s`를 빠뜨리면
+	# 툴팁은 감전을 약속하고 코드는 아무것도 안 한다 — 화면에선 "가끔 감전 안 걸리네?"로만 보여 못 잡는다.
+	# (fire는 `outcome`이 비어 있다 = 즉시 효과 없음·점화는 RX 조건부라 검사 대상이 아니다.)
+	var ELS = load("res://scripts/combat/abilities/elements.gd")
+	var el_n := 0
+	for ab in sd._registry_list("ability_ids"):
+		var ce: Dictionary = sd.get_skillbook_master(String(ab)).get("cast", {})
+		var el := String(ce.get("element", ""))
+		if not (ELS.TABLE as Dictionary).has(el):
+			continue
+		var et: Dictionary = (ELS.TABLE as Dictionary)[el]
+		var dk := String(et.get("dur_key", ""))
+		if dk == "":
+			continue   # fire — 즉시 효과 없음(RX 조건부)
+		el_n += 1
+		_chk("%s %s 즉시효과 지속 > 0" % [ab, el],
+			float(ce.get(dk, et.get("dur_default", 0.0))) > 0.0)
+	_chk("속성 즉시효과 검사 대상 >= 7종", el_n >= 7)
 
 	# ── 적 캐스터 체감(DRIFT-127) ───────────────────────────────────────────────
 	# 후열 캐스터가 "무시해도 되는 존재"가 되지 않으려면 **한 방이 물몸 체력의 1/4 이상**이어야 한다.
@@ -770,7 +871,7 @@ func _initialize() -> void:
 	# 잠금 대상 12종 = 판정의 SSOT. 목록을 코드에 박아 두는 이유: 반경·kind로는 못 가른다(같은
 	# skillbook_bolt에 r4.0 광역이 섞여 있고, 반경을 튜닝하다 조준 방식이 조용히 바뀌면 안 된다).
 	var LOCK_ABS := ["AB-004", "AB-012", "AB-013", "AB-030", "AB-056", "AB-057",
-		"AB-059", "AB-060", "AB-073", "AB-100", "AB-103", "AB-106"]
+		"AB-059", "AB-073", "AB-100", "AB-103", "AB-106"]
 	for ab in LOCK_ABS:
 		var cl: Dictionary = sd.get_skillbook_master(String(ab)).get("cast", {})
 		_chk("%s single_target" % ab, bool(cl.get("single_target", false)))

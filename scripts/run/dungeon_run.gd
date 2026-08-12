@@ -16,7 +16,7 @@ const ALLY_CACHE_POOL := [
 	# ⚠️ AB-067(보호막)·AB-070(정화) 제외 — 적 서포터(EN-3RD-04 / EN-014)가 들고 다니므로
 	# **처치 드롭**으로 얻는다(F-009). 캐시에 남기면 같은 책을 두 경로로 주게 된다. DRIFT-117.
 	# B2 ally-only(usable_by_enemy=false): 적이 안 씀 → 캐시 전용.
-	"AB-030", "AB-033", "AB-048a", "AB-048b", "AB-055", "AB-056", "AB-058", "AB-059", "AB-060", "AB-066", "AB-073",
+	"AB-030", "AB-033", "AB-048a", "AB-048b", "AB-055", "AB-056", "AB-058", "AB-059", "AB-066", "AB-073",
 	# B2 bespoke(ally-only): taunt/pull/slow/relocate/reveal.
 	"AB-035", "AB-051", "AB-045", "AB-032",
 	# 채널링 3형상 신규(DRIFT-115) — 아군 전용.

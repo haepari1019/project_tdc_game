@@ -178,9 +178,11 @@ const OVERLAYS := [
 		"payoff": "공허창(Long) → 근접화 + 사거리 비례 이득 + 타격 후 반대편 이탈", "desc_ko": "근접에서만 시전된다. 원래 사거리 비례 이득에 더해, 발현 후 적의 반대편으로 원래 사거리만큼 순간 이탈한다.",
 	},
 	{
+		# AB-060 폐기(DRIFT-130) → 유일하게 남은 처형기 AB-106으로 재배선. 106의 `range_band`는
+		# 실사거리 10m에 맞춰 Melee → **Mid**로 교정됐으므로(DRIFT-131) 근접화 보상은 060과 동일한 +25%다.
 		"id": "BIND-012", "gear": "gear_ward_nuker_flank_knife",
-		"identity_ab": "IDA-029", "slot_ab": "AB-060", "slot_index": 2, "theme": "flank", "delta": "flank_strike",
-		"payoff": "Rupture(Mid) → 근접화 + 사거리 비례 이득", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
+		"identity_ab": "IDA-029", "slot_ab": "AB-106", "slot_index": 2, "theme": "flank", "delta": "flank_strike",
+		"payoff": "Devour(Mid) → 근접화 + 사거리 비례 이득", "desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다.",
 	},
 	{
 		"id": "BIND-028", "gear": "gear_ward_nuker_flank_knife",
@@ -253,12 +255,12 @@ const OVERLAYS := [
 		"identity_ab": "IDA-024", "slot_ab": "AB-041", "slot_index": 2, "theme": "overdrive", "delta": "overdrive_charge", "variant": "freeze",
 		"payoff": "빙결 파동 → 초월 충전 / (초월)절대영도: 빙결", "desc_ko": "명중 시 초월 게이지를 채운다. 초월 중에는 「절대영도」로 발동 — 감속이 빙결(속박)로 격상된다.",
 	},
-	{
-		# AB-009 Oil은 명중이 없어 게이지 충전 기여는 없다(충전은 볼트/광역 딜 슬롯 몫) — 이 슬롯은 초월 소모 발현 전용.
-		"id": "BIND-027", "gear": "gear_ward_dps_press_rod",
-		"identity_ab": "IDA-024", "slot_ab": "AB-009", "slot_index": 0, "theme": "overdrive", "delta": "overdrive_charge", "variant": "safeslick",
-		"payoff": "Spawn Oil Patch → (초월)아군 안심 기름: 아군 무해 + 청록 구분", "desc_ko": "초월 중에 깐 기름은 아군을 해치지 않는다 — 미끄럼도 점화 피해도 면제되고 청록빛으로 구분된다(직후 반응까지). 기름은 명중이 없어 게이지 충전은 다른 슬롯이 맡는다.",
-	},
+	# ⛔ 제거 — DPS 초월 「아군 안심 기름」(구 BIND-027, slot_ab=AB-009 · variant=safeslick).
+	# [[DRIFT-112]]가 장판을 **소모품으로 이관**하며 AB-009 아군 스킬북을 폐기했는데 이 오버레이만
+	# 남아, triple-match(gear+identity+slot AB)가 **성립할 수 없는 죽은 항목**이 됐다(DRIFT-130 게이트 적발).
+	# 덤으로 `BIND-027` ID가 Nuker 항목과 **중복**이었다 — 제거로 함께 해소.
+	# ⏳ `safeslick` variant 코드(`ability_dispatch` · `surface_grid`)는 남겨 뒀다: 소모품 기름으로
+	#    재배선할지 폐기할지가 판정 사안이라 여기서 결정하지 않는다.
 	# DPS arc_weave 「혈풍」 링크 서브(광역 3종): 시전당 HP 소모 + 명중 적 수 비례 회복(3기+ 이득). delta 공통 blood_soak.
 	{
 		"id": "BIND-022", "gear": "gear_ward_dps_weave_staff",
