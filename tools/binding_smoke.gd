@@ -135,6 +135,29 @@ func _init() -> void:
 	if String(sig_o.get("name", "")) != "초월" or String(sig_o.get("covenant", "")).is_empty():
 		fails += 1; push_error("[BIND] Overdrive covenant missing")
 
+	# --- Tank Bulwark March 「진격」 (U2, 2026-08-13) — 링크 스킬이 밀어내기를 얻고, 밀린 적 재차 밀면 넘어짐 ---
+	if String(BindingOverlays.signature_for("gear_ward_tank_march_plate", "IDA-022").get("name", "")) != "진격":
+		fails += 1; push_error("[BIND] March 규약(진격)이 없다")
+	if not BindingOverlays.identity_marches("gear_ward_tank_march_plate", "IDA-022"):
+		fails += 1; push_error("[BIND] IDA-022는 진격 킷이어야 한다")
+	if BindingOverlays.identity_marches("gear_ward_tank_anchor_bulwark", "IDA-020"):
+		fails += 1; push_error("[BIND] Anchor는 진격 킷이 아니다")
+	if String(BindingOverlays.resolve_effective("gear_ward_tank_march_plate", "IDA-022", "AB-033", 0).get("delta", "")) != "march_shove":
+		fails += 1; push_error("[BIND] 진격 기본 델타 = march_shove")
+	# 굴림 정합 — march_set에 IDA-022를 굴려도 동일(프로필 키, DRIFT-138).
+	if not BindingOverlays.identity_marches("gear_ward_tank_march_set", "IDA-022"):
+		fails += 1; push_error("[BIND] 굴림 IDA-022가 march_set에서 규약을 잃는다")
+
+	# --- Tank Sentinel Form 「응보」 (U2) — 태세 중 피격 누적 → 링크 스킬로 방출 ---
+	if String(BindingOverlays.signature_for("gear_ward_tank_sentinel_aegis", "IDA-052").get("name", "")) != "응보":
+		fails += 1; push_error("[BIND] Sentinel 규약(응보)이 없다")
+	if not BindingOverlays.identity_retributes("gear_ward_tank_sentinel_aegis", "IDA-052"):
+		fails += 1; push_error("[BIND] IDA-052는 응보 킷이어야 한다")
+	if BindingOverlays.identity_retributes("gear_ward_tank_kite_shield", "IDA-021"):
+		fails += 1; push_error("[BIND] Beacon은 응보 킷이 아니다")
+	if String(BindingOverlays.resolve_effective("gear_ward_tank_sentinel_aegis", "IDA-052", "AB-034", 1).get("delta", "")) != "retribution_release":
+		fails += 1; push_error("[BIND] 응보 기본 델타 = retribution_release")
+
 	# --- DPS arc_weave 「혈풍」 (BIND-022~024) — 서브 HP 대가 + 광역 명중 적 비례 회복 ---
 	if String(BindingOverlays.resolve("gear_ward_dps_weave_staff", "IDA-027", "AB-053", 0).get("delta", "")) != "blood_soak":
 		fails += 1; push_error("[BIND] DPS Q(작열) should resolve blood_soak (BIND-022)")
@@ -178,6 +201,9 @@ func _init() -> void:
 		if not dead.is_empty():
 			fails += 1
 		print("[BIND] 시그니처 스윕 — 작동 %d종 · 규약미확정 %d종(%s)" % [live, pending.size(), ", ".join(pending)])
+		# U2(2026-08-13) 이후 Tank 4정체성 전원 등재 — 규약 없는 정체성이 남아 있으면 저작 누락이다.
+		if not pending.is_empty():
+			fails += 1; push_error("[BIND] 규약 미확정 정체성이 남아 있다 — U2 참조")
 		# 굴림 정체성 교차검증: 아무 Tank gear에 어떤 Tank 정체성을 굴려 끼워도 그 정체성 규약이 붙는다.
 		for g2 in ["gear_ward_tank_rampart_wall", "gear_ward_tank_beacon_hook", "gear_ward_tank_iron_set"]:
 			if BindingOverlays.signature_for(g2, "IDA-021").is_empty():

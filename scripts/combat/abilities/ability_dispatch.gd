@@ -296,6 +296,12 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	var pos: Vector3 = member.global_position
 	var aim: Vector3 = target_pos if target_pos != Vector3.ZERO else pos
 	match String(ov.get("delta", "")):
+		# --- March 「진격」: 모든 서브가 밀어내기를 얻고, 이미 밀린 적을 또 밀면 넘어뜨림(캡스톤) ---
+		"march_shove":
+			_march_shove(member, aim)
+		# --- Sentinel 「응보」: 태세 중 쌓인 피격 누적을 서브에 실어 되돌림(태세 밖이면 base만) ---
+		"retribution_release":
+			_sentinel_retribution(member, aim)
 		# --- Anchor 「방벽 충전」: 모든 서브가 방벽 +1(공통 버프) → 세 겹이면 기절(캡스톤) ---
 		"bulwark_charge":
 			_anchor_stack(member, pos)
@@ -341,6 +347,55 @@ func _apply_binding(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			var fk: Dictionary = BindingOverlays.FLANK
 			member.apply_veil(float(fk.get("disengage_veil_s", 4.0)), true)
 			member.grant_next_hit_bonus(float(fk.get("disengage_bonus", 0.3)))
+
+
+## Bulwark March 「진격」 — 링크 스킬이 **밀어내기를 얻는다**(원래 넉백이 없어도). 밀린 적에겐 「밀림」이
+## 짧게 남고, **그 창 안에 또 밀면 넘어진다**(Rooted). 한 번은 자리만 바뀌지만 연달아 밀면 무너진다 —
+## 라인 정리라는 정체성 축(`IDA-022` GEOMETRY·OPENER)을 서브까지 관통시킨 것.
+## 대상 = 조준점 주변 적 전부(광역 서브면 그만큼 여럿이 밀린다). ref: BindingOverlays.MARCH.
+func _march_shove(member: CharacterBody3D, aim: Vector3) -> void:
+	var mc: Dictionary = BindingOverlays.MARCH
+	for e in enemies_in_radius(aim, float(mc["radius_m"])):
+		if e == null or not is_instance_valid(e):
+			continue
+		var dir: Vector3 = e.global_position - member.global_position
+		dir.y = 0.0
+		if dir.length() < 0.05:
+			dir = Vector3.FORWARD
+		if e.has_method("is_shoved") and e.is_shoved():
+			# 캡스톤 — 이미 무너진 자세에 한 번 더. 넘어뜨려 붙잡고 「밀림」은 소모한다.
+			if e.has_method("apply_outcome"):
+				e.apply_outcome("Rooted", float(mc["root_s"]))
+			if e.has_method("clear_shove"):
+				e.clear_shove()
+			if e.has_method("popup_status"):
+				e.popup_status("넘어짐", Color(1.0, 0.8, 0.35))
+		elif e.has_method("apply_shove"):
+			e.apply_shove(float(mc["window_s"]))
+		if e.has_method("apply_knockback"):
+			e.apply_knockback(dir.normalized(), float(mc["shove_m"]))
+
+
+## Sentinel Form 「응보」 — 태세 중 받아 낸 피해가 `_retribution`에 쌓여 있다. 링크 서브를 쓰면 그 누적을
+## **전부 꺼내** 조준점 주변 적에게 실어 보낸다. 태세 밖이면 누적이 0이라 아무 일도 없다(= base 스킬만).
+## 캐스터 max_hp 기준 상한으로 폭주를 막는다 — 장시간 얻어맞은 뒤 한 방에 쏟는 걸 제한.
+func _sentinel_retribution(member: CharacterBody3D, aim: Vector3) -> void:
+	if not member.has_method("retribution_take"):
+		return
+	var rc: Dictionary = BindingOverlays.RETRIB
+	var pool: float = float(member.retribution_take())
+	if pool <= 0.0:
+		return
+	var dmg: float = minf(pool * float(rc["release_mult"]), float(member.max_hp) * float(rc["cap_mult"]))
+	if dmg <= 0.0:
+		return
+	var hit := false
+	for e in enemies_in_radius(aim, float(rc["radius_m"])):
+		if e != null and is_instance_valid(e):
+			deal_damage(e, member, dmg)
+			hit = true
+	if hit and member.has_method("popup_status"):
+		member.popup_status("응보 %d" % int(dmg), Color(1.0, 0.75, 0.35))
 
 
 ## Anchor 「방벽 충전」 — add a BulwarkCharge; on the 3-stack consume, stun the nearest enemy (capstone).

@@ -113,6 +113,9 @@ var _shield_dur: float = 1.0
 var damage_taken_mult: float = 1.0
 var _sentinel_timer_s: float = 0.0
 var _sentinel_reflect: float = 0.0   # IDA-052 reflect fraction of incoming hits while the stance holds
+## IDA-052 「응보」 결속 누적 — 태세 중 받은 피해 총량(경감 전 amount). 링크 서브 시전이 소모하고,
+## 태세가 끝나면 **쓰지 않고 남은 분은 소멸**한다(버티기만 하고 반격 안 하면 보상 없음).
+var _retribution: float = 0.0
 ## IDA-052 Sentinel 전용 피해 배율 — **DR 서브(_dr_stacks)와 완전 분리**한다. 예전엔 둘이
 ## `damage_taken_mult` 한 칸 + `_sentinel_timer_s` 한 타이머를 공유해서, 약하고 긴 DR을 덧걸면
 ## 강한 DR의 **지속만 연장**되는 버그가 있었다(046 50%/2s → 047 20%/3s = 50%가 3초). DRIFT-103.
@@ -386,6 +389,8 @@ func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Diction
 # ============================================================================
 
 func _tick_binding(delta: float) -> void:
+	if _sentinel_timer_s > 0.0 and _retribution > 0.0:   # 「응보」 누적을 머리 위에 상시 노출(얼마나 모았나)
+		_badge_strip().set_badge("retribution", "응보 %d" % int(_retribution), true)
 	if _bulwark_icd_s > 0.0:
 		_bulwark_icd_s -= delta
 	if _bulwark_stack_timer > 0.0:                 # 스택 만료: 창 안에 안 쌓이면 리셋(오발 방지)
@@ -482,6 +487,20 @@ func _badge_strip():
 		_badges.position = Vector3(0, 2.4, 0)
 		add_child(_badges)
 	return _badges
+
+
+## IDA-052 「응보」 — 쌓인 응보를 전부 꺼내고 0으로 비운다(링크 서브가 터뜨릴 때). 태세가 끝났으면 0.
+func retribution_take() -> float:
+	var r := _retribution
+	_retribution = 0.0
+	if r > 0.0:
+		_badge_strip().clear_badge("retribution")
+	return r
+
+
+## 태세 중 쌓인 응보(표시·판정용). 태세 밖이면 0.
+func retribution_amount() -> float:
+	return _retribution if _sentinel_timer_s > 0.0 else 0.0
 
 
 ## BIND-003 — self shield (never lowers an existing larger shield). Uses the IDA-020 shield channel.
@@ -1057,6 +1076,11 @@ func take_damage(amount: float, attacker: Node = null, from_ability: bool = fals
 	if _sentinel_reflect > 0.0 and _sentinel_timer_s > 0.0 and attacker != null \
 			and is_instance_valid(attacker) and attacker.has_method("take_damage"):
 		attacker.take_damage(amount * _sentinel_reflect, self)   # attacker=self → 반사 처치도 파티 킬(전리품 귀속)
+	# IDA-052 「응보」 결속 — 태세 중 **맞은 만큼** 응보를 쌓는다. 반사와 별개 축이다: 반사는 즉시
+	# 되돌리고, 응보는 모아 뒀다가 링크 스킬로 터뜨린다. 태세가 아니면 안 쌓인다 = 버티는 선택의 보상.
+	# 규약 게이트(정체성 착용 여부)는 시전 쪽(ability_dispatch)이 본다 — 여기선 누적만 한다.
+	if _sentinel_timer_s > 0.0:
+		_retribution += amount
 	# AB-048a/b 반격 — 받은 피해의 `_reflect_frac`을 되돌린다(경감 전 amount 기준, Sentinel과 동일 규약).
 	# ⚠️ **amount는 건드리지 않는다** — 내 피해는 그대로 들어가고 반사만 추가된다(패링=딜 무효는 후속 특성).
 	# `_reflect_cast_only`(AB-048b) = 적 캐스팅 스킬 피격만. 타수형은 **반사가 성립한 피격만** 타수를 깎는다.
@@ -1623,6 +1647,7 @@ func _physics_process(delta: float) -> void:
 		if _sentinel_timer_s <= 0.0:
 			_sentinel_dr_mult = 1.0   # Sentinel Form expired → 이 배율만 해제(DR 스택은 안 건드린다)
 			_sentinel_reflect = 0.0   # reflect ends with the stance
+			_retribution = 0.0        # 응보도 태세와 함께 소멸 — 태세 안에서 터뜨려야 한다
 			_recalc_damage_taken_mult()
 	if not _dr_stacks.is_empty():     # DR 스택 — 지속 감소, 만료 시 "총 N 막음" 정산 후 제거
 		var _dr_keep: Array = []

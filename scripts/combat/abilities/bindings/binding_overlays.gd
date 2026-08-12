@@ -23,13 +23,9 @@ class_name BindingOverlays
 
 ## 정체성 규약 — identity 툴팁에 자기완결적으로 표시(상태 생성·의미·활용을 한 문단). {name, covenant}.
 ##
-## ⚠️ **미등재 2종 — 규약 곧 추가 예정(설계 미확정, 2026-08-12 사용자 확인):**
-##   · **IDA-022** `tank_bulwark_march` (gear: march_plate / march_set)
-##   · **IDA-052** `tank_sentinel_form` (gear: sentinel_aegis)
-## 두 정체성은 현재 규약이 없어 시그니처가 붙지 않는다(슬롯 델타는 GENERIC 폴백으로 동작). 규약이
-## 확정되면 여기 + `GENERIC` + 필요 시 `OVERLAYS` 변주에 함께 등재하고, 결속 카탈로그(spec
-## `docs/combat/bindings/`)로 역전파한다. 그때까지 "결속 없는 정체성"이 **의도가 아니라 미결**임에
-## 유의 — 툴팁 문구 처리는 별건. ref: docs/plan/P4b_WORK_ORDER.md §U2 · M0b-3.
+## **Tank 4정체성 전원 등재 완료(2026-08-13, U2).** 축이 서로 겹치지 않게 잡혀 있다:
+##   · IDA-020 방벽 = **자기 누적** → 기절   · IDA-021 표식 = **대상 지정** → 쿨 환급
+##   · IDA-022 진격 = **변위(밀어내기)** → 넘어뜨림   · IDA-052 응보 = **피격 누적** → 반격 폭발
 const SIGNATURE := {
 	"IDA-020": {
 		"name": "방벽 충전",
@@ -38,6 +34,14 @@ const SIGNATURE := {
 	"IDA-021": {
 		"name": "표식",
 		"covenant": "위협을 건 대상은 표식을 얻는다. 표식이 있는 적에게는 링크된 스킬이 추가 위협을 부여하며, 표식을 유지한 채 처치하면 링크된 모든 스킬의 재사용을 일부 돌려받는다.",
+	},
+	"IDA-022": {
+		"name": "진격",
+		"covenant": "정체성이 방패를 밀며 전선을 앞으로 옮긴다. 링크된 스킬은 모두 적을 밀어내게 되고, 밀려난 적은 잠시 자세가 무너진다. 그 적을 다시 한 번 밀어내면 넘어뜨려 붙잡아 둔다. 한 번은 자리만 바뀌지만 연달아 밀면 무너진다 — 라인을 정리하며 나아가는 정체성이다.",
+	},
+	"IDA-052": {
+		"name": "응보",
+		"covenant": "태세를 갖추고 버티는 동안 받은 피해가 응보로 쌓인다. 링크된 스킬을 쓰면 쌓아 둔 응보를 실어 되돌려준다. 태세가 끝나면 쓰지 않은 응보는 사라지니, 얻어맞는 동안 모아서 태세 안에서 터뜨려야 한다 — 버틸수록 반격이 무거워지는 정체성이다.",
 	},
 	"IDA-025": {
 		"name": "집중",
@@ -71,6 +75,12 @@ const FOCUS := {"stack_cap": 5, "stack_dmg_pct": 0.15, "window_s": 8.0, "radius_
 # 「집중」 소모 아키타입 — 이 계열의 kind을 가진 스킬이면 슬롯·링크 여부와 무관하게 누적 집중을 소모한다.
 # 특정 처형 스킬(AB) 하드코딩을 피하려는 의도(그 스킬이 반드시 장착된다는 보장이 없음). 소모형 kind 추가 시 여기에.
 const FOCUS_SPEND_KINDS := ["skillbook_execute"]
+# Bulwark March 「진격」 — 링크 스킬이 전부 넉백을 얻고(원래 없어도), 밀린 적은 window 동안 「밀림」.
+# 밀림 상태에서 또 밀면 root_s초 넘어뜨림(캡스톤). shove_m = 결속이 부여하는 넉백 거리.
+const MARCH := {"shove_m": 2.0, "window_s": 4.0, "root_s": 1.2, "radius_m": 6.0}
+# Sentinel Form 「응보」 — 태세 중 받은 피해를 누적(party_member._retribution), 링크 서브 시전 시
+# release_mult를 곱해 대상에게 터뜨린다. cap_mult = 캐스터 max_hp 대비 1회 상한(폭주 방지).
+const RETRIB := {"release_mult": 0.8, "cap_mult": 1.0, "radius_m": 6.0}
 # Flank Collapse 잠행 — 링크 스킬을 근접 사거리로 강제하고, 원래 range_band이 멀수록 큰 이득(1차 피해/2차 쿨감).
 # 처치 시 veil_s초 은신(apply_veil = 적 표적 드롭 = 어그로 감소). band_dmg=basic_damage 배수, band_cd=쿨 감소율.
 const FLANK := {
@@ -121,6 +131,10 @@ const GENERIC := {
 		"desc_ko": "명중한 적을 집중 대상으로 새기고 집중을 한 겹 쌓아, 쌓인 만큼 추가 피해를 준다. 다른 적을 명중하면 집중이 그 적으로 옮겨가며 초기화된다."},
 	"IDA-029": {"delta": "flank_strike", "theme": "flank",
 		"desc_ko": "근접에서만 시전된다. 원래 사거리가 멀수록 추가 피해가 크고 재사용이 짧아진다."},
+	"IDA-022": {"delta": "march_shove", "theme": "march",
+		"desc_ko": "적을 밀어낸다. 이미 밀려 자세가 무너진 적을 다시 밀면 넘어뜨린다."},
+	"IDA-052": {"delta": "retribution_release", "theme": "retribution",
+		"desc_ko": "태세 중 쌓아 둔 응보를 실어 되돌려준다(태세 밖에서는 평범하게 발동)."},
 	"IDA-024": {"delta": "overdrive_charge", "variant": "", "theme": "overdrive",
 		"desc_ko": "명중 시 초월 게이지를 채운다."},
 	"IDA-027": {"delta": "blood_soak", "variant": "burst", "theme": "bloodgale",
@@ -364,6 +378,42 @@ static func _ov_matches(ov: Dictionary, prof: String, identity_ab: String) -> bo
 	return _ov_profile(ov) == prof and String(ov["identity_ab"]) == identity_ab
 
 
+## 이 (gear, identity)가 `theme` 킷인가 — **변주(OVERLAYS)와 기본 델타(GENERIC) 양쪽**을 본다.
+## OVERLAYS만 보면 변주를 아직 저작하지 않은 정체성(IDA-022 진격 · IDA-052 응보)이 시그니처를 잃는다.
+## 이 함수가 곧 "규약이 실제로 발현되는가"의 SSOT다.
+static func _has_theme(base_gear_id: String, identity_ab: String, theme: String) -> bool:
+	if String((GENERIC.get(identity_ab, {}) as Dictionary).get("theme", "")) == theme:
+		return true
+	var prof := binding_profile(base_gear_id, identity_ab)
+	for ov in OVERLAYS:
+		if _ov_matches(ov, prof, identity_ab) and String(ov.get("theme", "")) == theme:
+			return true
+	return false
+
+
+## 이 정체성이 **기계적으로 발현되는** 규약을 가졌는가 — 규약 문구만 있고 델타가 없으면 거짓말이다.
+static func _has_covenant(base_gear_id: String, identity_ab: String) -> bool:
+	if not SIGNATURE.has(identity_ab):
+		return false
+	if GENERIC.has(identity_ab):
+		return true
+	var prof := binding_profile(base_gear_id, identity_ab)
+	for ov in OVERLAYS:          # Healer(IDA-031/026)는 GENERIC 미등재 — 치유 choke가 게이트라 변주로만 존재
+		if _ov_matches(ov, prof, identity_ab):
+			return true
+	return false
+
+
+## 「진격」 킷(Bulwark March)인가 — 링크 스킬이 밀어내기를 얻고, 밀린 적을 또 밀면 넘어뜨리는지.
+static func identity_marches(base_gear_id: String, identity_ab: String) -> bool:
+	return _has_theme(base_gear_id, identity_ab, "march")
+
+
+## 「응보」 킷(Sentinel Form)인가 — 태세 중 받은 피해를 모아 링크 스킬로 되돌리는지.
+static func identity_retributes(base_gear_id: String, identity_ab: String) -> bool:
+	return _has_theme(base_gear_id, identity_ab, "retribution")
+
+
 ## resolveEffectiveAbility (F-020 §3.7) — active overlay for a member's slot, or {} (base only). 착용 즉시 활성.
 static func resolve(base_gear_id: String, identity_ab: String, slot_ab: String, slot_index: int) -> Dictionary:
 	var prof := binding_profile(base_gear_id, identity_ab)
@@ -393,12 +443,7 @@ static func resolve_effective(base_gear_id: String, identity_ab: String, slot_ab
 
 ## 이 gear+identity가 「표식」 킷(Beacon)인가 — identity가 시전 시 대상에 표식을 남기는지.
 static func identity_marks(base_gear_id: String, identity_ab: String) -> bool:
-	var prof := binding_profile(base_gear_id, identity_ab)
-	for ov in OVERLAYS:
-		if _ov_matches(ov, prof, identity_ab) \
-				and String(ov.get("theme", "")) == "mark":
-			return true
-	return false
+	return _has_theme(base_gear_id, identity_ab, "mark")
 
 
 ## kind이 「집중」 소모 아키타입인가 — 이 계열 스킬을 쓰면 슬롯/링크 여부와 무관하게 누적 집중을 소모한다.
@@ -409,68 +454,34 @@ static func is_focus_spender(kind: String) -> bool:
 
 ## 이 gear+identity가 「집중」 킷(Mark&Ruin)인가 — identity가 시전 시 단일 표적을 집중 대상으로 새기는지.
 static func identity_focuses(base_gear_id: String, identity_ab: String) -> bool:
-	var prof := binding_profile(base_gear_id, identity_ab)
-	for ov in OVERLAYS:
-		if _ov_matches(ov, prof, identity_ab) \
-				and String(ov.get("theme", "")) == "focus":
-			return true
-	return false
+	return _has_theme(base_gear_id, identity_ab, "focus")
 
 
 ## 이 gear+identity가 「잠행」 킷(Flank Collapse)인가 — 처치 시 은신(veil) 게이트 + 툴팁용.
 static func identity_flanks(base_gear_id: String, identity_ab: String) -> bool:
-	var prof := binding_profile(base_gear_id, identity_ab)
-	for ov in OVERLAYS:
-		if _ov_matches(ov, prof, identity_ab) \
-				and String(ov.get("theme", "")) == "flank":
-			return true
-	return false
+	return _has_theme(base_gear_id, identity_ab, "flank")
 
 
 ## 이 gear+identity가 「지속 치유」 킷(DoT heal)인가 — 치유 choke가 즉시 치유→HoT 전환할지 게이트.
 static func identity_dot_heals(base_gear_id: String, identity_ab: String) -> bool:
-	var prof := binding_profile(base_gear_id, identity_ab)
-	for ov in OVERLAYS:
-		if _ov_matches(ov, prof, identity_ab) \
-				and String(ov.get("theme", "")) == "dot_heal":
-			return true
-	return false
+	return _has_theme(base_gear_id, identity_ab, "dot_heal")
 
 
 ## 이 gear+identity가 「성역」 킷(Mend Circle)인가 — 정체성이 성역을 세우고 치유 choke가 in-zone 증폭할지 게이트.
 static func identity_sanctuaries(base_gear_id: String, identity_ab: String) -> bool:
-	var prof := binding_profile(base_gear_id, identity_ab)
-	for ov in OVERLAYS:
-		if _ov_matches(ov, prof, identity_ab) \
-				and String(ov.get("theme", "")) == "sanctuary":
-			return true
-	return false
+	return _has_theme(base_gear_id, identity_ab, "sanctuary")
 
 
 ## 이 gear+identity가 「초월」 킷(DPS press_line)인가 — 명중으로 게이지 충전 + 초월 중 서브 강화 변형 게이트.
 static func identity_overdrive(base_gear_id: String, identity_ab: String) -> bool:
-	var prof := binding_profile(base_gear_id, identity_ab)
-	for ov in OVERLAYS:
-		if _ov_matches(ov, prof, identity_ab) \
-				and String(ov.get("theme", "")) == "overdrive":
-			return true
-	return false
+	return _has_theme(base_gear_id, identity_ab, "overdrive")
 
 
 ## 이 gear+identity가 「혈풍」 킷(DPS arc_weave)인가 — 서브 시전당 HP 대가 + 명중 적 비례 회복 게이트.
 static func identity_bloodgale(base_gear_id: String, identity_ab: String) -> bool:
-	var prof := binding_profile(base_gear_id, identity_ab)
-	for ov in OVERLAYS:
-		if _ov_matches(ov, prof, identity_ab) \
-				and String(ov.get("theme", "")) == "bloodgale":
-			return true
-	return false
+	return _has_theme(base_gear_id, identity_ab, "bloodgale")
 
 
 ## 이 gear+identity가 결속 킷이면 그 정체성 규약({name, covenant})을, 아니면 {}. identity 툴팁용.
 static func signature_for(base_gear_id: String, identity_ab: String) -> Dictionary:
-	var prof := binding_profile(base_gear_id, identity_ab)
-	for ov in OVERLAYS:
-		if _ov_matches(ov, prof, identity_ab):
-			return SIGNATURE.get(identity_ab, {})
-	return {}
+	return SIGNATURE.get(identity_ab, {}) if _has_covenant(base_gear_id, identity_ab) else {}

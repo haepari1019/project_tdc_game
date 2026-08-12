@@ -323,6 +323,10 @@ func _physics_process(delta: float) -> void:
 		_mark_timer_display -= delta
 		if _mark_timer_display <= 0.0 and _badges != null:
 			_badges.clear_badge("mark")
+	if _shove_timer_s > 0.0:                   # 「밀림」 만료 — 다시 밀어 넘어뜨릴 창이 닫힌다
+		_shove_timer_s -= delta
+		if _shove_timer_s <= 0.0:
+			clear_shove()
 	if not training_dummy:
 		return   # 일반 적은 이동을 EnemyAI가 구동 — 이하 허수아비 전용.
 	# 허수아비는 AI tick을 스킵하므로 여기서 상태 타이머를 직접 감소 → 디버프가 만료되고 재적용/재팝업 가능.
@@ -366,6 +370,24 @@ func hide_mark() -> void:
 	_mark_timer_display = 0.0
 	if _badges != null:
 		_badges.clear_badge("mark")
+
+
+## IDA-022 「진격」 결속 — 「밀림」. 진격 킷의 링크 스킬에 밀려난 적에게 짧게 남는다. 이미 밀린 적을
+## **다시 밀면 넘어진다**(caller가 Rooted를 건다) — 한 번은 자리만 바뀌지만, 연달아 밀면 무너진다.
+## 표식/집중과 같은 per-enemy 결속 상태 계열(배지 + 자체 타이머).
+func apply_shove(dur: float) -> void:
+	_shove_timer_s = maxf(_shove_timer_s, dur)
+	_badge_strip().set_badge("shove", "»")
+
+
+func is_shoved() -> bool:
+	return _shove_timer_s > 0.0
+
+
+func clear_shove() -> void:
+	_shove_timer_s = 0.0
+	if _badges != null:
+		_badges.clear_badge("shove")
 
 
 ## Mark&Ruin 「집중」 시각 표시 — 집중을 새기거나 누적이 바뀔 때 호출. stacks=현재 누적, at_cap=만렙(캡 큐, 금색).
@@ -455,6 +477,7 @@ var _dummy_threat_label: Label3D
 var _badges = null                 # OverheadBadges 스트립(lazy) — 표식/집중 등 스택 상태를 한 줄로 통합
 var _status_icons = null           # OverheadStatusIcons 로우(lazy) — 디버프 아이콘(색+심볼+시계 타이머)
 var _mark_timer_display: float = 0.0
+var _shove_timer_s: float = 0.0        # IDA-022 「밀림」 — 이 창 안에 또 밀리면 넘어진다
 var floor_of: Dictionary = {}  # member -> threat floor (§3.5)
 const DEFAULT_FLOOR := 10.0
 const IMMINENT_RATIO := 0.85  # §3.2 2nd >= 1st * this → imminent switch UI

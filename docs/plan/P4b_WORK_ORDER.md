@@ -3,7 +3,7 @@
 > **무엇:** 스킬 교정(DRIFT-101~136) 완료 후 **플레이테스트를 막고 있는 4겹 갭**의 교정 순서.
 > **상위 플랜:** [I007_economy_migration_plan.md](I007_economy_migration_plan.md) (M1~M6 마일스톤 레벨). 본 문서 = 그 위의 **파일 단위 작업 지시 + 게이트 + 선행 결정**.
 > **스펙 근거:** `F-009` §3.9 · `F-008` §3.10 · `F-020` §3.2.3/§3.7/§3.10 · `D-019` §3.3 · `F-029` chapel · `UI-005` §3.2 · `I-007` §15 P4b.
-> **스펙 핀:** `spec_ref.json` = **`baf0806`** (`DEC-20260812-004` 반영 후 재핀, 2026-08-12).
+> **스펙 핀:** `spec_ref.json` = **`66a3dda`** (`DEC-20260813-001` 반영 후 재핀, 2026-08-13).
 > **작성:** 2026-08-12.
 
 ---
@@ -175,7 +175,7 @@ M1 마석 ─┬─ M2 참 ─┐          │
 |---|------|------|
 | M0b-1 | §2b **(b)안** 적용 — `effective_binding_profile_id` 헬퍼 신설(기본값 = effective identity, master `binding_profile_id`가 있으면 오버라이드) | [binding_overlays.gd](../../scripts/combat/abilities/bindings/binding_overlays.gd) |
 | M0b-2 | `OVERLAYS` 엔트리의 `gear` 필드 → `profile`로 이행 + 게이트 8종 · `signature_for` · `resolve` / `resolve_effective` 전부 profile 기준으로 | 동일 |
-| M0b-3 | `SIGNATURE`에 **IDA-022**(bulwark_march) · **IDA-052**(sentinel_form) 규약 등재 — **설계 미확정, 곧 추가 예정**(사용자, 2026-08-12). 규약 확정 시 `SIGNATURE` + `GENERIC` + (필요 시) `OVERLAYS` 변주에 함께 등재 → 결속 카탈로그 역전파. 그때까지 "결속 없는 정체성"은 **의도가 아니라 미결**임을 코드 주석에 명시해 둠 | 동일 |
+| M0b-3 | ✅ **완료(2026-08-13, DRIFT-140)** — `IDA-022` 「진격」(변위 → 밀림 재차 밀면 Rooted) · `IDA-052` 「응보」(피격 누적 → 링크 서브가 방출)를 `SIGNATURE`+`GENERIC`에 등재. Tank 4정체성 축 완성. 부수로 `signature_for`/테마 게이트 7종을 `_has_covenant`/`_has_theme` 공용 술어로 통합(변주 미저작 정체성이 규약을 잃던 구 gear-키 잔재 제거) | 동일 |
 | M0b-4 | 호출부 시그니처 갱신 — `ability_dispatch` · 툴팁(`skill_text`/`equip_panel`) · 조준 사거리 게이트 | [ability_dispatch.gd](../../scripts/combat/abilities/ability_dispatch.gd) 외 |
 | M0b-5 | 스모크: 19종 gear × 자기 정체성 → 시그니처 활성 전수 확인 | [tools/binding_smoke.gd](../../tools/binding_smoke.gd) |
 
@@ -280,9 +280,9 @@ M1 마석 ─┬─ M2 참 ─┐          │
 | # | 내용 | 대상 SSOT | 상태 |
 |---|------|-----------|------|
 | 1 | **DRIFT-137** DPS 스타터 프리모딩 `AB-028`(폐기) → **`AB-053`** | `F-008` · `F-009` · `F-020` · `D-012` · `ROLE-020` · `CombatContentMap` · `AB-028`/`AB-053` | ✅ **전파 완료** — spec `baf0806` · `DEC-20260812-004` · 재핀 완료 |
-| 2 | **DRIFT-138** 결속 프로필 기본값 `baseGearId` → `effectiveIdentitySkillId` | `D-019` §2/§3 · `F-020` §3.7 Edge | 🔶 `PENDING-PROP` — **구현 완료**, 전파 승인 대기 |
+| 2 | **DRIFT-138** 결속 프로필 기본값 `baseGearId` → `effectiveIdentitySkillId` | `D-019` §2/§3/§3.1/§10 · `F-020` §3.7 · `F-008` §3.9 · `ROLE-010` §4.5 | ✅ **전파 완료** — spec `66a3dda` · `DEC-20260813-001` · 재핀 완료 |
 | 3 | 스킬 트리 포인터 `F-029` §3.6 → **§3.2a** (9건) | `D-011` · `F-008` · `F-009`×5 · `F-020`×2 | ✅ **전파 완료** (같은 커밋, `OPS_20` 급 부수 정정) |
-| 4 | M0b-3에서 IDA-022 · IDA-052 규약을 신설하면 결속 카탈로그 확장 | `docs/combat/bindings/` | ⏸ 규약 확정 후 |
+| 4 | **DRIFT-140** IDA-022 「진격」 · IDA-052 「응보」 규약 신설 | `ROLE-010` §4.5 · `IDA-022`/`IDA-052` §Identity Keystone | ✅ **전파 완료** — 같은 커밋 |
 
 **게임 레포는 spec md를 편집하지 않는다** — spec 레포(`staging`)에서 `OPS_30` 실행 후 `spec_ref.json` 재핀. ([AGENTS.md](../../AGENTS.md) §Spec drift & propagation)
 
@@ -293,7 +293,7 @@ M1 마석 ─┬─ M2 참 ─┐          │
 | # | 항목 | 걸린 마일스톤 |
 |---|------|---------------|
 | ~~U1~~ | ~~DPS 스타터 슬롯 AB~~ → ✅ **`AB-053` 확정** (§2a, 2026-08-12) | — |
-| U2 | **IDA-022 · IDA-052 규약** — 🕒 **곧 추가 예정**(설계 미확정). 확정 전까지 두 정체성은 시그니처 없이 GENERIC 델타만 | M0b-3 |
+| ~~U2~~ | ~~IDA-022 · IDA-052 규약~~ → ✅ **「진격」(변위) · 「응보」(피격 누적) 신설** (DRIFT-140, 2026-08-13). `BIND-###` 변주는 미저작 = 플테 후 | — |
 | U3 | `skill_family` 분류 — spec frontmatter 그대로 vs 게임 재분류 | M4-1 |
 | U4 | `allowed_slot_families` — gear archetype별 허용 family 표 | M4-2 |
 | U5 | 참 5종 수치 · 스택 상한 · stash 용량 관계 (`I-007` §14.7 OQ) | M2 |
@@ -306,5 +306,5 @@ M1 마석 ─┬─ M2 참 ─┐          │
 
 1. ✅ **M0 + M0b 완료** (2026-08-12) — ★ 플레이테스트 1차 게이트 도달. 스태시에서 gear 17종 · 서브 49종을 꺼내 쓸 수 있고, 어느 gear를 껴도 그 정체성 규약이 작동한다.
 2. **플레이테스트** → 피드백 수령 후 M1(마석) 착수 여부 재판단.
-3. **DRIFT-138 전파**(`OPS_30`) — 승인 시 `D-019` §2/§3 + `F-020` §3.7 Edge.
-4. **U2 확정** — IDA-022 · IDA-052 규약. 확정 전까지 두 정체성은 시그니처 없이 GENERIC 델타만 받는다(`binding_smoke`가 「규약미확정 3종」으로 상시 보고).
+3. ✅ **DRIFT-138 · 140 전파 완료**(`DEC-20260813-001`, spec `66a3dda`) — 재핀 완료. **PENDING-PROP 없음.**
+4. **플테 관찰 대상(신규):** 「진격」 밀어내기가 라인 정리로 읽히는지 · 「응보」 누적이 태세 안에서 터뜨릴 만큼 모이는지. `BIND-###` 변주와 수치(`MARCH`/`RETRIB`)는 그 결과로 결정.

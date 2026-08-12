@@ -1560,7 +1560,7 @@
 - **상태:** ✅ RESOLVED — 게임측 시드 반영 + 스펙 역전파 + 재핀 완료. `ci_smoke.sh` 11/11 PASS.
 - **부수(같은 서베이):** spec 9곳이 스킬 트리 SSOT로 `F-029` §3.6(레거시 분석/상점 진행 스파인)을 가리켰으나 실내용은 **§3.2a**(통합 금고·시설 개편 — `chapel` 트리 Tier·`scribe_shop` Tier)에 있었다. **포인터 오참조이므로 `OPS_20` 정정으로 처리**(규칙 변경 아님) — spec 레포에서 `D-011`·`F-008`·`F-009`×5·`F-020`×2 = **9건 수정**, `spec_xref_check` 신규 지적 0. `DecisionLog`의 2건은 **이력이라 보존**.
 
-### DRIFT-138 — 결속 해소 키: `bindingProfileId` 기본값 `baseGearId` → `effectiveIdentitySkillId` 🔶 rule · `PENDING-PROP`
+### DRIFT-138 — 결속 해소 키: `bindingProfileId` 기본값 `baseGearId` → `effectiveIdentitySkillId` ✅ **전파 완료(2026-08-13, spec `66a3dda` · `DEC-20260813-001`)** 🔶 rule
 - **증상:** `binding_overlays.gd`의 정체성 게이트 8종(`identity_marks`/`focuses`/`flanks`/`dot_heals`/`sanctuaries`/`overdrive`/`bloodgale`) + `signature_for`가 전부 **`(base_gear_id, identity_ab)` 쌍이 `OVERLAYS`에 등재돼야** true를 돌려줬다. 등재 gear는 8종뿐 → **스페어 gear 17종 중 13종의 시그니처가 죽어 있었다.**
   | gear | identity | 죽은 규약 |
   |---|---|---|
@@ -1580,10 +1580,10 @@
   - **호출부 30여 곳 시그니처 무변경** — 공개 함수는 여전히 `(base_gear_id, identity_ab)`를 받고 내부에서 프로필을 해소한다. 회귀면을 최소화하려는 의도.
 - **② 대안 기각:** `identity_ab`를 직접 키로 쓰는 안(a)은 거동이 같으면서 `F-020` §3.7 step 2/3 + Edge case를 **더 크게** 뜯어야 했다. 프로필 안은 스펙 이격이 "기본값 정의 1줄"로 줄고, gear별 변주 여지도 남는다.
 - **③ 뒤집힌 단언 2건:** `binding_smoke`의 *"gear가 다르면 결속 없음"*(`F-020` §3.7 Edge의 IDA-020+GEAR-012 예시)이 **의도적으로 반전**됐다. 굴림 정체성이 gear를 건너 따라가는 게 이제 정답이다. 정체성이 다르면 여전히 안 걸린다 — 프로필 키가 identity를 무시한다는 뜻이 아니다.
-- **분류·전파:** `D-019` §2/§3 `bindingProfileId` **기본값** + `F-020` §3.7 Edge case = **rule** → `OPS_30` 전파 대상. **미전파(`PENDING-PROP`)**.
+- **분류·전파:** `D-019` §2/§3 `bindingProfileId` **기본값** + `F-020` §3.7 Edge case = **rule** → **`OPS_30` 전파 완료**(`DEC-20260813-001`). 편집 = `D-019` §2/§3/§3.1/§10 · `F-020` §3.7 step2+Edge · `F-008` §3.9 · `ROLE-010` §4.5. 매퍼 drift 0 · xref 신규 0. **재핀 `baf0806` → `66a3dda`**.
 - **영향 파일:** `scripts/combat/abilities/bindings/binding_overlays.gd` · `tools/binding_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS**. **신규 전수 스윕**(`binding_smoke` M0b-5): 카탈로그 전 gear × 자기 정체성 → 시그니처 **작동 24종**(구 8종) · **규약미확정 3종**(`march_plate`·`march_set` IDA-022 / `sentinel_aegis` IDA-052 = U2, 곧 추가) · **죽은 것 0**. 굴림 교차검증(임의 Tank gear에 IDA-021 굴림 → 표식 유지) 포함.
-- **상태:** LOGGED · 구현 완료 · **스펙 역전파 대기**.
+- **상태:** ✅ RESOLVED — 구현·게이트·역전파·재핀 완료.
 
 ### DRIFT-139 — 스태시 시드가 하드코딩이라 폐기 AB를 물고 있었음 + 전 카탈로그 개방 🔷 code-bug + tuning(로깅만)
 - **① 유령 참조:** `stash.gd::_seed()`의 `skillbooks = ["AB-002","AB-010","AB-011","AB-037"]` 중 **`AB-037`은 [[DRIFT-111]]에서 폐기**(D1+D2 볼트 병합) — 카탈로그에 없다. `equip_skillbook_by_id`가 마스터 미발견 시 **조용히 return**하므로 실제로 3권만 들어왔고 아무도 몰랐다. gear도 하드코딩 15종이라 `tide_censer`·`hex_scope` 2종이 누락돼 있었다.
@@ -1596,3 +1596,22 @@
 - **영향 파일:** `scripts/autoload/stash.gd` · `scripts/autoload/hub_profile.gd` · `scripts/ui/inventory/inventory_ui.gd` · `scripts/ui/hub_economy_panel.gd` · `scripts/main.gd` · `scripts/party/party_member.gd` · `tools/hub_smoke.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **11/11 PASS** — 신규 "유령 참조 0건(시드·픽스처 전수)" + "Stash 시드 = 카탈로그 전량 49종".
 - **상태:** LOGGED. **교훈:** *조용한 실패는 두 번째부터 게이트로 막아야 한다 — 세 번째까지 코멘트로 버틴 대가가 이번 서베이 전체였다.*
+
+### DRIFT-140 — Tank 결속 규약 2종 신설: `IDA-022` 「진격」 · `IDA-052` 「응보」 ✅ **전파 완료(2026-08-13, spec `66a3dda` · `DEC-20260813-001`)** 🔶 rule
+- **배경(U2):** Tank Identity 4종 중 **2종에 결속 규약이 없었다.** [[DRIFT-138]]로 키를 고쳐 24종이 살아난 뒤에도 `march_plate`·`march_set`·`sentinel_aegis` 3 gear는 시그니처가 붙지 않았는데, 원인이 키가 아니라 **규약 미저작**이었다. 방치하면 *"이 정체성은 원래 결속이 없다"*로 읽힌다 — 2026-08-12에 코드 주석으로 「곧 추가 예정」을 못박아 둔 건이다.
+- **① 축 설계 — 겹치지 않게 잡는 것이 제약이었다.** Tank 기존 2축이 이미 「자기 누적→기절」(방벽)과 「대상 지정→쿨 환급」(표식)을 쓰고 있어, 남는 자리를 정체성 본체에서 찾았다.
+  | Identity | 본체 | 규약 축 | 구조 |
+  |---|---|---|---|
+  | `IDA-020` | shield_pulse | 자기 누적 | 서브마다 방벽 +1 → 3겹 기절 |
+  | `IDA-021` | beacon_threat | 대상 지정 | 표식 대상 추가 위협 → 처치 시 쿨 환급 |
+  | **`IDA-022`** | march_advance(전진+넉백) | **변위** | 서브가 밀어내기 획득 → 「밀림」 재차 밀면 Rooted |
+  | **`IDA-052`** | sentinel_form(DR+반사+이동잠금) | **피격 누적** | 태세 중 피격 누적 → 서브가 방출 · 종료 시 소멸 |
+- **② 「진격」이 본체와 이어지는 지점:** `IDA-022` 스펙 `comboRole: GEOMETRY` + `OPENER`(라인 정리)가 **정체성에만 있고 서브는 무관**했다. 규약이 그 성격을 링크 서브까지 관통시킨다 — 한 번은 자리만 바뀌고, 창 안에 또 밀면 무너진다.
+- **③ 「응보」가 반사와 다른 이유:** 본체가 이미 `reflect` 40%를 갖고 있어 "반사 강화"로 가면 중복이다. **즉시 되돌리는 반사** ↔ **모아서 터뜨리는 응보**로 갈랐고, 태세 종료 시 미사용분을 **소멸**시켜 "버티기만 하면 보상 없음"을 강제했다. 이동 잠금이라는 본체 대가에 맞물린다.
+- **④ 구현:** `SIGNATURE`/`GENERIC` 2종 등재 + delta `march_shove`/`retribution_release`(`ability_dispatch`) + per-enemy 「밀림」 상태(`enemy_unit.apply_shove`/`is_shoved`, 표식·집중과 동일 계열) + 캐스터 응보 누적(`party_member._retribution`, `take_damage` 훅 · 태세 종료 시 소멸 · 머리 위 배지).
+- **⑤ 부수 리팩터:** `signature_for`가 `OVERLAYS`를 스캔하고 있어 **변주를 저작하지 않은 정체성은 규약을 잃었다**(구 gear-키 시대 잔재). `_has_covenant`(SIGNATURE ∧ (GENERIC ∨ OVERLAYS))로 교체하고, 테마 게이트 7종의 동일 본문도 `_has_theme`(GENERIC ∨ OVERLAYS) 공용 술어로 합쳤다 — 규약 판정 SSOT가 한 곳이 된다.
+- **분류·전파:** 신규 결속 규약 = **rule** → **`OPS_30` 전파 완료**(`ROLE-010` §4.5 표 2종→4종 + `IDA-022`/`IDA-052` §Identity Keystone 신설). 수치(`MARCH`/`RETRIB`)는 **튜닝**.
+- **영향 파일:** `binding_overlays.gd` · `ability_dispatch.gd` · `enemy_unit.gd` · `party_member.gd` · `tools/binding_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS**. 전수 스윕 **작동 27종 · 규약미확정 0**(스윕이 미확정 잔존 시 실패하도록 단언 추가 — 다음 정체성 추가 때 저작 누락을 즉시 잡는다).
+- **잔여:** `BIND-###` **변주 미저작**(기본 델타만) — 슬롯별 변주는 플테 후. 진격/응보 수치도 플테 대상.
+- **상태:** ✅ RESOLVED.
