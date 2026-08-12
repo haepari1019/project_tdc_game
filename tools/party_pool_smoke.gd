@@ -752,10 +752,14 @@ func _initialize() -> void:
 	# 밴드가 실사거리와 어긋나면 **"10m에서 쏘는데 근접이라 보상은 최소"** 처럼 조용히 손해를 본다 —
 	# AB-106이 정확히 그랬다. 계수를 구동하는 건 잠행뿐이라 **누커 장착 가능 스킬만** 검사한다
 	# (Tank 전용 AB-035는 밴드가 아무것도 구동하지 않아 대상 밖).
-	# ⚠️ **모델 정정(DRIFT-135):** 처음엔 `Melee ≤ 4m`로 검사했는데 실물을 보니 틀린 모델이었다 —
-	#    `Melee` 밴드 9종 중 **8종이 `range_m` 자체가 없다**(자기중심). 즉 Melee의 실제 뜻은
-	#    "근접 사거리"가 아니라 **「자기중심 = 사거리 개념 없음」**이고, 임계값 문제가 아니었다.
-	#    유일한 예외 AB-035(5.0m 조준 광역 도발)는 잘못 붙어 있던 것이라 Mid로 정정했다.
+	# **`Melee` = 근접 교전 거리**(DRIFT-136). 두 형태를 **둘 다** 받는다:
+	#   ① 자기중심(`range_m` 없음) — 현재 8종이 이 형태다.
+	#   ② 조준 근접(`range_m` ≤ MELEE_MAX) — **근접 단일 공격**처럼 앞으로 들어올 형태.
+	# ⚠️ DRIFT-135에서 실물 8/9가 자기중심인 것만 보고 **「Melee = 자기중심」으로 과교정**했었다.
+	#    그러면 근접 단일이 들어올 자리가 없어진다(사용자 지적) — 확장성을 막는 규약이었다.
+	# 상한 4.0은 **실측에서 유도**: 파티 근접 평타 최대 3.5(tank beacon_hook) · 잠행 강제 근접 2.8 ·
+	#    적 근접 평타 최대 2.0. 그 다음 사거리 값이 **7.0**이라 3.5~7.0 사이에 실물이 없다 → 경계가 안전하다.
+	const MELEE_MAX := 4.0
 	var BAND_RANGE := {"Mid": [4.0, 12.0], "Long": [10.0, 9999.0]}
 	var band_n := 0
 	for ab in sd._registry_list("ability_ids"):
@@ -764,10 +768,11 @@ func _initialize() -> void:
 			continue
 		var bd := String(mb.get("range_band", ""))
 		var rm = mb.get("cast", {}).get("range_m")
-		# ① Melee = 자기중심. 사거리를 가지면 그건 Melee가 아니다(전 클래스 적용 — 계수와 무관한 규약).
+		# ① Melee = 근접 교전 거리 — 자기중심이거나 사거리가 MELEE_MAX 이내(전 클래스 적용).
 		if bd == "Melee":
 			band_n += 1
-			_chk("%s Melee = 자기중심(range_m 없음)" % ab, rm == null)
+			_chk("%s Melee = 근접(자기중심 or <= %.1fm)" % [ab, MELEE_MAX],
+				rm == null or float(rm) <= MELEE_MAX)
 			continue
 		# ② Mid/Long은 실사거리와 정합해야 한다 — 밴드가 잠행 결속 계수를 구동하므로 누커 장착분만.
 		if rm == null or not BAND_RANGE.has(bd):
