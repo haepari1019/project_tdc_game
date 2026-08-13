@@ -197,7 +197,7 @@ func _init() -> void:
 		"스타터 마석 시드 %d == manastones.json starter_grant %d" % [seed_ms, sd.manastone_starter_grant()])
 
 	# ②c 참 (M2 · F-010 §3.11) — 카탈로그·스타터·합산.
-	_expect(sd.get_charm_rows().size() == 5, "참 카탈로그 5종")
+	_expect(sd.get_charm_rows().size() == 7, "참 카탈로그 7종 (조건부 2 포함)")
 	_expect(not sd.get_charm("charm_ward_scale").is_empty(), "참 조회 — charm_ward_scale")
 	var seed_charms: Array = []
 	var bp3 = load("res://scripts/autoload/backpack.gd").new()
@@ -209,13 +209,39 @@ func _init() -> void:
 	var want_charms: Array = sd.charm_starter_grant()
 	_expect(seed_charms == want_charms,
 		"스타터 참 시드 %s == charms.json starter_grant %s" % [str(seed_charms), str(want_charms)])
-	# 효과 키가 apply_charms가 아는 축인지 — 오타 하나로 참이 조용히 무효가 된다.
-	var known := ["damage_taken_mult", "outgoing_mult", "move_mult", "attack_speed_mult", "reflect_flat"]
+	# 효과 키가 실제 소비처가 아는 축인지 — 오타 하나로 참이 조용히 무효가 된다.
+	# **정적**(apply_charms가 합산해 멤버에 push) / **조건부**(멤버가 charm_condition_met로 판정) 구분.
+	var known := ["damage_taken_mult", "outgoing_mult", "move_mult", "attack_speed_mult",
+		"reflect_flat", "threat_mult"]                      # 정적 = mods 키
+	var known_cond_eff := ["impair_resist_once"]            # 조건부 = 멤버가 직접 소비
 	var bad_eff: Array = []
 	for row in sd.get_charm_rows():
-		if not known.has(String(row.get("effect", ""))):
-			bad_eff.append("%s(%s)" % [row.get("charm_id", "?"), row.get("effect", "?")])
+		var eff2 := String(row.get("effect", ""))
+		var ok_eff: bool = known.has(eff2) if not row.has("condition") else known_cond_eff.has(eff2)
+		if not ok_eff:
+			bad_eff.append("%s(%s)" % [row.get("charm_id", "?"), eff2])
 	_expect(bad_eff.is_empty(), "참 effect 키 전부 유효 (%s)" % ("없음" if bad_eff.is_empty() else ", ".join(bad_eff)))
+	# CS-1(DEC-20260813-003) — 조건부 참 하드 제약. 스펙이 금지한 것들이 데이터로 새어 들어오면 잡는다.
+	var roles := ["Tank", "DPS", "Nuker", "Healer"]
+	var known_cond := ["has_shield"]
+	var bad_charm: Array = []
+	for row2 in sd.get_charm_rows():
+		var cid3 := String(row2.get("charm_id", "?"))
+		for r2 in row2.get("applies_to", []):
+			if not roles.has(String(r2)):
+				bad_charm.append("%s applies_to=%s" % [cid3, r2])
+		if row2.has("condition") and not known_cond.has(String(row2["condition"])):
+			bad_charm.append("%s condition=%s(미구현)" % [cid3, row2["condition"]])
+		# 🚨 F-010 §3.11.1 금지 — controlContext는 doctrine 전용(D-021), 참에 나타나면 오류.
+		if row2.has("controlContext") or row2.has("control_context"):
+			bad_charm.append("%s controlContext(참 금지 — doctrine 전용)" % cid3)
+		# 발동 입력 금지 — 시전·쿨·타겟·마석을 가지면 그 순간 AB-###이다.
+		for banned in ["cast_s", "cooldown_s", "target", "manastone_cost"]:
+			if row2.has(banned):
+				bad_charm.append("%s %s(발동 입력 — 참 금지)" % [cid3, banned])
+	_expect(bad_charm.is_empty(), "참 하드 제약 (%s)" % ("위반 없음" if bad_charm.is_empty() else ", ".join(bad_charm)))
+	# CS-1 1-9 — 폐기 대상 유령 참조: tank_bluster는 게임에 원래 없어야 한다.
+	_expect(sd.get_charm("tank_bluster").is_empty(), "tank_bluster 잔존 0 (Passive 폐기, DEC-20260813-003)")
 
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")

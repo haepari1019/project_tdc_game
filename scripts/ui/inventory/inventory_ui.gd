@@ -322,16 +322,27 @@ func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool, inst: Dic
 # --- 참 (F-010 §3.11) — 인벤 점유 stat 오오라 ----------------------------------
 
 ## 지금 백팩에 든 참들의 **합산 효과**. 같은 효과는 곱연산(반사만 합산) — 칸을 더 쓴 만큼 강해진다.
-## 파티 전원에 적용되는 오오라라 멤버별이 아니라 인벤 단위로 집계한다.
-func charm_mods() -> Dictionary:
+## 참은 인벤(파티 공용)이 소유하지만 **효과는 역할 한정일 수 있다**(`applies_to`) — `class_id`를 주면
+## 그 역할에 걸리는 것만 집계한다. 빈 문자열이면 무조건 참만(역할 한정 제외).
+##
+## **조건부 참**(`condition`, F-010 §3.11.1)은 여기서 계산하지 않는다 — 조건은 **멤버 상태**라 시점이
+## 달라진다(인벤을 닫을 때가 아니라 그 효과가 필요한 순간에 평가돼야 한다). id만 넘겨 멤버가 스스로
+## 판정한다(`charm_conditional_ids`).
+func charm_mods(class_id: String = "") -> Dictionary:
 	var out := {
 		"damage_taken_mult": 1.0, "outgoing_mult": 1.0,
 		"move_mult": 1.0, "attack_speed_mult": 1.0, "reflect_flat": 0.0,
+		"threat_mult": 1.0,
 	}
 	for it in _backpack.items:
 		if String(it.get("kind", "")) != "charm":
 			continue
 		var row: Dictionary = Slice01Data.get_charm(String(it.get("charm_id", "")))
+		if row.has("condition"):
+			continue                                   # 조건부 = 멤버가 평가(아래 charm_conditional_ids)
+		var scope: Array = row.get("applies_to", [])
+		if not scope.is_empty() and not scope.has(class_id):
+			continue                                   # 역할 한정 — 이 멤버엔 안 걸린다
 		var eff := String(row.get("effect", ""))
 		if not out.has(eff):
 			continue
@@ -339,6 +350,21 @@ func charm_mods() -> Dictionary:
 			out[eff] = float(out[eff]) + float(row.get("value", 0.0))
 		else:
 			out[eff] = float(out[eff]) * float(row.get("value", 1.0))
+	return out
+
+
+## 지금 들고 있는 **조건부 참** id 목록(역할 한정 필터 적용). 멤버가 자기 상태로 조건을 판정한다.
+func charm_conditional_ids(class_id: String = "") -> Array:
+	var out: Array = []
+	for it in _backpack.items:
+		if String(it.get("kind", "")) != "charm":
+			continue
+		var row: Dictionary = Slice01Data.get_charm(String(it.get("charm_id", "")))
+		if not row.has("condition"):
+			continue
+		var scope: Array = row.get("applies_to", [])
+		if scope.is_empty() or scope.has(class_id):
+			out.append(String(it.get("charm_id", "")))
 	return out
 
 

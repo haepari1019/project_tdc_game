@@ -119,6 +119,14 @@ var charm_outgoing_mult: float = 1.0
 var charm_move_mult: float = 1.0
 var charm_attack_speed_mult: float = 1.0
 var charm_reflect_flat: float = 0.0
+## F-022 §3.4 — 피해 기반 threat 배율에 곱하는 참 보정(CHARM-PROTO-006 「허장허세」 승계).
+## floor/pulse/fixed threat **직접 보정은 여전히 금지**(DEC-20260511-009 의도 보존) — 배율만.
+var charm_threat_mult: float = 1.0
+## F-010 §3.11.1 조건부 참 — 들고 있는 조건부 참 id들. **조건은 멤버 상태**라 인벤이 아니라 여기서
+## 평가한다(인벤을 닫는 시점이 아니라 효과가 필요한 순간이 판정 시점이다).
+var charm_conditions: Array = []
+## CHARM-PROTO-007 「가호」 — 보호막을 두른 동안 이동방해 1회 무효. 소진 플래그(보호막을 새로 얻으면 재충전).
+var _ward_guard_spent: bool = false
 var _sentinel_timer_s: float = 0.0
 var _sentinel_reflect: float = 0.0   # IDA-052 reflect fraction of incoming hits while the stance holds
 ## IDA-052 「응보」 결속 누적 — 태세 중 받은 피해 총량(경감 전 amount). 링크 서브 시전이 소모한다.
@@ -1186,7 +1194,9 @@ func popup_heal_split(base: float, bonus: float) -> void:
 		_FloatText.popup(self, "+%d" % int(round(bonus)), Color(1.0, 0.85, 0.4), 3.35)
 
 
+## 보호막을 새로 얻으면 「가호」가 재충전된다 — 참의 조건이 「Warded 보유 중」이라 보호막 사이클과 묶인다.
 func add_shield(value: float, duration: float) -> void:
+	_ward_guard_spent = false
 	if value >= shield:
 		popup_status("보호막", Color(0.4, 0.9, 1.0))
 		shield = value
@@ -1803,6 +1813,9 @@ func apply_poison(duration: float, dps: float) -> void:
 func apply_slow(factor: float, duration: float, quiet: bool = false) -> void:
 	if not _alive:
 		return
+	# 자기부여(Sentinel 태세 등, quiet)는 방해가 아니라 대가다 — 가호로 막지 않는다.
+	if not quiet and factor < 1.0 and _try_consume_ward_guard():
+		return
 	if _slow_timer <= 0.0 and not quiet:
 		popup_status("둔화", Color(0.5, 0.75, 1.0))
 	_slow_factor = factor
@@ -1830,13 +1843,38 @@ func hex_weak_mult() -> float:
 
 
 ## F-010 §3.11 — 런 인벤의 참 합산치를 이 멤버에 적재. CombatController가 인벤 변화 시 호출한다.
-func apply_charms(mods: Dictionary) -> void:
+func apply_charms(mods: Dictionary, conditional_ids: Array = []) -> void:
 	charm_damage_taken_mult = float(mods.get("damage_taken_mult", 1.0))
 	charm_outgoing_mult = float(mods.get("outgoing_mult", 1.0))
 	charm_move_mult = float(mods.get("move_mult", 1.0))
 	charm_attack_speed_mult = float(mods.get("attack_speed_mult", 1.0))
 	charm_reflect_flat = float(mods.get("reflect_flat", 0.0))
+	charm_threat_mult = float(mods.get("threat_mult", 1.0))
+	charm_conditions = conditional_ids
 	_recalc_damage_taken_mult()
+
+
+## F-010 §3.11.1 — 이 멤버가 `charm_id` 조건부 참의 **조건을 지금 충족하는가**.
+## 조건 어휘는 신규 문법을 만들지 않고 **기존 상태만** 참조한다(spec 하드 제약).
+## `controlContext`(조작 체류·인계·재스왑)는 **doctrine 전용**이라 여기 오면 안 된다 — F-030 §3.4.
+func charm_condition_met(charm_id: String) -> bool:
+	if not charm_conditions.has(charm_id):
+		return false
+	match String(Slice01Data.get_charm(charm_id).get("condition", "")):
+		"has_shield":
+			return shield > 0.0 or _ward_hp > 0.0   # spec 「Warded 보유 중」 → 게임의 보호막 보유
+		_:
+			return false
+
+
+## CHARM-PROTO-007 「가호 부적」 — 이동방해를 1회 무효화할 수 있으면 소진하고 true.
+## 보호막이 살아 있는 동안만 유효하고, 보호막을 새로 얻으면 재충전된다(아래 add_shield).
+func _try_consume_ward_guard() -> bool:
+	if _ward_guard_spent or not charm_condition_met("charm_ward_guard"):
+		return false
+	_ward_guard_spent = true
+	popup_status("가호 — 이동방해 무효", Color(0.7, 0.9, 1.0))
+	return true
 
 
 ## Provoke (AB-099): force this member to basic-attack `source`; movement/skills lock.
@@ -1884,6 +1922,9 @@ func move_speed_mult() -> float:
 ## knockback by the source; this carries the brief tag + the movement/DoT outcomes.
 func apply_outcome(id: String, dur: float, mag: float = 0.0) -> void:
 	if not _alive:
+		return
+	# CHARM-PROTO-007 — 이동방해 계열 1회 무효(보호막 보유 중). 하드 CC만 대상: 감속은 아래 apply_slow.
+	if id in ["Rooted", "Pinned", "Frozen"] and _try_consume_ward_guard():
 		return
 	if not _outcome.has(id) and _FloatText.OUTCOME_KO.has(id):
 		popup_status(_FloatText.OUTCOME_KO[id], Color(1.0, 0.7, 0.55))

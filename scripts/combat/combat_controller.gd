@@ -141,14 +141,17 @@ func set_inventory(inv: Node) -> void:
 ## 멤버가 스스로 알 수 없다. 인벤이 바뀌는 시점(런 시작·인벤 창 닫기·픽업)에 호출한다.
 ## 인벤 미연결(샌드박스)이면 중립값을 밀어 넣어 잔여 효과가 남지 않게 한다.
 func refresh_charms() -> void:
-	var mods: Dictionary = {}
-	if _inventory != null and _inventory.has_method("charm_mods"):
-		mods = _inventory.charm_mods()
 	if _party == null or not _party.has_method("get_members"):
 		return
+	var has_inv: bool = _inventory != null and _inventory.has_method("charm_mods")
 	for m in _party.get_members():
-		if m != null and is_instance_valid(m) and m.has_method("apply_charms"):
-			m.apply_charms(mods)
+		if m == null or not is_instance_valid(m) or not m.has_method("apply_charms"):
+			continue
+		# **멤버마다 따로 집계한다** — 참은 `applies_to`로 역할 한정될 수 있어(CHARM-PROTO-006 허장허세는
+		# Tank 전용) 하나의 합산치를 전원에 뿌리면 안 된다. 인벤 미연결(샌드박스)이면 중립값.
+		var cid := String(m.get("class_id"))
+		m.apply_charms(_inventory.charm_mods(cid) if has_inv else {},
+			_inventory.charm_conditional_ids(cid) if has_inv else [])
 
 
 func manastone_unlimited() -> bool:
@@ -639,7 +642,8 @@ func _deal_damage(enemy: CharacterBody3D, attacker: CharacterBody3D, dmg: float)
 	# — not per damaged target, so AOE subs don't stack into a max-out shake.)
 	_engage_enemy(enemy)
 	enemy.perceive_attacker(attacker)   # hit → search toward the attacker even with no LOS
-	enemy.add_threat(attacker, dmg * float(attacker.threat_mult))
+	# F-022 §3.4 — 피해 기반 threat = dmg × damageThreatMultiplier. 참(CHARM-PROTO-006)이 이 **배율만** 곱한다.
+	enemy.add_threat(attacker, dmg * float(attacker.threat_mult) * float(attacker.get("charm_threat_mult")))
 	if not _tank_engaged and String(attacker.get("class_id")) == "Tank":
 		_tank_engaged = true            # tank's first hit → open the 2nd-line dealer gate
 		tank_engaged.emit()

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "spec_commit_short": "09e045c",
+  "spec_commit_short": "fd317b3",
   "encounter_ids": [
     "ENC-NORM-001",
     "ENC-NORM-002",
@@ -270,7 +270,9 @@
     "charm_ember_edge",
     "charm_swift_step",
     "charm_thorn_ward",
-    "charm_quick_hand"
+    "charm_quick_hand",
+    "charm_bluster",
+    "charm_ward_guard"
   ],
   "_note_charm": "F-010 §3.11 참(charm) — 런 인벤 칸 점유 stat-only 오오라(액티브 아님). 카탈로그 = charms.json. spec CHARM-PROTO-001(Voltaic 저항)은 게임에 원소 저항 축이 없어 평타 속도로 대체(DRIFT-146).",
   "blueprint_ids": [
