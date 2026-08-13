@@ -23,6 +23,7 @@ const HAUL_MATERIALS_PATH := SLICE01_DIR + "haul_materials.json" # D-029 §3 hau
 const HAUL_DROPS_PATH := SLICE01_DIR + "haul_drops.json"        # HUB-COR-000 §3 ENC별 haul 드롭
 const DISPLAY_NAMES_PATH := SLICE01_DIR + "display_names.json"  # 유저용 표시명(백엔드 ID 분리, UI 전용)
 const MANASTONES_PATH := SLICE01_DIR + "manastones.json"         # F-009 §3.8 마석 — 슬롯 스킬 시전 소모
+const CHARMS_PATH := SLICE01_DIR + "charms.json"                 # F-010 §3.11 참 — 인벤 점유 stat 오오라
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -54,6 +55,8 @@ var _quests: Dictionary = {}          # questId -> {facility, tier, one_liner, c
 var _haul_materials: Dictionary = {}  # haulMaterialId -> {display, source}
 var _manastones: Dictionary = {}      # manastoneId -> row (M1 = ms_weak 하나)
 var _manastone_doc: Dictionary = {}   # 문서 전체(cast_cost_by_tier / starter_grant / drop)
+var _charms: Dictionary = {}          # charmId -> row (F-010 §3.11)
+var _charm_doc: Dictionary = {}       # 문서 전체(starter_grant)
 var _haul_drops: Dictionary = {}      # encounterId -> [{haul, qty, chance}] (HUB-COR-000 §3)
 
 
@@ -358,6 +361,21 @@ func get_manastone(id: String) -> Dictionary:
 	return _manastones.get(id, {})
 
 
+# --- 참 (F-010 §3.11) — 인벤 점유 stat 오오라 -----------------------------------
+
+func get_charm(id: String) -> Dictionary:
+	return _charms.get(id, {})
+
+
+func get_charm_rows() -> Array:
+	return _charms.values()
+
+
+## 첫 런 지급 참 id 목록(I-007 §14.3 — 소량).
+func charm_starter_grant() -> Array:
+	return _charm_doc.get("starter_grant", [])
+
+
 ## 이 서브 스킬 1회 시전에 드는 마석 수. **스킬 tier 차등**(사용자 결정, 안 (나)):
 ## Basic 1 / Advanced 2 / Master 3. 행에 `manastone_cost`가 있으면 그것이 이긴다(per-AB 예외).
 ## 마스터를 못 찾으면 0 — **모르는 스킬에 세금을 물리지 않는다**(조용한 시전 실패 방지).
@@ -437,6 +455,7 @@ func _load_and_validate() -> bool:
 	var haul_doc := _read_json_dict(HAUL_MATERIALS_PATH, "haul_materials", errors)
 	var haul_drops_doc := _read_json_dict(HAUL_DROPS_PATH, "haul_drops", errors)
 	var manastones_doc := _read_json_dict(MANASTONES_PATH, "manastones", errors)
+	var charms_doc := _read_json_dict(CHARMS_PATH, "charms", errors)
 	_display = _read_json_dict(DISPLAY_NAMES_PATH, "display_names", errors)   # UI 라벨(검증 없음 — gameplay 아님)
 
 	if errors.is_empty():
@@ -446,6 +465,7 @@ func _load_and_validate() -> bool:
 		_parse_skillbooks(skillbooks_doc, errors)
 		_parse_consumables(consumables_doc, errors)
 		_parse_manastones(manastones_doc, errors)
+		_parse_charms(charms_doc, errors)
 		_parse_enemy_basics(enemy_basics_doc, errors)
 		_parse_patterns(patterns_doc, errors)
 		_parse_enemies(enemies_doc, errors)
@@ -654,6 +674,19 @@ func _parse_spawn_table(doc: Dictionary, errors: Array[String]) -> void:
 
 ## Hub (F-029/D-029): 시설 Tier 표 · 승급 퀘스트 · haul 카탈로그. ID는 id_registry로 검증;
 ## 시설 Tier 행의 quest/haul 참조도 등록 ID인지 검증(armory catalog gear는 GEAR-COR-000 후속이라 미검증).
+## 참 카탈로그 — id_registry `charm_ids`와 1:1 검증(미등록 → abort).
+func _parse_charms(doc: Dictionary, errors: Array[String]) -> void:
+	_charms.clear()
+	_charm_doc = doc
+	var allowed: Array = _registry_list("charm_ids")
+	for row in doc.get("charms", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var cid := String(row.get("charm_id", ""))
+		IdValidate.require_id(cid, allowed, "charm_id", errors)
+		_charms[cid] = row
+
+
 ## 마석 카탈로그 — id_registry `manastone_ids`와 1:1 검증(미등록 → abort). 문서 전체를 보관해
 ## 비용표·스타터·드롭 설정을 게터가 읽는다.
 func _parse_manastones(doc: Dictionary, errors: Array[String]) -> void:

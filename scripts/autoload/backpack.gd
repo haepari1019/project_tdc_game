@@ -84,6 +84,10 @@ func _seed() -> void:
 		# 잠긴다.** 수량 SSOT는 `manastones.json` `starter_grant`지만, 시드는 오토로드 순서상
 		# Slice01Data 조회 전이라 여기에 값을 복제해 둔다 — 둘이 어긋나지 않게 `hub_smoke`가 대조한다.
 		{"id": "약한 마석", "kind": "manastone", "manastone_id": "ms_weak", "count": 40, "w": 1, "h": 1, "at_risk": true},
+		# F-010 §3.11 참 — 첫 런 소량(I-007 §14.3). 마석과 **직교하는 압력**이다: 마석은 쓰면 줄고,
+		# 참은 줄지 않는 대신 **칸을 계속 먹는다**. id 목록 SSOT = charms.json starter_grant(hub_smoke 대조).
+		{"id": "비늘 부적", "kind": "charm", "charm_id": "charm_ward_scale", "w": 1, "h": 1, "at_risk": true},
+		{"id": "바람 부적", "kind": "charm", "charm_id": "charm_swift_step", "w": 1, "h": 1, "at_risk": true},
 	]
 	# Worn starter Identity Gear per role (F-008 §3.7). Gear lives in equipped (Safe on death),
 	# NOT in the Stash library — equipping a spare from the stash consumes it; the worn gear here.
@@ -224,7 +228,7 @@ func capture_from_party(party) -> void:
 ## item dict so only the persistent descriptor is stored. Color is rebuilt from kind/id on load.
 func _strip(it: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
-	for key in ["id", "kind", "base_gear_id", "base_ability_id", "haul_material_id", "manastone_id",
+	for key in ["id", "kind", "base_gear_id", "base_ability_id", "haul_material_id", "manastone_id", "charm_id",
 			"consumable_id", "w", "h", "count", "charges", "charges_max", "at_risk", "equipped",
 			"rolled_identity_skill_id", "rolls",    # F-008 §3.7 gear 인스턴스 굴림 보존(G2)
 			"affix"]:                               # D-018 §7.3/§7.6 스킬북 affix 인스턴스 보존

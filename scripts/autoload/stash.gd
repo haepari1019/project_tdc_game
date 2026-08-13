@@ -8,6 +8,7 @@ var gear: Array = []               # owned gear 인스턴스 {base_gear_id, roll
 var skillbooks: Array = []         # owned 스킬북 인스턴스 {base_ability_id, affix?, charges?} — D-018 §7.3. 레거시=문자열(로드 시 정규화).
 var consumables: Dictionary = {}   # consumable_id -> count owned
 var manastones: Dictionary = {}     # manastone_id -> count owned (F-009 §3.8 — 허브 보관분)
+var charms: Array = []              # charm_id 목록 (F-010 §3.11 — **비스택**: 같은 참 2개 = 항목 2개)
 # 재료(haul)는 일반 스태시가 아니라 HubProfile 금고(vault)에 일원화 — 별도 store 두지 않음(혼란 방지).
 
 # 영속 = SaveProfile 단일 파일(user://save.json)의 "stash" 섹션 (구 user://stash.json은 1회 마이그레이션).
@@ -35,7 +36,7 @@ func save_stash() -> void:
 
 
 func to_dict() -> Dictionary:
-	return {"gear": gear, "skillbooks": skillbooks, "consumables": consumables, "manastones": manastones}
+	return {"gear": gear, "skillbooks": skillbooks, "consumables": consumables, "manastones": manastones, "charms": charms}
 
 
 func apply_dict(d: Dictionary) -> void:
@@ -45,6 +46,7 @@ func apply_dict(d: Dictionary) -> void:
 	_normalize_skillbooks()   # 레거시 세이브(문자열 skillbook) → 인스턴스 dict 마이그레이션
 	consumables = d.get("consumables", {})
 	manastones = d.get("manastones", {})
+	charms = d.get("charms", [])
 	_seeded = true
 
 
@@ -104,6 +106,10 @@ func _seed_from_catalog() -> bool:
 	# `sd`는 get_node_or_null 반환이라 untyped → `:=` 추론이 안 된다(파스 에러). 명시 타입 필수.
 	var msid: String = String(sd.default_manastone_id())
 	manastones = {msid: int(sd.manastone_starter_grant())} if msid != "" else {}
+	# 허브 보관 참 — 플테용으로 카탈로그 전량(칸 압력을 직접 느껴 보려면 손이 닿아야 한다).
+	charms = []
+	for crow in sd.get_charm_rows():
+		charms.append(String(crow.get("charm_id", "")))
 	_normalize_gear()         # 시드는 문자열로 적고 인스턴스로 정규화(roll/affix 없음=base)
 	_normalize_skillbooks()
 	return true
@@ -124,6 +130,7 @@ func reset_to_seed() -> void:
 	skillbooks = []
 	consumables = {}
 	manastones = {}
+	charms = []
 	_seeded = false
 	_seed()
 	if _seeded:

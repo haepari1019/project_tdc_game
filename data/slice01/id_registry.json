@@ -265,6 +265,14 @@
     "ms_weak"
   ],
   "_note_manastone": "F-009 §3.8 마석 — 슬롯 스킬 시전 소모(Identity 무소모). M1 = ms_weak 하나; 티어 확대는 M7. 카탈로그 = manastones.json.",
+  "charm_ids": [
+    "charm_ward_scale",
+    "charm_ember_edge",
+    "charm_swift_step",
+    "charm_thorn_ward",
+    "charm_quick_hand"
+  ],
+  "_note_charm": "F-010 §3.11 참(charm) — 런 인벤 칸 점유 stat-only 오오라(액티브 아님). 카탈로그 = charms.json. spec CHARM-PROTO-001(Voltaic 저항)은 게임에 원소 저항 축이 없어 평타 속도로 대체(DRIFT-146).",
   "blueprint_ids": [
     "DBP-DEMO-001"
   ],

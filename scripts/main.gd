@@ -229,6 +229,11 @@ func _build_stash_items() -> Array:
 		var it: Dictionary = _inv.make_manastone_stash_item(String(mid), int(_stash.manastones[mid]))
 		if not it.is_empty():
 			items.append(it)
+	# F-010 §3.11 참 — 비스택이라 개수만큼 타일을 만든다(칸을 먹는 게 곧 대가).
+	for cid2 in _stash.charms:
+		var it: Dictionary = _inv.make_charm_stash_item(String(cid2))
+		if not it.is_empty():
+			items.append(it)
 	return items
 
 
@@ -282,6 +287,7 @@ func _sync_stash_from_source() -> void:
 	var skillbooks: Array = []
 	var consumables: Dictionary = {}
 	var manastones: Dictionary = {}
+	var charms: Array = []
 	# 그리드에 자리가 없어 표시되지 못한 소유분을 **먼저 되돌려 넣는다.** 이 sync는 Stash를 통째로
 	# 재작성하므로, 안 보인 아이템 = 영구 삭제였다(과거 실사고). 이제 그리드 크기와 소유가 분리된다.
 	var src: Array = (_stash_src.items as Array).duplicate()
@@ -312,12 +318,14 @@ func _sync_stash_from_source() -> void:
 			"manastone":
 				var mid := String(it.get("manastone_id", ""))
 				manastones[mid] = int(manastones.get(mid, 0)) + int(it.get("count", 1))
+			"charm":
+				charms.append(String(it.get("charm_id", "")))   # 비스택 — 항목 수 = 칸 수
 			_:
 				# ⚠️ **모르는 kind = 조용한 삭제**였다. 이 sync는 Stash를 통째로 재작성하므로 분기가
 				# 없는 종류는 그대로 증발한다 — 마석이 정확히 이랬다(M1이 런 쪽만 배선, DRIFT-145).
 				# **새 아이템 종류를 추가하면 여기 + `_build_stash_items` 둘 다 봐야 한다.**
 				push_warning("[TDC] 스태시 sync — 미처리 kind '%s' (소유 유실 위험)" % String(it.get("kind", "")))
-	_stash.apply_dict({"gear": gear, "skillbooks": skillbooks, "consumables": consumables, "manastones": manastones})
+	_stash.apply_dict({"gear": gear, "skillbooks": skillbooks, "consumables": consumables, "manastones": manastones, "charms": charms})
 	_stash.save_stash()
 
 

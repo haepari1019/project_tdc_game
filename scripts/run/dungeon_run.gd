@@ -182,6 +182,7 @@ func _ready() -> void:
 	$HUD.add_child(_inventory_ui)
 	_inventory_ui.setup_party(_party, _combat)  # party gear equip slots (F-008 §3.2)
 	_combat.set_inventory(_inventory_ui)        # F-009 §3.8 마석 — 슬롯 스킬 시전 소모원
+	_inventory_ui.charms_changed.connect(_combat.refresh_charms)   # F-010 §3.11 참 오오라 재적재
 	var consumable_bar := ConsumableBar.new()  # Z/X/C consumable hotkeys above the char sheet
 	$HUD.add_child(consumable_bar)
 	_inventory_ui.setup_consumable_bar(consumable_bar)

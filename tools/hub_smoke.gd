@@ -196,6 +196,27 @@ func _init() -> void:
 	_expect(seed_ms == sd.manastone_starter_grant(),
 		"스타터 마석 시드 %d == manastones.json starter_grant %d" % [seed_ms, sd.manastone_starter_grant()])
 
+	# ②c 참 (M2 · F-010 §3.11) — 카탈로그·스타터·합산.
+	_expect(sd.get_charm_rows().size() == 5, "참 카탈로그 5종")
+	_expect(not sd.get_charm("charm_ward_scale").is_empty(), "참 조회 — charm_ward_scale")
+	var seed_charms: Array = []
+	var bp3 = load("res://scripts/autoload/backpack.gd").new()
+	bp3._seed()
+	for it3 in bp3.loose:
+		if String(it3.get("kind", "")) == "charm":
+			seed_charms.append(String(it3.get("charm_id", "")))
+	bp3.free()
+	var want_charms: Array = sd.charm_starter_grant()
+	_expect(seed_charms == want_charms,
+		"스타터 참 시드 %s == charms.json starter_grant %s" % [str(seed_charms), str(want_charms)])
+	# 효과 키가 apply_charms가 아는 축인지 — 오타 하나로 참이 조용히 무효가 된다.
+	var known := ["damage_taken_mult", "outgoing_mult", "move_mult", "attack_speed_mult", "reflect_flat"]
+	var bad_eff: Array = []
+	for row in sd.get_charm_rows():
+		if not known.has(String(row.get("effect", ""))):
+			bad_eff.append("%s(%s)" % [row.get("charm_id", "?"), row.get("effect", "?")])
+	_expect(bad_eff.is_empty(), "참 effect 키 전부 유효 (%s)" % ("없음" if bad_eff.is_empty() else ", ".join(bad_eff)))
+
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")
 	for cls in sandbox.SANDBOX_SUBS:

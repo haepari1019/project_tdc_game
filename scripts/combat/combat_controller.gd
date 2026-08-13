@@ -137,6 +137,20 @@ var _inventory: Node = null
 func set_inventory(inv: Node) -> void:
 	_inventory = inv
 
+## F-010 §3.11 「참」 — 런 인벤의 참 합산을 파티 전원에 적재한다. 참은 **인벤이 소유자**(칸이 대가)라
+## 멤버가 스스로 알 수 없다. 인벤이 바뀌는 시점(런 시작·인벤 창 닫기·픽업)에 호출한다.
+## 인벤 미연결(샌드박스)이면 중립값을 밀어 넣어 잔여 효과가 남지 않게 한다.
+func refresh_charms() -> void:
+	var mods: Dictionary = {}
+	if _inventory != null and _inventory.has_method("charm_mods"):
+		mods = _inventory.charm_mods()
+	if _party == null or not _party.has_method("get_members"):
+		return
+	for m in _party.get_members():
+		if m != null and is_instance_valid(m) and m.has_method("apply_charms"):
+			m.apply_charms(mods)
+
+
 func manastone_unlimited() -> bool:
 	return _inventory == null or not _inventory.has_method("manastone_count")
 

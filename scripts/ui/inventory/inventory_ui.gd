@@ -14,6 +14,9 @@ const ConsumableController := preload("res://scripts/ui/inventory/consumable_con
 signal consumable_use_requested(consumable_id: String)  # right-click a consumable → use it
 signal item_dropped(item: Dictionary)          # Shift+우클릭 백팩 아이템 → 바닥에 드롭(런: 호스트가 ItemDrop 생성)
 signal stash_item_discarded(item: Dictionary)  # Shift+우클릭 스태시 아이템 → 소유 영구 제거(허브: 호스트가 Stash 갱신)
+## F-010 §3.11 — 백팩의 참 구성이 바뀌었을 수 있다(창 닫기·픽업·드롭). 호스트가 오오라를 재적재한다.
+## **닫을 때 한 번**만 쏜다: 드래그 중간 상태마다 재계산하면 들었다 놨다에 스탯이 출렁인다.
+signal charms_changed
 
 const CELL := 48
 const GAP := 4
@@ -203,6 +206,7 @@ func _open() -> void:
 
 
 func _close() -> void:
+	charms_changed.emit()   # 편집 결과 확정 → 참 오오라 재적재
 	if _chest != null:                          # persist what's left in the chest
 		_chest.items = _loot.export_items()
 		_loot.clear()
@@ -313,6 +317,37 @@ func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool, inst: Dic
 	if _run_carry_full():
 		return false
 	return _backpack.add_item_dict(item)
+
+
+# --- 참 (F-010 §3.11) — 인벤 점유 stat 오오라 ----------------------------------
+
+## 지금 백팩에 든 참들의 **합산 효과**. 같은 효과는 곱연산(반사만 합산) — 칸을 더 쓴 만큼 강해진다.
+## 파티 전원에 적용되는 오오라라 멤버별이 아니라 인벤 단위로 집계한다.
+func charm_mods() -> Dictionary:
+	var out := {
+		"damage_taken_mult": 1.0, "outgoing_mult": 1.0,
+		"move_mult": 1.0, "attack_speed_mult": 1.0, "reflect_flat": 0.0,
+	}
+	for it in _backpack.items:
+		if String(it.get("kind", "")) != "charm":
+			continue
+		var row: Dictionary = Slice01Data.get_charm(String(it.get("charm_id", "")))
+		var eff := String(row.get("effect", ""))
+		if not out.has(eff):
+			continue
+		if eff == "reflect_flat":
+			out[eff] = float(out[eff]) + float(row.get("value", 0.0))
+		else:
+			out[eff] = float(out[eff]) * float(row.get("value", 1.0))
+	return out
+
+
+## 참을 백팩에 넣는다(드롭/스타터). 비스택이라 칸이 없으면 실패한다.
+func add_charm_to_backpack(charm_id: String, at_risk: bool = true) -> bool:
+	var row: Dictionary = Slice01Data.get_charm(charm_id)
+	if row.is_empty() or _run_carry_full():
+		return false
+	return _backpack.add_item_dict(ItemFactory.charm_item(charm_id, String(row.get("display_name", charm_id)), at_risk))
 
 
 # --- 마석 (F-009 §3.8) — 슬롯 스킬 시전 자원 -----------------------------------
@@ -469,6 +504,8 @@ func _load_backpack_from_autoload() -> void:
 				add_haul_to_backpack(String(d.get("haul_material_id", "")), bool(d.get("at_risk", true)), int(d.get("count", 1)))
 			"manastone":
 				add_manastone_to_backpack(int(d.get("count", 1)), bool(d.get("at_risk", true)))
+			"charm":
+				add_charm_to_backpack(String(d.get("charm_id", "")), bool(d.get("at_risk", true)))
 			"consumable":
 				add_consumable_to_backpack(String(d.get("consumable_id", "")), int(d.get("count", 1)))
 			_:
@@ -520,6 +557,14 @@ func make_skillbook_stash_item(inst) -> Dictionary:
 		if (inst as Dictionary).has("charges"):
 			it["charges"] = int((inst as Dictionary)["charges"])
 	return it
+
+
+## 스태시 참 타일 — 허브 보관분(F-010 §3.11). 비스택이라 1항목 = 1타일.
+func make_charm_stash_item(charm_id: String) -> Dictionary:
+	var row: Dictionary = Slice01Data.get_charm(charm_id)
+	if row.is_empty():
+		return {}
+	return ItemFactory.charm_item(charm_id, String(row.get("display_name", charm_id)), false)
 
 
 ## 스태시 마석 타일 — 허브 보관분(F-009 §3.8). 백팩(반입분)과는 별개 저장소다.

@@ -46,6 +46,19 @@ static func haul_item(haul_material_id: String, display: String, at_risk: bool, 
 	}
 
 
+## Backpack item dict from a charm (1×1) — F-010 §3.11. **스택하지 않는다**: 같은 참을 2개 들면
+## 칸도 2개를 먹어야 「칸 vs 파워」 긴장이 성립한다(스택되면 공짜로 두 배가 된다).
+static func charm_item(charm_id: String, display: String, at_risk: bool) -> Dictionary:
+	return {
+		"id": display if not display.is_empty() else charm_id,
+		"w": 1, "h": 1,
+		"color": Color(0.85, 0.70, 0.35),   # 호박색 — 마석(보라)·재료(황토)·소비(청록)와 구분
+		"kind": "charm",
+		"charm_id": charm_id,
+		"at_risk": at_risk,
+	}
+
+
 ## Backpack item dict from a manastone (1×1 스택) — F-009 §3.8. 슬롯 스킬 시전 소모 자원.
 ## 런 인벤에 있을 때만 At-Risk(F-007 §3.7.3a) → 탈출 성공 시 stash Safe. haul과 같은 스택 타일 모델.
 static func manastone_item(manastone_id: String, display: String, at_risk: bool, count: int = 1, max_stack: int = 99) -> Dictionary:

@@ -1,0 +1,48 @@
+{
+  "_ref": "spec F-010 §3.11 (참 그리드) · I-007 §7. **액티브 스킬 아님**(D-016 §1.1) — 런 인벤 칸을 점유하는 stat-only 오오라. 시전·쿨 없음. 들고 있을 때만 적용 = 「칸 vs 파워」 긴장. At Risk → 탈출 성공 시 stash Safe(F-007 §3.7.3a).",
+
+  "_note_axis": "spec 프로토 5종 중 **`CHARM-PROTO-001` Voltaic 저항 +5%는 게임에 축이 없다** — `take_damage(amount, attacker, from_ability)`에 element 인자가 없어 원소별 저항이 존재하지 않는다. 한 개 참을 위해 원소 저항 축을 신설하는 건 과한 스코프라, 그 자리를 **평타 속도**로 대체했다(별개 축 유지). 원소 저항이 다른 이유로 생기면 그때 복원한다. ref: DRIFT-146.",
+  "_note_tuning": "`CHARM-PROTO-002`는 spec이 「Slag 피해 +8%」로 **원소 한정**이었다 — 게임엔 그 축이 없어 일반화하면 **상시 적용이라 훨씬 세진다**. 그래서 8% → 5%로 낮췄다. 전부 tuning.",
+  "_note_stack": "동일 참을 여러 개 들면 **곱연산으로 중첩**된다(칸을 더 쓰는 만큼 강해진다 = 설계 의도). 상한은 두지 않았다 — 운반 한도(quartermaster)가 이미 상한이다.",
+
+  "charms": [
+    {
+      "charm_id": "charm_ward_scale",
+      "display_name": "비늘 부적",
+      "effect": "damage_taken_mult",
+      "value": 0.95,
+      "desc": "받는 피해 −5%"
+    },
+    {
+      "charm_id": "charm_ember_edge",
+      "display_name": "불티 부적",
+      "effect": "outgoing_mult",
+      "value": 1.05,
+      "desc": "주는 피해 +5%"
+    },
+    {
+      "charm_id": "charm_swift_step",
+      "display_name": "바람 부적",
+      "effect": "move_mult",
+      "value": 1.03,
+      "desc": "이동 속도 +3%"
+    },
+    {
+      "charm_id": "charm_thorn_ward",
+      "display_name": "가시 부적",
+      "effect": "reflect_flat",
+      "value": 3.0,
+      "desc": "근접 피격 시 고정 반사 3"
+    },
+    {
+      "charm_id": "charm_quick_hand",
+      "display_name": "속결 부적",
+      "effect": "attack_speed_mult",
+      "value": 1.06,
+      "desc": "평타 속도 +6%"
+    }
+  ],
+
+  "_note_starter": "첫 런 저급 참 0~2종 지급(I-007 §14.3) — 마석과 직교하는 압력이라 소량만.",
+  "starter_grant": ["charm_ward_scale", "charm_swift_step"]
+}

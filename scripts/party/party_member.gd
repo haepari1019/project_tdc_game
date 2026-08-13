@@ -111,6 +111,14 @@ var _poison_dur: float = 1.0
 var _shield_dur: float = 1.0
 # F-008 Sentinel Form (IDA-052) — temporary turtle-stance damage reduction (1.0 = none) + timer.
 var damage_taken_mult: float = 1.0
+# F-010 §3.11 「참」 오오라 — 인벤에 참을 들고 있는 동안만 적용되는 파티 전원 stat. **멤버가 아니라
+# 런 인벤이 소유자**라(칸을 먹는 게 대가) CombatController가 집계해 여기로 push한다(`apply_charms`).
+# 매 히트마다 인벤을 뒤지지 않으려는 캐시이며, 인벤이 바뀌면 push가 다시 온다.
+var charm_damage_taken_mult: float = 1.0
+var charm_outgoing_mult: float = 1.0
+var charm_move_mult: float = 1.0
+var charm_attack_speed_mult: float = 1.0
+var charm_reflect_flat: float = 0.0
 var _sentinel_timer_s: float = 0.0
 var _sentinel_reflect: float = 0.0   # IDA-052 reflect fraction of incoming hits while the stance holds
 ## IDA-052 「응보」 결속 누적 — 태세 중 받은 피해 총량(경감 전 amount). 링크 서브 시전이 소모한다.
@@ -1091,6 +1099,10 @@ func take_damage(amount: float, attacker: Node = null, from_ability: bool = fals
 	if _sentinel_reflect > 0.0 and _sentinel_timer_s > 0.0 and attacker != null \
 			and is_instance_valid(attacker) and attacker.has_method("take_damage"):
 		attacker.take_damage(amount * _sentinel_reflect, self)   # attacker=self → 반사 처치도 파티 킬(전리품 귀속)
+	# F-010 §3.11 「가시 부적」 — 고정값 반사. 비율 반사(Sentinel/AB-048)와 **다른 축**이다: 작은 피격에도
+	# 같은 값이 돌아가 잡몹 다수전에서 의미가 커진다. 참을 들고 있는 동안 상시(태세·쿨 없음).
+	if charm_reflect_flat > 0.0 and attacker != null and is_instance_valid(attacker) 			and attacker.has_method("take_damage"):
+		attacker.take_damage(charm_reflect_flat, self)
 	# IDA-052 「응보」 결속 — 태세 중 **맞은 만큼** 응보를 쌓는다. 반사와 별개 축이다: 반사는 즉시
 	# 되돌리고, 응보는 모아 뒀다가 링크 스킬로 터뜨린다. 태세가 아니면 안 쌓인다 = 버티는 선택의 보상.
 	# 규약 게이트(정체성 착용 여부)는 시전 쪽(ability_dispatch)이 본다 — 여기선 누적만 한다.
@@ -1286,7 +1298,7 @@ func apply_damage_reduction(dr: float, dur: float, label: String = "피해 감�
 
 ## 최종 피해 배율 = Sentinel 배율 × 모든 DR 스택의 **곱연산**. 스택이 바뀔 때마다 재계산.
 func _recalc_damage_taken_mult() -> void:
-	var m := _sentinel_dr_mult
+	var m := _sentinel_dr_mult * charm_damage_taken_mult
 	for st in _dr_stacks:
 		m *= clampf(1.0 - float(st["frac"]), 0.0, 1.0)
 	damage_taken_mult = clampf(m, 0.0, 1.0)
@@ -1348,7 +1360,8 @@ func apply_haste(pct: float, dur: float) -> void:
 
 ## Effective basic-attack interval (Haste shortens it). combat_controller reads this, not basic_interval_s.
 func attack_interval() -> float:
-	return basic_interval_s / (1.0 + _outcome.mag("Hastened"))   # Hastened 없으면 mag 0 → basic
+	# 「참」 공속은 간격을 나눈다(배율 ↑ = 간격 ↓). Hastened와 곱연산 규약 동일.
+	return basic_interval_s / ((1.0 + _outcome.mag("Hastened")) * charm_attack_speed_mult)
 
 
 ## F-009 Veiled (Smoke Veil AB-062) — brief stealth escape. While veiled, enemy targeting drops
@@ -1810,8 +1823,20 @@ func apply_hex_weak(factor: float, duration: float) -> void:
 
 
 ## Current outgoing-damage multiplier from HEX-WEAK (1.0 when not hexed / expired).
+## 「참」 오오라(`charm_outgoing_mult`)를 함께 곱한다 — 나가는 피해 choke가 한 곳이라 여기서 합친다.
 func hex_weak_mult() -> float:
-	return _hexweak_mult if _hexweak_timer_s > 0.0 else 1.0
+	var hex := _hexweak_mult if _hexweak_timer_s > 0.0 else 1.0
+	return hex * charm_outgoing_mult
+
+
+## F-010 §3.11 — 런 인벤의 참 합산치를 이 멤버에 적재. CombatController가 인벤 변화 시 호출한다.
+func apply_charms(mods: Dictionary) -> void:
+	charm_damage_taken_mult = float(mods.get("damage_taken_mult", 1.0))
+	charm_outgoing_mult = float(mods.get("outgoing_mult", 1.0))
+	charm_move_mult = float(mods.get("move_mult", 1.0))
+	charm_attack_speed_mult = float(mods.get("attack_speed_mult", 1.0))
+	charm_reflect_flat = float(mods.get("reflect_flat", 0.0))
+	_recalc_damage_taken_mult()
 
 
 ## Provoke (AB-099): force this member to basic-attack `source`; movement/skills lock.
@@ -1848,6 +1873,7 @@ var combat_slowed: bool = false
 
 func move_speed_mult() -> float:
 	var m := _slow_factor if _slow_timer > 0.0 else 1.0
+	m *= charm_move_mult       # 「참」 오오라
 	m *= _outcome.move_mult()  # slow × elemental × boost × Haste — 전부 move_mult 곱연산으로 통합
 	if combat_slowed:
 		m *= COMBAT_MOVE_MULT  # 비전투는 현행(스프린트), 전투 시 2/3
