@@ -364,7 +364,15 @@ func _march_shove(member: CharacterBody3D, aim: Vector3) -> void:
 			dir = Vector3.FORWARD
 		# **밀어내기가 먼저**다. 2타째(캡스톤)에도 밀림은 그대로 일어나고, **밀려난 그 자리에서** 속박이
 		# 걸린다(사용자, 2026-08-13) — 속박부터 걸면 "붙잡혔으니 안 밀린다"로 읽혀 진격이라는 축이 죽는다.
-		# 넉백은 kb_vel 채널이라 Rooted(이동 배수 0)와 독립적으로 굴러간다 → 순서만 맞추면 둘 다 성립.
+		#
+		# ⚠️ **「넉백 우선」의 실제 강제 지점은 여기가 아니라 `enemy_ai`의 틱 순서다**(DRIFT-143).
+		# `apply_knockback`은 즉시 이동이 아니라 `kb_vel`을 KB_TIME에 걸쳐 미는 예약이라, 이 함수 안에서
+		# 순서를 바꿔도 **같은 프레임엔 아무 차이가 없다**. 실제로 순서를 뒤집던 건 적 AI가 기절 게이트를
+		# `tick_knockback`보다 먼저 태워 기절 중 넉백이 아예 안 굴러가던 것이었다. 여기 순서는 읽는
+		# 사람을 위한 규약 표현이고, 강제는 `enemy_ai._tick_*`가 한다.
+		#
+		# **CC 중첩:** 서브 자체의 기절과 캡스톤 속박은 **같은 프레임에 나란히** 걸린다(별개 타이머가
+		# 동시 진행) → 총 행동불가 = max(기절, 속박)이지 합이 아니다. 순차로 이어붙지 않는다.
 		var capstone: bool = e.has_method("is_shoved") and e.is_shoved()
 		if e.has_method("apply_knockback"):
 			e.apply_knockback(dir.normalized(), float(mc["shove_m"]))

@@ -359,6 +359,11 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 	# (no resolve; its cooldown stays consumed). Player counterplay: stun EN-001 mid-Mockery.
 	# 빙결(Frozen, AB-111)은 스턴과 **같은 게이트**를 탄다 — "모든 행동 금지"라 캐스트·돌진 중단 + 정지.
 	# 원천만 다르다(스턴=타이머 필드 / 빙결=outcome 컨테이너). ref: DRIFT-115.
+	# 넉백은 **물리 변위**라 행동 금지와 무관하다 — 기절/빙결 중에도 밀린다. 예전엔 이 게이트가
+	# tick_knockback보다 위에 있어서 기절 중 `kb_timer`가 아예 틱하지 않았고, 그래서 **기절이 풀린 뒤에야
+	# 밀려나는** 순서 역전이 났다(진격 결속 + 기절 서브 조합에서 발각, DRIFT-143). 밀치고 기절시켰는데
+	# 기절이 끝나고 나서 밀리면 인과가 뒤집힌다.
+	var kb: bool = enemy.tick_knockback(delta)
 	if enemy.is_stunned() or enemy.is_frozen():
 		if enemy.winding:
 			enemy.winding = false
@@ -367,8 +372,9 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 			_clear_cast_bar(enemy)
 			print("[EN] %s cast interrupted (stun)" % enemy.enemy_id)
 		enemy.dashing = false
-		enemy.velocity = Vector3.ZERO
-		enemy.move_and_slide()
+		if not kb:                     # 넉백이 이번 프레임 이동을 이미 굴렸으면 덮어쓰지 않는다
+			enemy.velocity = Vector3.ZERO
+			enemy.move_and_slide()
 		return
 	# Silenced (AB-044 광역 봉인 / AB-030 전격 제압) — 새 시전 차단은 `_try_cast_*`가 하고,
 	# **진행 중인 시전은 여기서 끊는다**(DRIFT-133). 스턴과 달리 이동·평타는 그대로 두는 soft CC라
@@ -389,11 +395,12 @@ func tick(enemy: CharacterBody3D, targets: Array, delta: float) -> void:
 			enemy.windup_unified = {}
 			_clear_cast_bar(enemy)
 		enemy.dashing = false
-		enemy.velocity = enemy.polymorph_hop_velocity(delta)
-		enemy.move_and_slide()
+		if not kb:                     # 개구리도 밀리긴 한다 — 넉백이 hop보다 우선
+			enemy.velocity = enemy.polymorph_hop_velocity(delta)
+			enemy.move_and_slide()
 		return
-	# Smoothed knockback push takes over movement for its short duration.
-	if enemy.tick_knockback(delta):
+	# 넉백이 이번 프레임 이동을 가져갔으면 스티어링은 건너뛴다(위 `kb`가 이미 틱·이동을 수행).
+	if kb:
 		return
 	# Frame-driven telegraph wind-up — strike resolves when its timer elapses
 	# (replaces an await; keeps the encounter deterministic). ref: DEBT-OTHER-AWAIT.
