@@ -1663,3 +1663,21 @@
 - **영향 파일:** `scripts/combat/enemy_ai.gd` · `scripts/combat/abilities/ability_dispatch.gd`(주석 규약).
 - **게이트:** `ci_smoke.sh` **11/11 PASS**. 헤드리스로는 틱 순서 회귀를 못 잡는다 — **F5 확인 필요**: 기절 서브(`AB-011`)를 진격 킷에 끼우고 시전 → 밀림과 기절이 **동시에** 보이는지.
 - **상태:** LOGGED.
+
+### DRIFT-144 — M1 마석(manastone) 도입: 슬롯 스킬 시전 자원 🔶 rule(구현) + tuning
+- **근거:** `F-009` §3.8(Phase 2 interim 마석) · `F-007` §3.7.3a(At Risk) · `I-007` §6. **spec에 이미 있는 규칙의 구현**이지 신규 규칙이 아니다 → 전파 없음. 단 **비용 모델은 spec이 비워 둔 자리**라 아래 ①이 결정 사항.
+- **① 비용 = 스킬 tier 차등**(사용자 결정, 안 (나)): `Basic 1 / Advanced 2 / Master 3`. `skillbooks.json`의 기존 `tier` 필드를 그대로 읽는다(49종 전부 보유 → 데이터 추가 0). per-AB 예외는 `manastone_cost` 필드가 덮어쓴다(현재 사용처 0).
+  - **내가 제기한 반대와 사용자 판단:** tier 차등은 강한 스킬이 **쿨 + 마석 이중 세금**을 물어 체감이 겹칠 수 있다고 밝혔고, 사용자가 그 위에서 (나)를 선택했다. 대안 (가)=시전당 1 고정.
+  - `manastone_cost_for`는 **마스터를 못 찾으면 0**을 준다 — 모르는 스킬에 세금을 물려 조용히 시전을 막지 않는다(DRIFT-139 교훈).
+- **② Identity 무소모**(`I-007` §6). NC 3인이 자동으로 쓰는 채널이라 여기에 자원을 물리면 파티가 통째로 고갈된다.
+- **③ 차감 지점 = 발현 직전, 원자적.** `cast_skillbook`의 사전 검사는 **긴 캐스트를 헛돌리지 않으려는 빠른 거부**일 뿐이고, 실제 차감은 `_resolve_sub`가 `skill.cast` **직전에** 한다. 이유: 캐스트 진행 중 다른 멤버가 마석을 써서 그 사이 부족해질 수 있다(2인 이상이 동시에 슬롯 스킬을 쓰는 상황). 실패하면 `skill.cast` 이전이라 아무 일도 없고, 탄·쿨도 호출부가 성공 시에만 소모한다.
+- **④ 인벤 스택 모델**(`F-009` §3.8 "런 인벤 마석 스택"). haul과 같은 1×1 스택 타일(`kind: "manastone"`)로 `Backpack.loose`에 산다 → **At-Risk·정산·영속이 기존 골격 그대로** 굴러간다(사망 시 `clear_loose`로 소실, 탈출 시 유지). 신규 상태 0.
+  - ⚠️ **spec은 "탈출 성공 → stash Safe"**라고 하지만 게임의 B-모델은 탈출분이 **Backpack(캐리)에 남는** 구조다 — haul·소비와 동일한 기존 편차이며 **M4 금고 통합에서 함께 정리**한다.
+- **⑤ 무제한 폴백 = 샌드박스 보호.** `CombatController.set_inventory`가 안 불린 무대(샌드박스)는 `manastone_unlimited()` → 게이트 off. 스킬 검증 무대가 자원 때문에 막히면 안 된다. **조용히 넘어가지 않도록** HUD가 보유량을 「∞」로 표기한다.
+- **⑥ 되돌리기 싸게 유지:** **`charges`를 지우지 않았다**(폐기는 M5). 마석은 그 위에 얹은 게이트라, 모델이 틀리면 게이트만 꺼도 원상복구된다. 공급도 다이얼 3개(`starter_grant`·`drop.chance`·`drop.min/max`)로만 조인다.
+- **UX:** 부족 시 캐스터 머리 위 「마석 부족 N」 팝업 + Q/E/R 툴팁에 **비용과 보유량 동시 표기**(부족하면 빨강) — "왜 이건 못 쓰지"가 즉답되게.
+- **분류·전파:** 기존 spec 규칙 구현 = **전파 없음**. 비용 모델·수치(`starter_grant` 40 · 드롭 55%/1~3 · tier 표) = **tuning(로깅만)**.
+- **영향 파일:** `data/slice01/{manastones.json,id_registry.json}` · `slice01_data.gd` · `ability_dispatch.gd` · `combat_controller.gd` · `inventory_ui.gd` · `item_factory.gd` · `backpack.gd` · `loot_service.gd` · `dungeon_run.gd` · `controlled_sheet.gd` · `tools/hub_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **11/11 PASS** — 신규: tier별 비용 3종 · 미등록 AB=0 · 기본 마석 id · **스타터 시드 ↔ `starter_grant` 대조**(오토로드 순서 때문에 시드에 값을 복제해 두므로 어긋나면 첫 런 지급이 거짓이 된다).
+- **F5 필요:** 고갈까지 써 보고 ⑴ 거부 피드백이 읽히는지 ⑵ tier 차등이 "강한 스킬은 아껴 쓴다"로 체감되는지(이중 세금 우려 검증) ⑶ 드롭 55%/1~3이 공급으로 충분한지.
+- **상태:** LOGGED.

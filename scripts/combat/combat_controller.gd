@@ -129,6 +129,27 @@ func setup(party: Node3D, map: Node3D) -> void:
 
 
 ## partyInCombat: true while ANY enemy is engaged. Drives HUD + follower re-form.
+## F-009 §3.8 마석 — 슬롯 스킬 시전 자원. 런 인벤(InventoryUI)이 실물을 들고 있고 여기선 퍼사드만 둔다.
+## **미연결(샌드박스 등) = 무제한**: 인벤이 없는 무대에서 스킬이 막히면 검증이 불가능해진다. 조용히
+## 넘어가지 않도록 `manastone_unlimited()`가 그 상태를 드러내고, HUD가 「∞」로 표시한다.
+var _inventory: Node = null
+
+func set_inventory(inv: Node) -> void:
+	_inventory = inv
+
+func manastone_unlimited() -> bool:
+	return _inventory == null or not _inventory.has_method("manastone_count")
+
+func manastone_count() -> int:
+	return -1 if manastone_unlimited() else int(_inventory.manastone_count())
+
+## `n`개 소모. 무제한이면 항상 true. 부족하면 아무것도 쓰지 않고 false.
+func spend_manastone(n: int) -> bool:
+	if manastone_unlimited():
+		return true
+	return bool(_inventory.spend_manastone(n))
+
+
 func is_engaged() -> bool:
 	return _party_in_combat
 

@@ -179,6 +179,23 @@ func _init() -> void:
 		"Stash 시드 서브 = 카탈로그 전량 %d종 (D4 전 카탈로그 개방)" % sd.get_skillbook_rows().size())
 	st.free()
 
+	# ②b 마석 (M1 · F-009 §3.8) — 비용표·스타터 정합.
+	_expect(sd.manastone_cost_for("AB-053") == 1, "마석 비용 Basic=1 (AB-053)")
+	_expect(sd.manastone_cost_for("AB-004") == 2, "마석 비용 Advanced=2 (AB-004)")
+	_expect(sd.manastone_cost_for("AB-065") == 3, "마석 비용 Master=3 (AB-065)")
+	_expect(sd.manastone_cost_for("AB-없음") == 0, "미등록 AB = 0 (모르는 스킬에 세금 금지)")
+	_expect(sd.default_manastone_id() == "ms_weak", "기본 마석 = ms_weak")
+	# 시드는 오토로드 순서 때문에 manastones.json 값을 **복제**해 둔다 — 어긋나면 첫 런 지급이 거짓이 된다.
+	var seed_ms := 0
+	var bp2 = load("res://scripts/autoload/backpack.gd").new()
+	bp2._seed()
+	for it2 in bp2.loose:
+		if String(it2.get("kind", "")) == "manastone":
+			seed_ms += int(it2.get("count", 0))
+	bp2.free()
+	_expect(seed_ms == sd.manastone_starter_grant(),
+		"스타터 마석 시드 %d == manastones.json starter_grant %d" % [seed_ms, sd.manastone_starter_grant()])
+
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")
 	for cls in sandbox.SANDBOX_SUBS:

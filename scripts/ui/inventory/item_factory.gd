@@ -46,6 +46,21 @@ static func haul_item(haul_material_id: String, display: String, at_risk: bool, 
 	}
 
 
+## Backpack item dict from a manastone (1×1 스택) — F-009 §3.8. 슬롯 스킬 시전 소모 자원.
+## 런 인벤에 있을 때만 At-Risk(F-007 §3.7.3a) → 탈출 성공 시 stash Safe. haul과 같은 스택 타일 모델.
+static func manastone_item(manastone_id: String, display: String, at_risk: bool, count: int = 1, max_stack: int = 99) -> Dictionary:
+	return {
+		"id": display if not display.is_empty() else manastone_id,
+		"w": 1, "h": 1,
+		"color": Color(0.55, 0.42, 0.85),   # 보라 — 재료(황토)·소비(청록)와 구분
+		"kind": "manastone",
+		"manastone_id": manastone_id,
+		"count": count,
+		"max_stack": max_stack,
+		"at_risk": at_risk,
+	}
+
+
 ## Backpack item dict from a skillbook master (1×1, role-tinted, full charges).
 static func skillbook_item(master: Dictionary, at_risk: bool) -> Dictionary:
 	var classes: Array = master.get("equip_classes", [])

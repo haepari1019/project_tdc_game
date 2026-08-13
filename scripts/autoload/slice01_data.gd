@@ -22,6 +22,7 @@ const QUESTS_PATH := SLICE01_DIR + "quests.json"                 # F-029 §3.3 h
 const HAUL_MATERIALS_PATH := SLICE01_DIR + "haul_materials.json" # D-029 §3 haul 카탈로그
 const HAUL_DROPS_PATH := SLICE01_DIR + "haul_drops.json"        # HUB-COR-000 §3 ENC별 haul 드롭
 const DISPLAY_NAMES_PATH := SLICE01_DIR + "display_names.json"  # 유저용 표시명(백엔드 ID 분리, UI 전용)
+const MANASTONES_PATH := SLICE01_DIR + "manastones.json"         # F-009 §3.8 마석 — 슬롯 스킬 시전 소모
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -51,6 +52,8 @@ var _patterns: Dictionary = {}
 var _facilities: Dictionary = {}      # facilityId -> {display, function, tiers:[{tier, effect, value?, quest?, haul{}, prereq{}, catalog{}}]}
 var _quests: Dictionary = {}          # questId -> {facility, tier, one_liner, completion}
 var _haul_materials: Dictionary = {}  # haulMaterialId -> {display, source}
+var _manastones: Dictionary = {}      # manastoneId -> row (M1 = ms_weak 하나)
+var _manastone_doc: Dictionary = {}   # 문서 전체(cast_cost_by_tier / starter_grant / drop)
 var _haul_drops: Dictionary = {}      # encounterId -> [{haul, qty, chance}] (HUB-COR-000 §3)
 
 
@@ -348,6 +351,40 @@ func get_quests() -> Dictionary:
 func get_haul_material(id: String) -> Dictionary:
 	return _haul_materials.get(id, {})
 
+
+# --- 마석 (F-009 §3.8) — 슬롯 스킬 시전 소모 ------------------------------------
+
+func get_manastone(id: String) -> Dictionary:
+	return _manastones.get(id, {})
+
+
+## 이 서브 스킬 1회 시전에 드는 마석 수. **스킬 tier 차등**(사용자 결정, 안 (나)):
+## Basic 1 / Advanced 2 / Master 3. 행에 `manastone_cost`가 있으면 그것이 이긴다(per-AB 예외).
+## 마스터를 못 찾으면 0 — **모르는 스킬에 세금을 물리지 않는다**(조용한 시전 실패 방지).
+func manastone_cost_for(base_ability_id: String) -> int:
+	var m: Dictionary = get_skillbook_master(base_ability_id)
+	if m.is_empty():
+		return 0
+	if m.has("manastone_cost"):
+		return maxi(0, int(m["manastone_cost"]))
+	var table: Dictionary = _manastone_doc.get("cast_cost_by_tier", {})
+	return maxi(0, int(table.get(String(m.get("tier", "Basic")), 1)))
+
+
+## 첫 프로필에 지급할 마석 수(F-020 §3.2.0 — 빈 마석으로 ENC 진입 금지).
+func manastone_starter_grant() -> int:
+	return int(_manastone_doc.get("starter_grant", 0))
+
+
+## 처치 드롭 설정 {chance, min, max}.
+func manastone_drop() -> Dictionary:
+	return _manastone_doc.get("drop", {})
+
+
+## M1 기본 마석 id(티어 확대 전까지 단일). 카탈로그가 비면 빈 문자열.
+func default_manastone_id() -> String:
+	return String(_manastones.keys()[0]) if not _manastones.is_empty() else ""
+
 func get_haul_material_ids() -> Array:
 	return _haul_materials.keys()
 
@@ -399,6 +436,7 @@ func _load_and_validate() -> bool:
 	var quests_doc := _read_json_dict(QUESTS_PATH, "quests", errors)
 	var haul_doc := _read_json_dict(HAUL_MATERIALS_PATH, "haul_materials", errors)
 	var haul_drops_doc := _read_json_dict(HAUL_DROPS_PATH, "haul_drops", errors)
+	var manastones_doc := _read_json_dict(MANASTONES_PATH, "manastones", errors)
 	_display = _read_json_dict(DISPLAY_NAMES_PATH, "display_names", errors)   # UI 라벨(검증 없음 — gameplay 아님)
 
 	if errors.is_empty():
@@ -407,6 +445,7 @@ func _load_and_validate() -> bool:
 		_parse_gear(gear_doc, errors)
 		_parse_skillbooks(skillbooks_doc, errors)
 		_parse_consumables(consumables_doc, errors)
+		_parse_manastones(manastones_doc, errors)
 		_parse_enemy_basics(enemy_basics_doc, errors)
 		_parse_patterns(patterns_doc, errors)
 		_parse_enemies(enemies_doc, errors)
@@ -615,6 +654,20 @@ func _parse_spawn_table(doc: Dictionary, errors: Array[String]) -> void:
 
 ## Hub (F-029/D-029): 시설 Tier 표 · 승급 퀘스트 · haul 카탈로그. ID는 id_registry로 검증;
 ## 시설 Tier 행의 quest/haul 참조도 등록 ID인지 검증(armory catalog gear는 GEAR-COR-000 후속이라 미검증).
+## 마석 카탈로그 — id_registry `manastone_ids`와 1:1 검증(미등록 → abort). 문서 전체를 보관해
+## 비용표·스타터·드롭 설정을 게터가 읽는다.
+func _parse_manastones(doc: Dictionary, errors: Array[String]) -> void:
+	_manastones.clear()
+	_manastone_doc = doc
+	var allowed: Array = _registry_list("manastone_ids")
+	for row in doc.get("manastones", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var mid := String(row.get("manastone_id", ""))
+		IdValidate.require_id(mid, allowed, "manastone_id", errors)
+		_manastones[mid] = row
+
+
 func _parse_hub(facilities_doc: Dictionary, quests_doc: Dictionary, haul_doc: Dictionary, errors: Array[String]) -> void:
 	_facilities.clear()
 	_quests.clear()

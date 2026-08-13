@@ -170,7 +170,7 @@ func _ready() -> void:
 	RunLoadout.roll_run_seed()
 	_combat.prespawn_encounters("RM-ENTRY-01")
 	_party_sheet.setup(_party.get_members())
-	_controlled_sheet.setup(_party)
+	_controlled_sheet.setup(_party, _combat)   # 마석 보유량 표시(F-009 §3.8)
 	_aim = AimMarker.new()  # shared ground-target marker (skillbook aim + torch throw)
 	add_child(_aim)
 	var ctrl_ind := ControlledIndicator.new()  # UI-001 foot disc + bob arrow
@@ -181,6 +181,7 @@ func _ready() -> void:
 	_inventory_ui = InventoryUI.new()
 	$HUD.add_child(_inventory_ui)
 	_inventory_ui.setup_party(_party, _combat)  # party gear equip slots (F-008 §3.2)
+	_combat.set_inventory(_inventory_ui)        # F-009 §3.8 마석 — 슬롯 스킬 시전 소모원
 	var consumable_bar := ConsumableBar.new()  # Z/X/C consumable hotkeys above the char sheet
 	$HUD.add_child(consumable_bar)
 	_inventory_ui.setup_consumable_bar(consumable_bar)

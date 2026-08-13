@@ -1,0 +1,29 @@
+{
+  "_ref": "spec F-009 §3.8 (Phase 2 interim 마석) / §3.9.5 (티어) · F-007 §3.7.3a (At Risk) · I-007 §6. 슬롯(서브) 스킬 시전 소모 자원. Identity = 무소모(NC 3인 고갈 방지). 런 인벤 스택 = At Risk → 탈출 성공 시 stash Safe. **M1 범위 = ms_weak 하나** — 티어 확대(ms_std/strong/prime)·상점 판매는 M7(잭팟 레이어).",
+  "_note_cost": "시전 비용은 **스킬 tier 차등**(사용자 결정 2026-08-13, 안 (나)). skillbooks.json의 tier 필드를 그대로 읽는다. per-AB 예외가 필요하면 skillbooks 행에 `manastone_cost`를 넣으면 이 표를 덮어쓴다(현재 사용처 0).",
+  "_note_charges": "**charges는 아직 살아 있다** — 마석은 그 위에 얹은 게이트이고, charges 폐기는 M5(F-009 폐기)다. 마석 모델이 틀린 것으로 판명되면 게이트만 꺼도 원상복구된다.",
+
+  "manastones": [
+    {
+      "manastone_id": "ms_weak",
+      "display_name": "약한 마석",
+      "tier": "Weak",
+      "max_stack": 99,
+      "source": "일반 적 처치"
+    }
+  ],
+
+  "cast_cost_by_tier": {
+    "Basic": 1,
+    "Advanced": 2,
+    "Master": 3
+  },
+
+  "_note_supply": "초기 공급은 **넉넉하게** 잡는다 — 고갈 압박은 이 세 값만 조이면 되고, 그 전까진 스킬 자체의 체감이 마석에 가려지지 않는다. 플테로 조인다. (tuning)",
+  "starter_grant": 40,
+  "drop": {
+    "chance": 0.55,
+    "min": 1,
+    "max": 3
+  }
+}

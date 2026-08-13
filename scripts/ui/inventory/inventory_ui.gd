@@ -315,6 +315,70 @@ func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool, inst: Dic
 	return _backpack.add_item_dict(item)
 
 
+# --- 마석 (F-009 §3.8) — 슬롯 스킬 시전 자원 -----------------------------------
+
+## 런 인벤에 들고 있는 마석 총량(스택 합).
+func manastone_count() -> int:
+	var n := 0
+	for it in _backpack.items:
+		if String(it.get("kind", "")) == "manastone":
+			n += int(it.get("count", 1))
+	return n
+
+
+## `n`개 소모. 부족하면 **아무것도 쓰지 않고** false — 부분 차감으로 자원만 녹는 걸 막는다.
+## 여러 스택에 걸쳐 있으면 앞에서부터 비운다(빈 타일은 제거).
+func spend_manastone(n: int) -> bool:
+	if n <= 0:
+		return true
+	if manastone_count() < n:
+		return false
+	var left := n
+	for it in _backpack.items.duplicate():
+		if left <= 0:
+			break
+		if String(it.get("kind", "")) != "manastone":
+			continue
+		var have := int(it.get("count", 1))
+		var take := mini(have, left)
+		left -= take
+		if take >= have:
+			_backpack.lift(it)
+		else:
+			it["count"] = have - take
+			_backpack.refresh_item_label(it)
+	return true
+
+
+## 마석을 백팩에 넣는다(드롭/스타터 지급). 기존 스택을 채운 뒤 새 타일 — haul과 동형.
+func add_manastone_to_backpack(count: int, at_risk: bool = true) -> bool:
+	var mid := Slice01Data.default_manastone_id()
+	if mid == "" or count <= 0:
+		return false
+	var row: Dictionary = Slice01Data.get_manastone(mid)
+	var display := String(row.get("display_name", mid))
+	var max_stack := int(row.get("max_stack", 99))
+	var remaining := count
+	for it in _backpack.items:
+		if remaining <= 0:
+			break
+		if String(it.get("kind", "")) == "manastone" and String(it.get("manastone_id", "")) == mid:
+			var room := max_stack - int(it.get("count", 1))
+			if room > 0:
+				var add := mini(room, remaining)
+				it["count"] = int(it.get("count", 1)) + add
+				remaining -= add
+				_backpack.refresh_item_label(it)
+	while remaining > 0:
+		if _run_carry_full():
+			break   # 새 타일만 운반 한도 — 기존 스택 채움은 위에서 이미 허용(haul과 동일 규약)
+		var n2 := mini(max_stack, remaining)
+		if not _backpack.add_item_dict(ItemFactory.manastone_item(mid, display, at_risk, n2, max_stack)):
+			break
+		remaining -= n2
+	return remaining < count
+
+
 ## Add a looted haul material to the backpack as At-Risk run inventory (D-029 §4). On Extraction
 ## Success it transfers to hubHaulVault (Safe); on failure it is lost. Returns false if full.
 ## 재료는 스택 — 같은 haul_material_id 기존 타일을 채운 뒤(≤max_stack) 새 타일 생성(소비품과 동형).
@@ -403,6 +467,8 @@ func _load_backpack_from_autoload() -> void:
 				add_skillbook_to_backpack(String(d.get("base_ability_id", "")), bool(d.get("at_risk", true)), d)   # affix·탄 보존
 			"haul":
 				add_haul_to_backpack(String(d.get("haul_material_id", "")), bool(d.get("at_risk", true)), int(d.get("count", 1)))
+			"manastone":
+				add_manastone_to_backpack(int(d.get("count", 1)), bool(d.get("at_risk", true)))
 			"consumable":
 				add_consumable_to_backpack(String(d.get("consumable_id", "")), int(d.get("count", 1)))
 			_:

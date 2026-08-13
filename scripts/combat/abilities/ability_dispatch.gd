@@ -196,6 +196,17 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		return
 	if float(inst.cooldown_s) > 0.0:
 		return
+	# F-009 §3.8 마석 — **슬롯(서브) 스킬 시전만** 소모한다. Identity는 무소모(`I-007` §6): NC 3인이
+	# 자동으로 쓰는 채널이라 여기에 자원을 물리면 파티가 통째로 고갈된다.
+	# 비용 = 스킬 tier 차등(Basic 1 / Advanced 2 / Master 3 · 사용자 결정 (나)). 고갈은 **의도된 고역**
+	# 이지만 소프트락이 아니다 — 거부는 반드시 **사유를 보이게** 한다(조용한 무발동 금지, DRIFT-139 교훈).
+	# 차감은 여기서 **선차감하지 않는다**: 아래 charges 선차감과 달리 실제 발현(`_resolve_sub`) 성공 후에
+	# 빠져나가야 시전 실패에 자원만 녹는 걸 막는다.
+	var ms_cost: int = Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", "")))
+	if ms_cost > 0 and not _combat.manastone_unlimited() and _combat.manastone_count() < ms_cost:
+		if member.has_method("popup_status"):
+			member.popup_status("마석 부족 %d" % ms_cost, Color(0.72, 0.55, 1.0))
+		return
 	# 은신 해제 시점(DRIFT-121 개정) — 「오프너 은신」(hold_fire)은 **첫 타격까지 유지**한다. 시전 시작에
 	# 풀면 긴 캐스트 내내 표적으로 노출돼 "숨어서 준비한다"가 성립하지 않는다(해제는 combat_controller.
 	# _deal_damage로 이동 = 증폭 소비와 같은 지점). 자동 공격이 계속되는 도주용 은신(잠행 처치 은신 등)은
@@ -249,6 +260,12 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	_cd_refund_frac = 0.0
 
 
+## 슬롯에 꽂힌 서브의 `base_ability_id`(없으면 ""). 마석 비용 조회용.
+func _slot_ability_id(member: CharacterBody3D, slot_index: int) -> String:
+	var inst = member.get_skillbook(slot_index) if member.has_method("get_skillbook") else null
+	return String(inst.get("base_ability_id", "")) if inst != null else ""
+
+
 ## 서브 발현(즉발/캐스트 완료 공용) — effect 실행 + **결속 델타를 발현 시점에** 적용 + 집중 소모 아키타입. 성공 여부 반환.
 func _resolve_sub(member: CharacterBody3D, slot_index: int, p: Dictionary, target_pos: Vector3) -> bool:
 	var kind := String(p.get("kind", ""))
@@ -257,6 +274,15 @@ func _resolve_sub(member: CharacterBody3D, slot_index: int, p: Dictionary, targe
 		# kind="" = 정당한 없음. 비어있지 않은데 미등록 = _SKILL_SCRIPTS 누락 버그 → 시끄럽게.
 		if kind != "":
 			push_error("[dispatch] sub kind '%s' 미등록 — _SKILL_SCRIPTS 확인 (ab=%s)" % [kind, member.ability_id])
+		return false
+	# F-009 §3.8 마석 — **발현 직전에 원자적으로 차감**한다. `cast_skillbook`의 사전 검사는 긴 캐스트를
+	# 헛돌리지 않으려는 빠른 거부일 뿐이고, 실제 소유권 이전은 여기다: 캐스트 도중 다른 멤버가 마석을
+	# 써서 그 사이 부족해질 수 있으므로 **발현 직전에 다시 확인**해야 두 번 쓰이지 않는다. 실패하면
+	# `skill.cast` 이전이라 아무것도 일어나지 않는다(탄·쿨도 호출부가 성공 시에만 소모).
+	var ms: int = Slice01Data.manastone_cost_for(String(_slot_ability_id(member, slot_index)))
+	if ms > 0 and not _combat.spend_manastone(ms):
+		if member.has_method("popup_status"):
+			member.popup_status("마석 부족 %d" % ms, Color(0.72, 0.55, 1.0))
 		return false
 	if not skill.cast(member, p, target_pos, self):
 		return false

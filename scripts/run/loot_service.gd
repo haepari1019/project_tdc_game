@@ -69,6 +69,9 @@ func on_enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool =
 	for r in ability_refs:
 		if not Slice01Data.get_skillbook_master(String(r)).is_empty():
 			lootable.append(String(r))
+	# F-009 §3.8 마석 — **스킬북 드롭과 독립**으로 굴린다. 배타로 두면 스킬북이 떨어지는 킬마다
+	# 마석이 빠져 공급이 들쭉날쭉해지고, 마석은 소모 자원이라 꾸준한 유입이 있어야 한다.
+	_roll_manastone()
 	if not lootable.is_empty():
 		var base := String(lootable[randi() % lootable.size()])
 		var eq: Array = Slice01Data.get_skillbook_master(base).get("equip_classes", [])
@@ -80,6 +83,19 @@ func on_enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool =
 			add_child(drop)
 			return
 	run_scrap += KILL_SCRAP   # 스킬 미드롭 → 소량 재화(추출 시 지급)
+
+
+## 처치 시 마석 드롭 — 바닥에 떨구지 않고 **곧바로 런 인벤에** 넣는다(F-009 §3.8). 시전 자원이라
+## 전투 중에 주우러 다니게 만들면 리듬이 끊긴다. 인벤이 가득이면 조용히 흘린다(운반 한도 = 의도된 압력).
+func _roll_manastone() -> void:
+	if _inv == null or not _inv.has_method("add_manastone_to_backpack"):
+		return
+	var cfg: Dictionary = Slice01Data.manastone_drop()
+	if cfg.is_empty() or randf() >= float(cfg.get("chance", 0.0)):
+		return
+	var lo := int(cfg.get("min", 1))
+	var hi := maxi(lo, int(cfg.get("max", lo)))
+	_inv.add_manastone_to_backpack(lo + (randi() % (hi - lo + 1)), true)
 
 
 ## 난이도별 스킬북 드롭률(스펙 §7.4: Normal 8% / Hard 15%). RunLoadout(허브 선택 or manifest 폴백) 기준.

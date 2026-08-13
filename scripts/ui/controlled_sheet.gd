@@ -12,6 +12,7 @@ const HP_W := 230
 
 ## Readable name + blurb per ability kind, for the hover tooltip (data has no prose).
 var _party: Node
+var _combat: Node = null   # 마석 보유량 조회(F-009 §3.8). null = 무제한(∞)
 var _portrait: ColorRect
 var _name_lbl: Label
 var _hp_fill: ColorRect
@@ -23,8 +24,10 @@ var _od_label: Label         # "초월" / 발동 시 "초월 준비!"
 var _slots: Array = []  # {radial, kind}  kind: "identity" | "sub0" | "empty"
 
 
-func setup(party: Node) -> void:
+## `combat` = 선택 — 마석 보유량 조회용(F-009 §3.8). 미전달이면 무제한(∞)으로 표시한다.
+func setup(party: Node, combat: Node = null) -> void:
 	_party = party
+	_combat = combat
 	for c in get_children():
 		c.queue_free()
 	_slots.clear()
@@ -219,6 +222,14 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 		SkillText.describe(kind, inst.params),
 		"[color=#9aa4b2]탄 %d/%d  ·  쿨 %ss[/color]" % [int(inst.charges), int(inst.charges_max), _num(cdmax)],
 	]
+	# F-009 §3.8 마석 — 슬롯 스킬만 소모(Identity 무소모). 비용은 tier 차등이라 스킬마다 다르다 →
+	# 툴팁에 **보유량과 함께** 띄워야 "왜 이건 못 쓰지"가 즉답된다. 무제한(인벤 미연결·샌드박스)은 ∞.
+	var ms_cost: int = Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", "")))
+	if ms_cost > 0:
+		var have: int = int(_combat.manastone_count()) if _combat != null and _combat.has_method("manastone_count") else -1
+		var short: bool = have >= 0 and have < ms_cost
+		lines.append("[color=%s]◈ 마석 %d  ·  보유 %s[/color]" % [
+			"#ff8080" if short else "#b48aff", ms_cost, "∞" if have < 0 else str(have)])
 	if bool(inst.params.get("auto_disengage", false)):   # 이탈 패시브(007b) — 액티브로 누를 수 없음
 		lines.insert(1, "[color=#7fc4ff]⚙ 패시브 · 저HP 시 자동 발동 (직접 사용 불가)[/color]")
 	lines.append_array(SkillText.affix_lines(inst.get("affix", {})))
