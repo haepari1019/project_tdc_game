@@ -196,14 +196,13 @@ func _make_node(item: Dictionary) -> Panel:
 ## (구: 차지 칸수 w×h — 불필요해 제거. 사용자 요청.)
 func _node_label(item: Dictionary) -> String:
 	var kind := String(item.get("kind", ""))
-	if kind == "consumable" or kind == "haul":
+	if kind == "consumable" or kind == "haul" or kind == "manastone":
 		return "%s\nx%d" % [String(item.id), int(item.get("count", 1))]
 	if kind == "skillbook":
-		var c := int(item.get("charges", -1))
-		if c < 0:   # 루팅/디스크립터엔 charges 없음 → master 만탄 + affix 보너스로 표시
-			var m: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
-			c = int(m.get("charges_max", 0)) + int((item.get("affix", {}) as Dictionary).get("charges", 0))
-		return "%s\n탄 %d" % [String(item.id), c]
+		# 탄(charges) 표시 폐지 — 실제 소모는 **마석**(F-009 §3.8)이라 탄수는 거짓 정보였다.
+		# 필드는 살아 있다(폐기는 M5) — 표시만 내려 두 탄약계가 동시에 보이는 혼란을 없앤다. DRIFT-145.
+		var mc := Slice01Data.manastone_cost_for(String(item.get("base_ability_id", "")))
+		return "%s\n◈%d" % [String(item.id), mc] if mc > 0 else String(item.id)
 	return String(item.id)   # 기어 등 — 이름만
 
 
@@ -266,7 +265,7 @@ func _gear_tip(item: Dictionary) -> Array:
 ## Skillbook detail — 표시명(상단) + 풀 설명문(SkillText) + 쿨/장착 + affix(색구분). 액션바 툴팁과 동일 수준. F-009/D-018.
 func _skillbook_tip(item: Dictionary) -> Array:
 	var out: Array = []
-	out.append("[color=#9aa4b2]스킬북 (서브) · 탄 %d/%d · At Risk[/color]" % [int(item.get("charges", 0)), int(item.get("charges_max", 0))])
+	out.append("[color=#9aa4b2]스킬북 (서브) · ◈ 마석 %d/시전 · At Risk[/color]" % Slice01Data.manastone_cost_for(String(item.get("base_ability_id", ""))))
 	var m: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
 	if not m.is_empty():
 		var cast: Dictionary = m.get("cast", {})

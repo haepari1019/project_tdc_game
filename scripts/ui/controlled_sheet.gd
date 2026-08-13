@@ -178,10 +178,12 @@ func _process(_delta: float) -> void:
 				var _pen: bool = not _classes.is_empty() and String(m.class_id) != String(_classes[0])
 				if passive:
 					s.key.add_theme_color_override("font_color", Color(0.5, 0.77, 1.0))   # 하늘색 '자동' = 패시브(키 누름 불가)
-					s.key.text = "자동·%d" % int(inst.charges)
+					s.key.text = "자동"
 				else:
 					s.key.add_theme_color_override("font_color", Color(1.0, 0.5, 0.25) if _pen else Color(0.92, 0.92, 0.92))
-					s.key.text = "%s·%d%s" % [key, int(inst.charges), ("▼" if _pen else "")]
+					# 「Q·8」의 8은 charges였는데, 실제 소모는 마석이라 **거짓 정보**였다. 마석 비용으로 교체.
+					var _mc: int = Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", "")))
+					s.key.text = "%s%s%s" % [key, ("·◈%d" % _mc) if _mc > 0 else "", ("▼" if _pen else "")]
 				s.radial.tooltip_text = _sub_tip(m, inst, key, cdmax, idx)
 
 
@@ -220,7 +222,7 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 	var lines: Array = [
 		"[b]%s[/b]  [color=#9aa4b2]· 보조 %s[/color]" % [String(inst.display_name), key],
 		SkillText.describe(kind, inst.params),
-		"[color=#9aa4b2]탄 %d/%d  ·  쿨 %ss[/color]" % [int(inst.charges), int(inst.charges_max), _num(cdmax)],
+		"[color=#9aa4b2]쿨 %ss[/color]" % _num(cdmax),
 	]
 	# F-009 §3.8 마석 — 슬롯 스킬만 소모(Identity 무소모). 비용은 tier 차등이라 스킬마다 다르다 →
 	# 툴팁에 **보유량과 함께** 띄워야 "왜 이건 못 쓰지"가 즉답된다. 무제한(인벤 미연결·샌드박스)은 ∞.

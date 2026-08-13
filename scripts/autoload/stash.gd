@@ -7,6 +7,7 @@ extends Node
 var gear: Array = []               # owned gear 인스턴스 {base_gear_id, rolled_identity_skill_id?, rolls?} — F-008 §3.7. 레거시=문자열(로드 시 정규화).
 var skillbooks: Array = []         # owned 스킬북 인스턴스 {base_ability_id, affix?, charges?} — D-018 §7.3. 레거시=문자열(로드 시 정규화).
 var consumables: Dictionary = {}   # consumable_id -> count owned
+var manastones: Dictionary = {}     # manastone_id -> count owned (F-009 §3.8 — 허브 보관분)
 # 재료(haul)는 일반 스태시가 아니라 HubProfile 금고(vault)에 일원화 — 별도 store 두지 않음(혼란 방지).
 
 # 영속 = SaveProfile 단일 파일(user://save.json)의 "stash" 섹션 (구 user://stash.json은 1회 마이그레이션).
@@ -34,7 +35,7 @@ func save_stash() -> void:
 
 
 func to_dict() -> Dictionary:
-	return {"gear": gear, "skillbooks": skillbooks, "consumables": consumables}
+	return {"gear": gear, "skillbooks": skillbooks, "consumables": consumables, "manastones": manastones}
 
 
 func apply_dict(d: Dictionary) -> void:
@@ -43,6 +44,7 @@ func apply_dict(d: Dictionary) -> void:
 	skillbooks = d.get("skillbooks", [])
 	_normalize_skillbooks()   # 레거시 세이브(문자열 skillbook) → 인스턴스 dict 마이그레이션
 	consumables = d.get("consumables", {})
+	manastones = d.get("manastones", {})
 	_seeded = true
 
 
@@ -98,6 +100,10 @@ func _seed_from_catalog() -> bool:
 		for row in sd.get_skillbook_rows():
 			skillbooks.append(String(row.get("base_ability_id", "")))
 	consumables = {"con_revive_scroll": 8}
+	# 허브 보관 마석 — 백팩 스타터(반입분)와 **별개**다. 스태시 = 다음 런에 꺼내 쓸 여유분.
+	# `sd`는 get_node_or_null 반환이라 untyped → `:=` 추론이 안 된다(파스 에러). 명시 타입 필수.
+	var msid: String = String(sd.default_manastone_id())
+	manastones = {msid: int(sd.manastone_starter_grant())} if msid != "" else {}
 	_normalize_gear()         # 시드는 문자열로 적고 인스턴스로 정규화(roll/affix 없음=base)
 	_normalize_skillbooks()
 	return true
@@ -117,10 +123,39 @@ func reset_to_seed() -> void:
 	gear = []
 	skillbooks = []
 	consumables = {}
+	manastones = {}
 	_seeded = false
 	_seed()
 	if _seeded:
 		save_stash()
+
+
+## 허브 보관 마석 — 입금/인출. 반입은 백팩(런 인벤)이 들고 가고, 스태시는 Safe 보관분이다.
+func add_manastone(count: int, manastone_id: String = "") -> void:
+	if count <= 0:
+		return
+	var mid := manastone_id if manastone_id != "" else String(Slice01Data.default_manastone_id())
+	if mid == "":
+		return
+	manastones[mid] = int(manastones.get(mid, 0)) + count
+	save_stash()
+
+
+func take_manastone(count: int, manastone_id: String = "") -> bool:
+	var mid := manastone_id if manastone_id != "" else String(Slice01Data.default_manastone_id())
+	var have := int(manastones.get(mid, 0))
+	if mid == "" or have < count:
+		return false
+	manastones[mid] = have - count
+	if int(manastones[mid]) <= 0:
+		manastones.erase(mid)
+	save_stash()
+	return true
+
+
+func manastone_count(manastone_id: String = "") -> int:
+	var mid := manastone_id if manastone_id != "" else String(Slice01Data.default_manastone_id())
+	return int(manastones.get(mid, 0))
 
 
 ## Remove one consumable from the stash (taken into the run). Returns true if available.

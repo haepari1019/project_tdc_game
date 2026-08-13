@@ -522,6 +522,17 @@ func make_skillbook_stash_item(inst) -> Dictionary:
 	return it
 
 
+## 스태시 마석 타일 — 허브 보관분(F-009 §3.8). 백팩(반입분)과는 별개 저장소다.
+func make_manastone_stash_item(manastone_id: String, count: int) -> Dictionary:
+	if count <= 0:
+		return {}
+	var row: Dictionary = Slice01Data.get_manastone(manastone_id)
+	if row.is_empty():
+		return {}
+	return ItemFactory.manastone_item(manastone_id, String(row.get("display_name", manastone_id)),
+		false, count, int(row.get("max_stack", 99)))
+
+
 func make_consumable_stash_item(consumable_id: String, count: int) -> Dictionary:
 	var m := Slice01Data.get_consumable_master(consumable_id)
 	return ItemFactory.consumable_item(m, count) if not m.is_empty() else {}

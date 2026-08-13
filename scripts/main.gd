@@ -23,6 +23,7 @@ var _inv: InventoryUI
 var _stash_src: Node
 var _formation: Panel
 var _difficulty_opt: OptionButton
+var _economy_lbl: Label   # 마석 반입/보관 요약(F-009 §3.8) — 배치 화면 상시 노출
 # Autoloads via runtime path (not the parse-time global) so a stale editor that hasn't
 # re-registered a newly-added autoload still compiles + runs. Loaded fresh on every game run.
 @onready var _stash: Node = get_node("/root/Stash")
@@ -104,8 +105,35 @@ func _setup_hub() -> void:
 	reset_btn.pressed.connect(_confirm_reset_save)
 	$Panel/Margin/VBox.add_child(reset_btn)
 	$Panel/Margin/VBox.move_child(reset_btn, _loadout.get_index())
+	_build_economy_line()
 	_build_formation_editor()
 	_build_difficulty_selector()
+
+
+## 배치 화면 경제 요약 — **마석은 슬롯 스킬(Q/E/R)의 시전 자원**인데, 스태시를 열기 전엔 보유량이
+## 어디에도 안 보여서 "소모가 어떻게 되는지 모르겠다"가 됐다(DRIFT-145). 반입분(백팩)과 보관분(스태시)을
+## 나눠 찍는다 — 둘은 다른 주머니고, 던전에 들고 가는 건 **반입분뿐**이다.
+func _build_economy_line() -> void:
+	_economy_lbl = Label.new()
+	_economy_lbl.add_theme_font_size_override("font_size", 12)
+	_economy_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_economy_lbl.modulate = Color(0.78, 0.68, 1.0)
+	$Panel/Margin/VBox.add_child(_economy_lbl)
+	$Panel/Margin/VBox.move_child(_economy_lbl, _loadout.get_index())
+	_refresh_economy_line()
+
+
+func _refresh_economy_line() -> void:
+	if _economy_lbl == null:
+		return
+	var carried := 0
+	var bp := get_node_or_null("/root/Backpack")
+	if bp != null:
+		for it in bp.loose:
+			if String(it.get("kind", "")) == "manastone":
+				carried += int(it.get("count", 0))
+	var stored: int = int(_stash.manastone_count()) if _stash.has_method("manastone_count") else 0
+	_economy_lbl.text = "◈ 마석 — 반입 %d · 창고 %d   (슬롯 스킬 Q/E/R 시전 시 소모 · 등급별 1/2/3)" % [carried, stored]
 
 
 ## Difficulty selector (Normal/Hard) — chosen in the hub BEFORE deploy, written to RunLoadout
@@ -152,6 +180,7 @@ func _open_loadout_editor() -> void:
 	if _inv.is_open():
 		_inv.toggle()
 		_sync_stash_from_source()                 # 닫기 = 에디터 상태를 Stash에 반영(상점과 단일 SoT)
+		_refresh_economy_line()                   # 마석을 옮겼을 수 있다
 	else:
 		_stash_src.items = _build_stash_items()   # 열기 = 최신 Stash(상점 구매 포함) 반영
 		_inv.open_loot(_stash_src)
@@ -161,6 +190,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and _inv != null and _inv.is_open():
 		_inv.toggle()
 		_sync_stash_from_source()   # ESC 닫기도 Stash에 반영(open 시 재빌드와 짝)
+		_refresh_economy_line()
 
 
 ## Build the stash container items (gear 2×2, skillbooks 1×1, consumables 1×1) with grid
@@ -191,6 +221,12 @@ func _build_stash_items() -> Array:
 			items.append(it)
 	for cid in _stash.consumables:
 		var it: Dictionary = _inv.make_consumable_stash_item(String(cid), int(_stash.consumables[cid]))
+		if not it.is_empty():
+			items.append(it)
+	# F-009 §3.8 마석 — 허브 보관분을 타일로. 이게 없으면 스태시에 마석이 **보이지도 않고**,
+	# 드래그로 옮겨도 아래 sync가 kind를 몰라 지워 버린다(M1 누락, DRIFT-145).
+	for mid in _stash.manastones:
+		var it: Dictionary = _inv.make_manastone_stash_item(String(mid), int(_stash.manastones[mid]))
 		if not it.is_empty():
 			items.append(it)
 	return items
@@ -245,6 +281,7 @@ func _sync_stash_from_source() -> void:
 	var gear: Array = []
 	var skillbooks: Array = []
 	var consumables: Dictionary = {}
+	var manastones: Dictionary = {}
 	# 그리드에 자리가 없어 표시되지 못한 소유분을 **먼저 되돌려 넣는다.** 이 sync는 Stash를 통째로
 	# 재작성하므로, 안 보인 아이템 = 영구 삭제였다(과거 실사고). 이제 그리드 크기와 소유가 분리된다.
 	var src: Array = (_stash_src.items as Array).duplicate()
@@ -272,7 +309,15 @@ func _sync_stash_from_source() -> void:
 			"consumable":
 				var cid := String(it.get("consumable_id", ""))
 				consumables[cid] = int(consumables.get(cid, 0)) + int(it.get("count", 1))
-	_stash.apply_dict({"gear": gear, "skillbooks": skillbooks, "consumables": consumables})
+			"manastone":
+				var mid := String(it.get("manastone_id", ""))
+				manastones[mid] = int(manastones.get(mid, 0)) + int(it.get("count", 1))
+			_:
+				# ⚠️ **모르는 kind = 조용한 삭제**였다. 이 sync는 Stash를 통째로 재작성하므로 분기가
+				# 없는 종류는 그대로 증발한다 — 마석이 정확히 이랬다(M1이 런 쪽만 배선, DRIFT-145).
+				# **새 아이템 종류를 추가하면 여기 + `_build_stash_items` 둘 다 봐야 한다.**
+				push_warning("[TDC] 스태시 sync — 미처리 kind '%s' (소유 유실 위험)" % String(it.get("kind", "")))
+	_stash.apply_dict({"gear": gear, "skillbooks": skillbooks, "consumables": consumables, "manastones": manastones})
 	_stash.save_stash()
 
 

@@ -320,7 +320,10 @@ func _refresh_sub_slots() -> void:
 			e.panel.tooltip_text = "[color=#9aa4b2]보조 %s\n(빈 슬롯 — 스킬북 장착)[/color]" % key
 			col = Color(0.28, 0.31, 0.38)
 		else:
-			e.tile.text = "%s %s\n탄%d" % [key, _short(String(inst.display_name)), int(inst.charges)]
+			# 탄(charges)은 **더 이상 표시하지 않는다** — 실제 소모는 마석이라 탄수는 거짓 정보였다.
+			# 필드 자체는 살아 있다(M5에서 폐기; 그때까지 마석을 되돌릴 여지). ref: DRIFT-145.
+			var mc: int = Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", "")))
+			e.tile.text = "%s %s%s" % [key, _short(String(inst.display_name)), ("\n◈%d" % mc) if mc > 0 else ""]
 			e.panel.tooltip_text = _sub_slot_tip(members[int(e.char)], inst, key)   # BBCode 상세(우클릭=가방)
 			col = Color(0.40, 0.55, 0.85)
 		var sb := StyleBoxFlat.new()
@@ -359,7 +362,7 @@ func _sub_slot_tip(m: Node, inst: Dictionary, key: String) -> String:
 	var lines: Array = [
 		"[b]%s[/b]  [color=#9aa4b2]· 보조 %s[/color]" % [String(inst.display_name), key],
 		SkillText.describe(kind, inst.params),
-		"[color=#9aa4b2]탄 %d/%d · 쿨 %ss[/color]" % [int(inst.charges), int(inst.charges_max), str(inst.params.get("cooldown_s", "?"))],
+		"[color=#9aa4b2]◈ 마석 %d · 쿨 %ss[/color]" % [Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", ""))), str(inst.params.get("cooldown_s", "?"))],
 	]
 	lines.append_array(SkillText.affix_lines(inst.get("affix", {})))
 	var bp := SkillText.band_pct(String(inst.get("base_ability_id", "")), String(m.class_id))
