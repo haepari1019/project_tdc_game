@@ -24,6 +24,7 @@ const HAUL_DROPS_PATH := SLICE01_DIR + "haul_drops.json"        # HUB-COR-000 §
 const DISPLAY_NAMES_PATH := SLICE01_DIR + "display_names.json"  # 유저용 표시명(백엔드 ID 분리, UI 전용)
 const MANASTONES_PATH := SLICE01_DIR + "manastones.json"         # F-009 §3.8 마석 — 슬롯 스킬 시전 소모
 const CHARMS_PATH := SLICE01_DIR + "charms.json"                 # F-010 §3.11 참 — 인벤 점유 stat 오오라
+const DOCTRINES_PATH := SLICE01_DIR + "doctrines.json"           # F-030 / D-021 파티 운용 doctrine
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -57,6 +58,8 @@ var _manastones: Dictionary = {}      # manastoneId -> row (M1 = ms_weak 하나)
 var _manastone_doc: Dictionary = {}   # 문서 전체(cast_cost_by_tier / starter_grant / drop)
 var _charms: Dictionary = {}          # charmId -> row (F-010 §3.11)
 var _charm_doc: Dictionary = {}       # 문서 전체(starter_grant)
+var _doctrines: Dictionary = {}       # doctrineId -> row (F-030 / D-021)
+var _doctrine_doc: Dictionary = {}    # 문서 전체(control_contexts / payoff_kinds enum)
 var _haul_drops: Dictionary = {}      # encounterId -> [{haul, qty, chance}] (HUB-COR-000 §3)
 
 
@@ -367,6 +370,25 @@ func get_charm(id: String) -> Dictionary:
 	return _charms.get(id, {})
 
 
+# --- doctrine (F-030 / D-021) — 파티 운용 성장 -----------------------------------
+
+func get_doctrine(id: String) -> Dictionary:
+	return _doctrines.get(id, {})
+
+
+func get_doctrine_rows() -> Array:
+	return _doctrines.values()
+
+
+## 이 정체성에 달린 doctrine 목록(D-021: Identity당 2개).
+func doctrines_for_identity(identity_skill_id: String) -> Array:
+	var out: Array = []
+	for row in _doctrines.values():
+		if String(row.get("identity_skill_id", "")) == identity_skill_id:
+			out.append(row)
+	return out
+
+
 func get_charm_rows() -> Array:
 	return _charms.values()
 
@@ -456,6 +478,7 @@ func _load_and_validate() -> bool:
 	var haul_drops_doc := _read_json_dict(HAUL_DROPS_PATH, "haul_drops", errors)
 	var manastones_doc := _read_json_dict(MANASTONES_PATH, "manastones", errors)
 	var charms_doc := _read_json_dict(CHARMS_PATH, "charms", errors)
+	var doctrines_doc := _read_json_dict(DOCTRINES_PATH, "doctrines", errors)
 	_display = _read_json_dict(DISPLAY_NAMES_PATH, "display_names", errors)   # UI 라벨(검증 없음 — gameplay 아님)
 
 	if errors.is_empty():
@@ -466,6 +489,7 @@ func _load_and_validate() -> bool:
 		_parse_consumables(consumables_doc, errors)
 		_parse_manastones(manastones_doc, errors)
 		_parse_charms(charms_doc, errors)
+		_parse_doctrines(doctrines_doc, errors)
 		_parse_enemy_basics(enemy_basics_doc, errors)
 		_parse_patterns(patterns_doc, errors)
 		_parse_enemies(enemies_doc, errors)
@@ -674,6 +698,42 @@ func _parse_spawn_table(doc: Dictionary, errors: Array[String]) -> void:
 
 ## Hub (F-029/D-029): 시설 Tier 표 · 승급 퀘스트 · haul 카탈로그. ID는 id_registry로 검증;
 ## 시설 Tier 행의 quest/haul 참조도 등록 ID인지 검증(armory catalog gear는 GEAR-COR-000 후속이라 미검증).
+## doctrine 카탈로그 — id_registry `doctrine_ids` 1:1 + **D-021 §6 하드 제약 검증**.
+## 스펙이 "검증기로 걸 것"이라 명시한 제약들이라 **로드 시 abort**로 강제한다 — 저작 실수가
+## 런타임까지 살아 나가면 doctrine이 조용히 안 걸리거나(icd 누락) 대전제를 깬다(controlContext 누출).
+func _parse_doctrines(doc: Dictionary, errors: Array[String]) -> void:
+	_doctrines.clear()
+	_doctrine_doc = doc
+	var allowed: Array = _registry_list("doctrine_ids")
+	var ctxs: Array = doc.get("control_contexts", [])
+	var kinds: Array = doc.get("payoff_kinds", [])
+	for row in doc.get("doctrines", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var did := String(row.get("doctrine_id", ""))
+		IdValidate.require_id(did, allowed, "doctrine_id", errors)
+		var traits: Array = row.get("traits", [])
+		# D-021 §6-1 — traits 길이 1~2. 넘으면 F-030 §3.8-④ 상한 위반.
+		if traits.size() < 1 or traits.size() > 2:
+			errors.append("doctrines.json %s: traits 길이 %d (1~2 필요, D-021 §6-1)" % [did, traits.size()])
+		for t in traits:
+			if typeof(t) != TYPE_DICTIONARY:
+				continue
+			var tid := String(t.get("trait_id", "?"))
+			# D-021 §6-2 — icd_s **required**. 값 0은 허용하되 **필드 생략은 오류**(R3 방어).
+			if not t.has("icd_s"):
+				errors.append("doctrines.json %s: icd_s 누락 (D-021 §6-2 required — 0 명시는 허용)" % tid)
+			var ctx := String(t.get("control_context", ""))
+			if not ctxs.has(ctx):
+				errors.append("doctrines.json %s: control_context '%s' 미정의 (%s)" % [tid, ctx, str(ctxs)])
+			var pk := String(t.get("payoff_kind", ""))
+			if not kinds.has(pk):
+				errors.append("doctrines.json %s: payoff_kind '%s' 미정의 (%s)" % [tid, pk, str(kinds)])
+			if String(t.get("payoff_target_ref", "")) == "":
+				errors.append("doctrines.json %s: payoff_target_ref 누락" % tid)
+		_doctrines[did] = row
+
+
 ## 참 카탈로그 — id_registry `charm_ids`와 1:1 검증(미등록 → abort).
 func _parse_charms(doc: Dictionary, errors: Array[String]) -> void:
 	_charms.clear()

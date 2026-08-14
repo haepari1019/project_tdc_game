@@ -243,6 +243,35 @@ func _init() -> void:
 	# CS-1 1-9 — 폐기 대상 유령 참조: tank_bluster는 게임에 원래 없어야 한다.
 	_expect(sd.get_charm("tank_bluster").is_empty(), "tank_bluster 잔존 0 (Passive 폐기, DEC-20260813-003)")
 
+	# ②d doctrine (CS-2 · F-030 / D-021) — 카탈로그 + 하드 제약. 스키마 위반은 Slice01Data 로드가
+	# 이미 abort시키므로(여기까지 왔다 = 통과), 여기선 **구조 불변식**과 프로필 기본값을 본다.
+	_expect(sd.get_doctrine_rows().size() == 2, "doctrine 카탈로그 2종 (Tank 파일럿)")
+	_expect(sd.doctrines_for_identity("tank_anchor_guard").size() == 2, "Identity당 2개 (D-021)")
+	var bad_doc: Array = []
+	var nc_mod := 0
+	for drow in sd.get_doctrine_rows():
+		var dtr: Array = drow.get("traits", [])
+		if dtr.size() < 1 or dtr.size() > 2:
+			bad_doc.append("%s traits=%d" % [drow.get("doctrine_id", "?"), dtr.size()])
+		for tr in dtr:
+			if not tr.has("icd_s"):
+				bad_doc.append("%s icd_s 누락" % tr.get("trait_id", "?"))
+			if String(tr.get("payoff_kind", "")) == "NcModulation":
+				nc_mod += 1
+	_expect(bad_doc.is_empty(), "doctrine 하드 제약 (%s)" % ("위반 없음" if bad_doc.is_empty() else ", ".join(bad_doc)))
+	# DOC-TNK-02는 NcModulation이 **없어야** 한다 — QA-032 §2.3의 대조군이다(NC 미개입).
+	var t02_nc := 0
+	for tr2 in sd.get_doctrine("DOC-TNK-02").get("traits", []):
+		if String(tr2.get("payoff_kind", "")) == "NcModulation":
+			t02_nc += 1
+	_expect(t02_nc == 0, "DOC-TNK-02 = NC 미개입 대조군 (QA-032 §2.3 대상 아님)")
+	# 🚨 controlContext는 doctrine에만 — 참·능력에 새어 나가면 대전제가 깨진다(D-021 §6-3).
+	var leak: Array = []
+	for crow in sd.get_charm_rows():
+		if crow.has("control_context") or crow.has("controlContext"):
+			leak.append("charm %s" % crow.get("charm_id", "?"))
+	_expect(leak.is_empty(), "controlContext 누출 0 (doctrine 전용, D-021 §6-3)")
+
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")
 	for cls in sandbox.SANDBOX_SUBS:

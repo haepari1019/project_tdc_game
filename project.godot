@@ -26,6 +26,7 @@ SaveProfile="*res://scripts/autoload/save_profile.gd"
 Stash="*res://scripts/autoload/stash.gd"
 Backpack="*res://scripts/autoload/backpack.gd"
 HubProfile="*res://scripts/autoload/hub_profile.gd"
+DoctrineProfile="*res://scripts/autoload/doctrine_profile.gd"
 
 [display]
 

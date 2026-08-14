@@ -1,0 +1,83 @@
+{
+  "_ref": "spec F-030 (파티 운용 doctrine) · D-021 (DoctrineNode/Trait 스키마) · QA-032. 성장 = 「캐릭터를 강하게」가 아니라 **「4명을 어떤 순서·템포로 조작하는가」**. Identity당 2개, 활성 최대 1개(D-021 §4). 프로필 영구·Hub Safe(F-007 Loss Bundle 미포함).",
+
+  "_note_pilot": "Tank 파일럿 2종만 저작한다(DOC-TNK-01/02) — I-008 P4a와 동일 패턴(소수 집중 → 플테 → 확장). 스텁 로드맵 선행은 DEC-20260709-001에서 SUPERSEDED로 폐기된 전례가 있어 하지 않는다(F-030 OQ-4).",
+  "_note_values": "`payoff_value`·`icd_s` 전부 **design example**(F-030 OQ-2). 그대로 구현하되 플테 후 역전파한다.",
+  "_note_constraints": "하드 제약(D-021 §6 · 검증기가 강제): traits 길이 1~2 · 모든 Trait `icd_s` **필수**(0 명시는 허용, 생략은 오류) · `control_context`는 **여기에만** 존재(AB·참에 나타나면 오류) · Status/Zone/Event **신규 생성 금지**(읽기만) · 파티 공용 자원·게이지 **신설 금지**.",
+
+  "control_contexts": ["OnControl", "OnHandoff", "WhileAI", "OnReswap"],
+  "payoff_kinds": ["DurationExtend", "MagnitudeScale", "ResourceGrant", "NcModulation"],
+
+  "doctrines": [
+    {
+      "doctrine_id": "DOC-TNK-01",
+      "display_name": "전열 위임",
+      "class_id": "Tank",
+      "identity_skill_id": "tank_anchor_guard",
+      "operation_summary": "탱커를 오래 잡지 않는다. 짧게 들어가 전열을 만들어 놓고 AI에게 넘긴 뒤, 딜러 쪽에 attention을 쓴다.",
+      "tree_node_cost": { "haul_ward_splinter": 4 },
+      "traits": [
+        {
+          "trait_id": "DOC-TNK-01-T1",
+          "display_name": "수거 후 위임",
+          "control_context": "OnHandoff",
+          "condition_refs": ["Taunted"],
+          "condition_count": 3,
+          "condition_window_s": 4.0,
+          "payoff_kind": "DurationExtend",
+          "payoff_target_ref": "Taunted",
+          "payoff_value": 3.0,
+          "icd_s": 12.0,
+          "notes": "직접 조작 중 3기 이상을 Taunt한 채 넘기면 그 Taunt가 더 오래 간다. **신규 부여 금지** — 이미 걸린 것의 지속만 연장(ROLE-001 §E-1)."
+        },
+        {
+          "trait_id": "DOC-TNK-01-T2",
+          "display_name": "위임된 전열",
+          "control_context": "WhileAI",
+          "condition_refs": ["Taunted"],
+          "condition_count": 2,
+          "payoff_kind": "NcModulation",
+          "payoff_target_ref": "identity_cast_cadence",
+          "payoff_value": 0.85,
+          "icd_s": 0.0,
+          "notes": "AI 탱커의 Identity 시전 주기 단축. **F-005 §3.3a 8단계 경유 필수** — 앞 7단계 순서·판정 불변. 구현은 CS-3."
+        }
+      ]
+    },
+    {
+      "doctrine_id": "DOC-TNK-02",
+      "display_name": "최전선 고수",
+      "class_id": "Tank",
+      "identity_skill_id": "tank_anchor_guard",
+      "operation_summary": "탱커를 오래 잡는다. 직접 막아내며 쌓은 것을, 잠깐 빠졌다 돌아와 터뜨린다.",
+      "tree_node_cost": { "haul_ward_splinter": 4 },
+      "traits": [
+        {
+          "trait_id": "DOC-TNK-02-T1",
+          "display_name": "버틴 만큼",
+          "control_context": "OnControl",
+          "condition_refs": ["Taunted"],
+          "condition_count": 2,
+          "condition_window_s": 6.0,
+          "payoff_kind": "ResourceGrant",
+          "payoff_target_ref": "bulwark_charge",
+          "payoff_value": 1.0,
+          "icd_s": 8.0,
+          "notes": "**기존 자원**(IDA-020 방벽)만 지급 — 파티 공용 자원 신설 금지. 3겹 캡스톤 구조는 그대로 두고 도달 속도만 바꾼다."
+        },
+        {
+          "trait_id": "DOC-TNK-02-T2",
+          "display_name": "복귀 정산",
+          "control_context": "OnReswap",
+          "condition_refs": ["bulwark_charge"],
+          "condition_count": 2,
+          "payoff_kind": "MagnitudeScale",
+          "payoff_target_ref": "bulwark_charge",
+          "payoff_value": 1.4,
+          "icd_s": 15.0,
+          "notes": "방벽을 쌓아둔 채 빠졌다 돌아오면 그 방벽을 더 강하게 소모. **NcModulation 없음** — NC 판단 미개입이라 QA-032 §2.3 대상 아님(회귀 게이트의 대조군)."
+        }
+      ]
+    }
+  ]
+}

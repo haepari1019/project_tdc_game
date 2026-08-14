@@ -1736,3 +1736,20 @@
 - **게이트:** `ci_smoke.sh` **11/11 PASS**.
 - **다음(CS-2 착수 전):** **QA-032 §2.1 기준선 스냅샷.** CS-1의 참 변경은 *참을 들고 있을 때만* 작동하고 기준선 픽스처는 참 0개라 오염되지 않는다 — 오염원은 A(chapel)이고 그건 CS-2가 건드리므로 **기준선은 CS-2 착수 시점**이 맞다.
 - **상태:** LOGGED · CS-1 완료.
+
+### DRIFT-148 — CS-2: `F-030` doctrine 골격 + QA-032 §2.1 회귀 게이트 (spec `d1bc78b` / `DEC-20260813-004`) 🔶 rule 구현
+- **스펙:** 파티 운용 doctrine 신설 — 성장 = 「조작 순서·체류·인계·재스왑의 변화」. 신규 필드는 **`controlContext` 1종만**(`OnControl`/`OnHandoff`/`WhileAI`/`OnReswap`), 나머지 조건은 기존 `STATUS-*`/`EFFECT-CORE` ID 참조로 조립.
+- **① 데이터·검증** — `doctrines.json`(DOC-TNK-01/02 · Tank 파일럿만) + `id_registry.doctrine_ids` + `Slice01Data._parse_doctrines`. 스펙이 *"검증기로 걸 것"* 이라 명시한 `D-021` §6 제약을 **로드 시 abort**로 강제했다: traits 길이 1~2 · **`icd_s` required**(0 명시는 허용, **생략은 오류** — R3 방어) · `control_context`/`payoff_kind` enum · `payoff_target_ref` 필수.
+  - 저작 실수가 런타임까지 살아 나가면 doctrine이 **조용히 안 걸리거나**(icd 누락) **대전제를 깬다**(controlContext 누출) — 조용한 실패는 이 레포에서 세 번 당한 패턴이라([[DRIFT-139]]) 데이터 게이트로 막았다.
+- **② 프로필 영구 저장** — 신규 오토로드 `DoctrineProfile`(`SaveProfile` "doctrine" 섹션). **런 단위가 아니다**: `F-007` Loss Bundle 미포함(`F-030` §3.5 Hub Safe). 전멸해도 안 잃는다 — 성장이 "이번 런의 소지품"이 아니라 "내가 이 파티를 어떻게 운용하는가"라서 런 결과로 흔들리면 정체성이 무너진다. **환불 API를 두지 않았다**(`F-030` §3.2 환불 없음 — 있으면 결국 쓰인다).
+- **③ chapel `Passive` → `Doctrine` 노드**(CS-1 1-5 · 판정 A 이행). `facilities_tiers.json` T1 = 「클래스당 트리 루트 + Doctrine 1」. 함께 **`party_member._apply_chapel_passive` 제거** — 이건 구 `F-020` 패시브 트리의 **데모 근사**(역할당 단일 노드로 수치만 올림)였고, 그 트리가 폐기되며 대표하던 축이 사라졌다. 호출부는 남기고 본문만 비웠다 — **여기가 비어 있음 자체가 기록**이다.
+- **🚨 ④ `QA-032` §2.1 중립 성장 회귀 게이트 — `ci_smoke`에 편입**(`tools/nc_baseline_smoke.gd`, 12번째 스위트).
+  - **검증한다:** doctrine 0에서 8단계 훅 **호출 수 0**(스킵) · 훅이 **항등 통과**(입력==출력) · `_tick_party_attacks` 진입점 시그니처 불변 · NC 경로가 `읽지 않음` 목록(서브·핑)을 **미참조** · `DoctrineProfile` 중립 기본.
+  - **⚠️ 검증하지 못한다(도구 헤더에 명시):** `ENC-HARD-001~005`의 **바이트 동일 리플레이**. 현 하네스는 물리·navmesh·프레임 타이밍이 섞여 재현 실행이 안 된다. 그 수준은 결정적 리플레이 하네스가 선행돼야 한다 — 지금은 위 항목들이 그 자리를 대신한다(훅이 안 불리고 통과가 항등이면 1~7 출력은 변할 수 없다). **F5 수동 확인 필요**: 중립 성장으로 `ENC-HARD-*` 클리어 성립(§2.1 세 번째 Given).
+  - CS-3이 훅을 넣는 순간부터 카운터가 실물이 되고 이 게이트가 0을 강제한다. **깨지면 doctrine 기능 전체 롤백**(`F-030` §3.7 R2).
+- **⑤ 게이트 추가(hub_smoke):** doctrine 카탈로그 2종 · Identity당 2개 · traits/icd 불변식 · **`DOC-TNK-02` = NcModulation 0**(회귀 게이트의 **대조군**이라 NC 미개입이 유지돼야 한다) · **`controlContext` 누출 0**(참·능력에 나타나면 오류, `D-021` §6-3).
+- **미구현(CS-2 잔여):** **Trait 런타임 발동** — `controlContext` 이벤트 소스(스왑 감지: OnControl/OnHandoff/OnReswap)와 payoff 적용(DurationExtend/ResourceGrant/MagnitudeScale). 스키마·저장·검증·트리 노드가 먼저 서야 발동 로직이 붙을 자리가 생겨 이 순서로 나눴다. `NcModulation`은 **CS-3 소관**(F-005 §3.3a).
+- **미구현:** chapel 트리 **구매 UI**(`hub_facilities_panel` 확장) · `mandatorySwaps` doctrine 태그(`F-024` §3.2.1a).
+- **분류·전파:** 스펙 규칙 구현 = 전파 없음. 수치(`payoff_value`·`icd_s`)는 **design example 그대로** 사용 — 플테 후 역전파(`F-030` OQ-2).
+- **게이트:** `ci_smoke.sh` **12/12 PASS**(신규 스위트 1).
+- **상태:** LOGGED · CS-2 골격 완료 · 런타임 발동 잔여.

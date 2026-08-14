@@ -126,5 +126,16 @@ if [ "$scode" -ne 0 ] || ! grep -qF "SELECTION SMOKE PASSED" "$sellog"; then
   echo "  FAIL: selection smoke (exit=$scode) —"; grep -nE "FAIL|$ERRPAT" "$sellog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# QA-032 §2.1 중립 성장 회귀 게이트 — doctrine 0에서 F-005 §3.3a 8단계가 스킵되고 결과가 개정 전과
+# 동일한지. **깨지면 doctrine 기능 전체를 롤백한다**(F-030 §3.7 R2). 전체 ENC 리플레이는 현 하네스로
+# 불가 — 훅 호출 0 + 항등 통과 + 1~7 진입점 불변으로 구성상 보증한다(도구 헤더에 한계 명시).
+echo "== NC baseline / 중립 성장 회귀 (QA-032 §2.1) =="
+ncblog="/tmp/ci_nc_baseline.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/nc_baseline_smoke.gd >"$ncblog" 2>&1
+nccode=$?
+if [ "$nccode" -ne 0 ] || ! grep -qF "NC BASELINE PASSED" "$ncblog"; then
+  echo "  FAIL: nc baseline (exit=$nccode) —"; grep -nE "FAIL|$ERRPAT" "$ncblog" | head -8; fail=1
+else echo "  PASS"; fi
+
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi

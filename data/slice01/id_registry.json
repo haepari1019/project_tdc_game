@@ -275,6 +275,11 @@
     "charm_ward_guard"
   ],
   "_note_charm": "F-010 §3.11 참(charm) — 런 인벤 칸 점유 stat-only 오오라(액티브 아님). 카탈로그 = charms.json. spec CHARM-PROTO-001(Voltaic 저항)은 게임에 원소 저항 축이 없어 평타 속도로 대체(DRIFT-146).",
+  "doctrine_ids": [
+    "DOC-TNK-01",
+    "DOC-TNK-02"
+  ],
+  "_note_doctrine": "F-030 파티 운용 doctrine(DEC-20260813-004) — Identity당 2개·활성 최대 1개. Tank 파일럿만 저작(확장은 QA-032 게이트 통과 후, F-030 OQ-4). 카탈로그 = doctrines.json.",
   "blueprint_ids": [
     "DBP-DEMO-001"
   ],

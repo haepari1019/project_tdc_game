@@ -366,16 +366,13 @@ func set_skillbook(sb_slot: int, inst):
 
 
 ## Equip a skillbook into a Q/E/R slot by base_ability_id (deployment loadout apply, F-010).
-## F-029 성소(chapel) T1 효과 실연동 — 역할별 passive 강화(F-020-lite). HubProfile 시설 Tier ≥1이면 적용.
-## _bind_gear에서 호출(bind마다 fresh 재계산 → 비누적). F-020 패시브 트리 미구현 → 역할별 단일 노드 데모 근사.
+## ~~F-029 성소(chapel) 역할별 stat 버프~~ — **제거**(CS-1 판정 A · DEC-20260813-003).
+## 이건 구 `F-020` **패시브 트리의 데모 근사**였다(역할당 단일 노드로 수치만 올림). 그 트리가 폐기되고
+## 「수치 보정 상시」가 **참**으로, 「행동 조건부 파티 운용 성장」이 **doctrine**으로 갈리면서
+## 이 함수가 대표하던 축 자체가 사라졌다 — chapel T1은 이제 **Doctrine 1 노드**를 연다(`F-029`).
+## 성장이 "캐릭터를 강하게"에서 "4명을 어떤 순서로 운용하는가"로 옮겨간 것이 이 삭제의 요지다.
 func _apply_chapel_passive() -> void:
-	var hub := get_node_or_null("/root/HubProfile")
-	if hub == null or not hub.has_method("facility_tier") or int(hub.facility_tier("chapel")) < 1:
-		return
-	match class_id:
-		"Tank": max_hp *= 1.15        # 전선 내구
-		"Healer": max_hp *= 1.12      # 생존
-		"DPS", "Nuker": basic_damage *= 1.12   # 화력
+	pass   # no-op — 호출부(_bind_gear)는 남겨 둔다: 되돌릴 일이 아니라 **여기가 비어 있음**이 기록이다.
 
 
 func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Dictionary = {}) -> void:
