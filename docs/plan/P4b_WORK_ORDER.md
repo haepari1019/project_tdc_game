@@ -209,7 +209,9 @@ M1 마석 ✅ ┬ M2 참 ✅ ┐          │
 
 **DoD:** 참 5종이 인벤을 점유하고 오오라를 적용·정산하며, stat 축이 참으로 표현된다.
 
-### M3 — 스킬 트리 (`F-020` §3.10 · `F-029` chapel)
+### M3 — 스킬 트리 ✅ **완료 (2026-08-14 · DRIFT-150)**
+
+> 노드 4종(Slot/Unlock/Upgrade/Doctrine) · 해금 상태 = `HubProfile`(전임 `shop_listing_unlocked` 옆) · `hub_tree_panel` 신설로 **CS-2 잔여 doctrine 구매 경로 해소**. `Slot`→`gear_skill_slot_count` 배선은 **M4**.
 
 - 노드 4종: **Unlock**(모딩/구매 허용) · **Upgrade**(행동 발전) · **Passive** · **Slot**(`gear_skill_slot_count` +1).
 - 소비: `hubVault` Shared 재료 · `haul_*` · (선택) `ward_scrap` — sink 경쟁.

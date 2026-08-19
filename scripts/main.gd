@@ -13,6 +13,7 @@ const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const HubFacilitiesPanel := preload("res://scripts/ui/hub_facilities_panel.gd")  # UI-029 시설 승급
 const HubEconomyPanel := preload("res://scripts/ui/hub_economy_panel.gd")        # F-009 분석·상점
 const HubQuestPanel := preload("res://scripts/ui/hub_quest_panel.gd")            # F-029 §3.3 퀘스트 로그
+const HubTreePanel := preload("res://scripts/ui/hub_tree_panel.gd")              # F-020 §3.10 스킬 트리(성소)
 
 @onready var _status: Label = $Panel/Margin/VBox/Status
 @onready var _loadout: VBoxContainer = $Panel/Margin/VBox/LoadoutStub
@@ -90,6 +91,15 @@ func _setup_hub() -> void:
 	economy_panel.closed.connect(func() -> void: _stash_src.items = _build_stash_items())
 	$Panel/Margin/VBox.add_child(economy_btn)
 	$Panel/Margin/VBox.move_child(economy_btn, _loadout.get_index())
+	# F-020 §3.10 성소 스킬 트리 — 해금/발전/슬롯/**doctrine 구매**. 구 분석 의뢰 UI의 후임.
+	# doctrine을 살 수 있는 **유일한 경로**라 이게 없으면 F-030이 코드에만 있고 게임엔 없다.
+	var tree_panel := HubTreePanel.new()
+	add_child(tree_panel)
+	var tree_btn := Button.new()
+	tree_btn.text = "성소 · 스킬 트리 (해금/운용)"
+	tree_btn.pressed.connect(tree_panel.open_panel)
+	$Panel/Margin/VBox.add_child(tree_btn)
+	$Panel/Margin/VBox.move_child(tree_btn, _loadout.get_index())
 	# F-029 §3.3 퀘스트 로그 — 승급 의뢰 전체 + 완료 조건 확인. 풀스크린 오버레이.
 	var quest_panel := HubQuestPanel.new()
 	add_child(quest_panel)

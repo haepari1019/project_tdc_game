@@ -25,6 +25,7 @@ const DISPLAY_NAMES_PATH := SLICE01_DIR + "display_names.json"  # 유저용 표�
 const MANASTONES_PATH := SLICE01_DIR + "manastones.json"         # F-009 §3.8 마석 — 슬롯 스킬 시전 소모
 const CHARMS_PATH := SLICE01_DIR + "charms.json"                 # F-010 §3.11 참 — 인벤 점유 stat 오오라
 const DOCTRINES_PATH := SLICE01_DIR + "doctrines.json"           # F-030 / D-021 파티 운용 doctrine
+const SKILL_TREE_PATH := SLICE01_DIR + "skill_tree.json"         # F-020 §3.10 스킬 트리(해금·업그레이드·슬롯·doctrine)
 
 var _loaded: bool = false
 var _manifest: Dictionary = {}
@@ -60,6 +61,8 @@ var _charms: Dictionary = {}          # charmId -> row (F-010 §3.11)
 var _charm_doc: Dictionary = {}       # 문서 전체(starter_grant)
 var _doctrines: Dictionary = {}       # doctrineId -> row (F-030 / D-021)
 var _doctrine_doc: Dictionary = {}    # 문서 전체(control_contexts / payoff_kinds enum)
+var _tree: Dictionary = {}            # nodeId -> row (F-020 §3.10)
+var _tree_doc: Dictionary = {}        # 문서 전체(node_types enum)
 var _haul_drops: Dictionary = {}      # encounterId -> [{haul, qty, chance}] (HUB-COR-000 §3)
 
 
@@ -376,6 +379,24 @@ func get_doctrine(id: String) -> Dictionary:
 	return _doctrines.get(id, {})
 
 
+# --- 스킬 트리 (F-020 §3.10) --------------------------------------------------
+
+func get_tree_node(id: String) -> Dictionary:
+	return _tree.get(id, {})
+
+
+func get_tree_nodes() -> Array:
+	return _tree.values()
+
+
+func tree_nodes_for_class(class_id: String) -> Array:
+	var out: Array = []
+	for row in _tree.values():
+		if String(row.get("class_id", "")) == class_id:
+			out.append(row)
+	return out
+
+
 func get_doctrine_rows() -> Array:
 	return _doctrines.values()
 
@@ -479,6 +500,7 @@ func _load_and_validate() -> bool:
 	var manastones_doc := _read_json_dict(MANASTONES_PATH, "manastones", errors)
 	var charms_doc := _read_json_dict(CHARMS_PATH, "charms", errors)
 	var doctrines_doc := _read_json_dict(DOCTRINES_PATH, "doctrines", errors)
+	var tree_doc := _read_json_dict(SKILL_TREE_PATH, "skill_tree", errors)
 	_display = _read_json_dict(DISPLAY_NAMES_PATH, "display_names", errors)   # UI 라벨(검증 없음 — gameplay 아님)
 
 	if errors.is_empty():
@@ -490,6 +512,7 @@ func _load_and_validate() -> bool:
 		_parse_manastones(manastones_doc, errors)
 		_parse_charms(charms_doc, errors)
 		_parse_doctrines(doctrines_doc, errors)
+		_parse_tree(tree_doc, errors)
 		_parse_enemy_basics(enemy_basics_doc, errors)
 		_parse_patterns(patterns_doc, errors)
 		_parse_enemies(enemies_doc, errors)
@@ -698,6 +721,42 @@ func _parse_spawn_table(doc: Dictionary, errors: Array[String]) -> void:
 
 ## Hub (F-029/D-029): 시설 Tier 표 · 승급 퀘스트 · haul 카탈로그. ID는 id_registry로 검증;
 ## 시설 Tier 행의 quest/haul 참조도 등록 ID인지 검증(armory catalog gear는 GEAR-COR-000 후속이라 미검증).
+## 스킬 트리 — id_registry 1:1 + **참조 무결성**. 노드가 가리키는 AB·doctrine·선행 노드가 실재하지
+## 않으면 트리에 **눌리지 않는 버튼**이 생긴다(= 조용한 실패). 이 레포가 세 번 당한 유형이라 로드에서 막는다.
+func _parse_tree(doc: Dictionary, errors: Array[String]) -> void:
+	_tree.clear()
+	_tree_doc = doc
+	var allowed: Array = _registry_list("tree_node_ids")
+	var types: Array = doc.get("node_types", [])
+	var seen: Array = []
+	for row in doc.get("nodes", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var nid := String(row.get("node_id", ""))
+		IdValidate.require_id(nid, allowed, "tree_node_id", errors)
+		var ty := String(row.get("type", ""))
+		if not types.has(ty):
+			errors.append("skill_tree.json %s: type '%s' 미정의 (%s)" % [nid, ty, str(types)])
+		match ty:
+			"Unlock", "Upgrade":
+				var ab := String(row.get("base_ability_id", ""))
+				if get_skillbook_master(ab).is_empty():
+					errors.append("skill_tree.json %s: base_ability_id '%s' 카탈로그 부재" % [nid, ab])
+			"Doctrine":
+				if not _doctrines.has(String(row.get("doctrine_id", ""))):
+					errors.append("skill_tree.json %s: doctrine_id '%s' 부재" % [nid, row.get("doctrine_id", "")])
+			"Slot":
+				if int(row.get("grants_slot", 0)) <= 0:
+					errors.append("skill_tree.json %s: Slot 노드인데 grants_slot 없음" % nid)
+		_tree[nid] = row
+		seen.append(nid)
+	# 선행 노드는 **전부 적재된 뒤** 검사한다(정의 순서에 의존하지 않게).
+	for nid2 in _tree:
+		var pre := String((_tree[nid2] as Dictionary).get("prerequisite", ""))
+		if pre != "" and not seen.has(pre):
+			errors.append("skill_tree.json %s: prerequisite '%s' 부재" % [nid2, pre])
+
+
 ## doctrine 카탈로그 — id_registry `doctrine_ids` 1:1 + **D-021 §6 하드 제약 검증**.
 ## 스펙이 "검증기로 걸 것"이라 명시한 제약들이라 **로드 시 abort**로 강제한다 — 저작 실수가
 ## 런타임까지 살아 나가면 doctrine이 조용히 안 걸리거나(icd 누락) 대전제를 깬다(controlContext 누출).

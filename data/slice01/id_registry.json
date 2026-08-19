@@ -280,6 +280,21 @@
     "DOC-TNK-02"
   ],
   "_note_doctrine": "F-030 파티 운용 doctrine(DEC-20260813-004) — Identity당 2개·활성 최대 1개. Tank 파일럿만 저작(확장은 QA-032 게이트 통과 후, F-030 OQ-4). 카탈로그 = doctrines.json.",
+  "tree_node_ids": [
+    "TREE-TNK-ROOT",
+    "TREE-DPS-ROOT",
+    "TREE-NUK-ROOT",
+    "TREE-HEA-ROOT",
+    "TREE-TNK-DOC1",
+    "TREE-TNK-DOC2",
+    "TREE-TNK-U1",
+    "TREE-TNK-U2",
+    "TREE-DPS-U1",
+    "TREE-NUK-U1",
+    "TREE-HEA-U1",
+    "TREE-TNK-UP1"
+  ],
+  "_note_tree": "F-020 §3.10 스킬 트리(Phase 4b) — 분석 N=3 해금을 **트리 노드 클릭**으로 교체. 노드 4종(Unlock/Upgrade/Slot/Doctrine); `Passive` 노드는 CS-1에서 폐기. 카탈로그 = skill_tree.json.",
   "blueprint_ids": [
     "DBP-DEMO-001"
   ],

@@ -310,6 +310,46 @@ func _init() -> void:
 	_expect(not OS_.MOVE_MULT.has("Taunted") and not OS_.ATK_MULT.has("Taunted"),
 		"Taunted — 이동·공속 미개입(어그로는 threat/floor 소관)")
 
+	# ②g 스킬 트리 (M3 · F-020 §3.10) — 게이트·선행·재료·해금 파생.
+	# 참조 무결성(노드→AB/doctrine/선행)은 Slice01Data 로드가 이미 abort시킨다(여기 왔다 = 통과).
+	_expect(sd.get_tree_nodes().size() >= 10, "트리 카탈로그 %d노드" % sd.get_tree_nodes().size())
+	_expect(sd.tree_nodes_for_class("Tank").size() >= 4, "클래스별 트리 — Tank 노드 존재(U6 클래스 단위)")
+	var hp2 = load("res://scripts/autoload/hub_profile.gd").new()
+	hp2.persist = false
+	for f2 in hp2.FACILITY_IDS:
+		hp2.facilities[f2] = 0
+	hp2.tree_unlocked = {}
+	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "facility", "트리 — chapel T0 잠김(F-029)")
+	hp2.facilities["chapel"] = 1
+	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "prereq", "트리 — 선행 노드 미해금 차단")
+	_expect(bool(hp2.tree_check("TREE-TNK-ROOT").get("ok", false)), "트리 — 루트는 무비용 즉시 가능")
+	_expect(bool(hp2.tree_buy("TREE-TNK-ROOT").get("ok", false)), "루트 구매")
+	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "haul", "트리 — 재료 부족 차단")
+	hp2.add_haul("haul_ward_splinter", 4)
+	_expect(bool(hp2.tree_buy("TREE-TNK-DOC1").get("ok", false)), "재료 충족 → doctrine 노드 구매")
+	_expect(hp2.vault_count("haul_ward_splinter") == 0, "구매 시 금고 재료 차감(sink)")
+	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "already", "재구매 차단(환불 없음)")
+	# 파생 — Slot 보너스 · Unlock → AB 해금 · Upgrade 배율.
+	# ⚠️ 플테 플래그를 **끄고** 잰다 — 켜 두면 is_node_unlocked가 항상 true라 트리 로직을 안 타고
+	# 전부 통과한다(게이트가 아무것도 증명하지 못한다).
+	hp2.PLAYTEST_TREE_ALL_UNLOCKED = false
+	_expect(not hp2.is_ability_unlocked("AB-033"), "미해금 AB는 잠김(플래그 off 기준)")
+	_expect(hp2.tree_slot_bonus("Tank") == 1, "Slot 노드 → gear 슬롯 +1 (루트 구매분, M4가 소비)")
+	_expect(hp2.tree_slot_bonus("DPS") == 0, "다른 클래스 Slot은 미해금 → 0")
+	hp2.tree_unlocked["TREE-TNK-U1"] = true
+	_expect(hp2.is_ability_unlocked("AB-033"), "Unlock 노드 해금 → AB 열림")
+	_expect(hp2.is_shop_unlocked("AB-033"), "트리 해금이 상점 해금을 겸한다(구 분석 대체)")
+	_expect(hp2.ability_upgrades("AB-033").is_empty(), "Upgrade 미해금 → 배율 없음")
+	hp2.tree_unlocked["TREE-TNK-UP1"] = true
+	_expect(is_equal_approx(float(hp2.ability_upgrades("AB-033").get("shield", 0.0)), 1.25), "Upgrade 해금 → 파라미터 배율")
+	# 플래그 on = **노드가 있는** 것이 전부 열린다. 노드 없는 AB는 여전히 잠긴다(그게 맞다 —
+	# 플래그는 "구매를 건너뛴다"이지 "카탈로그에 없는 걸 만든다"가 아니다).
+	_expect(not hp2.is_ability_unlocked("AB-034"), "AB-034 — 노드 미해금 상태")
+	hp2.PLAYTEST_TREE_ALL_UNLOCKED = true
+	_expect(hp2.is_ability_unlocked("AB-034"), "플테 플래그 on → 노드 있는 AB 전부 해금(D4 트리판)")
+	_expect(not hp2.is_ability_unlocked("AB-999"), "플래그 on이어도 노드 없는 AB는 잠김")
+	hp2.free()
+
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")
 	for cls in sandbox.SANDBOX_SUBS:

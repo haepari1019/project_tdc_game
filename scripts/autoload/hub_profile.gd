@@ -27,6 +27,15 @@ var extraction_success: int = 0        # 누적 추출 성공 횟수 (데모 이
 var party_wiped: int = 0               # 누적 전멸 횟수 (데모 이벤트 퀘스트: 성소 복구 대용)
 var analysis_progress: Dictionary = {} # baseAbilityId -> 분석 의뢰 누적 횟수 (Safe meta, F-009 §3.5)
 var shop_listing_unlocked: Dictionary = {}  # baseAbilityId -> bool (progress >= ANALYSIS_REQUIRED)
+## F-020 §3.10 스킬 트리 — 해금한 노드 id. **구 분석(N=3)의 후임**이라 같은 자리에 둔다:
+## sink(금고 재료)·게이트(chapel Tier)·해금 상태가 전부 여기 모여 있어야 한 곳만 보면 된다.
+## 분석 경로는 M5(F-009 폐기)에서 걷어낸다 — 그때까지 **두 경로가 공존**하되 트리가 우선한다.
+var tree_unlocked: Dictionary = {}   # node_id -> true
+## 플테 — 트리 전 노드 해금(D4 「전 카탈로그 개방」의 트리판). 교정한 스킬에 손이 닿아야 한다.
+## 끄면 chapel 승급 → 재료 소비 → 노드 구매의 실제 곡선이 살아난다. ref: DRIFT-150.
+## **const가 아니라 var다** — 켜 두면 `is_node_unlocked`가 항상 true라 게이트가 **트리 로직을 안 타고
+## 통과해 버린다**(헛된 확신). 스모크가 false로 내려 실제 해금 파생을 검증한다.
+var PLAYTEST_TREE_ALL_UNLOCKED: bool = true
 var ward_scrap: int = 0                # 상점 통화 (D-018 §7.1 placeholder); 추출 성공 시 획득
 var persist: bool = true               # false면 디스크 저장/로드 skip (테스트 인스턴스용 — 실 save 미오염)
 var _q_dirty: bool = false
@@ -57,6 +66,7 @@ func to_dict() -> Dictionary:
 		"hard_cleared": hard_cleared,
 		"analysis_progress": analysis_progress,
 		"shop_listing_unlocked": shop_listing_unlocked,
+		"tree_unlocked": tree_unlocked,
 		"ward_scrap": ward_scrap,
 		"extraction_success": extraction_success,
 		"party_wiped": party_wiped,
@@ -81,6 +91,7 @@ func apply_dict(d: Dictionary) -> void:
 	hard_cleared = bool(d.get("hard_cleared", false))
 	analysis_progress = d.get("analysis_progress", {})
 	shop_listing_unlocked = d.get("shop_listing_unlocked", {})
+	tree_unlocked = d.get("tree_unlocked", {})
 	ward_scrap = int(d.get("ward_scrap", 0))
 	extraction_success = int(d.get("extraction_success", 0))
 	party_wiped = int(d.get("party_wiped", 0))
@@ -95,6 +106,7 @@ func reset_to_seed() -> void:
 	hard_cleared = false
 	analysis_progress = {}
 	shop_listing_unlocked = {}
+	tree_unlocked = {}
 	ward_scrap = 0
 	extraction_success = 0
 	party_wiped = 0
@@ -310,8 +322,86 @@ func analysis_count(base_id: String) -> int:
 	return int(analysis_progress.get(base_id, 0))
 
 
+## 이 AB를 슬롯에 끼우거나 상점에서 살 수 있는가. **트리 해금이 정본**이고(F-020 §3.10), 구 분석
+## 경로는 M5까지 남는 폴백이다 — 둘 중 하나만 열려도 허용(마이그레이션 중 잠기는 걸 막는다).
 func is_shop_unlocked(base_id: String) -> bool:
-	return bool(shop_listing_unlocked.get(base_id, false))
+	return is_ability_unlocked(base_id) or bool(shop_listing_unlocked.get(base_id, false))
+
+
+# --- F-020 §3.10 스킬 트리 -----------------------------------------------------
+
+func is_node_unlocked(node_id: String) -> bool:
+	return PLAYTEST_TREE_ALL_UNLOCKED or bool(tree_unlocked.get(node_id, false))
+
+
+## 트리로 이 AB가 열렸는가 — `Unlock` 노드가 가리키는 `base_ability_id`.
+func is_ability_unlocked(base_id: String) -> bool:
+	if base_id == "":
+		return false
+	for row in Slice01Data.get_tree_nodes():
+		if String(row.get("type", "")) == "Unlock" and String(row.get("base_ability_id", "")) == base_id:
+			if is_node_unlocked(String(row.get("node_id", ""))):
+				return true
+	return false
+
+
+## 트리로 확보한 추가 gear 슬롯 수(`Slot` 노드 합). M4의 `gear_skill_slot_count`가 소비한다.
+func tree_slot_bonus(class_id: String) -> int:
+	var n := 0
+	for row in Slice01Data.get_tree_nodes():
+		if String(row.get("type", "")) == "Slot" and String(row.get("class_id", "")) == class_id 				and is_node_unlocked(String(row.get("node_id", ""))):
+			n += int(row.get("grants_slot", 0))
+	return n
+
+
+## 이 AB에 걸린 `Upgrade` 파라미터 배율 합성({} = 없음). 행동 발전은 AB 소비처가 해석한다.
+func ability_upgrades(base_id: String) -> Dictionary:
+	var out: Dictionary = {}
+	for row in Slice01Data.get_tree_nodes():
+		if String(row.get("type", "")) != "Upgrade" or String(row.get("base_ability_id", "")) != base_id:
+			continue
+		if not is_node_unlocked(String(row.get("node_id", ""))):
+			continue
+		for k in (row.get("param_override", {}) as Dictionary):
+			out[k] = float(out.get(k, 1.0)) * float(row["param_override"][k])
+	return out
+
+
+## 노드 구매 가능 판정 — chapel 게이트 · 선행 노드 · 금고 재료. {ok} 또는 {ok:false, reason}.
+func tree_check(node_id: String) -> Dictionary:
+	var row: Dictionary = Slice01Data.get_tree_node(node_id)
+	if row.is_empty():
+		return {"ok": false, "reason": "unknown"}
+	if bool(tree_unlocked.get(node_id, false)):
+		return {"ok": false, "reason": "already"}
+	if facility_tier("chapel") < 1:
+		return {"ok": false, "reason": "facility"}   # F-029 — chapel T0 = 트리 Locked
+	var pre := String(row.get("prerequisite", ""))
+	if pre != "" and not bool(tree_unlocked.get(pre, false)):
+		return {"ok": false, "reason": "prereq"}
+	for mat in (row.get("cost", {}) as Dictionary):
+		if vault_count(String(mat)) < int(row["cost"][mat]):
+			return {"ok": false, "reason": "haul"}
+	return {"ok": true}
+
+
+## 노드 구매 — 재료를 **금고에서** 뺀다(sink 경쟁, I-007 §14.6). `Doctrine` 노드는 구매 이력을
+## `DoctrineProfile`이 소유하므로 그쪽에도 남긴다. **환불 없음**(F-030 §3.2).
+func tree_buy(node_id: String) -> Dictionary:
+	var chk := tree_check(node_id)
+	if not bool(chk.get("ok", false)):
+		return chk
+	var row: Dictionary = Slice01Data.get_tree_node(node_id)
+	for mat in (row.get("cost", {}) as Dictionary):
+		remove_haul(String(mat), int(row["cost"][mat]))
+	tree_unlocked[node_id] = true
+	if String(row.get("type", "")) == "Doctrine":
+		var dp := get_node_or_null("/root/DoctrineProfile")
+		if dp != null:
+			dp.mark_purchased(String(row.get("doctrine_id", "")))
+	save_profile()
+	economy_changed.emit()
+	return {"ok": true}
 
 
 func scrap() -> int:
