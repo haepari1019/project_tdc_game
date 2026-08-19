@@ -56,6 +56,10 @@ const COLOR := {
 	"Vulnerable": Color(1.0, 0.45, 0.55),
 	# AB-010 Venom Spit — 스택형 독 DoT 디버프(mag = 누적 dps; 재적용마다 세짐).
 	"Poison": Color(0.45, 0.85, 0.30),
+	# STATUS-ACTOR-CORE `Taunted` — 도발당한 상태. **이동·공속을 안 건드린다**(MOVE_MULT/ATK_MULT 미등재):
+	# 어그로는 여전히 threat/floor가 결정하고, 이 상태는 "지금 누구에게 붙들려 있는가"를 **읽히게** 하는
+	# 디버프다. doctrine 조건(`conditionRefs: Taunted`)·`DurationExtend`가 이걸 읽는다. ref: DRIFT-149.
+	"Taunted": Color(1.0, 0.55, 0.20),
 }
 # Korean display name per outcome (status-chip label in enemy_info). Superset of float_text.OUTCOME_KO
 # (adds Tethered/Bloodlust). Unknown ids fall back to the raw id.
@@ -64,6 +68,7 @@ const KO := {
 	"OilSlick": "기름", "IceGlide": "빙판", "Hastened": "가속", "Ignited": "점화", "WindBuffeted": "돌풍", "Scorched": "화염",
 	"Scented": "혈향", "Rooted": "속박", "Pinned": "고정", "Tethered": "포박",
 	"Bloodlust": "광폭", "Vulnerable": "취약", "Poison": "중독", "Frozen": "빙결",
+	"Taunted": "도발",
 }
 const DEFAULT_IGNITE_DPS := 8.0
 # ── 지속피해(DoT) 공통 규격 (DRIFT-089) ──────────────────────────────────────────────────────
@@ -198,6 +203,11 @@ func has(id: String) -> bool:
 
 
 ## Magnitude stored for an active outcome (Ignited dps / Vulnerable extra-damage frac). 0 if absent.
+## 남은 지속(초). 0 = 없음. `DurationExtend`처럼 **현재 값 위에 얹어야 하는** 보정이 읽는다.
+func remaining(id: String) -> float:
+	return float(_t.get(id, 0.0))
+
+
 func mag(id: String) -> float:
 	return float(_mag.get(id, 0.0))
 

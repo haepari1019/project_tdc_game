@@ -13,6 +13,7 @@ const OUTCOME_KO := {
 	"Sodden": "침수", "Chilled": "냉각", "SteamHaze": "증기", "OilSlick": "기름", "IceGlide": "빙판", "Hastened": "가속",
 	"Shock": "감전", "Ignited": "점화", "WindBuffeted": "돌풍", "Vulnerable": "취약",
 	"Rooted": "속박", "Pinned": "고정", "Scented": "혈향", "Frozen": "빙결",
+	"Taunted": "도발",    # STATUS-ACTOR-CORE — 도발 부여 시 적 머리 위 팝업(DRIFT-149)
 	"Tethered": "포박",   # 누락이었다 — `outcome_status.KO`엔 있는데 여기 없어 부여 팝업이 안 떴다(DRIFT-132)
 }
 

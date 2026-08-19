@@ -327,10 +327,8 @@ func _physics_process(delta: float) -> void:
 		_shove_timer_s -= delta
 		if _shove_timer_s <= 0.0:
 			clear_shove()
-	if taunt_timer_s > 0.0:                    # Taunted 마커 만료(어그로 floor는 별개로 유지)
-		taunt_timer_s -= delta
-		if taunt_timer_s <= 0.0:
-			taunted_by = null
+	if taunted_by != null and not _outcome.has("Taunted"):
+		taunted_by = null                      # 도발 만료(컨테이너가 틱) → 출처 정리. 어그로 floor는 별개 유지
 	if not training_dummy:
 		return   # 일반 적은 이동을 EnemyAI가 구동 — 이하 허수아비 전용.
 	# 허수아비는 AI tick을 스킵하므로 여기서 상태 타이머를 직접 감소 → 디버프가 만료되고 재적용/재팝업 가능.
@@ -381,23 +379,28 @@ func hide_mark() -> void:
 ## 표식/집중과 같은 per-enemy 결속 상태 계열(배지 + 자체 타이머).
 ## 도발 마커 부여/갱신 — 어그로 자체는 add_threat/set_threat_floor가 이미 처리했다.
 func apply_taunted(by: Node, dur: float) -> void:
-	if dur <= 0.0:
+	if dur <= 0.0 or hp <= 0.0:
 		return
 	taunted_by = by
-	taunt_timer_s = maxf(taunt_timer_s, dur)
+	apply_outcome("Taunted", dur)   # 팝업·아이콘·만료는 공용 경로가 처리
 
 
 ## 이 멤버가 지금 이 적을 도발 중인가(doctrine 조건 판정용).
 func is_taunted_by(member: Node) -> bool:
-	return taunt_timer_s > 0.0 and taunted_by == member
+	return _outcome.has("Taunted") and taunted_by == member
+
+
+## 남은 도발 지속(초).
+func taunt_remaining() -> float:
+	return _outcome.remaining("Taunted")
 
 
 ## `DurationExtend` — 이미 걸린 도발의 지속만 늘린다. **신규 부여 금지**(ROLE-001 §E-1)라
-## 도발 중이 아니면 아무 일도 없다.
+## 도발 중이 아니면 아무 일도 없다. 컨테이너 `apply`가 maxf라 **현재 잔여 + add**로 다시 건다.
 func extend_taunt(member: Node, add_s: float) -> bool:
 	if not is_taunted_by(member) or add_s <= 0.0:
 		return false
-	taunt_timer_s += add_s
+	apply_outcome("Taunted", taunt_remaining() + add_s)
 	return true
 
 
@@ -504,11 +507,12 @@ var _badges = null                 # OverheadBadges 스트립(lazy) — 표식/�
 var _status_icons = null           # OverheadStatusIcons 로우(lazy) — 디버프 아이콘(색+심볼+시계 타이머)
 var _mark_timer_display: float = 0.0
 var _shove_timer_s: float = 0.0        # IDA-022 「밀림」 — 이 창 안에 또 밀리면 넘어진다
-## `Taunted` (spec STATUS-ACTOR-CORE) — 게임엔 도발이 **threat spike + floor(무기한)**로만 있어서
-## "도발당한 상태"를 **시간으로 읽을 방법이 없었다**. doctrine 조건(`conditionRefs: Taunted`)과
-## `DurationExtend`가 연장할 대상이 필요해 마커를 신설한다.
-## ⚠️ **전투 거동은 안 바뀐다** — 어그로는 여전히 threat/floor가 결정하고, 이건 순수 관측 마커다.
-var taunt_timer_s: float = 0.0
+## `Taunted` (spec STATUS-ACTOR-CORE) — **정식 디버프**. 게임엔 도발이 threat spike + floor(무기한)로만
+## 있어서 "도발당한 상태"를 읽을 방법이 없었다. 처음엔 전용 타이머 마커로 넣었다가(DRIFT-148),
+## **공용 상태 컨테이너로 승격**했다(DRIFT-149) — 그래야 상태 아이콘·한글 라벨·부여 팝업·만료 틱·
+## `enemy_info` 칩이 **기존 기계 그대로** 붙는다. 전용 타이머는 그 전부를 따로 배선해야 했다.
+## 지속·만료는 `_outcome`이 소유하고, 여기선 **누가 도발했는지**만 들고 있는다(컨테이너엔 출처 축이 없다).
+## ⚠️ 어그로 거동은 여전히 threat/floor가 결정한다 — 이 상태는 이동·공속을 건드리지 않는다.
 var taunted_by: Node = null
 var floor_of: Dictionary = {}  # member -> threat floor (§3.5)
 const DEFAULT_FLOOR := 10.0

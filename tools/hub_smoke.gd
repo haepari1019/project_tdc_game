@@ -289,6 +289,27 @@ func _init() -> void:
 	_expect(dpx.is_neutral(), "clear_all → 중립 복귀(기준선 스냅샷용)")
 	dpx.free()
 
+	# ②f 상태 라벨 등재 정합 — 상태를 추가하고 **라벨을 빠뜨리면 raw id가 화면에 뜬다**.
+	# `Tethered`가 정확히 그렇게 새어 나갔다(DRIFT-132: outcome_status.KO엔 있는데 float_text엔 없어
+	# 부여 팝업이 안 떴다). 세 표(COLOR/KO/OUTCOME_KO)를 대조해 다음 상태 추가 때 자동으로 잡는다.
+	var OS_ = load("res://scripts/combat/outcome_status.gd")
+	var FT_ = load("res://scripts/ui/float_text.gd")
+	# 부여 팝업을 **일부러 안 태우는** 상태들 — 사유를 여기 적어 둔다(빈 예외는 곧 구멍이 된다).
+	#  · Poison  = 호출부(enemy_unit/party_member)가 자체 "중독" 팝업을 띄운다 → 등재하면 **중복 팝업**.
+	#  · Scorched = 화염존 **체류 중 매 프레임 재적용** → 일반 팝업이면 화면 도배.
+	var popup_exempt := ["Poison", "Scorched"]
+	var label_gap: Array = []
+	for sid in OS_.COLOR.keys():
+		if not OS_.KO.has(sid):
+			label_gap.append("%s(KO 누락)" % sid)
+		if not FT_.OUTCOME_KO.has(sid) and not OS_.BUFF.has(sid) and not popup_exempt.has(sid):
+			label_gap.append("%s(부여 팝업 라벨 누락)" % sid)   # 버프는 팝업 경로가 달라 제외
+	_expect(label_gap.is_empty(), "상태 라벨 등재 정합 (%s)" % ("빠짐 없음" if label_gap.is_empty() else ", ".join(label_gap)))
+	_expect(OS_.KO.get("Taunted", "") == "도발", "Taunted = 정식 디버프 등재(DRIFT-149)")
+	# 도발은 **이동·공속을 건드리지 않는다** — 어그로는 threat/floor 소관이고 이건 읽히게 하는 표식이다.
+	_expect(not OS_.MOVE_MULT.has("Taunted") and not OS_.ATK_MULT.has("Taunted"),
+		"Taunted — 이동·공속 미개입(어그로는 threat/floor 소관)")
+
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")
 	for cls in sandbox.SANDBOX_SUBS:
