@@ -1753,3 +1753,17 @@
 - **분류·전파:** 스펙 규칙 구현 = 전파 없음. 수치(`payoff_value`·`icd_s`)는 **design example 그대로** 사용 — 플테 후 역전파(`F-030` OQ-2).
 - **게이트:** `ci_smoke.sh` **12/12 PASS**(신규 스위트 1).
 - **상태:** LOGGED · CS-2 골격 완료 · 런타임 발동 잔여.
+
+### DRIFT-148 후속 — CS-2 Trait 런타임 발동 (같은 changeset)
+- **`doctrine_runtime.gd` 신설**(CombatController 자식). 이 파일이 읽는 것은 스탯이 아니라 **조작 맥락**이다 — 성장의 정체성이 그렇게 옮겨갔기 때문이다.
+- **`controlContext` 4값 배선:** 지속형(`OnControl`/`WhileAI`)은 매 틱 재평가하되 **`icd_s`가 발동 빈도를 잡고**(R3 방어), 엣지형(`OnHandoff`/`OnReswap`)은 **기존 `became_controlled`/`became_non_controlled` 시그널**을 쓴다(폴링 안 함).
+  - **`OnReswap`은 "처음 잡는 것"과 구분**한다 — 한 번도 조작한 적 없는 최초 진입은 재스왑이 아니다. 그 구분이 없으면 "잠깐 빠졌다 복귀"라는 운용을 보상한다는 의미가 사라진다.
+- **🐞 `Taunted` 상태가 게임에 없었다.** spec `STATUS-ACTOR-CORE`에 있는데 게임의 도발은 **threat spike + floor(무기한)** 뿐이라 *"도발당한 상태"를 시간으로 읽을 방법이 없었다* → `DOC-TNK-01-T1`의 조건(`conditionRefs: Taunted`)도 `DurationExtend`도 걸 대상이 없다.
+  - → `enemy_unit`에 **마커**(`taunt_timer_s`/`taunted_by` + `apply_taunted`/`is_taunted_by`/`extend_taunt`) 신설, `sb_taunt`가 부여. **어그로 거동은 불변** — 여전히 threat/floor가 결정하고 이건 순수 관측 마커다(QA-032 기준선 무영향).
+  - `extend_taunt`는 **도발 중이 아니면 아무 일도 안 한다** — 신규 부여 금지(`ROLE-001` §E-1).
+- **payoff 3종:** `DurationExtend`(Taunted 연장) · `ResourceGrant`(**기존 자원** 방벽 적립 — 캡스톤 3겹 구조는 그대로 두고 도달 속도만) · `MagnitudeScale`(다음 방벽 캡스톤 **1회**의 배율, 소모는 `ability_dispatch`).
+- **`NcModulation`은 의도적으로 미처리** — `_apply_payoff`가 false를 돌려준다. 여기서 NC를 건드리면 lookup 1~7이 doctrine 유무로 갈려 `QA-032` §2.1이 무너진다. CS-3에서 `F-005` §3.3a 8단계로만 들어간다.
+- **모르는 조건은 거짓**으로 판정한다 — 조용히 항상 발동하는 것보다 안 걸리는 쪽이 낫다.
+- **환불 API를 만들지 않았다**(`F-030` §3.2) — `hub_smoke`가 `refund`/`unpurchase` 메서드 **부재**를 단언한다. 있으면 결국 쓰인다.
+- **게이트:** `ci_smoke.sh` **12/12 PASS**. `DoctrineProfile` 구매·활성·재배치·클래스 게이트·중립 복귀 + 환불 API 부재.
+- **상태:** LOGGED · CS-2 완료(구매 UI·`mandatorySwaps` 태그 잔여).

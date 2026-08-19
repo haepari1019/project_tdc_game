@@ -126,6 +126,11 @@ func setup(party: Node3D, map: Node3D) -> void:
 	_surface = SurfaceGrid.new()
 	add_child(_surface)   # S0 shadow — self-inits, 관측 렌더만(원 권위)
 	_surface._combat = self   # S4d: passive Oil+Fire 폭발을 reaction_system으로 콜백(rx_explode_at)
+	# F-030 doctrine — 조작 맥락(OnControl/OnHandoff/WhileAI/OnReswap) Trait 발동. 중립 성장이면 no-op.
+	_doctrine = preload("res://scripts/combat/doctrine_runtime.gd").new()
+	_doctrine.name = "DoctrineRuntime"
+	add_child(_doctrine)
+	_doctrine.setup(self, _party)
 
 
 ## partyInCombat: true while ANY enemy is engaged. Drives HUD + follower re-form.
@@ -133,6 +138,7 @@ func setup(party: Node3D, map: Node3D) -> void:
 ## **미연결(샌드박스 등) = 무제한**: 인벤이 없는 무대에서 스킬이 막히면 검증이 불가능해진다. 조용히
 ## 넘어가지 않도록 `manastone_unlimited()`가 그 상태를 드러내고, HUD가 「∞」로 표시한다.
 var _inventory: Node = null
+var _doctrine: Node = null   # F-030 Trait 런타임(자식) — controlContext 발동
 
 func set_inventory(inv: Node) -> void:
 	_inventory = inv

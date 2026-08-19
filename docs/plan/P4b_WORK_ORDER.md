@@ -3,7 +3,7 @@
 > **무엇:** 스킬 교정(DRIFT-101~136) 완료 후 **플레이테스트를 막고 있는 4겹 갭**의 교정 순서.
 > **상위 플랜:** [I007_economy_migration_plan.md](I007_economy_migration_plan.md) (M1~M6 마일스톤 레벨). 본 문서 = 그 위의 **파일 단위 작업 지시 + 게이트 + 선행 결정**.
 > **스펙 근거:** `F-009` §3.9 · `F-008` §3.10 · `F-020` §3.2.3/§3.7/§3.10 · `D-019` §3.3 · `F-029` chapel · `UI-005` §3.2 · `I-007` §15 P4b.
-> **스펙 핀:** `spec_ref.json` = **`09e045c`** (`DEC-20260813-002` 반영 후 재핀, 2026-08-13). **PENDING-PROP 없음.**
+> **스펙 핀:** `spec_ref.json` = **`fd317b3`** (`DEC-20260813-002` 반영 후 재핀, 2026-08-13). **PENDING-PROP 없음.**
 > **작성:** 2026-08-12.
 
 ---
@@ -303,6 +303,22 @@ M1 마석 ✅ ┬ M2 참 ✅ ┐          │
 | U5 | 참 5종 수치 · 스택 상한 · stash 용량 관계 (`I-007` §14.7 OQ) | M2 |
 | U6 | 스킬 트리 단위 — 클래스 / gear archetype / Identity 분기 (`I-007` §14.7 OQ) | M3 |
 | U7 | 상점 스킬 재구매 가격·티어·트리 선행 조건 | M4 |
+
+---
+
+## 6.5 성장 개편 이관 (spec `d1bc78b` · `DEC-20260813-003/004/005`)
+
+> 목차 = spec `docs/context/DoctrineGrowth_WorkPlan.md`. **CS-1 → CS-2 → CS-3 순서 고정**(CS-1이 참·Passive 경계를 정리해야 CS-2가 doctrine 조건을 이중 기술하지 않는다).
+
+| CS | 범위 | 상태 |
+|----|------|------|
+| **CS-1** | Passive 폐기 · 참 일원화 · 조건부 참 | ✅ **완료** (DRIFT-147). 게임에 Passive가 애초에 없어 9항 중 1-1~1-4 무작업. 판정 3건 반영 |
+| **CS-2** | `F-030` doctrine 골격 + Trait 런타임 | ✅ **완료** (DRIFT-148). 스키마·검증·프로필·chapel·**Trait 발동**(3 payoff) + QA-032 §2.1 게이트 CI 편입 |
+| **CS-3** | `F-005` §3.3a NC 변조 + Tank 파일럿 | ⏸ **미착수** — `NcModulation` 8단계 훅 · fixture 이원화 |
+
+**CS-2 잔여(CS-3 전 무관):** chapel 트리 **구매 UI**(`hub_facilities_panel`) · `mandatorySwaps` doctrine 태그(`F-024` §3.2.1a).
+
+**🚨 CS-3 착수 조건:** `tools/nc_baseline_smoke.gd`가 이미 CI에 있다. CS-3이 `doctrine_modulate` 훅을 넣는 **순간부터** 그 게이트의 카운터가 실물이 되고 doctrine 0에서 **호출 0 + 항등 통과**를 강제한다. 깨지면 doctrine 전체 롤백(`F-030` §3.7 R2).
 
 ---
 

@@ -27,6 +27,8 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 		e.add_threat(m, spike)
 		if e.has_method("set_threat_floor"):
 			e.set_threat_floor(m, flr)
+		if e.has_method("apply_taunted"):
+			e.apply_taunted(m, float(p.get("taunt_s", 6.0)))   # Taunted 마커(doctrine 조건·연장 대상)
 		_force_engage(e, m)
 		if hit == null:
 			hit = e

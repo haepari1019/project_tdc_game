@@ -443,7 +443,12 @@ func _anchor_stack(member: CharacterBody3D, pos: Vector3) -> void:
 	if member.binding_bulwark_add(int(b["stacks_needed"]), float(b["icd_s"])):
 		var e: CharacterBody3D = nearest_enemy_in_range(pos, float(b["radius_m"]))
 		if e != null and e.has_method("apply_stun"):
-			e.apply_stun(float(b["stun_s"]))
+			# F-030 MagnitudeScale — doctrine이 이 **1회 페이오프의 배율만** 올려 뒀을 수 있다(DOC-TNK-02-T2).
+			var mult: float = float(member.get("bulwark_payoff_mult"))
+			e.apply_stun(float(b["stun_s"]) * mult)
+			if mult != 1.0:
+				member.bulwark_payoff_mult = 1.0
+				member.popup_status("복귀 정산 ×%.1f" % mult, Color(0.75, 0.9, 1.0))
 
 
 ## Beacon 「표식」 — 규약의 상태-조건부 버프: 유효한 표식 대상이 있을 때만 그 대상에게 추가 위협을 얹는다.

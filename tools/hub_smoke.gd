@@ -272,6 +272,23 @@ func _init() -> void:
 			leak.append("charm %s" % crow.get("charm_id", "?"))
 	_expect(leak.is_empty(), "controlContext 누출 0 (doctrine 전용, D-021 §6-3)")
 
+	# ②e DoctrineProfile (CS-2 · D-021 §4) — 구매/활성/중립. 순수 로직이라 씬 없이 검증 가능.
+	var dpx = load("res://scripts/autoload/doctrine_profile.gd").new()
+	_expect(dpx.is_neutral(), "DoctrineProfile 기본 = 중립 성장 (QA-032 §2.1 전제)")
+	_expect(not dpx.set_active("Tank", "DOC-TNK-01"), "미구매 doctrine 활성 거부")
+	dpx.mark_purchased("DOC-TNK-01")
+	_expect(dpx.set_active("Tank", "DOC-TNK-01"), "구매 후 활성 가능")
+	_expect(not dpx.is_neutral() and dpx.active_ids() == ["DOC-TNK-01"], "활성 반영")
+	dpx.mark_purchased("DOC-TNK-02")
+	_expect(dpx.set_active("Tank", "DOC-TNK-02"), "재배치 자유 — Identity당 1개라 이전 활성은 밀려남")
+	_expect(dpx.active_ids() == ["DOC-TNK-02"], "활성 1개 유지 (D-021 §4)")
+	_expect(not dpx.set_active("DPS", "DOC-TNK-01"), "클래스 불일치 활성 거부")
+	# 환불 없음(F-030 §3.2) — 되사는 API가 **존재하지 않아야** 한다(있으면 결국 쓰인다).
+	_expect(not dpx.has_method("refund") and not dpx.has_method("unpurchase"), "환불 API 부재 (F-030 §3.2)")
+	dpx.clear_all()
+	_expect(dpx.is_neutral(), "clear_all → 중립 복귀(기준선 스냅샷용)")
+	dpx.free()
+
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")
 	for cls in sandbox.SANDBOX_SUBS:

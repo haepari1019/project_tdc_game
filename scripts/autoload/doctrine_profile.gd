@@ -26,6 +26,8 @@ func _ready() -> void:
 
 
 func save_profile() -> void:
+	if not is_inside_tree():
+		return   # 트리 밖 인스턴스(스모크가 만든 임시 객체) — 저장 경로를 태우지 않는다
 	var sp := get_node_or_null("/root/SaveProfile")
 	if sp != null:
 		sp.put("doctrine", {"active": active, "purchased": purchased})

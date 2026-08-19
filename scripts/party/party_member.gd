@@ -204,6 +204,9 @@ const BULWARK_STACK_WINDOW := 5.0  # 이 시간 안에 다음 스택을 안 쌓�
 ## 「응보」 유지 시간 — 마지막 피격 이후 이만큼 지나면 누적이 사라진다(태세 종료와 무관, 2026-08-13).
 const _RETRIB_WINDOW_S := 6.0
 var bulwark_stacks: int = 0        # BIND-001 — Intercept accrues; 3-stack consume → stun + reset
+## F-030 `MagnitudeScale` — 다음 방벽 캡스톤 1회의 페이오프 배율(DOC-TNK-02-T2 「복귀 정산」).
+## **기존 효과의 배율만** 바꾼다(신규 부여 아님). 소모 시 1.0으로 복귀.
+var bulwark_payoff_mult: float = 1.0
 var _bulwark_icd_s: float = 0.0    # ICD after a consume (pilot: member-wide; spec = per-enemy 8s)
 var _bulwark_stack_timer: float = 0.0  # 스택 만료 타이머(마지막 스택 이후 경과)
 var _badges = null                 # OverheadBadges 스트립(lazy) — 방벽 등 자기 스택 상태를 한 줄로 통합
