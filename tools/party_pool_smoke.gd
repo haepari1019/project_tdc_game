@@ -1187,8 +1187,9 @@ func _initialize() -> void:
 	var stseed = StashScript.new()
 	root.add_child(stseed)          # _seed_from_catalog가 /root/Slice01Data를 조회한다
 	stseed.reset_to_seed()
-	_chk("stash 시드 = 카탈로그 파생(기어 %d) · 서브 0(M5 — 권한은 트리가 소유)" % stseed.gear.size(),
-		stseed.gear.size() > 0 and (stseed.skillbooks as Array).is_empty())
+	# **처음엔 스타터뿐**(M6) — 기어 0(착용 중) · 서브 0(M5 — 권한은 트리가 소유).
+	_chk("stash 시드 = 기어 0 · 서브 0 (스타터만 착용)",
+		(stseed.gear as Array).is_empty() and (stseed.skillbooks as Array).is_empty())
 	stseed.free()
 
 	# ~~15b/16) Stash 스킬북 인스턴스 · affix 굴림~~ — **M5 제거**(`D-018` §9). 스킬북은 물건이

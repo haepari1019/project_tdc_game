@@ -172,7 +172,12 @@ func build_chest_items(tier: String) -> Array:
 		out.append(_make_haul_drop_def(SHARED_CORE_ID if rare else SHARED_SHARD_ID))
 	# 3) 기어 — 희귀 상자가 더 잘(기어는 항상 rolled 보유).
 	if randf() < (CHEST_GEAR_RARE if rare else CHEST_GEAR_COMMON):
-		var grows: Array = Slice01Data.get_gear_rows()
+		# **스타터는 드롭 풀에서 뺀다** — 4명이 이미 착용 중이라 중복이 나오면 「꽝」이다.
+		# 창고를 스타터만으로 시작하게 바꾼 뒤(M6) 상자는 **두 번째 건을 만나는 자리**가 됐다.
+		var grows: Array = []
+		for gr in Slice01Data.get_gear_rows():
+			if not bool((gr as Dictionary).get("starter", false)):
+				grows.append(gr)
 		if not grows.is_empty():
 			out.append(_make_gear_drop_def(String((grows[randi() % grows.size()] as Dictionary).get("base_gear_id", ""))))
 	# 4) 소모품 — 부활 두루마리 등(상자에서도 획득). 픽업/드래그 시 스택.

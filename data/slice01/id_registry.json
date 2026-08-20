@@ -408,7 +408,6 @@
   "facility_ids": [
     "barracks",
     "stash",
-    "scriptorium",
     "scribe_shop",
     "armory",
     "quartermaster",
@@ -418,8 +417,6 @@
   "quest_ids": [
     "Q-HUB-002",
     "Q-HUB-003",
-    "Q-HUB-010",
-    "Q-HUB-011",
     "Q-HUB-012",
     "Q-HUB-013",
     "Q-HUB-020",

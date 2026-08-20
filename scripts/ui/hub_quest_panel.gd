@@ -1,132 +1,87 @@
-extends Control
-## 퀘스트 로그 (F-029 §3.3) — 허브 승급 퀘스트(Q-HUB-*) 전체를 상태(✓/✗) + 완료 조건과 함께 보여주는
-## 풀스크린 오버레이. 시설 패널에 인라인으로만 보이던 퀘스트를 한곳에 모아 "뭘 해야 열리는지" 확인용.
-## 데이터 = Slice01Data.get_quests() · 완료 상태 = HubProfile.quest_completed.
+extends HubPanel
+## **의뢰 장부** (`F-029` §3.3) — 지금 무엇을 맡고 있고, 무엇이 남았는지 훑는 곳.
+##
+## **받고 맡는 일은 여기서 안 한다**(M6, 사용자 판정) — 의뢰는 **그 의뢰가 여는 건물에서** 준다.
+## 폐허 앞에서 「이걸 세워 주게」를 듣고 수락하는 것이, 장부를 열어 목록을 훑는 것보다 마을을
+## 일으킨다는 감각에 가깝기 때문이다. 그래서 이 화면은 **읽기 전용**이고, 대신 각 줄에
+## **어디서 받는지**를 적는다.
+##
+## 표는 `GridContainer` 5열이라 상태·받는 곳·이름·조건이 **줄마다 같은 x에** 선다. 예전엔 한 줄을
+## 문자열로 이어 붙였는데(`"%s %s · %s T%d — %s"`), 한글 폭이 달라 시설 이름부터 계단처럼 밀렸다.
 
-const OK := Color(0.62, 1.0, 0.62)
-const BAD := Color(1.0, 0.6, 0.55)
-const DIM := Color(0.74, 0.74, 0.78)
-const HEAD := Color(0.70, 0.85, 1.0)
+const COLS := 5   # [상태] [받는 곳] [이름] [조건] [수락]
 
-var _list: VBoxContainer
+var _grid: GridContainer
 @onready var _hub: Node = get_node_or_null("/root/HubProfile")
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	visible = false
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.85)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(dim)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(center)
-	var win := PanelContainer.new()
-	win.custom_minimum_size = Vector2(720, 560)
-	center.add_child(win)
-	var margin := MarginContainer.new()
-	for s in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(s, 16)
-	win.add_child(margin)
-	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 8)
-	margin.add_child(root)
-
-	var titlebar := HBoxContainer.new()
-	root.add_child(titlebar)
-	var title := Label.new()
-	title.text = "퀘스트 (허브 승급 의뢰)"
-	title.add_theme_font_size_override("font_size", 20)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titlebar.add_child(title)
-	var close := Button.new()
-	close.text = "닫기 (Esc)"
-	close.pressed.connect(close_panel)
-	titlebar.add_child(close)
-
-	var hint := Label.new()
-	hint.text = "각 시설(필기소/상점/무기고 등)은 아래 퀘스트 + 재료를 채우면 '허브 시설'에서 승급해 열린다."
-	hint.modulate = DIM
-	hint.add_theme_font_size_override("font_size", 12)
-	root.add_child(hint)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(scroll)
-	_list = VBoxContainer.new()
-	_list.add_theme_constant_override("separation", 3)
-	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_list)
+	window_size = Vector2(820, 560)
+	panel_title = "의뢰 장부"
+	super()
+	body.add_child(HubTheme.para(
+		"의뢰는 **그 의뢰가 여는 건물**에서 받는다 — 마을에서 건물을 눌러 맡는다.", "HubMeta"))
 
 
-func open_panel() -> void:
-	visible = true
-	_refresh()
-
-
-func close_panel() -> void:
-	visible = false
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if visible and event.is_action_pressed("ui_cancel"):
-		close_panel()
-		get_viewport().set_input_as_handled()
-
-
-func _refresh() -> void:
-	if not visible:
+func refresh() -> void:
+	if body == null:
 		return
 	if _hub != null and _hub.has_method("evaluate_quests"):
 		_hub.evaluate_quests()   # 자동평가형(재료/시설Tier 등) 갱신 후 표시
-	for c in _list.get_children():
-		c.queue_free()
+	clear_body()
+	body.add_child(HubTheme.para(
+		"의뢰는 그 의뢰가 여는 건물에서 받는다 — 마을에서 건물을 눌러 맡는다.", "HubMeta"))
+
+	# **세 무더기**로 나눈다: 맡은 것 / 아직 안 맡은 것 / 끝낸 것. 「지금 뭘 하고 있나」가
+	# 「뭐가 더 있나」와 섞이면 장부를 볼 이유가 없다.
 	var quests: Dictionary = Slice01Data.get_quests()
-	var pending: Array = []
+	var active: Array = []
+	var offered: Array = []
 	var done: Array = []
 	for qid in quests:
-		if _hub != null and _hub.is_quest_done(String(qid)):
-			done.append(String(qid))
+		var q := String(qid)
+		if _hub != null and _hub.is_quest_done(q):
+			done.append(q)
+		elif _hub != null and _hub.is_quest_accepted(q):
+			active.append(q)
 		else:
-			pending.append(String(qid))
-	pending.sort()
+			offered.append(q)
+	active.sort()
+	offered.sort()
 	done.sort()
+	set_status("맡은 %d · 미수락 %d · 완료 %d" % [active.size(), offered.size(), done.size()], HubTheme.DIM)
 
-	_header("── 진행 중 (%d) ──" % pending.size())
-	if pending.is_empty():
-		_lbl("  모든 퀘스트 완료!", DIM)
-	for qid in pending:
-		_quest_row(qid, quests[qid], false)
-	_header("\n── 완료 (%d) ──" % done.size())
-	for qid in done:
-		_quest_row(qid, quests[qid], true)
+	_grid = HubTheme.grid(COLS)
+	body.add_child(_grid)
+	HubTheme.span_row(_grid, HubTheme.section("맡은 의뢰 (%d)" % active.size()))
+	if active.is_empty():
+		HubTheme.span_row(_grid, HubTheme.label("맡은 의뢰가 없다 — 마을에서 건물을 눌러 받는다.",
+			"HubMeta", HubTheme.BAD))
+	for qid1 in active:
+		_row(qid1, quests[qid1], "active")
+	HubTheme.span_row(_grid, HubTheme.spacer())
+	HubTheme.span_row(_grid, HubTheme.section("아직 맡지 않음 (%d)" % offered.size()))
+	for qid2 in offered:
+		_row(qid2, quests[qid2], "offered")
+	HubTheme.span_row(_grid, HubTheme.spacer())
+	HubTheme.span_row(_grid, HubTheme.section("완료 (%d)" % done.size()))
+	for qid3 in done:
+		_row(qid3, quests[qid3], "done")
 
 
-func _quest_row(qid: String, q: Dictionary, is_done: bool) -> void:
+## 한 줄 = 셀 5개. **어느 분기로 가도 5개** — 하나라도 빠지면 그 아래 전부가 한 칸씩 밀린다.
+func _row(qid: String, q: Dictionary, state: String) -> void:
 	var fac := String(q.get("facility", ""))
-	var tier := int(q.get("tier", 0))
-	var mark := "✓" if is_done else "✗"
-	_lbl("%s  %s · %s T%d — %s" % [mark, qid, fac, tier, String(q.get("one_liner", ""))], OK if is_done else BAD)
-	if not is_done:
-		_lbl("        조건: %s" % String(q.get("completion", "?")), DIM)
-
-
-func _header(text: String) -> void:
-	var l := Label.new()
-	l.text = text
-	l.modulate = HEAD
-	_list.add_child(l)
-
-
-func _lbl(text: String, col: Color) -> void:
-	var l := Label.new()
-	l.text = text
-	l.modulate = col
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_list.add_child(l)
+	var fac_name := String(Slice01Data.get_facility_def(fac).get("display", fac))
+	var mark: String = {"done": "✓", "active": "▶", "offered": "·"}.get(state, "·")
+	var col: Color = {"done": HubTheme.OK, "active": HubTheme.ACCENT}.get(state, HubTheme.DIM)
+	_grid.add_child(HubTheme.label(mark, "", col))
+	_grid.add_child(HubTheme.label("%s T%d" % [fac_name, int(q.get("tier", 0))], "HubMeta"))
+	_grid.add_child(HubTheme.label(String(q.get("one_liner", qid)), "",
+		HubTheme.DIM if state == "done" else HubTheme.TEXT))
+	var cond := HubTheme.label("" if state == "done" else String(q.get("completion", "?")), "HubMeta")
+	cond.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_grid.add_child(cond)
+	# 「어디서 받나」 — 이 장부는 읽기 전용이므로 **가야 할 곳**을 알려주는 것이 마지막 칸의 일이다.
+	_grid.add_child(HubTheme.label("%s에서 수락" % fac_name if state == "offered" else "", "HubMeta",
+		HubTheme.BAD))

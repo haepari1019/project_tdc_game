@@ -101,13 +101,14 @@ func _seed_from_catalog() -> bool:
 	var sd := get_node_or_null("/root/Slice01Data")
 	if sd == null or not sd.has_method("is_loaded") or not sd.is_loaded():
 		return false
+	# **처음엔 스타터뿐이다**(M6, 사용자 판정). 스타터 4종은 착용 중이라 `Backpack.equipped`가 갖고
+	# 있으므로 **창고는 빈 채로 시작**한다. 구 시드는 스페어 17종을 통째로 부어 놨는데(D4 「전 카탈로그
+	# 개방」), 그러면 첫 화면에서 이미 다 가진 상태라 **획득이라는 축 자체가 없다**.
+	#
+	# 획득 경로 셋 — ① **무기고**(4역할 전원, tier가 카탈로그를 연다 = 확정 경로) ② **던전 상자**
+	# (운) ③ 3세력 저확률 Identity gear(`F-009` §3.9.5, M7). 스타터는 슬롯이 1칸이라 **두 번째 건이
+	# 곧 두 번째 슬롯**이다 — 이게 초반 성장의 첫 마디가 된다.
 	gear = []
-	for row in sd.get_gear_rows():
-		if bool(row.get("starter", false)):
-			continue                                            # 착용 중 = Backpack.equipped 소관
-		if String(row.get("unlock_state", "")) == "Purchasable":
-			continue                                            # armory 세트 = 상점 물건
-		gear.append(String(row.get("base_gear_id", "")))
 	# ~~스킬북 전 카탈로그 시드~~ — **M5 제거**. D4「전 카탈로그 개방」은 이제 **트리 전 노드 해금**
 	# (`HubProfile.PLAYTEST_TREE_ALL_UNLOCKED`)으로 표현된다. 물건이 아니라 권한이 열려 있는 것이다.
 	skillbooks = []
@@ -116,10 +117,11 @@ func _seed_from_catalog() -> bool:
 	# `sd`는 get_node_or_null 반환이라 untyped → `:=` 추론이 안 된다(파스 에러). 명시 타입 필수.
 	var msid: String = String(sd.default_manastone_id())
 	manastones = {msid: int(sd.manastone_starter_grant())} if msid != "" else {}
-	# 허브 보관 참 — 플테용으로 카탈로그 전량(칸 압력을 직접 느껴 보려면 손이 닿아야 한다).
+	# 허브 보관 참 — 스타터 목록만(`charms.json` `starter_grant`). gear와 같은 이유로 전량 시드를
+	# 접었다: 처음부터 다 있으면 「얻는다」가 없다. 나머지는 처치·상자 드롭으로.
 	charms = []
-	for crow in sd.get_charm_rows():
-		charms.append(String(crow.get("charm_id", "")))
+	for cid2 in sd.charm_starter_grant():
+		charms.append(String(cid2))
 	_normalize_gear()         # 시드는 문자열로 적고 인스턴스로 정규화(roll 없음=base)
 	return true
 

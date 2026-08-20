@@ -24,17 +24,33 @@ func _init() -> void:
 	_expect(not bool(hp.upgrade_check("stash").get("ok", false)), "T-HUB-003 빈 상태 stash 승급 거부")
 
 	# T-HUB-004 — 퀘스트+재료 충족 → 승급 성공 · vault 차감 · Tier+1 · 효과(capacity) 반영
+	# **의뢰는 수락해야 완료된다**(M6) — 조건만 채우고 안 받으면 아무 일도 없다. 그게 요점이라
+	# 「미수락이면 완료 안 됨」을 먼저 단언한다.
 	hp.add_haul("haul_ward_splinter", 5)
 	hp.evaluate_quests()
-	_expect(hp.is_quest_done("Q-HUB-002"), "Q-HUB-002 자동완료(파편≥2)")
+	_expect(not hp.is_quest_done("Q-HUB-002"), "미수락 의뢰는 조건을 채워도 미완료")
+	_expect(hp.accept_quest("Q-HUB-002"), "창고 의뢰 수락")
+	_expect(hp.is_quest_done("Q-HUB-002"), "수락 즉시 재평가 → 이미 충족분은 그 자리에서 완료")
+	_expect(not hp.accept_quest("Q-HUB-002"), "완료·수락분 재수락 거부")
 	_expect(bool(hp.upgrade_check("stash").get("ok", false)), "stash 승급 가능(퀘+재료)")
 	_expect(hp.attempt_upgrade("stash"), "stash 승급 적용")
 	_expect(hp.facility_tier("stash") == 1, "stash Tier 1")
 	_expect(hp.vault_count("haul_ward_splinter") == 0, "재료 차감(0)")
 	_expect(hp.stash_capacity_tier() == 28, "stash capacity 28 (tier 실값 — 플테 우회와 분리)")
 
-	# prereq 게이트 — scribe_shop T1은 scriptorium≥1 선행
-	_expect(String(hp.upgrade_check("scribe_shop").get("reason", "")) == "prereq", "scribe_shop 선행 차단")
+	# **7시설**(M6) — 필기소(`scriptorium`)는 `scribe_shop`이 흡수했다. 선행 시설 스키마는 남지만
+	# 현재 걸린 선행은 없다. 「없어졌어야 할 것이 없는가」를 단언한다 — 빈 건물은 되살아난다.
+	_expect(hp.FACILITY_IDS.size() == 7 and not hp.FACILITY_IDS.has("scriptorium"), "시설 7종 · 필기소 제거")
+	var fac_ok := true
+	for fid in hp.FACILITY_IDS:
+		if sd.get_facility_def(String(fid)).is_empty():
+			fac_ok = false
+			print("  GHOST  FACILITY_IDS %s — facilities_tiers.json 미등재" % fid)
+	for fid2 in sd.get_facility_ids():
+		if not hp.FACILITY_IDS.has(String(fid2)):
+			fac_ok = false
+			print("  GHOST  facilities_tiers %s — FACILITY_IDS 미등재" % fid2)
+	_expect(fac_ok, "시설 목록 ↔ 데이터 1:1")
 
 	# B4 — enc_cleared 기록 자체는 유지(다른 판정용). Q-HUB-020 판정은 아래 "무기고" 블록(절차생성 정합)에서.
 	hp.record_enc_cleared("ENC-HARD-001", "Normal")
@@ -73,6 +89,10 @@ func _init() -> void:
 	# 데모 이벤트 퀘스트(DRIFT-065) — 추출/전멸 횟수로 미구현 기능(2맵/복구/NPC) 대용.
 	hp.persist = false
 	hp.extraction_success = 0; hp.party_wiped = 0; hp.quest_completed.clear()
+	# 이 블록은 **조건 충족 판정**이 관심사라 대상 의뢰를 미리 수락해 둔다(수락 게이트는 위에서 쟀다).
+	for pre_q in ["Q-HUB-050", "Q-HUB-003", "Q-HUB-040", "Q-HUB-020", "Q-HUB-021", "Q-HUB-030", "Q-HUB-031",
+			"Q-HUB-013", "Q-HUB-051", "Q-HUB-012"]:
+		hp.quest_accepted[pre_q] = true
 	hp.record_extraction_success()   # =1
 	_expect(hp.is_quest_done("Q-HUB-050"), "군수 — 추출 1회로 해금")
 	_expect(not hp.is_quest_done("Q-HUB-003"), "창고T2 — 추출 1회론 미해금")
@@ -82,13 +102,17 @@ func _init() -> void:
 	hp.record_party_wipe()
 	_expect(hp.is_quest_done("Q-HUB-040"), "성소 — 전멸 1회로 해금")
 
-	# Q-HUB-020(무기고 개방) — 절차생성 정합: 특정 ENC가 아니라 임의 Hard 인카운터 클리어로 판정.
-	hp.hard_cleared = false
+	# Q-HUB-020(무기고 개방) — **고정 보스 처치**(M6). 난이도 토글이 사라졌으므로 「어려운 관문」을
+	# 맵의 방이 소유한다. 일반 ENC를 아무리 깨도 안 열리는 것이 요점이다.
 	hp.quest_completed.erase("Q-HUB-020")
 	hp.record_enc_cleared("ENC-NORM-001", "Normal")
-	_expect(not hp.is_quest_done("Q-HUB-020"), "무기고 — Normal 클리어론 미해금")
-	hp.record_enc_cleared("ENC-HARD-007", "Hard")   # 어느 Hard ENC든 게이트 충족
-	_expect(hp.is_quest_done("Q-HUB-020"), "무기고 — 임의 Hard 인카운터 클리어로 해금")
+	_expect(not hp.is_quest_done("Q-HUB-020"), "무기고 — 일반 ENC 클리어론 미해금")
+	hp.record_enc_cleared("ENC-BOSS-001", "Normal")
+	_expect(hp.is_quest_done("Q-HUB-020"), "무기고 — 고정 보스 처치로 해금")
+	# 보스가 **실제로 스폰되는가** — `force_overrides` 문자열 핀 = 난이도 무관. 이게 빠지면 무기고가
+	# 영영 안 열린다(구 Hard 전용 행만 남아 Normal에선 보스 자체가 안 나왔다).
+	_expect(sd.get_encounter_for_pool("P-BOSS-01", "Normal", "Mid", 1) == "ENC-BOSS-001",
+		"P-BOSS-01 — 난이도 무관 고정 보스")
 
 	# F-029 무기고 기어 상점 — armory Tier 게이트 + ward_scrap 차감.
 	hp.facilities["armory"] = 0
@@ -171,7 +195,25 @@ func _init() -> void:
 		var gid := String(g.get("base_gear_id", "")) if typeof(g) == TYPE_DICTIONARY else String(g)
 		if sd.get_gear_master(gid).is_empty():
 			ghosts.append("Stash.gear %s" % gid)
-	_expect(st.gear.size() > 0, "Stash 시드 기어 %d종(카탈로그 파생)" % st.gear.size())
+	# **처음엔 스타터뿐**(M6) — 스타터는 착용 중이라 창고는 **비어서** 시작한다. 「다 가진 채로
+	# 시작」을 되돌린 것이므로 「비어 있음」을 단언한다(시드가 되살아나면 획득 축이 다시 죽는다).
+	_expect((st.gear as Array).is_empty(), "Stash 시드 기어 0 (스타터는 착용 중)")
+	# 대신 **확정 획득처**가 4역할을 전부 덮어야 한다 — 한 역할이 빠지면 그 역할만 영구히
+	# 1슬롯 스타터에 묶인다(누커가 실제로 그랬다).
+	var arm_roles: Dictionary = {}
+	var at := 1
+	while true:
+		var arow: Dictionary = sd.get_facility_tier("armory", at)
+		if arow.is_empty():
+			break
+		for rk in (arow.get("catalog", {}) as Dictionary):
+			arm_roles[String(rk)] = true
+		at += 1
+	var miss: Array = []
+	for rc in ["Tank", "DPS", "Nuker", "Healer"]:
+		if not arm_roles.has(rc):
+			miss.append(rc)
+	_expect(miss.is_empty(), "무기고 카탈로그 4역할 전원 커버" if miss.is_empty() else "무기고 미커버 역할: %s" % ", ".join(miss))
 	# **D4「전 카탈로그 개방」의 형식이 바뀌었다** — M5 이후 스태시는 스킬북을 소유하지 않는다.
 	# 개방은 이제 **트리 전 노드 해금**(`PLAYTEST_TREE_ALL_UNLOCKED`)으로 표현된다: 물건이 아니라
 	# 권한이 열려 있는 것이다.
@@ -321,6 +363,9 @@ func _init() -> void:
 	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "facility", "트리 — chapel T0 잠김(F-029)")
 	hp2.facilities["chapel"] = 1
 	# 선행은 **의미 있는 곳에만** 걸린다 — 해금 안 한 AB는 발전시킬 수 없다(U1 → UP1).
+	# `Unlock`/`Upgrade`는 **필기상점 tier**가 AB tier를 받아야 산다(M6 — 해금·시술이 한 건물).
+	_expect(String(hp2.tree_check("TREE-TNK-UL01").get("reason", "")) == "tier_ceiling", "트리 — 필기상점 T0 해금 차단")
+	hp2.facilities["scribe_shop"] = 1
 	_expect(String(hp2.tree_check("TREE-TNK-UL01").get("reason", "")) == "haul", "트리 — 재료 부족 차단(Unlock)")
 	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "haul", "트리 — 재료 부족 차단")
 	hp2.add_haul("haul_ward_splinter", 4)
@@ -492,6 +537,64 @@ func _init() -> void:
 		if not covered.has(String((row2 as Dictionary).get("base_ability_id", ""))):
 			uncovered.append(String(row2.get("base_ability_id", "")))
 	_expect(uncovered.is_empty(), "트리 Unlock이 스킬북 49종 전수 커버" if uncovered.is_empty() else "미커버 AB: %s" % ", ".join(uncovered))
+
+	# ②k 마을 라우팅 (M6) — **모든 건물이 갈 곳이 있고, 모든 화면에 문이 있는가**. 한쪽만 늘어나면
+	# 「눌러도 아무 일 없는 건물」이나 「들어갈 수 없는 화면」이 생기는데, 둘 다 조용한 실패다.
+	var MainScript = load("res://scripts/main.gd")
+	var route: Dictionary = MainScript.BUILDING_ROUTE
+	var route_ok := true
+	for fid3 in hp.FACILITY_IDS:
+		if not route.has(String(fid3)):
+			route_ok = false
+			print("  GHOST  마을 — 건물 '%s'에 연결된 화면 없음" % fid3)
+	for rk in route.keys():
+		if not hp.FACILITY_IDS.has(String(rk)):
+			route_ok = false
+			print("  GHOST  마을 — 라우팅 '%s'에 대응하는 시설 없음" % rk)
+	_expect(route_ok, "마을 — 건물 ↔ 화면 1:1")
+	# 건물 배치 좌표는 **데이터가 소유**한다(아트가 코드 없이 옮길 수 있게). 빠지면 전부 겹쳐 쌓인다.
+	var pos_ok := true
+	for fid4 in hp.FACILITY_IDS:
+		var mp = sd.get_facility_def(String(fid4)).get("map_pos", null)
+		if typeof(mp) != TYPE_ARRAY or (mp as Array).size() != 2:
+			pos_ok = false
+			print("  GHOST  마을 — '%s' map_pos 없음/형식 불량" % fid4)
+	_expect(pos_ok, "마을 — 시설 전원 map_pos 보유")
+	# 트리 노드 4종이 **어느 건물엔가 반드시 속하는가**. 고아 유형 = 살 수 없는 노드다.
+	# `Slot`은 대장간(모딩 패널)이, `Unlock`/`Upgrade`는 필기상점이, `Doctrine`은 성소가 가져갔다.
+	var owned: Dictionary = {"Slot": true, "Unlock": true, "Upgrade": true, "Doctrine": true}
+	var orphan: Array = []
+	for tn3 in sd.get_tree_nodes():
+		if not owned.has(String(tn3.get("type", ""))):
+			orphan.append(String(tn3.get("node_id", "")))
+	_expect(orphan.is_empty(), "트리 노드 유형 전원 소유 건물 있음" if orphan.is_empty() else "고아 노드: %s" % ", ".join(orphan))
+
+	# ②l 의뢰 수락 동선 (M6) — **모든 의뢰가 어느 건물에선가 받을 수 있어야** 한다. 받을 곳이 없는
+	# 의뢰는 영원히 미수락 → 그 시설이 영구 잠김이다(수락 게이트를 넣었으므로 조용히 그렇게 된다).
+	var offer_ok := true
+	var offered: Dictionary = {}
+	for fid5 in hp.FACILITY_IDS:
+		var t := 0
+		while true:
+			var trow: Dictionary = sd.get_facility_tier(String(fid5), t + 1)
+			if trow.is_empty():
+				break
+			var qq := String(trow.get("quest", ""))
+			if qq != "":
+				offered[qq] = String(fid5)
+			t += 1
+	for qid5 in sd.get_quests():
+		if not offered.has(String(qid5)):
+			offer_ok = false
+			print("  GHOST  의뢰 '%s' — 받을 건물이 없다(영구 미수락)" % qid5)
+	_expect(offer_ok, "의뢰 전원 수락처 있음 (건물 tier 표 ↔ quests.json)")
+	# 반대 방향 — tier 표가 가리키는 의뢰가 실재하는가(오탈자 = 눌러도 못 받는 건물).
+	var qref_ok := true
+	for qref in offered.keys():
+		if sd.get_quest(String(qref)).is_empty():
+			qref_ok = false
+			print("  GHOST  시설 tier가 없는 의뢰 '%s'를 가리킨다(%s)" % [qref, offered[qref]])
+	_expect(qref_ok, "시설 tier → 의뢰 참조 무결")
 
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")

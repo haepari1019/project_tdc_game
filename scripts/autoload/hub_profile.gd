@@ -4,7 +4,9 @@ extends Node
 ## 탈출 성공 시 vault Safe(F-029 §3.2) → 승급 소모. 세션 영속(autoload); 디스크 저장은 후속(P2-S4 B6).
 ## ref: F-029, D-029.
 
-const FACILITY_IDS := ["barracks", "stash", "scriptorium", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"]
+## **7시설**(M6) — `scriptorium`(필기소)은 분석 폐기 후 기능이 0이 돼 `scribe_shop`이 흡수했다.
+## 마을 화면의 건물 목록이자 승급 대상. 순서 = 승급 패널 나열 순서.
+const FACILITY_IDS := ["barracks", "stash", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"]
 # 영속 = SaveProfile 단일 파일(user://save.json)의 "hub" 섹션 (구 user://hub_profile.json은 1회 마이그레이션).
 # Skillbook economy (F-009 §3.5 / D-018 §7.1) — 분석 의뢰 N=3 → 상점 해금; 생본 가격 ward_scrap/tier.
 ## ~~분석 N=3 · 중복 sink~~ — M5 폐기. 상수는 **마이그레이션 판독용**으로만 남는다.
@@ -22,10 +24,20 @@ signal economy_changed()   # analysis progress / shop unlock / ward_scrap change
 var facilities: Dictionary = {}        # facilityId -> facilityTier (int, ≥0)
 var hub_haul_vault: Dictionary = {}    # haulMaterialId -> qty (Safe only)
 var quest_completed: Dictionary = {}   # questId -> bool
+## **수락한 의뢰**(M6). 의뢰는 이제 **그 의뢰가 여는 건물에서 받는다** — 폐허 앞에 서서 「이걸
+## 세워 주게」를 듣고 수락하는 것이, 장부를 열어 목록을 보는 것보다 「이 마을을 일으킨다」에 가깝다.
+## **수락하지 않은 의뢰는 완료되지 않는다** — 조건을 우연히 충족해도 마찬가지다. 그래야 수락이
+## 의미를 갖는다.
+var quest_accepted: Dictionary = {}    # questId -> bool
 var enc_cleared: Dictionary = {}       # encounterId -> true (런 이벤트 퀘스트 판정용, B4)
-var hard_cleared: bool = false         # Hard 난이도 인카운터 1회+ 클리어 (Q-HUB-020 무기고 게이트 — 절차생성과 정합)
+## ~~`hard_cleared`~~ — M6에서 게이트가 **고정 보스 처치**로 옮겨가 판정에 안 쓰인다. 필드는 남긴다:
+## 지역·입장조건이 난이도 축을 되찾을 때(사용자 로드맵) 다시 쓰일 자리이고, 기록 자체는 무해하다.
+var hard_cleared: bool = false
 var extraction_success: int = 0        # 누적 추출 성공 횟수 (데모 이벤트 퀘스트: 군수 1·창고T2 2 대용)
 var party_wiped: int = 0               # 누적 전멸 횟수 (데모 이벤트 퀘스트: 성소 복구 대용)
+## 출정 횟수 — `F-020` §3.2.0 **첫 런 게이트**의 판정축. 추출/전멸 카운터로 대신할 수 없다:
+## 시작해 놓고 중도 이탈한 런도 「첫 런」은 아니기 때문이다. **출정 확정 시점**에 오른다.
+var runs_started: int = 0
 ## ~~분석 경제~~ — **M5 폐기**(`D-018` §9). 필드는 **읽기 전용 유물**로 남는다: 구 세이브를
 ## 트리 해금으로 옮기는 `migrate_analysis_to_tree`가 이걸 읽고 비운다. 새로 쓰는 곳은 없다.
 var analysis_progress: Dictionary = {} # (deprecated) baseAbilityId -> 분석 누적
@@ -65,8 +77,10 @@ func to_dict() -> Dictionary:
 		"facilities": facilities,
 		"hub_haul_vault": hub_haul_vault,
 		"quest_completed": quest_completed,
+		"quest_accepted": quest_accepted,
 		"enc_cleared": enc_cleared,
 		"hard_cleared": hard_cleared,
+		"runs_started": runs_started,
 		"analysis_progress": analysis_progress,
 		"shop_listing_unlocked": shop_listing_unlocked,
 		"tree_unlocked": tree_unlocked,
@@ -90,8 +104,10 @@ func apply_dict(d: Dictionary) -> void:
 	facilities = d.get("facilities", {})
 	hub_haul_vault = d.get("hub_haul_vault", {})
 	quest_completed = d.get("quest_completed", {})
+	quest_accepted = d.get("quest_accepted", {})
 	enc_cleared = d.get("enc_cleared", {})
 	hard_cleared = bool(d.get("hard_cleared", false))
+	runs_started = int(d.get("runs_started", 0))
 	analysis_progress = d.get("analysis_progress", {})
 	shop_listing_unlocked = d.get("shop_listing_unlocked", {})
 	tree_unlocked = d.get("tree_unlocked", {})
@@ -105,8 +121,10 @@ func reset_to_seed() -> void:
 	facilities = {}
 	hub_haul_vault = {}
 	quest_completed = {}
+	quest_accepted = {}
 	enc_cleared = {}
 	hard_cleared = false
+	runs_started = 0
 	analysis_progress = {}
 	shop_listing_unlocked = {}
 	tree_unlocked = {}
@@ -179,12 +197,53 @@ func remove_haul(id: String, qty: int = 1) -> void:
 	save_profile()
 
 
+## 런 이벤트형 완료(목표 클리어 등). **수락한 의뢰만** 완료된다 — 수락 전에 우연히 조건을 채워도
+## 크레딧이 없다. 대신 조용히 흘리지 않고 알린다(「깼는데 왜 안 되지」를 남기지 않는다).
 func set_quest_completed(quest_id: String, done: bool = true) -> void:
+	if done and not is_quest_accepted(quest_id):
+		print("[TDC] 의뢰 '%s' 미수락 — 조건은 충족했으나 완료로 치지 않는다(해당 건물에서 수락)" % quest_id)
+		return
 	quest_completed[quest_id] = done
+	save_profile()
 
 
 func is_quest_done(quest_id: String) -> bool:
 	return bool(quest_completed.get(quest_id, false))
+
+
+func is_quest_accepted(quest_id: String) -> bool:
+	return bool(quest_accepted.get(quest_id, false))
+
+
+## 의뢰 수락 — **그 의뢰가 여는 건물에서** 부른다. 수락 직후 곧바로 재평가한다: 이미 조건을
+## 채워 둔 상태로 수락하면 그 자리에서 완료돼야 「받자마자 됐다」가 성립한다.
+func accept_quest(quest_id: String) -> bool:
+	if quest_id == "" or is_quest_accepted(quest_id) or is_quest_done(quest_id):
+		return false
+	quest_accepted[quest_id] = true
+	evaluate_quests()
+	save_profile()
+	return true
+
+
+## 이 시설의 다음 단계가 요구하는 의뢰 id("" = 없음). 건물 패널이 「여기서 받는 의뢰」를 찾는 경로다.
+func quest_for_next_tier(facility_id: String) -> String:
+	var chk := upgrade_check(facility_id)
+	if String(chk.get("reason", "")) == "max":
+		return ""
+	var nt := int(chk.get("next_tier", facility_tier(facility_id) + 1))
+	return String(Slice01Data.get_facility_tier(facility_id, nt).get("quest", ""))
+
+
+## 이 건물에서 **지금 할 일이 있는가** — 마을 카드의 뱃지가 이걸 읽는다.
+## `"accept"`(받을 의뢰가 있다) · `"upgrade"`(지을/올릴 수 있다) · `""`(없음).
+func building_action(facility_id: String) -> String:
+	if bool(upgrade_check(facility_id).get("ok", false)):
+		return "upgrade"
+	var q := quest_for_next_tier(facility_id)
+	if q != "" and not is_quest_accepted(q) and not is_quest_done(q):
+		return "accept"
+	return ""
 
 
 ## B4-lite: 충족 가능한 Slice-01 퀘스트 stub(vault 수량·시설 Tier 기반)을 자동 완료 처리한다
@@ -197,10 +256,11 @@ func evaluate_quests() -> void:
 	_q_if("Q-HUB-003", extraction_success >= 2)                  # 창고 T2 — 추출 2회(맵 2종 대용)
 	_q_if("Q-HUB-040", party_wiped >= 1)                         # 성소 T1 — 전멸 1회(복구 대용)
 	_q_if("Q-HUB-050", extraction_success >= 1)                  # 군수 T1 — 추출 1회(NPC 고용 대용)
-	_q_if("Q-HUB-011", vault_count("haul_arc_ink") >= 2)         # 필기소 T2 — 아크 잉크
-	_q_if("Q-HUB-012", facility_tier("scriptorium") >= 1)        # 상점 개장 — 필기소 선행
 	_q_if("Q-HUB-013", facility_tier("scribe_shop") >= 1)        # 상점 T2
-	_q_if("Q-HUB-020", hard_cleared)                            # 무기고 T1 — Hard 인카운터 1회 클리어(절차생성 정합, DRIFT-067)
+	# 무기고 T1 — **고정 보스 처치**(M6). 구 조건은 「Hard 인카운터 클리어」였는데 허브에서 난이도를
+	# 고르는 UI가 사라져 `hard_cleared`가 영영 서지 않는다. 「어려운 관문」을 토글이 아니라 **맵의 방**이
+	# 소유하게 옮겼다 — `spawn_table` `force_overrides`가 `P-BOSS-01`에 보스를 난이도 무관 고정한다.
+	_q_if("Q-HUB-020", bool(enc_cleared.get("ENC-BOSS-001", false)))
 	_q_if("Q-HUB-021", facility_tier("armory") >= 1)             # 무기고 T2
 	_q_if("Q-HUB-030", vault_count("haul_forge_coal") >= 3)      # 대장간 건립 — 연료
 	_q_if("Q-HUB-031", facility_tier("smithy") >= 1)             # 대장간 T2
@@ -209,8 +269,9 @@ func evaluate_quests() -> void:
 		save_profile()
 
 
+## 자동 판정 — **수락한 의뢰만** 완료된다(M6). 수락 전에는 조건을 충족해도 아무 일이 없다.
 func _q_if(quest_id: String, cond: bool) -> void:
-	if cond and not is_quest_done(quest_id):
+	if cond and is_quest_accepted(quest_id) and not is_quest_done(quest_id):
 		quest_completed[quest_id] = true
 		_q_dirty = true
 
@@ -222,7 +283,7 @@ func upgrade_check(id: String) -> Dictionary:
 	var row: Dictionary = Slice01Data.get_facility_tier(id, next_tier)
 	if row.is_empty():
 		return {"ok": false, "reason": "max", "next_tier": next_tier, "quest": "", "missing": {}}
-	# 선행 시설 (예: scribe_shop T1 requires scriptorium ≥ 1)
+	# 선행 시설 — 데이터의 `prereq: {facility: tier}`. M6 재편 후 남은 선행은 없지만 스키마는 유지한다.
 	var prereq: Dictionary = row.get("prereq", {})
 	for pid in prereq:
 		if facility_tier(String(pid)) < int(prereq[pid]):
@@ -408,6 +469,14 @@ func tree_check(node_id: String) -> Dictionary:
 	for fac in (row.get("facility_req", {}) as Dictionary):
 		if facility_tier(String(fac)) < int(row["facility_req"][fac]):
 			return {"ok": false, "reason": "facility_req"}
+	# **`Unlock`/`Upgrade`는 필기상점(`scribe_shop`) tier가 AB tier를 받아야 산다**(M6 건물 재편).
+	# 해금과 시술이 같은 건물로 모였으므로 게이트도 같아야 한다 — 열 수는 있는데 못 새기는(또는 반대)
+	# 상태가 생기면 유저는 어느 건물을 올려야 하는지 알 수 없다.
+	var ab := String(row.get("base_ability_id", ""))
+	if ab != "" and String(row.get("type", "")) in ["Unlock", "Upgrade"]:
+		var tr := String(Slice01Data.get_skillbook_master(ab).get("tier", "Basic"))
+		if int(TIER_RANK.get(tr, 9)) > shop_tier_ceiling():
+			return {"ok": false, "reason": "tier_ceiling"}
 	for mat in (row.get("cost", {}) as Dictionary):
 		if vault_count(String(mat)) < int(row["cost"][mat]):
 			return {"ok": false, "reason": "haul"}
@@ -431,6 +500,17 @@ func tree_buy(node_id: String) -> Dictionary:
 	save_profile()
 	economy_changed.emit()
 	return {"ok": true}
+
+
+## `F-020` §3.2.0 — 첫 런 동안은 **역할당 슬롯 스킬 ≥1**이 필수다(미충족 시 출정 차단).
+## 이후 런은 빈 슬롯이어도 들어갈 수 있고 경고만 뜬다.
+func is_first_run() -> bool:
+	return runs_started <= 0
+
+
+func mark_run_started() -> void:
+	runs_started += 1
+	save_profile()
 
 
 func scrap() -> int:

@@ -16,25 +16,11 @@
       "completion": "추출 성공 2회 (데모: 맵 2종 대용 — 2번째 맵 구현 시 교체)"
     },
     {
-      "quest_id": "Q-HUB-010",
-      "facility": "scriptorium",
-      "tier": 1,
-      "one_liner": "필기소 잔해 복구",
-      "completion": "Objective GIMMICK-DEMO-01 complete once"
-    },
-    {
-      "quest_id": "Q-HUB-011",
-      "facility": "scriptorium",
-      "tier": 2,
-      "one_liner": "필기소 2단 — 아크 잉크 의뢰",
-      "completion": "haul_arc_ink×2 in vault"
-    },
-    {
       "quest_id": "Q-HUB-012",
       "facility": "scribe_shop",
       "tier": 1,
       "one_liner": "필기 상점 개장",
-      "completion": "scriptorium >= 1"
+      "completion": "Objective GIMMICK-DEMO-01 clear once"
     },
     {
       "quest_id": "Q-HUB-013",
@@ -47,8 +33,8 @@
       "quest_id": "Q-HUB-020",
       "facility": "armory",
       "tier": 1,
-      "one_liner": "무기고 개방",
-      "completion": "Hard encounter clear once (any)"
+      "one_liner": "무기고 개방 — 성채의 주인을 꺾어라",
+      "completion": "ENC-BOSS-001 clear once (고정 보스, RM-BOSS)"
     },
     {
       "quest_id": "Q-HUB-021",
@@ -92,5 +78,7 @@
       "one_liner": "군수 2단",
       "completion": "haul_pack_frame×2"
     }
-  ]
+  ],
+  "_note_boss_gate": "`Q-HUB-020` 완료 조건이 「Hard 인카운터 클리어」 → **고정 보스 처치**로 바뀌었다(M6). 허브에서 난이도를 고르는 UI가 사라졌으므로 `hard_cleared`가 영영 서지 않아 무기고가 잠기기 때문이다. 보스는 `spawn_table` `force_overrides`로 `P-BOSS-01`에 **난이도 무관 고정**된다 — 「어려운 걸 깬다」는 감각을 난이도 토글이 아니라 **맵의 특정 방**이 소유한다.",
+  "_note_accept": "의뢰는 **그 의뢰가 여는 건물에서 받는다**(M6) — 폐허 앞에서 수락하고, 수락한 의뢰만 완료된다(`HubProfile.quest_accepted`). 조건을 우연히 충족해도 미수락이면 완료로 치지 않는다: 그래야 수락이 의미를 갖는다. 퀘스트 패널은 **장부**(어디서 받는지·진행)로 남는다."
 }

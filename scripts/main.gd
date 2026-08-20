@@ -1,59 +1,287 @@
 extends Control
-## Deployment hub (UI-005 / F-010) — confirm Identity loadout + edit the run loadout from the
-## stash (equip gear onto the 4 members, bring consumables = At-Risk) → deploy to the
-## demo dungeon. Reuses InventoryUI (combat=null → equip allowed) as the character-slot UI and
-## the player Stash as its container grid. ref: QA-030 §3.1–3.2 / F-010 §3.2.
+## **성채 — 마을 화면** (`UI-005` §3 / `UI-029`). 건물을 눌러 들어가고, 하단 파티 스트립이 4인의
+## 현재 구성을 항상 보여준다.
+##
+## M6 이전엔 560×400 패널에 버튼이 세로로 쌓인 **테이블**이었고, 실제 상태(누가 뭘 들었는지)는
+## 어디에도 안 보였다 — 스태시를 열어야만 알 수 있었다. P4b가 성장을 「캐릭터 강화」에서
+## **「이 건을 어떤 무기로 만들까」**로 옮긴 이상, 허브의 1급 정보는 **파티 4인의 건 구성**이다.
+##
+## **건물 = `F-029` 시설**이다. 새로 발명한 화면이 아니라 이미 있는 tier 표를 공간으로 옮긴 것이며,
+## 좌표는 `facilities_tiers.json` `map_pos`가 소유한다(아트가 코드 없이 재배치할 수 있게).
+## 미건립(T0)은 **폐허로 보인다** — 안 보이면 「여기 뭐가 더 있나」를 알 길이 없다.
+##
+## **~~Confirm Loadout~~ · ~~난이도 선택~~ 제거**(M6). 전자는 gear=정체성 동기화라 확정할 것이
+## 없었고, 후자는 지역·입장조건이 그 축을 가져간다. 출정 게이트는 **성문**이 소유한다.
 
 const DUNGEON_SCENE := "res://scenes/run/dungeon_run.tscn"
 const PartyController := preload("res://scripts/party/party_controller.gd")
 const InventoryUI := preload("res://scripts/ui/inventory/inventory_ui.gd")
 const StashSource := preload("res://scripts/ui/inventory/stash_source.gd")
-const FormationEditor := preload("res://scripts/ui/inventory/formation_editor.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
-const HubFacilitiesPanel := preload("res://scripts/ui/hub_facilities_panel.gd")  # UI-029 시설 승급
-const HubEconomyPanel := preload("res://scripts/ui/hub_economy_panel.gd")        # F-009 분석·상점
-const HubQuestPanel := preload("res://scripts/ui/hub_quest_panel.gd")            # F-029 §3.3 퀘스트 로그
-const HubTreePanel := preload("res://scripts/ui/hub_tree_panel.gd")              # F-020 §3.10 스킬 트리(성소)
-const HubModdingPanel := preload("res://scripts/ui/hub_modding_panel.gd")        # UI-005 §3.2 건 모딩(M4)
+const BindingOverlays := preload("res://scripts/combat/abilities/bindings/binding_overlays.gd")
+## `RichTooltip`은 `Panel`(비컨테이너)이라 자식을 배치하지도 자식에 맞춰 커지지도 않는다 —
+## 카드·건물처럼 **내용에 맞춰 자라야 하는** 것은 `RichPanel`(PanelContainer판)을 쓴다.
+const RichPanel := preload("res://scripts/ui/rich_panel.gd")
+const HubBuildingPanel := preload("res://scripts/ui/hub_building_panel.gd")
+const HubEconomyPanel := preload("res://scripts/ui/hub_economy_panel.gd")
+const HubQuestPanel := preload("res://scripts/ui/hub_quest_panel.gd")
+const HubTreePanel := preload("res://scripts/ui/hub_tree_panel.gd")
+const HubModdingPanel := preload("res://scripts/ui/hub_modding_panel.gd")
+const HubGatePanel := preload("res://scripts/ui/hub_gate_panel.gd")
 
-@onready var _status: Label = $Panel/Margin/VBox/Status
-@onready var _loadout: VBoxContainer = $Panel/Margin/VBox/LoadoutStub
-@onready var _start: Button = $Panel/Margin/VBox/StartButton
+const ROLES := ["Tank", "DPS", "Nuker", "Healer"]
+const SLOT_KEY := ["Q", "E", "R"]
+## 색·글자크기는 **`HubTheme`가 유일한 출처**다. 화면마다 상수를 다시 선언하면 같은 「경고」가
+## 화면마다 다른 빨강이 되고, 그게 「정리가 안 된 느낌」의 실체였다.
+const BAD := HubTheme.BAD
+const DIM := HubTheme.DIM
+const ACCENT := HubTheme.ACCENT
+
+## 건물 → 어느 화면이 열리는가. **라우팅 SSOT** — `hub_smoke`가 `FACILITY_IDS`와 1:1 대조해서
+## 「갈 곳 없는 건물」과 「건물 없는 화면」을 둘 다 잡는다.
+const BUILDING_ROUTE := {
+	"smithy": "modding", "scribe_shop": "skills", "chapel": "doctrine",
+	"armory": "gear_shop", "quartermaster": "supply", "stash": "stash", "barracks": "gate",
+}
+## 처음부터 서 있는 건물 — tier 0이 곧 기능인 곳(`F-029`: 막사 = 배치, 창고 = capacity 20).
+## 나머지는 T0가 「미건립」이라 폐허로 보인다.
+const ALWAYS_BUILT := ["barracks", "stash"]
 
 var _party: Node
 var _inv: InventoryUI
 var _stash_src: Node
-var _formation: Panel
-var _difficulty_opt: OptionButton
-var _economy_lbl: Label   # 마석 반입/보관 요약(F-009 §3.8) — 배치 화면 상시 노출
-# Autoloads via runtime path (not the parse-time global) so a stale editor that hasn't
-# re-registered a newly-added autoload still compiles + runs. Loaded fresh on every game run.
+
+var _panels: Dictionary = {}       # route -> Control
+var _gate: Control
+var _modding: Control
+var _map_layer: Control
+var _wallet: Label
+var _pin_lbl: Label
+var _cards: Dictionary = {}        # role -> {panel, gear}
+
 @onready var _stash: Node = get_node("/root/Stash")
 @onready var _run_loadout: Node = get_node("/root/RunLoadout")
+@onready var _hub: Node = get_node_or_null("/root/HubProfile")
 
 
 func _ready() -> void:
+	_build_layout()
 	if not Slice01Data.is_loaded():
-		_status.text = "Slice01 data FAILED — see Output"
-		_start.disabled = true
-		_loadout.visible = false
+		_pin_lbl.text = "Slice01 data FAILED — see Output"
+		_pin_lbl.modulate = BAD
 		push_error("[TDC] Slice01 data not loaded")
 		return
-	var pin := GameBootstrap.get_spec_pin_summary()
-	_status.text = "%s · %s" % [pin, Slice01Data.get_summary()]
-	_loadout.populate_from_data()
 	_setup_hub()
-	_start.disabled = true
-	_loadout.loadout_confirmed.connect(_on_loadout_confirmed)
-	_start.pressed.connect(_on_start_pressed)
+	var pin := GameBootstrap.get_spec_pin_summary()
+	_pin_lbl.text = "%s · %s" % [pin, Slice01Data.get_summary()]
 	print("[TDC] Hub ready — ", pin)
+	refresh_all()
 
 
-## Embed a (static) party + InventoryUI so the hub reuses the equip/drag system, with the
-## player Stash presented as the inventory's container grid.
+# --- 레이아웃 ------------------------------------------------------------------
+
+func _build_layout() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	theme = HubTheme.get_theme()   # 하위 전체가 상속 → 노드별 font_size override 불필요
+	var bg := ColorRect.new()
+	bg.color = HubTheme.BG
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for sd in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(sd, 12)
+	add_child(margin)
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 8)
+	margin.add_child(root)
+
+	root.add_child(_build_topbar())
+
+	# 마을 — 건물이 **정규화 좌표**로 놓이는 자유 배치 층. 컨테이너를 쓰지 않는 이유: 건물 위치는
+	# 데이터 소유라 레이아웃 규칙이 아니라 좌표가 결정해야 한다(아트 교체 시 코드 불변).
+	_map_layer = Control.new()
+	_map_layer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_map_layer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_map_layer.clip_contents = true
+	_map_layer.resized.connect(_place_buildings)
+	root.add_child(_map_layer)
+	var ground := ColorRect.new()
+	ground.color = Color(0.095, 0.10, 0.12)
+	ground.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_layer.add_child(ground)
+
+	root.add_child(_build_party_strip())
+
+	_pin_lbl = HubTheme.label("", "HubMeta")
+	root.add_child(_pin_lbl)
+
+
+## 상단 — **세 지갑**(모딩 시술비 `ward_scrap` · 시전 자원 마석 · 금고 재료)이 항상 보인다.
+## 「지금 뭘 할 수 있나」가 여기서 갈리는데, 예전엔 패널을 열어야만 알 수 있었다.
+func _build_topbar() -> HBoxContainer:
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 10)
+	bar.add_child(HubTheme.label("성채", "HubTitle"))
+	_wallet = HubTheme.label("")
+	_wallet.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.add_child(_wallet)
+	return bar
+
+
+## 하단 파티 스트립 — 카드에는 **건 이름만**. 나머지(정체성·Q/E/R·결속)는 **마우스 오버 툴팁**으로.
+## 카드에 다 적으면 4장이 화면을 먹고, 그러면 마을이 안 보인다. 여기서 필요한 건 「누가 뭘 들었나」의
+## 즉답이고, 상세는 물어봤을 때 나오면 된다.
+func _build_party_strip() -> Control:
+	var strip := HBoxContainer.new()
+	strip.add_theme_constant_override("separation", HubTheme.GAP_M)
+	strip.custom_minimum_size = Vector2(0, 74)
+	for role in ROLES:
+		var pc := RichPanel.new()   # BBCode 툴팁(색) — 결속·규약을 색으로 구분
+		pc.theme_type_variation = "HubCard"
+		pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pc.mouse_filter = Control.MOUSE_FILTER_STOP
+		pc.gui_input.connect(func(e: InputEvent) -> void:
+			if e is InputEventMouseButton and (e as InputEventMouseButton).pressed:
+				_modding.open_panel(role))
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 1)
+		pc.add_child(vb)
+		var head := HBoxContainer.new()
+		vb.add_child(head)
+		var dot := ColorRect.new()
+		dot.color = UnitVisuals.role_color(role)
+		dot.custom_minimum_size = Vector2(5, 15)
+		head.add_child(dot)
+		head.add_child(HubTheme.label("  " + Slice01Data.get_role_label(role), "HubMeta"))
+		# **한 줄 + 말줄임.** 여기서 autowrap을 켜면 폭이 0이 돼 「거암 / 의 대 / 방패」로 쪼개진다.
+		# 잘린 이름의 전문·정체성·Q/E/R은 전부 툴팁에 있으므로 정보가 사라지지 않는다.
+		var gear := HubTheme.line("", "HubSection", HubTheme.TEXT)
+		gear.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vb.add_child(gear)
+		_cards[role] = {"panel": pc, "gear": gear}
+		strip.add_child(pc)
+	return strip
+
+
+# --- 건물 --------------------------------------------------------------------
+
+## 건물 플레이트를 `map_pos`(정규화 0..1) 위에 놓는다. 아트가 들어오면 이 노드에 `TextureRect`를
+## 붙이기만 하면 되도록 **위치 계산과 표시를 분리**해 뒀다.
+func _place_buildings() -> void:
+	if _map_layer == null:
+		return
+	var msize := _map_layer.size
+	for ch in _map_layer.get_children():
+		if not ch.has_meta("fid"):
+			continue
+		var pos: Array = Slice01Data.get_facility_def(String(ch.get_meta("fid"))).get("map_pos", [0.5, 0.5])
+		var c := ch as Control
+		var w: float = maxf(c.size.x, c.custom_minimum_size.x)
+		var h: float = maxf(c.size.y, 52.0)
+		c.position = Vector2(
+			clampf(float(pos[0]) * msize.x - w * 0.5, 4.0, maxf(4.0, msize.x - w - 4.0)),
+			clampf(float(pos[1]) * msize.y - h * 0.5, 4.0, maxf(4.0, msize.y - h - 4.0)))
+
+
+func _build_buildings() -> void:
+	for fid in _hub.FACILITY_IDS:
+		var def: Dictionary = Slice01Data.get_facility_def(String(fid))
+		if def.is_empty():
+			push_warning("[TDC] 마을 — 시설 '%s' 데이터 없음(건물 미배치)" % fid)
+			continue
+		_map_layer.add_child(_building_plate(String(fid), def))
+	_place_buildings()
+
+
+## 건물 하나. **T0 = 폐허**: 지을 수 있다는 걸 보여주는 것이 목표 가시화다(다키스트던전식).
+## `F-029` `smithy` T0 「맵 비표시」와 어긋나므로 드리프트로 기록했다 — 숨기면 첫 플레이에
+## 빈 땅만 보이고 「여기 뭐가 더 있나」를 알 길이 없다.
+func _building_plate(fid: String, def: Dictionary) -> Control:
+	var tier: int = int(_hub.facility_tier(fid))
+	var built: bool = tier >= 1 or ALWAYS_BUILT.has(fid)
+	var pc := RichPanel.new()
+	pc.theme_type_variation = "HubCard"
+	pc.set_meta("fid", fid)
+	pc.custom_minimum_size = Vector2(196, 0)   # 높이는 내용이 정한다(PanelContainer라 자란다)
+	pc.mouse_filter = Control.MOUSE_FILTER_STOP
+	pc.modulate = Color(1, 1, 1) if built else Color(0.58, 0.58, 0.64)
+	pc.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed:
+			var mb := e as InputEventMouseButton
+			_enter_building(fid, built, mb.button_index == MOUSE_BUTTON_RIGHT))
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 0)
+	pc.add_child(vb)
+	# 「여기 할 일이 있다」를 **마을에서** 읽히게 — 시설 목록 화면을 없앴으므로(M6) 어느 건물을
+	# 눌러야 하는지는 카드가 스스로 말해야 한다. 뱃지가 없으면 전 건물을 하나씩 눌러 봐야 한다.
+	var act := String(_hub.building_action(fid)) if _hub != null else ""
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 4)
+	vb.add_child(head)
+	var nm := HubTheme.line("%s%s" % ["░ " if not built else "", String(def.get("display", fid))],
+		"HubSection", HubTheme.TEXT if built else HubTheme.DISABLED)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(nm)
+	if act != "":
+		head.add_child(HubTheme.label("!" if act == "accept" else "▲", "HubSection",
+			HubTheme.BAD if act == "accept" else HubTheme.OK))
+	# 부제도 **한 줄**이다 — 효과 문구는 길이가 제각각이라 줄바꿈을 허용하면 카드 높이가 들쭉날쭉해지고
+	# 마을이 지저분해진다. 전문은 툴팁에.
+	vb.add_child(HubTheme.line(("T%d · %s" % [tier, _tier_effect(fid, tier)]) if built else "폐허 — 눌러서 건립",
+		"HubMeta", HubTheme.ACCENT if built else HubTheme.DIM))
+	pc.tooltip_text = _building_tip(fid, def, tier, built, act)
+	return pc
+
+
+func _tier_effect(fid: String, tier: int) -> String:
+	return String(Slice01Data.get_facility_tier(fid, tier).get("effect", ""))
+
+
+func _building_tip(fid: String, def: Dictionary, tier: int, built: bool, act: String) -> String:
+	var out: Array = ["[b]%s[/b]  [color=#9aa4b2]T%d[/color]" % [String(def.get("display", fid)), tier]]
+	out.append("[color=#f0b64a]%s[/color]" % _tier_effect(fid, tier))
+	if not built:
+		out.append("[color=#ff8080]아직 세워지지 않았다[/color]")
+	var nxt: Dictionary = Slice01Data.get_facility_tier(fid, tier + 1)
+	if not nxt.is_empty():
+		out.append("[color=#9aa4b2]다음 단계 — %s[/color]" % String(nxt.get("effect", "")))
+	match act:
+		"accept":
+			out.append("[color=#ff8080]! 맡을 의뢰가 있다[/color]")
+		"upgrade":
+			out.append("[color=#8be58b]▲ 지금 %s할 수 있다[/color]" % ("건립" if tier < 1 else "승급"))
+	out.append("[color=#6a6a70]좌클릭 — %s  ·  우클릭 — 건물 정보·의뢰[/color]" % (
+		"이 건물의 일" if built else "건물 정보"))
+	return "
+".join(out)
+
+
+## 건물 진입 — **좌클릭 = 그 건물의 일 / 우클릭 = 건물 자체**(의뢰·건립·승급).
+## 폐허는 아직 할 일이 없으므로 좌클릭도 건물 화면으로 보낸다: 「눌렀는데 아무 일도 없다」가 되면
+## 유저는 그 건물을 다시 안 누른다.
+func _enter_building(fid: String, built: bool, want_info: bool = false) -> void:
+	if not built or want_info:
+		_panels["building"].open_panel(fid)
+		return
+	var route := String(BUILDING_ROUTE.get(fid, ""))
+	if route == "stash":
+		_open_stash()
+		return
+	if _panels.has(route):
+		_panels[route].open_panel()
+	else:
+		push_warning("[TDC] 마을 — '%s'에 연결된 화면이 없다" % fid)
+
+
+# --- 허브 구성 -----------------------------------------------------------------
+
 func _setup_hub() -> void:
 	_party = PartyController.new()
-	var members_node := Node3D.new()  # PartyController expects a $Members child (tscn node)
+	var members_node := Node3D.new()   # PartyController expects a $Members child
 	members_node.name = "Members"
 	_party.add_child(members_node)
 	add_child(_party)
@@ -62,150 +290,208 @@ func _setup_hub() -> void:
 	_inv = InventoryUI.new()
 	add_child(_inv)
 	_inv.setup_party(_party, null)      # combat=null → equip allowed (F-008 §4.2 in-combat gate off)
-	var bp_hub := get_node_or_null("/root/Backpack")
-	if bp_hub != null:
-		bp_hub.apply_to_party(_party)   # 영속 장착 기어+서브 복원 → 허브 멤버 (재진입 시 마지막 장착 유지)
-	_inv.stash_item_discarded.connect(_on_stash_item_discarded)  # Shift+우클릭 스태시 버리기 → 영구 제거
+	var bp := get_node_or_null("/root/Backpack")
+	if bp != null:
+		bp.apply_to_party(_party)       # 영속 장착 gear + 슬롯 AB 복원
+	_inv.stash_item_discarded.connect(_on_stash_item_discarded)
 	_stash_src = StashSource.new()
 	_stash_src.items = _build_stash_items()
-	var edit := Button.new()
-	edit.text = "스태시 / 금고"   # 스태시(창고)+금고(재료)를 위아래로 함께 편집 — '재료 모두 금고로' 버튼 내장
-	edit.pressed.connect(_open_loadout_editor)
-	$Panel/Margin/VBox.add_child(edit)
-	$Panel/Margin/VBox.move_child(edit, _loadout.get_index())  # stash editor ABOVE the confirm
-	# UI-029 허브 시설 — haul로 시설 승급(F-029). 풀스크린 오버레이로 열림.
-	var facilities_panel := HubFacilitiesPanel.new()
-	add_child(facilities_panel)
-	var facilities_btn := Button.new()
-	facilities_btn.text = "허브 시설 (승급)"
-	facilities_btn.pressed.connect(facilities_panel.open_panel)
-	$Panel/Margin/VBox.add_child(facilities_btn)
-	$Panel/Margin/VBox.move_child(facilities_btn, _loadout.get_index())
-	# F-009 필기소·상점 — 스킬북 분석(해금) + 생본 구매(ward_scrap). 풀스크린 오버레이.
-	var economy_panel := HubEconomyPanel.new()
-	add_child(economy_panel)
-	var economy_btn := Button.new()
-	economy_btn.text = "필기소 · 상점 (분석/구매)"
-	economy_btn.pressed.connect(economy_panel.open_panel)
-	# 상점에서 산 기어/스킬북/소비는 Stash에 바로 들어가므로, 패널을 닫으면 에디터 소스를 재빌드해
-	# 동기화한다(안 그러면 deploy 시 _sync_stash_from_source가 옛 스냅샷으로 구매를 덮어써 유실).
-	economy_panel.closed.connect(func() -> void: _stash_src.items = _build_stash_items())
-	$Panel/Margin/VBox.add_child(economy_btn)
-	$Panel/Margin/VBox.move_child(economy_btn, _loadout.get_index())
-	# F-020 §3.10 성소 스킬 트리 — 해금/발전/슬롯/**doctrine 구매**. 구 분석 의뢰 UI의 후임.
-	# doctrine을 살 수 있는 **유일한 경로**라 이게 없으면 F-030이 코드에만 있고 게임엔 없다.
-	var tree_panel := HubTreePanel.new()
-	add_child(tree_panel)
-	var tree_btn := Button.new()
-	tree_btn.text = "성소 · 스킬 트리 (해금/운용)"
-	tree_btn.pressed.connect(tree_panel.open_panel)
-	$Panel/Margin/VBox.add_child(tree_btn)
-	$Panel/Margin/VBox.move_child(tree_btn, _loadout.get_index())
-	# UI-005 §3.2 건 모딩 — **사용자가 요청한 핵심 UX**. gear의 Q/E/R에 스킬을 끼우고, 결속 1줄을
-	# 그 자리에서 보고, gear를 갈 때 소멸을 확인받는다. 슬롯이 gear 귀속으로 옮겨간 뒤로는 여기가
-	# 빌드를 만드는 유일한 자리다(equip_panel의 SUB 컬럼은 표시 전용으로 남는다).
-	var modding_panel := HubModdingPanel.new()
-	modding_panel.party = _party
-	add_child(modding_panel)
-	var modding_btn := Button.new()
-	modding_btn.text = "대장간 · 건 모딩 (Q/E/R)"
-	modding_btn.pressed.connect(modding_panel.open_panel)
-	# 모딩은 스태시 gear를 꺼내 신고 벗은 걸 돌려놓는다 → 닫을 때 에디터 소스를 재빌드하지 않으면
-	# deploy 시 옛 스냅샷이 교체를 덮어써 건이 유실된다(상점 패널과 같은 함정).
-	modding_panel.closed.connect(func() -> void: _stash_src.items = _build_stash_items())
-	$Panel/Margin/VBox.add_child(modding_btn)
-	$Panel/Margin/VBox.move_child(modding_btn, _loadout.get_index())
-	# F-029 §3.3 퀘스트 로그 — 승급 의뢰 전체 + 완료 조건 확인. 풀스크린 오버레이.
-	var quest_panel := HubQuestPanel.new()
-	add_child(quest_panel)
-	var quest_btn := Button.new()
-	quest_btn.text = "퀘스트 (의뢰 목록)"
-	quest_btn.pressed.connect(quest_panel.open_panel)
-	$Panel/Margin/VBox.add_child(quest_btn)
-	$Panel/Margin/VBox.move_child(quest_btn, _loadout.get_index())
-	# 저장 초기화 (테스트/디버그) — 스태시·백팩·허브 메타를 데모 시드로. 확인 다이얼로그로 보호.
-	var reset_btn := Button.new()
-	reset_btn.text = "저장 초기화 (시드로)"
-	reset_btn.modulate = Color(1.0, 0.6, 0.6)   # 파괴적 동작 — 시각 경고
-	reset_btn.pressed.connect(_confirm_reset_save)
-	$Panel/Margin/VBox.add_child(reset_btn)
-	$Panel/Margin/VBox.move_child(reset_btn, _loadout.get_index())
-	_build_economy_line()
-	_build_formation_editor()
-	_build_difficulty_selector()
+
+	_build_panels()
+	_build_buildings()
+	if _hub != null and _hub.has_signal("economy_changed"):
+		_hub.economy_changed.connect(refresh_all)
 
 
-## 배치 화면 경제 요약 — **마석은 슬롯 스킬(Q/E/R)의 시전 자원**인데, 스태시를 열기 전엔 보유량이
-## 어디에도 안 보여서 "소모가 어떻게 되는지 모르겠다"가 됐다(DRIFT-145). 반입분(백팩)과 보관분(스태시)을
-## 나눠 찍는다 — 둘은 다른 주머니고, 던전에 들고 가는 건 **반입분뿐**이다.
-func _build_economy_line() -> void:
-	_economy_lbl = Label.new()
-	_economy_lbl.add_theme_font_size_override("font_size", 12)
-	_economy_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_economy_lbl.modulate = Color(0.78, 0.68, 1.0)
-	$Panel/Margin/VBox.add_child(_economy_lbl)
-	$Panel/Margin/VBox.move_child(_economy_lbl, _loadout.get_index())
-	_refresh_economy_line()
+## 화면은 전부 풀스크린 오버레이다. 닫을 때 마을을 다시 그린다 — 건물 tier·재화·건 구성이 안에서
+## 바뀌었을 수 있고, 나왔는데 마을이 그대로면 방금 한 일이 없던 일처럼 보인다.
+func _build_panels() -> void:
+	# 건물 한 채 화면 — 의뢰 수락·건립·승급. **시설 승급 목록 패널을 대체**했다(M6): 마을에서
+	# 폐허를 눌렀는데 목록이 열리고 거기서 다시 그 건물을 고르는 건 마을을 만든 이유를 지운다.
+	var building := HubBuildingPanel.new()
+	add_child(building)
+	_panels["building"] = building
+
+	var quests := HubQuestPanel.new()
+	add_child(quests)
+	_panels["quests"] = quests
+
+	# 필기 상점 = 해금·강화 / 성소 = 운용 교리. **같은 스크립트, 다른 눈**(M6 건물 재편).
+	var skills := HubTreePanel.new()
+	skills.types = ["Unlock", "Upgrade"]
+	skills.title_text = "필기 상점 — 해금과 강화"
+	skills.gate_facility = "scribe_shop"
+	add_child(skills)
+	_panels["skills"] = skills
+
+	var doctrine := HubTreePanel.new()
+	doctrine.types = ["Doctrine"]
+	doctrine.title_text = "성소 — 운용 교리"
+	doctrine.gate_facility = "chapel"
+	add_child(doctrine)
+	_panels["doctrine"] = doctrine
+
+	# 무기고 = gear / 군수 = 보급. 재고가 달라야 마을에 문이 둘일 이유가 있다.
+	var gear_shop := HubEconomyPanel.new()
+	gear_shop.mode = "gear"
+	add_child(gear_shop)
+	_panels["gear_shop"] = gear_shop
+
+	var supply := HubEconomyPanel.new()
+	supply.mode = "supply"
+	add_child(supply)
+	_panels["supply"] = supply
+
+	_modding = HubModdingPanel.new()
+	_modding.party = _party
+	add_child(_modding)
+	_panels["modding"] = _modding
+
+	_gate = HubGatePanel.new()
+	_gate.party = _party
+	add_child(_gate)
+	_gate.deploy_requested.connect(_deploy)
+	_panels["gate"] = _gate
+
+	# 상점·모딩은 스태시 소유를 바꾼다 → 닫을 때 에디터 소스를 재빌드하지 않으면 deploy 동기화가
+	# 옛 스냅샷으로 덮어써 유실된다(상점 패널이 과거에 정확히 이랬다).
+	for p in [gear_shop, supply, _modding]:
+		p.closed.connect(func() -> void:
+			_stash_src.items = _build_stash_items()
+			refresh_all())
+	for p2 in [building, quests, skills, doctrine, _gate]:
+		p2.closed.connect(refresh_all)
+
+	# 퀘스트는 건물이 아니다(**장부**다) → 상단 바에 남긴다. 받고 맡는 일은 각 건물에서 하고,
+	# 여기서는 「지금 무엇을 하고 있었나」를 훑는다. ~~시설 승급 버튼~~은 제거 — 승급은 건물에서.
+	var bar: HBoxContainer = _wallet.get_parent()
+	var qb := Button.new()
+	qb.text = "의뢰 장부"
+	qb.pressed.connect(quests.open_panel)
+	bar.add_child(qb)
+	var reset := Button.new()
+	reset.text = "저장 초기화"
+	reset.modulate = BAD
+	reset.pressed.connect(_confirm_reset_save)
+	bar.add_child(reset)
 
 
-func _refresh_economy_line() -> void:
-	if _economy_lbl == null:
+# --- 갱신 ----------------------------------------------------------------------
+
+func refresh_all() -> void:
+	if _party == null:
 		return
+	_refresh_wallet()
+	_refresh_strip()
+	for ch in _map_layer.get_children():
+		if ch.has_meta("fid"):
+			_map_layer.remove_child(ch)
+			ch.queue_free()
+	_build_buildings()
+
+
+func _refresh_wallet() -> void:
 	var carried := 0
+	var charms := 0
 	var bp := get_node_or_null("/root/Backpack")
 	if bp != null:
 		for it in bp.loose:
-			if String(it.get("kind", "")) == "manastone":
-				carried += int(it.get("count", 0))
+			match String(it.get("kind", "")):
+				"manastone":
+					carried += int(it.get("count", 0))
+				"charm":
+					charms += 1
 	var stored: int = int(_stash.manastone_count()) if _stash.has_method("manastone_count") else 0
-	_economy_lbl.text = "◈ 마석 — 반입 %d · 창고 %d   (슬롯 스킬 Q/E/R 시전 시 소모 · 등급별 1/2/3)" % [carried, stored]
+	var scrap: int = int(_hub.scrap()) if _hub != null else 0
+	var vault := 0
+	if _hub != null:
+		for k in _hub.hub_haul_vault:
+			vault += int(_hub.hub_haul_vault[k])
+	_wallet.text = "   시술비 ⚙%d   ·   마석 ◈%d 반입 / %d 보관   ·   참 %d   ·   금고 재료 %d" % [
+		scrap, carried, stored, charms, vault]
+	_wallet.modulate = ACCENT if carried > 0 else BAD
 
 
-## Difficulty selector (Normal/Hard) — chosen in the hub BEFORE deploy, written to RunLoadout
-## at Deploy and read by run_controller/combat at run start (single source = RunLoadout.get_difficulty).
-func _build_difficulty_selector() -> void:
-	var dlabel := Label.new()
-	dlabel.text = "난이도 (던전 진입 전 선택)"
-	$Panel/Margin/VBox.add_child(dlabel)
-	$Panel/Margin/VBox.move_child(dlabel, _loadout.get_index())
-	_difficulty_opt = OptionButton.new()
-	_difficulty_opt.add_item("Normal")
-	_difficulty_opt.add_item("Hard")
-	_difficulty_opt.selected = 1 if String(_run_loadout.difficulty) == "Hard" else 0
-	_difficulty_opt.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	$Panel/Margin/VBox.add_child(_difficulty_opt)
-	$Panel/Margin/VBox.move_child(_difficulty_opt, _loadout.get_index())
-
-
-## Top-down draggable formation editor (4 role tokens), placed above the confirm.
-func _build_formation_editor() -> void:
-	var offsets: Dictionary = {}
-	var colors: Dictionary = {}
-	for m in _party.get_members():
-		if m == null or not is_instance_valid(m):
+func _refresh_strip() -> void:
+	for role in ROLES:
+		var c: Dictionary = _cards[role]
+		var e: Dictionary = _member_entry(role)
+		var gid := String(e.get("gear", ""))
+		var gm: Dictionary = Slice01Data.get_gear_master(gid)
+		if gm.is_empty():
+			c["gear"].text = "건 미착용"
+			c["gear"].modulate = BAD
+			(c["panel"] as Control).tooltip_text = "[color=#ff8080]건을 착용하지 않았다 — 대장간에서 신는다[/color]"
 			continue
-		var cid := String(m.class_id)
-		var o3: Vector3 = _party.get_slot_offset(cid)
-		offsets[cid] = Vector2(o3.x, o3.z)
-		colors[cid] = UnitVisuals.role_color(cid)
-	var flabel := Label.new()
-	flabel.text = "포메이션 (토큰 드래그로 배치 · 중앙 = 리더)"
-	$Panel/Margin/VBox.add_child(flabel)
-	$Panel/Margin/VBox.move_child(flabel, _loadout.get_index())
-	_formation = FormationEditor.new()
-	# Lock to its 220×220 min size (else the VBox stretches it wide and the token coordinate
-	# space — anchored at SIZE/2 — no longer matches the visible panel).
-	_formation.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	$Panel/Margin/VBox.add_child(_formation)
-	_formation.setup(offsets, colors)
-	$Panel/Margin/VBox.move_child(_formation, _loadout.get_index())
+		c["gear"].text = String(gm.get("display_name", gid))
+		c["gear"].modulate = Color(1, 1, 1)
+		(c["panel"] as Control).tooltip_text = _member_tip(role, gid, gm)
 
 
-func _open_loadout_editor() -> void:
+## 파티 카드 툴팁 — **정체성 규약 + Q/E/R + 결속 1줄**. 카드에 안 적고 여기 모은 것들이다.
+## 결속은 gear × 정체성 × 슬롯의 삼중 매치라 어느 한 축만 봐서는 알 수 없다 → 한자리에서 읽힌다.
+func _member_tip(role: String, gid: String, gm: Dictionary) -> String:
+	var iab := _identity_ab(role)
+	var sig: Dictionary = BindingOverlays.signature_for(gid, iab)
+	var lines: Array = [
+		"[b]%s[/b]  [color=#9aa4b2]· %s[/color]" % [String(gm.get("display_name", gid)), Slice01Data.get_role_label(role)],
+		"[color=#f0b64a]정체성 — %s (%s)[/color]" % [
+			String(sig.get("name", Slice01Data.get_identity_display(_identity_skill_id(role)))), iab],
+	]
+	if sig.has("covenant"):
+		lines.append("[color=#cfe0f5]%s[/color]" % String(sig["covenant"]))
+	lines.append("[color=#9aa4b2]평타 %s · 사거리대 %s[/color]" % [
+		String(gm.get("basic_attack_profile_id", "—")), String(gm.get("range_band", "—"))])
+	var bp := get_node_or_null("/root/Backpack")
+	if bp == null:
+		return "\n".join(lines)
+	var open_n: int = int(bp.gear_slot_count(role))
+	var slots: Array = bp.gear_slot_abilities(role)
+	for j in 3:
+		if j >= open_n:
+			lines.append("[color=#6a6a70][%s] 잠김[/color]" % SLOT_KEY[j])
+			continue
+		var sd = slots[j]
+		if typeof(sd) != TYPE_DICTIONARY:
+			lines.append("[color=#9aa4b2][%s] 비어 있음[/color]" % SLOT_KEY[j])
+			continue
+		var abid := String(sd.get("base_ability_id", ""))
+		var m: Dictionary = Slice01Data.get_skillbook_master(abid)
+		lines.append("[b][%s] %s[/b]  [color=#b48aff]◈%d[/color]" % [SLOT_KEY[j],
+			String(m.get("display_name", abid)), Slice01Data.manastone_cost_for(abid)])
+		var ov: Dictionary = BindingOverlays.resolve_effective(gid, iab, abid, j)
+		if not ov.is_empty():
+			lines.append("   [color=#8fb4ff]└ %s[/color]" % String(ov.get("desc_ko", ov.get("payoff", "—"))))
+	lines.append("[color=#6a6a70]클릭 — 대장간에서 이 건을 손본다[/color]")
+	return "\n".join(lines)
+
+
+# --- 조회 헬퍼 -----------------------------------------------------------------
+
+func _member_entry(role: String) -> Dictionary:
+	var bp := get_node_or_null("/root/Backpack")
+	return bp.member_entry(role) if bp != null else {}
+
+
+func _identity_skill_id(role: String) -> String:
+	var e: Dictionary = _member_entry(role)
+	var rid := String(e.get("rolled_identity", ""))
+	if rid != "":
+		return rid
+	return String(Slice01Data.get_gear_master(String(e.get("gear", ""))).get("bundled_identity_skill_id", ""))
+
+
+func _identity_ab(role: String) -> String:
+	return String(Slice01Data.get_identity_row(_identity_skill_id(role)).get("ability_id", ""))
+
+
+# --- 창고 · 출정 ---------------------------------------------------------------
+
+func _open_stash() -> void:
 	if _inv.is_open():
 		_inv.toggle()
 		_sync_stash_from_source()                 # 닫기 = 에디터 상태를 Stash에 반영(상점과 단일 SoT)
-		_refresh_economy_line()                   # 마석을 옮겼을 수 있다
+		refresh_all()
 	else:
 		_stash_src.items = _build_stash_items()   # 열기 = 최신 Stash(상점 구매 포함) 반영
 		_inv.open_loot(_stash_src)
@@ -215,14 +501,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and _inv != null and _inv.is_open():
 		_inv.toggle()
 		_sync_stash_from_source()   # ESC 닫기도 Stash에 반영(open 시 재빌드와 짝)
-		_refresh_economy_line()
+		refresh_all()
 
 
-## Build the stash container items (gear 2×2, 소모품·마석·참 1×1) with grid
-## placement, from the Stash autoload. Reuses InventoryUI's item builders for the exact format.
-## 스태시 전체를 10×12 그리드에 배치(기어 2×2 → 스킬북 1×1 → 소비 1×1, 행 흐름). 모든 항목을 표시해야
-## deploy 시 _sync_stash_from_source(에디터 = 스태시 최종 상태)가 표시 안 된 항목을 잃지 않는다.
-## (구 버그: 기어 4·스킬북 4개만 표시 → deploy 동기화가 나머지를 스태시에서 삭제. 사용자 버그.)
+## Build the stash container items (gear 2×2, 소모품·마석·참 1×1) with grid placement, from the Stash
+## autoload. **모든 항목을 표시해야** deploy 시 `_sync_stash_from_source`(에디터 = 스태시 최종 상태)가
+## 표시 안 된 항목을 잃지 않는다. 넘치는 분은 `InventoryUI.loot_overflow`가 들고 있다가 되돌려 넣는다.
 func _build_stash_items() -> Array:
 	_stash.ensure_seeded()   # 오토로드 순서로 시드가 밀렸으면 여기서 확정(카탈로그 파생, DRIFT-139)
 	var items: Array = []
@@ -233,82 +517,67 @@ func _build_stash_items() -> Array:
 		var it: Dictionary = _inv.make_gear_stash_item(_stash.gear[i])   # 인스턴스 dict(rolled/rolls 포함)
 		if it.is_empty():
 			continue
+		@warning_ignore("integer_division")
 		it["col"] = (g % gear_per_row) * 2
-		it["row"] = floori(float(g) / float(gear_per_row)) * 2
+		@warning_ignore("integer_division")
+		it["row"] = (g / gear_per_row) * 2
 		items.append(it)
 		g += 1
-	# 스킬북·소비는 **좌표를 주지 않는다** — open_loot의 자동 배치(first-fit)에 맡겨 기어 블록이
-	# 남긴 빈칸까지 채운다. 예전엔 여기서 행을 직접 계산했는데, 카탈로그가 커지자(서브 49종)
-	# 계산상 행이 그리드 밖으로 넘어가 배치가 통째로 실패했다. 자동 배치는 셀이 남아 있는 한 성공한다.
 	for cid in _stash.consumables:
-		var it: Dictionary = _inv.make_consumable_stash_item(String(cid), int(_stash.consumables[cid]))
-		if not it.is_empty():
-			items.append(it)
-	# F-009 §3.8 마석 — 허브 보관분을 타일로. 이게 없으면 스태시에 마석이 **보이지도 않고**,
-	# 드래그로 옮겨도 아래 sync가 kind를 몰라 지워 버린다(M1 누락, DRIFT-145).
+		var ci: Dictionary = _inv.make_consumable_stash_item(String(cid), int(_stash.consumables[cid]))
+		if not ci.is_empty():
+			items.append(ci)
 	for mid in _stash.manastones:
-		var it: Dictionary = _inv.make_manastone_stash_item(String(mid), int(_stash.manastones[mid]))
-		if not it.is_empty():
-			items.append(it)
-	# F-010 §3.11 참 — 비스택이라 개수만큼 타일을 만든다(칸을 먹는 게 곧 대가).
-	for cid2 in _stash.charms:
-		var it: Dictionary = _inv.make_charm_stash_item(String(cid2))
-		if not it.is_empty():
-			items.append(it)
+		var mi: Dictionary = _inv.make_manastone_stash_item(String(mid), int(_stash.manastones[mid]))
+		if not mi.is_empty():
+			items.append(mi)
+	for chid in _stash.charms:
+		var hi: Dictionary = _inv.make_charm_stash_item(String(chid))
+		if not hi.is_empty():
+			items.append(hi)
 	return items
 
 
-## Shift+우클릭 스태시 버리기 → 소유 목록(Stash autoload)에서 영구 제거. 그리드는 InventoryUI가
-## 이미 lift함 → Stash만 갱신하면 다음 빌드/재진입에 반영된다.
+## Shift+우클릭 스태시 버리기 → 소유 목록(Stash autoload)에서 영구 제거.
 func _on_stash_item_discarded(item: Dictionary) -> void:
 	match String(item.get("kind", "")):
-		"gear": _stash.remove_gear(String(item.get("base_gear_id", "")))
-		"consumable": _stash.take_consumable(String(item.get("consumable_id", "")), int(item.get("count", 1)))
+		"gear":
+			_stash.remove_gear(String(item.get("base_gear_id", "")))
+		"consumable":
+			_stash.take_consumable(String(item.get("consumable_id", "")), int(item.get("count", 1)))
 
 
-func _on_loadout_confirmed() -> void:
-	_start.disabled = false
-
-
-func _on_start_pressed() -> void:
-	if not _loadout.is_confirmed():
-		return
-	_serialize_loadout()
+func _deploy() -> void:
+	_commit_run_loadout()
+	if _hub != null:
+		_hub.mark_run_started()   # F-020 §3.2.0 첫 런 게이트 — 출정 확정 시점에 오른다
 	get_tree().change_scene_to_file(DUNGEON_SCENE)
 
 
-## Persist the edited loadout (hub backpack + each member's equipped subs) into RunLoadout so
-## the dungeon scene can re-apply it after it spawns its own party. ref: F-010.
-func _serialize_loadout() -> void:
-	if _inv.is_open():
-		_inv.toggle()                 # 닫기 → 남은 스태시 아이템을 _stash_src로 export (open_loot §persist)
-	_sync_stash_from_source()         # 에디터에서 캐릭터/백팩으로 옮긴 스킬북·소비 = 스태시에서 제거 (중복 방지)
-	_inv.commit_loose_to_backpack()   # 허브 백팩 편집 → 영속 Backpack(loose, 소비 포함). RunLoadout는 인벤 운반 안 함(B).
+func _commit_run_loadout() -> void:
+	_sync_stash_from_source()         # 에디터에서 캐릭터/백팩으로 옮긴 소비 = 스태시에서 제거 (중복 방지)
+	_inv.commit_loose_to_backpack()   # 허브 백팩 편집 → 영속 Backpack(loose, 소비 포함)
 	var bp := get_node_or_null("/root/Backpack")
 	if bp != null:
-		bp.capture_from_party(_party)   # 허브 장착 기어+서브 → Backpack.equipped (member_subs 브리지 폐기)
+		bp.capture_from_party(_party)   # 허브 장착 기어 → Backpack.equipped
 	var form: Array = []
-	if _formation != null:
-		var offsets: Dictionary = _formation.get_offsets()
-		for cid in offsets:
-			var o: Vector2 = offsets[cid]
-			form.append({"class_id": String(cid), "offset": [o.x, o.y]})  # o.y holds z (forward)
+	var offsets: Dictionary = _gate.get_formation_offsets()
+	for cid in offsets:
+		var o: Vector2 = offsets[cid]
+		form.append({"class_id": String(cid), "offset": [o.x, o.y]})  # o.y holds z (forward)
 	_run_loadout.formation = form
-	if _difficulty_opt != null:
-		_run_loadout.difficulty = _difficulty_opt.get_item_text(_difficulty_opt.selected)
+	# 난이도는 **설정하지 않는다**(M6) — `RunLoadout.get_difficulty()`가 manifest 기본값으로 폴백한다.
+	# 지역·입장조건이 이 축을 가져갈 때 그 자리에 값을 넣으면 된다.
 
 
-## Deploy 시 스태시 오토로드를 에디터의 최종 상태(_stash_src, 닫을 때 export됨)로 맞춘다. 에디터에서
-## 캐릭터(장착)나 백팩(인출)으로 옮긴 기어·소비는 스태시에서 빠진다 — 장착=Backpack.equipped,
-## 인출=Backpack.loose로 영속되므로 스태시에 남기면 중복(라이브러리 복제)이 된다. 기어는 장착 영속
-## (I4) 전까지 라이브러리 모델 유지 → _stash.gear는 그대로 보존(동기화 시 손실 방지).
+## Deploy 시 스태시 오토로드를 에디터의 최종 상태(_stash_src, 닫을 때 export됨)로 맞춘다.
 func _sync_stash_from_source() -> void:
 	var gear: Array = []
 	var consumables: Dictionary = {}
 	var manastones: Dictionary = {}
 	var charms: Array = []
 	# 그리드에 자리가 없어 표시되지 못한 소유분을 **먼저 되돌려 넣는다.** 이 sync는 Stash를 통째로
-	# 재작성하므로, 안 보인 아이템 = 영구 삭제였다(과거 실사고). 이제 그리드 크기와 소유가 분리된다.
+	# 재작성하므로, 안 보인 아이템 = 영구 삭제였다(과거 실사고).
 	var src: Array = (_stash_src.items as Array).duplicate()
 	src.append_array(_inv.loot_overflow())
 	for it in src:
@@ -344,7 +613,7 @@ func _sync_stash_from_source() -> void:
 func _confirm_reset_save() -> void:
 	var dlg := ConfirmationDialog.new()
 	dlg.title = "저장 초기화"
-	dlg.dialog_text = "저장 데이터를 전부 초기화합니다.\n스태시·백팩·허브 메타(시설/창고/퀘스트) → 데모 시드.\n되돌릴 수 없습니다. 진행할까요?"
+	dlg.dialog_text = "저장 데이터를 전부 초기화합니다.\n스태시·백팩·허브 메타(시설/창고/퀘스트/트리) → 데모 시드.\n되돌릴 수 없습니다. 진행할까요?"
 	dlg.ok_button_text = "초기화"
 	dlg.cancel_button_text = "취소"
 	add_child(dlg)
@@ -353,7 +622,7 @@ func _confirm_reset_save() -> void:
 	dlg.popup_centered()
 
 
-## SaveProfile 파일 비우기 + 각 도메인 오토로드 시드 리셋 + 허브 씬 리로드(UI 재구성).
+## SaveProfile 파일 비우기 + 각 도메인 오토로드 시드 리셋 + 마을 리로드(UI 재구성).
 func _reset_save() -> void:
 	var sp := get_node_or_null("/root/SaveProfile")
 	if sp != null and sp.has_method("wipe"):
@@ -362,4 +631,4 @@ func _reset_save() -> void:
 		var n := get_node_or_null(path)
 		if n != null and n.has_method("reset_to_seed"):
 			n.reset_to_seed()
-	get_tree().reload_current_scene()   # 허브 재구성 — 리셋된 오토로드에서 새로 빌드
+	get_tree().reload_current_scene()   # 마을 재구성 — 리셋된 오토로드에서 새로 빌드
