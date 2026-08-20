@@ -379,6 +379,12 @@ func tree_check(node_id: String) -> Dictionary:
 	var pre := String(row.get("prerequisite", ""))
 	if pre != "" and not bool(tree_unlocked.get(pre, false)):
 		return {"ok": false, "reason": "prereq"}
+	# 시설 게이트 — `Slot` 사다리가 `smithy` T2/T3에 묶인다(`F-008` §3.10). 슬롯 수를 트리와 시설
+	# **양쪽에서 더하면** 대장간 없이 트리만으로 3칸이 열려 스펙 사다리가 무너진다. 그래서 더하지 않고
+	# **여기서 막는다** — 노드가 구매 표면이고 시설은 게이트다.
+	for fac in (row.get("facility_req", {}) as Dictionary):
+		if facility_tier(String(fac)) < int(row["facility_req"][fac]):
+			return {"ok": false, "reason": "facility_req"}
 	for mat in (row.get("cost", {}) as Dictionary):
 		if vault_count(String(mat)) < int(row["cost"][mat]):
 			return {"ok": false, "reason": "haul"}

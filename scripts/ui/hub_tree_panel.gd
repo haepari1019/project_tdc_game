@@ -197,6 +197,7 @@ func _cost_text(cost: Dictionary) -> String:
 func _reason_text(reason: String) -> String:
 	match reason:
 		"facility": return "성소(chapel) T1 필요 — 허브 시설에서 승급"
+		"facility_req": return "대장간(smithy) 승급 필요 — 슬롯 사다리는 시설에 묶여 있다 (F-008 §3.10)"
 		"prereq":   return "선행 노드를 먼저 해금해야 한다"
 		"haul":     return "금고 재료 부족 — 런에서 회수해 입금"
 		"already":  return "이미 해금됨 (환불 없음 — F-030 §3.2)"

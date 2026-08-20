@@ -167,23 +167,23 @@ func set_member_gear(member_key: String, base_gear_id: String, inst: Dictionary 
 
 
 ## 이 역할이 **지금 실제로 쓸 수 있는** gear 스킬 슬롯 수 = `D-019` §3 `gearSkillSlotCount`.
-##   `clamp(1 + smithy 보너스 + 트리 Slot 노드 합, 1, gear.gear_skill_slot_count_max)`
-## 기본 1칸은 공짜다(gear를 끼면 Q는 열린다). 나머지는 **두 경로**로 산다 — `smithy` T2/T3와 트리
-## `Slot` 노드(`D-019` §3 "smithy T2/T3·트리로 증가"). 어느 쪽이든 **gear의 천장을 넘지 못한다**:
-## 스타터 gear(max 1)를 낀 채로는 뭘 사도 1칸이다. 슬롯을 늘리는 첫 걸음은 **gear 교체**다(`D-019` §2).
+##   `clamp(1 + 트리 Slot 노드 합, 1, gear.gear_skill_slot_count_max)`
+## 기본 1칸은 공짜다(gear를 끼면 Q는 열린다). 나머지는 트리 `Slot` 노드로 산다.
 ##
-## ⚠️ `F-029` 요약표는 `smithy` T1에 「gear 슬롯 +1」이라고 적었지만 같은 문서 tier 표엔 T1 = 건물·NPC뿐이다.
-## 여기선 D-019 쪽(T2/T3)을 따랐다 — 판정 필요(`DRIFT-149` PENDING-PROP).
+## **`smithy` tier를 여기서 더하지 않는다.** `F-008` §3.10 사다리(starter 1 → `smithy` T2 = 2 → T3 = 3)와
+## `F-020` §3.10 `Slot` 노드(「예: smithy 연동」)는 **같은 +1**이다 — 노드가 구매 표면이고 대장간은
+## `facility_req` 게이트다(`hub_profile.tree_check`). 두 축을 더하면 대장간 없이 트리만으로 3칸이 열려
+## 스펙 사다리가 무너진다.
+##
+## 어느 쪽이든 **gear의 천장을 넘지 못한다**: 스타터 gear(max 1)를 낀 채로는 뭘 사도 1칸이고,
+## 슬롯을 늘리는 첫 걸음은 **gear 교체**다(`D-019` §2).
 func gear_slot_count(member_key: String) -> int:
 	var gm: Dictionary = Slice01Data.get_gear_master(String(member_entry(member_key).get("gear", "")))
 	if gm.is_empty():
 		return 0                                   # gear 없음 = 슬롯 없음
 	var cap := int(gm.get("gear_skill_slot_count_max", 3))
 	var hp := get_node_or_null("/root/HubProfile") if is_inside_tree() else null
-	var bonus := 0
-	if hp != null:
-		bonus += int(hp.tree_slot_bonus(member_key))
-		bonus += maxi(0, int(hp.facility_tier("smithy")) - 1)   # T2 → +1, T3 → +2
+	var bonus: int = int(hp.tree_slot_bonus(member_key)) if hp != null else 0
 	return clampi(1 + bonus, 1, maxi(cap, 1))
 
 

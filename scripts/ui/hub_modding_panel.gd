@@ -224,7 +224,7 @@ func _render_slots() -> void:
 		hb.add_child(key)
 		if j >= cap:
 			var lk := Label.new()
-			lk.text = "잠김 — %s" % ("이 건은 %d칸까지다 (gear 교체 필요)" % gmax if cap >= gmax else "트리 Slot 노드 / 대장간 T2 필요")
+			lk.text = "잠김 — %s" % ("이 건은 %d칸까지다 (gear 교체 필요)" % gmax if cap >= gmax else "성소 트리 Slot 노드 (대장간 T%d 선행)" % (j + 1))
 			lk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			lk.modulate = DIM
 			lk.add_theme_font_size_override("font_size", 12)

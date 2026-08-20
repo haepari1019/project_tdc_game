@@ -321,9 +321,8 @@ func _init() -> void:
 	hp2.tree_unlocked = {}
 	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "facility", "트리 — chapel T0 잠김(F-029)")
 	hp2.facilities["chapel"] = 1
-	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "prereq", "트리 — 선행 노드 미해금 차단")
-	_expect(bool(hp2.tree_check("TREE-TNK-ROOT").get("ok", false)), "트리 — 루트는 무비용 즉시 가능")
-	_expect(bool(hp2.tree_buy("TREE-TNK-ROOT").get("ok", false)), "루트 구매")
+	# 선행은 **의미 있는 곳에만** 걸린다 — 해금 안 한 AB는 발전시킬 수 없다(U1 → UP1).
+	_expect(String(hp2.tree_check("TREE-TNK-UP1").get("reason", "")) == "prereq", "트리 — 선행 노드 미해금 차단")
 	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "haul", "트리 — 재료 부족 차단")
 	hp2.add_haul("haul_ward_splinter", 4)
 	_expect(bool(hp2.tree_buy("TREE-TNK-DOC1").get("ok", false)), "재료 충족 → doctrine 노드 구매")
@@ -334,7 +333,15 @@ func _init() -> void:
 	# 전부 통과한다(게이트가 아무것도 증명하지 못한다).
 	hp2.PLAYTEST_TREE_ALL_UNLOCKED = false
 	_expect(not hp2.is_ability_unlocked("AB-033"), "미해금 AB는 잠김(플래그 off 기준)")
-	_expect(hp2.tree_slot_bonus("Tank") == 1, "Slot 노드 → gear 슬롯 +1 (루트 구매분, M4가 소비)")
+	# **루트는 슬롯을 주지 않는다** — 슬롯 사다리는 SLOT1/SLOT2가 소유하고 `smithy` T2/T3에 묶인다
+	# (`F-008` §3.10). 루트가 +1을 주면 대장간 없이 트리만으로 칸이 열려 스펙 사다리가 무너진다.
+	_expect(hp2.tree_slot_bonus("Tank") == 0, "Slot 노드 미구매 → 보너스 0")
+	_expect(String(hp2.tree_check("TREE-TNK-SLOT1").get("reason", "")) == "facility_req", "Slot 노드 — 대장간 T2 게이트")
+	hp2.facilities["smithy"] = 2
+	hp2.add_haul("haul_forge_coal", 4)
+	_expect(bool(hp2.tree_buy("TREE-TNK-SLOT1").get("ok", false)), "대장간 T2 → 두 번째 슬롯 구매")
+	_expect(hp2.tree_slot_bonus("Tank") == 1, "Slot 노드 → gear 슬롯 +1")
+	_expect(String(hp2.tree_check("TREE-TNK-SLOT2").get("reason", "")) == "facility_req", "세 번째 슬롯 — 대장간 T3 게이트(Expansion)")
 	_expect(hp2.tree_slot_bonus("DPS") == 0, "다른 클래스 Slot은 미해금 → 0")
 	hp2.tree_unlocked["TREE-TNK-U1"] = true
 	_expect(hp2.is_ability_unlocked("AB-033"), "Unlock 노드 해금 → AB 열림")

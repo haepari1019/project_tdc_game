@@ -281,10 +281,6 @@
   ],
   "_note_doctrine": "F-030 파티 운용 doctrine(DEC-20260813-004) — Identity당 2개·활성 최대 1개. Tank 파일럿만 저작(확장은 QA-032 게이트 통과 후, F-030 OQ-4). 카탈로그 = doctrines.json.",
   "tree_node_ids": [
-    "TREE-TNK-ROOT",
-    "TREE-DPS-ROOT",
-    "TREE-NUK-ROOT",
-    "TREE-HEA-ROOT",
     "TREE-TNK-DOC1",
     "TREE-TNK-DOC2",
     "TREE-TNK-U1",
@@ -296,9 +292,13 @@
     "TREE-TNK-SLOT2",
     "TREE-DPS-SLOT2",
     "TREE-NUK-SLOT2",
-    "TREE-HEA-SLOT2"
+    "TREE-HEA-SLOT2",
+    "TREE-TNK-SLOT1",
+    "TREE-DPS-SLOT1",
+    "TREE-NUK-SLOT1",
+    "TREE-HEA-SLOT1"
   ],
-  "_note_tree": "F-020 §3.10 스킬 트리(Phase 4b) — 분석 N=3 해금을 **트리 노드 클릭**으로 교체. 노드 4종(Unlock/Upgrade/Slot/Doctrine); `Passive` 노드는 CS-1에서 폐기. 카탈로그 = skill_tree.json.",
+  "_note_tree": "F-020 §3.10 스킬 트리(Phase 4b) — 분석 N=3 해금을 **트리 노드 클릭**으로 교체. 노드 4종(Unlock/Upgrade/Slot/Doctrine); `Passive` 노드는 CS-1에서 폐기. 루트 노드 없음 — 진입 게이트 = `chapel` T1. `Slot` 사다리는 `smithy` T2/T3에 `facility_req`로 묶인다(`F-008` §3.10). 카탈로그 = skill_tree.json.",
   "blueprint_ids": [
     "DBP-DEMO-001"
   ],

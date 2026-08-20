@@ -1,6 +1,6 @@
 {
   "_ref": "spec F-020 §3.10 (스킬 트리 — Phase 4b) · F-029 `chapel` Tier · I-007 §14.5. **분석 의뢰 N=3 → 트리 노드 클릭 = 해금**으로 교체(F-009 §3.9.4 — 분석 UI 제거). 소비 = 금고 재료(`haul_*`) · (선택) `ward_scrap`.",
-  "_note_types": "노드 4종(F-020 §3.10). **`Passive` 노드는 없다** — CS-1(DEC-20260813-003)에서 Passive 슬롯이 폐기되고 그 자리를 `Doctrine`이 받았다.\n  · `Unlock`   — `base_ability_id` 모딩·상점 구매 허용(구 분석 N=3 대체)\n  · `Upgrade`  — 같은 AB의 **행동 발전**(ROLE-001 OPENER→PAYOFF). stat 증폭은 트리가 아니라 **참**이다\n  · `Slot`     — `gear_skill_slot_count` +1 (`smithy` 연동, 소비는 M4)\n  · `Doctrine` — 파티 운용 doctrine 구매(F-030). 구매 이력은 `DoctrineProfile`이 소유",
+  "_note_types": "노드 4종 = `Slot`/`Unlock`/`Upgrade`/`Doctrine` (`F-020` §3.10). **루트 노드는 없다** — 클래스 트리의 진입 게이트는 `chapel` T1이고(`F-029`), 아무것도 주지 않는 의례 노드를 두면 「샀는데 아무 일도 안 일어남」이 첫 경험이 된다. 선행 관계는 의미 있는 곳에만 건다: `U1 → U2`(해금 사슬) · `U1 → UP1`(해금 안 한 AB는 발전시킬 수 없다) · `SLOT1 → SLOT2`.",
   "_note_unit": "트리 단위 = **클래스별**(`F-029` chapel 「클래스당 트리 루트」). `F-030` OQ-5(교차 doctrine 별도 노드)는 Deferred라 클래스 안에서만 갈린다. **U6 기본값 — 플래그**.",
   "_note_cost": "`Unlock`/`Upgrade` = **공유 재료**(적 처치 → 금고). `Doctrine`/`Slot` = `haul_ward_splinter`(시설 승급과 같은 재료를 두고 경쟁 — I-007 §14.6 sink 경쟁). 두 축을 갈라 놨으므로 「스킬을 열려고 시설을 못 올리는」 교착은 생기지 않지만, `Upgrade`만은 `haul_shared_core`를 요구해 정예 처치를 강제한다.",
   "_note_playtest": "플테 프로필은 **전 노드 해금 상태로 시드**한다(D4 「전 카탈로그 개방」의 트리판) — 교정한 스킬에 손이 닿아야 한다. `HubProfile.PLAYTEST_TREE_ALL_UNLOCKED`.",
@@ -12,89 +12,120 @@
   ],
   "nodes": [
     {
-      "node_id": "TREE-TNK-ROOT",
+      "node_id": "TREE-TNK-SLOT1",
       "class_id": "Tank",
       "type": "Slot",
-      "display_name": "전선 숙련",
-      "cost": {},
+      "display_name": "두 번째 슬롯",
+      "cost": {
+        "haul_forge_coal": 4
+      },
+      "facility_req": {
+        "smithy": 2
+      },
       "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1",
-      "_ref": "F-020 §3.10 Slot · smithy 연동(소비는 M4)"
-    },
-    {
-      "node_id": "TREE-DPS-ROOT",
-      "class_id": "DPS",
-      "type": "Slot",
-      "display_name": "연격 숙련",
-      "cost": {},
-      "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1"
-    },
-    {
-      "node_id": "TREE-NUK-ROOT",
-      "class_id": "Nuker",
-      "type": "Slot",
-      "display_name": "조준 숙련",
-      "cost": {},
-      "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1"
-    },
-    {
-      "node_id": "TREE-HEA-ROOT",
-      "class_id": "Healer",
-      "type": "Slot",
-      "display_name": "치유 숙련",
-      "cost": {},
-      "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1"
+      "desc": "gear 스킬 슬롯 +1 (대장간 T2 필요)"
     },
     {
       "node_id": "TREE-TNK-SLOT2",
       "class_id": "Tank",
       "type": "Slot",
-      "display_name": "확장 결속",
+      "display_name": "세 번째 슬롯",
       "cost": {
-        "haul_ward_splinter": 3
+        "haul_forge_coal": 8
       },
-      "prerequisite": "TREE-TNK-ROOT",
+      "prerequisite": "TREE-TNK-SLOT1",
+      "facility_req": {
+        "smithy": 3
+      },
       "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1 (3칸 gear의 마지막 칸)"
+      "desc": "gear 스킬 슬롯 +1 (대장간 T3 필요 — Expansion)"
+    },
+    {
+      "node_id": "TREE-DPS-SLOT1",
+      "class_id": "DPS",
+      "type": "Slot",
+      "display_name": "두 번째 슬롯",
+      "cost": {
+        "haul_forge_coal": 4
+      },
+      "facility_req": {
+        "smithy": 2
+      },
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1 (대장간 T2 필요)"
     },
     {
       "node_id": "TREE-DPS-SLOT2",
       "class_id": "DPS",
       "type": "Slot",
-      "display_name": "확장 결속",
+      "display_name": "세 번째 슬롯",
       "cost": {
-        "haul_ward_splinter": 3
+        "haul_forge_coal": 8
       },
-      "prerequisite": "TREE-DPS-ROOT",
+      "prerequisite": "TREE-DPS-SLOT1",
+      "facility_req": {
+        "smithy": 3
+      },
       "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1 (3칸 gear의 마지막 칸)"
+      "desc": "gear 스킬 슬롯 +1 (대장간 T3 필요 — Expansion)"
+    },
+    {
+      "node_id": "TREE-NUK-SLOT1",
+      "class_id": "Nuker",
+      "type": "Slot",
+      "display_name": "두 번째 슬롯",
+      "cost": {
+        "haul_forge_coal": 4
+      },
+      "facility_req": {
+        "smithy": 2
+      },
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1 (대장간 T2 필요)"
     },
     {
       "node_id": "TREE-NUK-SLOT2",
       "class_id": "Nuker",
       "type": "Slot",
-      "display_name": "확장 결속",
+      "display_name": "세 번째 슬롯",
       "cost": {
-        "haul_ward_splinter": 3
+        "haul_forge_coal": 8
       },
-      "prerequisite": "TREE-NUK-ROOT",
+      "prerequisite": "TREE-NUK-SLOT1",
+      "facility_req": {
+        "smithy": 3
+      },
       "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1 (3칸 gear의 마지막 칸)"
+      "desc": "gear 스킬 슬롯 +1 (대장간 T3 필요 — Expansion)"
+    },
+    {
+      "node_id": "TREE-HEA-SLOT1",
+      "class_id": "Healer",
+      "type": "Slot",
+      "display_name": "두 번째 슬롯",
+      "cost": {
+        "haul_forge_coal": 4
+      },
+      "facility_req": {
+        "smithy": 2
+      },
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1 (대장간 T2 필요)"
     },
     {
       "node_id": "TREE-HEA-SLOT2",
       "class_id": "Healer",
       "type": "Slot",
-      "display_name": "확장 결속",
+      "display_name": "세 번째 슬롯",
       "cost": {
-        "haul_ward_splinter": 3
+        "haul_forge_coal": 8
       },
-      "prerequisite": "TREE-HEA-ROOT",
+      "prerequisite": "TREE-HEA-SLOT1",
+      "facility_req": {
+        "smithy": 3
+      },
       "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1 (3칸 gear의 마지막 칸)"
+      "desc": "gear 스킬 슬롯 +1 (대장간 T3 필요 — Expansion)"
     },
     {
       "node_id": "TREE-TNK-DOC1",
@@ -102,7 +133,6 @@
       "type": "Doctrine",
       "display_name": "전열 위임",
       "doctrine_id": "DOC-TNK-01",
-      "prerequisite": "TREE-TNK-ROOT",
       "cost": {
         "haul_ward_splinter": 4
       },
@@ -114,7 +144,6 @@
       "type": "Doctrine",
       "display_name": "최전선 고수",
       "doctrine_id": "DOC-TNK-02",
-      "prerequisite": "TREE-TNK-ROOT",
       "cost": {
         "haul_ward_splinter": 4
       },
@@ -126,7 +155,6 @@
       "type": "Unlock",
       "display_name": "전방위 방벽",
       "base_ability_id": "AB-033",
-      "prerequisite": "TREE-TNK-ROOT",
       "cost": {
         "haul_shared_shard": 4
       },
@@ -150,7 +178,6 @@
       "type": "Unlock",
       "display_name": "작열 폭발",
       "base_ability_id": "AB-053",
-      "prerequisite": "TREE-DPS-ROOT",
       "cost": {
         "haul_shared_shard": 4
       },
@@ -162,7 +189,6 @@
       "type": "Unlock",
       "display_name": "전격 제압",
       "base_ability_id": "AB-030",
-      "prerequisite": "TREE-NUK-ROOT",
       "cost": {
         "haul_shared_shard": 4
       },
@@ -174,7 +200,6 @@
       "type": "Unlock",
       "display_name": "침묵 결계",
       "base_ability_id": "AB-044",
-      "prerequisite": "TREE-HEA-ROOT",
       "cost": {
         "haul_shared_shard": 4
       },
@@ -198,5 +223,5 @@
       "_ref": "F-020 §3.10 Upgrade = **행동 발전**(ROLE-001). 여기선 흡수 상한을 올려 「버티는 창」을 늘린다 — stat 증폭이 아니라 그 스킬의 역할을 깊게 하는 축. 수치는 placeholder."
     }
   ],
-  "_note_slot": "슬롯 수 = clamp(1 + Slot 노드 합, 1, gear.gear_skill_slot_count_max). 기본 1칸은 무료(ROOT 없이도 gear는 1칸), ROOT +1 · SLOT2 +1 → 최대 3. 스타터 gear는 max 1이라 노드를 사도 늘지 않는다 — 슬롯을 늘리려면 gear부터 바꿔야 한다(D-019 §2)."
+  "_note_slot": "슬롯 수 = clamp(1 + Slot 노드 합, 1, gear.gear_skill_slot_count_max). **`smithy` tier를 따로 더하지 않는다** — `F-008` §3.10 사다리(starter 1 → smithy T2 = 2 → T3 = 3)와 `F-020` §3.10 `Slot` 노드(「예: smithy 연동」)는 **같은 +1**이고, 트리 노드가 그 구매 표면이며 smithy tier는 `facility_req` 게이트다. 두 축으로 더하면 대장간 없이 트리만으로 3칸이 열려 `F-008`의 사다리가 무너진다. 스타터 gear는 max 1이라 노드를 사도 안 늘어난다(D-019 §2)."
 }
