@@ -1056,6 +1056,9 @@ func _initialize() -> void:
 	# 6) I5 charge persistence — Backpack.apply_to_party restores a sub's stored 탄수 (not max).
 	var BP = load("res://scripts/autoload/backpack.gd")
 	var bp = BP.new()   # bare instance (not in tree → no _ready seed)
+	# M4 — 슬롯은 **gear에 붙는다**(`D-019` §3). gear가 없으면 열린 칸이 0이라 아무것도 안 실린다.
+	# 그게 정본이므로 테스트도 gear를 먼저 신는다(구 모델에선 gear 없이도 서브가 실렸다).
+	bp.set_member_gear("Healer", "gear_ward_healer_mend_lantern")
 	bp.set_member_subs("Healer", [{"base_ability_id": "AB-064", "charges": 3}, null, null])
 	var pm2 = PM.new()
 	pm2.class_id = "Healer"
@@ -1230,6 +1233,7 @@ func _initialize() -> void:
 	# capture/apply 영속 round-trip
 	var bpc = BP.new()
 	bpc.capture_from_party(_PartyStub.new([pmc]))
+	bpc.set_member_gear("Healer", "gear_ward_healer_mend_lantern")   # M4 — 슬롯 소유자(pmc는 맨몸 스텁)
 	var pmc2 = PM.new(); pmc2.class_id = "Healer"
 	bpc.apply_to_party(_PartyStub.new([pmc2]))
 	var sb1 = pmc2.get_skillbook(0)

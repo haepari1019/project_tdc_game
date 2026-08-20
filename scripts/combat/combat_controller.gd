@@ -19,7 +19,7 @@ signal camera_shake(trauma: float, kick_world: Vector3)
 @warning_ignore("unused_signal")  # emitted cross-class (enemy_ai) → connected in dungeon_run
 signal party_hit(from_dir_world: Vector3, severity: float, is_controlled: bool, member: Node)
 ## An enemy was defeated at world_pos — drives world item drops (loot). ref: F-010 loot.
-signal enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool)
+signal enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool, role: String)
 ## A squad's last enemy fell — drives ENC-bound haul drops (HUB-COR-000 §3). Fires once per squad.
 signal squad_cleared(encounter_id: String, world_pos: Vector3)
 
@@ -1152,7 +1152,8 @@ func _on_enemy_died(unit: CharacterBody3D) -> void:
 			if typeof(a) == TYPE_DICTIONARY:
 				refs.append(String(a.get("ref", "")))
 		var by_party: bool = bool(unit.killed_by_party) if "killed_by_party" in unit else true
-		enemy_defeated.emit(unit.global_position, refs, by_party)  # → 파티 킬만 loot/scrap
+		# `role`은 M4-8 공유 재료가 쓴다 — 정예/보스는 **재구현 핵**(상위 재료)을 떨군다.
+		enemy_defeated.emit(unit.global_position, refs, by_party, String(unit.role))  # → 파티 킬만 loot/scrap
 		# Squad fully cleared → ENC-bound haul drop, once (HUB-COR-000 §3).
 		var sq_id := int(unit.squad_id)
 		if _squad_alive_count(sq_id) == 0:

@@ -350,6 +350,70 @@ func _init() -> void:
 	_expect(not hp2.is_ability_unlocked("AB-999"), "플래그 on이어도 노드 없는 AB는 잠김")
 	hp2.free()
 
+	# ②h gear 슬롯 귀속 모델 (M4 · D-019 §2/§3) — **모딩 패널의 판정층**. 패널은 UI라 스모크가 못 만지므로
+	# 그 아래 모델을 전수로 잰다. 여기가 조용히 틀어지면 "끼웠는데 안 들어간다"가 플테에서 터진다.
+	var fams: Dictionary = {}
+	for sbr in sd.get_skillbook_rows():
+		var f := String((sbr as Dictionary).get("skill_family", ""))
+		if f == "":
+			ghosts.append("skillbooks %s — skill_family 없음" % sbr.get("base_ability_id", "?"))
+		else:
+			fams[f] = true
+	var gear_bad: Array = []
+	for gr in sd.get_gear_rows():
+		var gid_m := String((gr as Dictionary).get("base_gear_id", ""))
+		var af: Array = gr.get("allowed_slot_families", [])
+		var mx := int(gr.get("gear_skill_slot_count_max", 0))
+		if af.is_empty() or mx < 1 or mx > 3:
+			gear_bad.append("%s (fams %d · max %d)" % [gid_m, af.size(), mx])
+		for f2 in af:
+			if not fams.has(String(f2)):     # 오탈자 계열명 = 그 gear가 조용히 아무것도 못 받게 된다
+				gear_bad.append("%s ← 미존재 계열 '%s'" % [gid_m, f2])
+	_expect(gear_bad.is_empty(), "gear 27종 allowed_slot_families·slot_max 정합" if gear_bad.is_empty() else "gear 슬롯 메타 불량: %s" % ", ".join(gear_bad))
+
+	var bpm = load("res://scripts/autoload/backpack.gd").new()
+	bpm._seed()
+	_expect(bpm.gear_slot_abilities("Tank").size() == 3, "시드 — slot_abilities 길이 3")
+	# 스타터 gear는 max 1칸. 트리/대장간을 아무리 사도 gear 천장을 못 넘는다(D-019 §2).
+	var starter_cap: int = bpm.gear_slot_count("Tank")
+	_expect(starter_cap == 1, "스타터 건 = 1칸 (열린 칸 %d)" % starter_cap)
+	# 첫 런에 **끼울 수 있는 게 하나도 없으면** 슬롯 스킬이 통째로 죽는다 — 역할별 최소 1종 보장.
+	for cls2 in ["Tank", "DPS", "Nuker", "Healer"]:
+		var any_ok := false
+		for sbr2 in sd.get_skillbook_rows():
+			if bool(bpm.slot_equip_check(cls2, 0, String((sbr2 as Dictionary).get("base_ability_id", ""))).get("ok", false)):
+				any_ok = true
+				break
+		_expect(any_ok, "%s — 스타터 건에 끼울 수 있는 AB ≥1" % cls2)
+	# 게이트 사유가 실제로 갈리는지(전부 통과/전부 거부면 게이트가 아니다).
+	_expect(String(bpm.slot_equip_check("Tank", 2, "AB-033").get("reason", "")) == "slot", "잠긴 칸 거부 사유 = slot")
+	_expect(String(bpm.slot_equip_check("Tank", 0, "AB-064").get("reason", "")) == "family", "Role/계열 불일치 거부")
+	# D2 소멸 — 교체하면 슬롯이 비고, 잃은 목록이 **이름으로** 돌아온다(모달이 그걸 읽는다).
+	bpm.set_gear_slot_ability("Tank", 0, "AB-033")
+	_expect(String(bpm.gear_slot_abilities("Tank")[0].get("base_ability_id", "")) == "AB-033", "슬롯 장착 반영")
+	var lost2: Array = bpm.set_member_gear("Tank", "gear_ward_tank_kite_shield")
+	_expect(lost2 == ["AB-033"], "D2 — 건 교체 시 슬롯 AB 소멸(잃은 목록 반환)")
+	_expect(bpm.gear_slot_abilities("Tank")[0] == null, "교체 후 슬롯 비었음")
+	_expect(bpm.gear_slot_count("Tank") >= 1, "교체한 건(max 3)도 최소 1칸")
+	# 마이그레이션 — 구 세이브(subs만)에 slot_abilities가 생기고, 값이 옮겨진다.
+	var bpg = load("res://scripts/autoload/backpack.gd").new()
+	bpg.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "subs": [{"base_ability_id": "AB-033"}, null, null]}}
+	bpg.migrate_subs_to_gear()
+	_expect(String(bpg.gear_slot_abilities("Tank")[0].get("base_ability_id", "")) == "AB-033", "M4 마이그레이션 — subs → gear 슬롯")
+	bpg.free()
+	bpm.free()
+
+	# ②i 공유 재료(M4-8) — per-kill 스킬북 드롭의 대체재가 **실재**하고 트리가 그걸 소비하는가.
+	var ls = load("res://scripts/run/loot_service.gd")
+	for mid in [ls.SHARED_SHARD_ID, ls.SHARED_CORE_ID]:
+		if sd.get_haul_material(String(mid)).is_empty():
+			ghosts.append("loot_service 공유 재료 %s — 카탈로그 미등재" % mid)
+	var uses_shared := false
+	for tn in sd.get_tree_nodes():
+		if (tn.get("cost", {}) as Dictionary).has(ls.SHARED_SHARD_ID):
+			uses_shared = true
+	_expect(uses_shared, "트리 Unlock이 공유 재료를 소비 — 처치→재료→금고→해금 루프 성립")
+
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")
 	for cls in sandbox.SANDBOX_SUBS:

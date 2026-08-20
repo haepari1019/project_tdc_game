@@ -9,9 +9,15 @@ const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const AffixRoller := preload("res://scripts/run/affix_roller.gd")   # D-018 §7.6 스킬북 affix roll
 const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")   # 상자 소모품 item dict
 
-# 스펙 §7.4 대역 — 난이도별 스킬북 드롭률(탄약수↑(50~80)에 맞춰 빈도↓, 피로 완화). RunLoadout.get_difficulty() 기준. (tuning)
-const SKILLBOOK_DROP_BY_DIFF := {"Normal": 0.08, "Hard": 0.15}
-const SKILLBOOK_DROP_DEFAULT := 0.15    # 미지정 난이도 폴백
+# ~~per-kill 스킬북 드롭~~ — **폐기**(`F-009` §3.9.2 Deprecated 행, M4-8). 적을 죽여 얻는 건 이제
+# 책이 아니라 **공유 재료**고, 재료는 금고를 거쳐 트리 `Unlock`으로 AB를 연다. 「이 적의 스킬을
+# 배웠다」는 체감(`I-006` K1)은 재료가 그 적의 Shared AB에서만 나온다는 사실이 유지한다.
+# 상수는 남긴다 — 재료 드롭률의 기준선이자, 무엇이 무엇을 대체했는지의 기록이다.
+const SHARED_DROP_BY_DIFF := {"Normal": 0.08, "Hard": 0.15}
+const SHARED_DROP_DEFAULT := 0.15    # 미지정 난이도 폴백
+const SHARED_SHARD_ID := "haul_shared_shard"    # 일반 적(Shared AB 보유) — 인벤 At-Risk
+const SHARED_CORE_ID := "haul_shared_core"      # 정예/보스 — 금고용 상위 재료
+const SHARED_CORE_CHANCE := 0.5                 # 정예/보스가 핵을 떨굴 확률 (tuning)
 # 몬스터 킬 = 자기 스킬 OR 소량 재화(사용자 요청). 스킬 미드롭 시 ward_scrap 소량 → At-Risk 런 누적(추출 성공 시
 # 지급, 실패 시 소실). 기어·재료는 킬에서 안 나옴(→ 상자). gear는 상자(build_chest_items)에서만 드롭.
 const KILL_SCRAP := 1                    # 스킬 미드롭 킬당 재화(소량, At-Risk). (tuning)
@@ -59,30 +65,38 @@ func drop_item(def: Dictionary, world_pos: Vector3) -> void:
 	add_child(drop)
 
 
-## CombatController.enemy_defeated → 몬스터 킬 = 자기 스킬 드롭 OR 소량 재화(둘 중 하나).
-## 기어·재료는 킬에서 안 나옴(상자 전용). 스킬 = 그 적의 own lootable AB(F-009/DEC-20260611-002)
-## + 클래스 밸런스 소프트-피티. 미드롭 시 ward_scrap 소량(At-Risk 런 누적).
-func on_enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool = true) -> void:
+## CombatController.enemy_defeated → 몬스터 킬 = **공유 재료** 드롭 OR 소량 재화(둘 중 하나).
+## 기어는 킬에서 안 나옴(상자 전용). 재료는 그 적이 실제로 들고 있던 Shared AB가 있을 때만 나온다
+## (`F-009` §3.9.2) + 클래스 밸런스 소프트-피티. 미드롭 시 ward_scrap 소량(At-Risk 런 누적).
+## 정예/보스는 판정을 건너뛰고 확정 드롭하며, 절반은 상위 **재구현 핵**이다.
+func on_enemy_defeated(world_pos: Vector3, ability_refs: Array, by_party: bool = true, role: String = "") -> void:
 	if not by_party:
 		return   # 3세력·몬스터 간 오프스크린 킬 — 플레이어 전리품/재화 없음(S5b P3b: run_scrap 인플레·난장판 방지)
 	var lootable: Array = []
 	for r in ability_refs:
 		if not Slice01Data.get_skillbook_master(String(r)).is_empty():
 			lootable.append(String(r))
-	# F-009 §3.8 마석 — **스킬북 드롭과 독립**으로 굴린다. 배타로 두면 스킬북이 떨어지는 킬마다
+	# F-009 §3.8 마석 — **재료 드롭과 독립**으로 굴린다. 배타로 두면 재료가 떨어지는 킬마다
 	# 마석이 빠져 공급이 들쭉날쭉해지고, 마석은 소모 자원이라 꾸준한 유입이 있어야 한다.
 	_roll_manastone()
 	if not lootable.is_empty():
+		# 어떤 AB에서 나왔는지로 **클래스 피티**를 계속 굴린다 — 재료는 클래스 중립이지만, 그 적이
+		# 어떤 역할의 스킬을 들고 있었는지가 곧 「무엇을 해금할 재료인가」의 서사이므로 축은 유지.
 		var base := String(lootable[randi() % lootable.size()])
 		var eq: Array = Slice01Data.get_skillbook_master(base).get("equip_classes", [])
-		if randf() < _skillbook_drop_chance() * _class_balance_factor(eq):
+		var elite: bool = role == "elite" or role == "boss"
+		if elite or randf() < _shared_drop_chance() * _class_balance_factor(eq):
 			_record_class_drop(eq)
+			# 정예/보스 = **재구현 핵**(금고용 상위). 일반 = 공유 파편.
+			var mid := SHARED_SHARD_ID
+			if elite and randf() < SHARED_CORE_CHANCE:
+				mid = SHARED_CORE_ID
 			var drop := ItemDrop.new()
-			drop.setup(_inv, _make_skillbook_drop_def(base))
+			drop.setup(_inv, _make_haul_drop_def(mid))
 			drop.position = Vector3(world_pos.x, 0.0, world_pos.z)
 			add_child(drop)
 			return
-	run_scrap += KILL_SCRAP   # 스킬 미드롭 → 소량 재화(추출 시 지급)
+	run_scrap += KILL_SCRAP   # 재료 미드롭 → 소량 재화(추출 시 지급)
 
 
 ## 처치 시 마석 드롭 — 바닥에 떨구지 않고 **곧바로 런 인벤에** 넣는다(F-009 §3.8). 시전 자원이라
@@ -98,9 +112,9 @@ func _roll_manastone() -> void:
 	_inv.add_manastone_to_backpack(lo + (randi() % (hi - lo + 1)), true)
 
 
-## 난이도별 스킬북 드롭률(스펙 §7.4: Normal 8% / Hard 15%). RunLoadout(허브 선택 or manifest 폴백) 기준.
-func _skillbook_drop_chance() -> float:
-	return float(SKILLBOOK_DROP_BY_DIFF.get(String(RunLoadout.get_difficulty()), SKILLBOOK_DROP_DEFAULT))
+## 난이도별 공유 재료 드롭률(구 스킬북 드롭률 승계: Normal 8% / Hard 15%). RunLoadout 기준.
+func _shared_drop_chance() -> float:
+	return float(SHARED_DROP_BY_DIFF.get(String(RunLoadout.get_difficulty()), SHARED_DROP_DEFAULT))
 
 
 ## 이 스킬북이 '봉사할' 가장 덜 나온 eligible 클래스 기준 드롭확률 배수. 그 클래스가 평균 이하면 1.0(통과),
@@ -143,7 +157,11 @@ func build_chest_items(tier: String) -> Array:
 	var rare := tier == "rare"
 	var out: Array = []
 	# 1) 재료(haul) — 상자가 주 공급원. 일반 상자가 더 많이.
-	var haul_ids: Array = Slice01Data.get_haul_material_ids()
+	# 공유 재료는 상자 풀에서 **뺀다** — 「그 적을 죽여서 얻었다」가 유일한 출처여야 해금이 서사를 갖는다.
+	var haul_ids: Array = []
+	for hid in Slice01Data.get_haul_material_ids():
+		if String(hid) != SHARED_SHARD_ID and String(hid) != SHARED_CORE_ID:
+			haul_ids.append(String(hid))
 	if not haul_ids.is_empty():
 		var span: Vector2i = CHEST_HAUL_RARE if rare else CHEST_HAUL_COMMON
 		for _h in randi_range(span.x, span.y):

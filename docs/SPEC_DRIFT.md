@@ -1798,3 +1798,31 @@
 - **분류·전파:** 스펙 규칙 구현 = 전파 없음. 노드 구성·비용 = tuning.
 - **게이트:** `ci_smoke.sh` **12/12 PASS** — chapel T0 잠김 · 선행 차단 · 재료 부족 차단 · 구매 시 금고 차감 · 재구매 차단 · **플래그 off 기준** Slot/Unlock/Upgrade 파생 · 플래그 on 의미(노드 없는 AB는 여전히 잠김).
 - **상태:** LOGGED · M3 완료.
+
+### DRIFT-151 — M4 gear 슬롯 귀속·소멸 + 건 모딩 UI + per-kill 스킬북 드롭 폐지 🔶 rule 구현 + 판정 4건(`PENDING-PROP`)
+- **근거:** `D-019` §2/§3(`gearSkillSlotCountMax`/`gearSkillSlotCount`/`equippedSlotAbilities`) · `F-008` §3.10 · `F-009` §3.9.2/§3.9.3 · `UI-005` §3.2. 사용자 판정 **D2 = spec 정본(교체 시 소멸)**.
+- **① 서브의 소유자가 멤버 → gear 인스턴스로 옮겨갔다.** `Backpack.equipped[cls].slot_abilities[3]`이 정본이고, `subs`는 **잔탄 보관 + 구 경로 폴백**으로만 남는다(M5까지). 읽기 우선순위 gear > subs. 마이그레이션(`migrate_subs_to_gear`)은 **`subs`를 지우지 않는다** — 지우면 롤백이 불가능해진다.
+  - 이 한 줄이 P4b의 축이다: 성장의 단위가 "이 캐릭터"에서 **"이 건(gear)"** 으로 바뀐다. 그래서 모딩이 별도 화면이 됐다.
+- **② 열린 칸 수 = `clamp(1 + smithy 보너스 + 트리 Slot 노드, 1, gear.gear_skill_slot_count_max)`.** 기본 1칸은 무료, 나머지는 **두 경로**로 산다. 어느 쪽이든 **gear 천장을 못 넘는다** — 스타터 gear(max 1)를 낀 채로는 뭘 사도 1칸이고, 슬롯을 늘리는 첫 걸음은 **건 교체**다.
+  - `Backpack.apply_to_party`가 `effectiveSlotAbilities`(`D-019` §3)를 강제한다 — 잠긴 칸의 저장분은 **적재되지 않고**, 조용히 자르지 않도록 `push_warning`을 남긴다.
+- **③ D2 소멸을 두 층에 다 걸었다.** 영속층(`Backpack.set_member_gear` → `clear_gear_slots`, 잃은 목록 반환)과 런타임층(`party_member._bind_gear`가 gear 변경 시 `skillbook_slots` 비움). **한쪽만 있으면 "화면엔 남았는데 세이브엔 없는" 유령 슬롯**이 생긴다. **맨몸 → 착용은 교체가 아니다**(잃을 게 없다) — 두 층이 같은 조건(`prev != "" and prev != new`)을 쓴다.
+  - 교체 시 `rolled_identity`/`rolls`도 함께 갈아끼운다. 새 건에 옛 건의 굴림이 남으면 정체성이 어긋난다(`F-008` §3.7).
+- **④ per-kill 스킬북 드롭 폐지 → 공유 재료.** `F-009` §3.9.2 Deprecated 행. 처치 보상이 **책**에서 **재료**(`haul_shared_shard` / 정예·보스 `haul_shared_core`)로 바뀌고, 재료는 금고를 거쳐 트리 `Unlock`으로 AB를 연다. 「이 적의 스킬을 배웠다」(`I-006` K1)는 체감은 **재료가 그 적의 Shared AB에서만 나온다**는 사실이 유지한다. 공유 재료는 **상자 풀에서 뺐다** — 처치가 유일한 출처여야 해금이 서사를 갖는다.
+  - `enemy_defeated` 시그니처에 `role`을 추가(정예/보스 구분). 정예·보스는 판정을 건너뛰고 확정 드롭하며 절반이 상위 핵이다.
+- **⑤ `hub_modding_panel` 신설 — 사용자가 요청한 핵심 UX.** `UI-005` §3.2 6영역 전부: 시그니처(읽기 전용·규약 전문) · Q/E/R + **결속 1줄 프리뷰**(`resolve_effective`, `generic` 여부 표시) · archetype/Role 필터 **회색 + 사유** · 건 교체 **소멸 경고 모달(잃을 스킬을 이름으로 나열)** · 마석/참 반입 요약.
+  - **드래그 대신 클릭 배치**(판정 ⓐ). 작업지시서는 "드래그"였지만 *"스태시 중앙 드래그 라우터를 건드리지 않는다"*(회귀 위험)와 상충한다. 2클릭은 기능상 동치이고 **거부 사유를 그 자리에서 글로** 보여줄 수 있다 — 드래그는 "왜 안 들어가지"를 설명하지 못한다.
+  - 건은 **하나뿐인 물건**이라 교체 시 스태시와 교환한다(꺼내 신고 벗은 걸 되돌림). 이 교환을 빼면 착용마다 건이 복제되고 소멸 경고가 무의미해진다.
+- **⑥ `equip_panel`의 SUB 컬럼을 읽기 전용으로 축소.** 거기서 드래그로 끼우면 다음 `apply_to_party`가 저장분으로 덮어써 **조용히 되돌아간다** — 되는 것처럼 보이는데 안 되는 경로를 남기느니 거절하고 **어디로 가야 하는지 말한다**(「대장간 · 건 모딩」). 우클릭 회수도 폐지: P4b에선 슬롯 AB를 빼도 **책으로 돌아오지 않는다**(스킬북 인스턴스가 아니라 gear에 새겨진 등록이라, 빼는 건 곧 비우는 것). 드래그 프리뷰도 **항상 거부색** — 놓을 수 있어 보이는 초록은 거짓말이다.
+- **⚠️ 판정 필요 4건 (`PENDING-PROP` — spec 미정의):**
+
+| # | 항목 | 게임이 택한 값 | 근거·충돌 |
+|---|------|----------------|-----------|
+| ⓐ | 슬롯 증가 경로 | `smithy` **T2 +1 / T3 +2** + 트리 `Slot` | `F-029` **요약표**는 `smithy` **T1**에 「gear 슬롯 +1」이라 적었는데 같은 문서 **tier 표**엔 T1 = 건물·NPC뿐이다. `D-019` §3(「smithy T2/T3·트리로 증가」)을 따랐다. 요약표와 tier 표 중 어느 쪽이 정본인가 |
+| ⓑ | 공유 재료 id | `haul_shared_shard` · `haul_shared_core` | `F-009` §3.9.2는 일반 적 드롭을 `shared_shard_*`로만 적고 **정예 재료엔 id를 주지 않았다**. 게임이 두 id를 확정 |
+| ⓒ | `gearSkillSlotCount` 저장 형태 | **파생**(인스턴스 영속 필드 아님) | `D-019` §3은 인스턴스 필드로 규정. 파생이면 트리/시설을 되돌릴 때 자동 정합이지만, 인스턴스별 차등(잭팟 gear 등)을 못 준다. M7 잭팟에서 재검토 |
+| ⓓ | 트리 `Slot` 2단 노드 | `TREE-{ROLE}-SLOT2` 신설 | 3칸 gear의 마지막 칸을 열 경로가 없었다(ROOT +1뿐 → 최대 2칸). 트리 노드 카탈로그는 spec 미제공 = 게임 저작 영역 |
+- **파생 데이터(`SSOT 파생` — 재분류 아님):** `skillbooks.json` 49종 `skill_family` ← spec AB md frontmatter `skillFamily` + `D-012` 표. `gear.json` 27종 `allowed_slot_families`/`gear_skill_slot_count_max` ← role + `range_band`(U4 기본값, tuning). **게임에서 재분류하지 않았다** — 분류 축을 두 벌 만들면 곧 갈라진다.
+- **🐞 잡은 것:** 트리 밖 인스턴스에서 `get_node_or_null("/root/...")`가 에러를 뱉고 있었다(스모크 로그 오염). `is_inside_tree()` 가드로 정리.
+- **영향 파일:** `backpack.gd` · `slice01_data.gd` · `party_member.gd` · `loot_service.gd` · `combat_controller.gd` · `main.gd` · `equip_panel.gd` · **`hub_modding_panel.gd`(신규)** · `gear.json` · `skillbooks.json` · `haul_materials.json` · `skill_tree.json` · `id_registry.json` · `tools/hub_smoke.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **12/12 PASS** — 신규: gear 27종 `allowed_slot_families`/`slot_max` 정합(**미존재 계열명 검출 포함**) · 스킬북 49종 `skill_family` 전수 · **역할별 「스타터 건에 끼울 수 있는 AB ≥1」**(첫 런에 슬롯이 통째로 죽는 걸 막는다) · 거부 사유 분기(`slot`/`family`) · D2 소멸 잃은 목록 · 마이그레이션 · 공유 재료 실재 + 트리 소비.
+- **상태:** LOGGED · M4 완료 · **판정 ⓐ~ⓓ `PENDING-PROP`**(M5 착수 전 `OPS_30` 묶음 전파).

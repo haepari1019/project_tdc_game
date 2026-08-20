@@ -266,7 +266,9 @@ func _build_sub_column() -> void:
 	_sub_box = VBoxContainer.new()
 	_sub_box.add_theme_constant_override("separation", 6)
 	var title := Label.new()
-	title.text = "SUB SKILLS (캐릭터별 Q/E/R)"
+	# M4 — 슬롯은 **건(gear) 귀속**이 됐다(`D-019` §3). 여기서 끼우면 다음 `apply_to_party`가
+	# 저장분으로 덮어써 **조용히 되돌아간다** — 이 레포가 반복해서 당한 조용한 실패다. 그래서 읽기 전용.
+	title.text = "SUB SKILLS (건 귀속 · Q/E/R — 변경은 「대장간 · 건 모딩」)"
 	title.add_theme_font_size_override("font_size", 14)
 	_sub_box.add_child(title)
 	var members: Array = _party.get_members()
@@ -381,7 +383,11 @@ func sub_slot_under(mouse: Vector2) -> int:
 
 
 ## Can the slot's owner char equip this skillbook now? combat gate + equipClasses.
+## 드래그 프리뷰 — **항상 거부색**. M4 이후 이 컬럼은 표시 전용이라 "여기 놓을 수 있어 보이는" 초록은
+## 거짓말이다.
 func _can_equip_sub_now(flat_index: int, master: Dictionary) -> bool:
+	return false
+	@warning_ignore("unreachable_code")
 	if master.is_empty() or flat_index < 0 or flat_index >= _sub_slots.size():
 		return false
 	if _combat != null and _combat.is_engaged():
@@ -434,8 +440,13 @@ func _commit_sub_equip(m: Node, slot_index: int, item: Dictionary, master: Dicti
 	msg("%s %s → %s 장착" % [String(m.class_id), ["Q", "E", "R"][slot_index], String(master.get("display_name", ""))])
 
 
-## Drag-drop equip a skillbook onto the sub slot at `flat_index` (item already lifted).
+## ~~Drag-drop equip~~ — **M4에서 폐지**. 슬롯 AB는 gear 인스턴스 소유라 여기서 멤버에 꽂아 봐야
+## `Backpack.apply_to_party`가 저장분으로 덮어쓴다. "되는 것처럼 보이는데 안 되는" 경로를 남기느니
+## 거절하고 **어디로 가야 하는지 말한다**. 실제 장착 = `hub_modding_panel`(`F-009` §3.9.2 허브 모딩).
 func try_equip_sub(flat_index: int, item: Dictionary) -> bool:
+	msg("슬롯 스킬은 건(gear)에 귀속된다 — 「대장간 · 건 모딩」에서 장착 (F-009 §3.9.2)")
+	return false
+	@warning_ignore("unreachable_code")
 	if flat_index < 0 or flat_index >= _sub_slots.size():
 		return false
 	var e = _sub_slots[flat_index]
@@ -552,8 +563,12 @@ func _unequip_gear_to_backpack(char_index: int) -> void:
 	msg("%s 장비 → 가방" % String(m.class_id))
 
 
-## 우클릭 회수 — 장착 서브 스킬북을 가방으로. affix·잔여 탄 보존. 가방 가득 시 유지.
+## ~~우클릭 회수~~ — **M4에서 폐지**(위와 같은 이유). 게다가 P4b에선 슬롯 AB를 빼도 **책으로 돌아오지
+## 않는다** — 스킬북 인스턴스가 아니라 gear에 새겨진 등록이라, 빼는 건 곧 비우는 것이다.
 func _unequip_sub_to_backpack(flat_index: int) -> void:
+	msg("슬롯 스킬은 가방으로 회수되지 않는다 — 「대장간 · 건 모딩」에서 빼기 (F-009 §3.9.2)")
+	return
+	@warning_ignore("unreachable_code")
 	if flat_index < 0 or flat_index >= _sub_slots.size():
 		return
 	var e = _sub_slots[flat_index]
@@ -594,7 +609,10 @@ func _begin_gear_slot_drag(char_index: int) -> void:
 	_inv.start_drag_from_slot(item, {"kind": "gear", "char": char_index})
 
 
+## ~~슬롯에서 끌어내기~~ — **M4에서 폐지**. 슬롯 AB는 집을 수 있는 물건이 아니다(gear에 새겨진 등록).
 func _begin_sub_slot_drag(flat_index: int) -> void:
+	return
+	@warning_ignore("unreachable_code")
 	if flat_index < 0 or flat_index >= _sub_slots.size():
 		return
 	var e = _sub_slots[flat_index]

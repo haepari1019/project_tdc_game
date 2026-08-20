@@ -14,6 +14,7 @@ const HubFacilitiesPanel := preload("res://scripts/ui/hub_facilities_panel.gd") 
 const HubEconomyPanel := preload("res://scripts/ui/hub_economy_panel.gd")        # F-009 분석·상점
 const HubQuestPanel := preload("res://scripts/ui/hub_quest_panel.gd")            # F-029 §3.3 퀘스트 로그
 const HubTreePanel := preload("res://scripts/ui/hub_tree_panel.gd")              # F-020 §3.10 스킬 트리(성소)
+const HubModdingPanel := preload("res://scripts/ui/hub_modding_panel.gd")        # UI-005 §3.2 건 모딩(M4)
 
 @onready var _status: Label = $Panel/Margin/VBox/Status
 @onready var _loadout: VBoxContainer = $Panel/Margin/VBox/LoadoutStub
@@ -100,6 +101,20 @@ func _setup_hub() -> void:
 	tree_btn.pressed.connect(tree_panel.open_panel)
 	$Panel/Margin/VBox.add_child(tree_btn)
 	$Panel/Margin/VBox.move_child(tree_btn, _loadout.get_index())
+	# UI-005 §3.2 건 모딩 — **사용자가 요청한 핵심 UX**. gear의 Q/E/R에 스킬을 끼우고, 결속 1줄을
+	# 그 자리에서 보고, gear를 갈 때 소멸을 확인받는다. 슬롯이 gear 귀속으로 옮겨간 뒤로는 여기가
+	# 빌드를 만드는 유일한 자리다(equip_panel의 SUB 컬럼은 표시 전용으로 남는다).
+	var modding_panel := HubModdingPanel.new()
+	modding_panel.party = _party
+	add_child(modding_panel)
+	var modding_btn := Button.new()
+	modding_btn.text = "대장간 · 건 모딩 (Q/E/R)"
+	modding_btn.pressed.connect(modding_panel.open_panel)
+	# 모딩은 스태시 gear를 꺼내 신고 벗은 걸 돌려놓는다 → 닫을 때 에디터 소스를 재빌드하지 않으면
+	# deploy 시 옛 스냅샷이 교체를 덮어써 건이 유실된다(상점 패널과 같은 함정).
+	modding_panel.closed.connect(func() -> void: _stash_src.items = _build_stash_items())
+	$Panel/Margin/VBox.add_child(modding_btn)
+	$Panel/Margin/VBox.move_child(modding_btn, _loadout.get_index())
 	# F-029 §3.3 퀘스트 로그 — 승급 의뢰 전체 + 완료 조건 확인. 풀스크린 오버레이.
 	var quest_panel := HubQuestPanel.new()
 	add_child(quest_panel)

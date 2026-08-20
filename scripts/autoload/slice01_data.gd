@@ -381,6 +381,21 @@ func get_doctrine(id: String) -> Dictionary:
 
 # --- 스킬 트리 (F-020 §3.10) --------------------------------------------------
 
+## 이 gear가 `base_ability_id`를 슬롯에 받을 수 있는가 — `allowed_slot_families` 화이트리스트
+## (`F-008` §3.10 archetype 제한) + Role Gate(`F-009` §3.2.1)를 **둘 다** 본다.
+## 리스트가 비어 있으면 제한 없음으로 본다(저작 전 gear가 통째로 잠기는 걸 막는다).
+func gear_allows_slot_ability(base_gear_id: String, base_ability_id: String, class_id: String) -> bool:
+	var gm: Dictionary = get_gear_master(base_gear_id)
+	var sb: Dictionary = get_skillbook_master(base_ability_id)
+	if gm.is_empty() or sb.is_empty():
+		return false
+	var classes: Array = sb.get("equip_classes", [])
+	if not classes.has(class_id):
+		return false                                  # Role Gate
+	var fams: Array = gm.get("allowed_slot_families", [])
+	return fams.is_empty() or fams.has(String(sb.get("skill_family", "")))
+
+
 func get_tree_node(id: String) -> Dictionary:
 	return _tree.get(id, {})
 

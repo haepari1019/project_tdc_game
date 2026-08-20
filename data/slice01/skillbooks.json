@@ -17,7 +17,8 @@
         "damage_mult": 1.0,
         "knockback_m": 3.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-010",
@@ -43,7 +44,8 @@
         "zone_radius_m": 5.0,
         "zone_ttl_s": 6.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Debuff"
     },
     {
       "base_ability_id": "AB-011",
@@ -62,7 +64,8 @@
         "damage_mult": 0.6,
         "stun_s": 1.4
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-041",
@@ -91,7 +94,8 @@
           1.0
         ]
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Ranged"
     },
     {
       "base_ability_id": "AB-053",
@@ -123,7 +127,8 @@
           0.15
         ]
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "SustainDamage"
     },
     {
       "base_ability_id": "AB-064",
@@ -141,7 +146,8 @@
         "radius_m": 6.0,
         "heal_pct": 0.22
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Heal"
     },
     {
       "base_ability_id": "AB-046",
@@ -159,7 +165,8 @@
         "dr_label": "철벽",
         "duration_s": 6.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Guard"
     },
     {
       "base_ability_id": "AB-047",
@@ -181,7 +188,8 @@
         "dr_label": "수호진",
         "duration_s": 10.0
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Guard"
     },
     {
       "base_ability_id": "AB-067",
@@ -201,7 +209,8 @@
         "range_m": 10,
         "cast_s": 1.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Buff"
     },
     {
       "base_ability_id": "AB-068",
@@ -219,7 +228,8 @@
         "dr_label": "수호인",
         "duration_s": 10.0
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Buff"
     },
     {
       "base_ability_id": "AB-065",
@@ -237,7 +247,8 @@
         "ward_s": 2.5,
         "cast_s": 1.1
       },
-      "tier": "Master"
+      "tier": "Master",
+      "skill_family": "Heal"
     },
     {
       "base_ability_id": "AB-057",
@@ -261,7 +272,8 @@
         "vulnerable_pct": 0.15,
         "duration_s": 5.0
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Debuff"
     },
     {
       "base_ability_id": "AB-069",
@@ -278,7 +290,8 @@
         "haste_pct": 0.2,
         "duration_s": 9.0
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Buff"
     },
     {
       "base_ability_id": "AB-075",
@@ -296,7 +309,8 @@
         "duration_s": 2.5,
         "cast_s": 1.2
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Buff"
     },
     {
       "base_ability_id": "AB-062",
@@ -313,7 +327,8 @@
         "hold_fire": true,
         "next_hit_bonus": 2.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Mobility"
     },
     {
       "base_ability_id": "AB-054",
@@ -337,7 +352,8 @@
         "shock_s": 0.4,
         "tick_mult": 0.11
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "SustainDamage"
     },
     {
       "base_ability_id": "AB-109",
@@ -359,7 +375,8 @@
         "tick_interval_s": 0.25,
         "tick_mult": 0.11
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "SustainDamage"
     },
     {
       "base_ability_id": "AB-110",
@@ -384,7 +401,8 @@
         "poison_dur_s": 8.0,
         "poison_stack_cap": 5
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "SustainDamage"
     },
     {
       "base_ability_id": "AB-111",
@@ -406,7 +424,8 @@
         "chill_dur_s": 3.0,
         "freeze_s": 2.0
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "SustainDamage"
     },
     {
       "base_ability_id": "AB-034",
@@ -426,7 +445,8 @@
         "duration_s": 4.0,
         "stagger_s": 0.7
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-070",
@@ -443,7 +463,8 @@
         "range_m": 9,
         "radius_m": 3.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Debuff"
     },
     {
       "base_ability_id": "AB-044",
@@ -461,7 +482,8 @@
         "radius_m": 3.5,
         "silence_s": 4.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Debuff"
     },
     {
       "base_ability_id": "AB-003",
@@ -489,7 +511,8 @@
         "delivery": "projectile",
         "speed_mps": 24.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Ranged"
     },
     {
       "base_ability_id": "AB-004",
@@ -515,7 +538,8 @@
         "damage_mult": 3.6,
         "shock_s": 2.0
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Ranged"
     },
     {
       "base_ability_id": "AB-005",
@@ -537,7 +561,8 @@
         "single_target_mult": 1.5,
         "knockback_m": 6.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Melee"
     },
     {
       "base_ability_id": "AB-006",
@@ -555,7 +580,8 @@
         "blink_m": 7.0,
         "next_hit_bonus": 0.2
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Mobility"
     },
     {
       "base_ability_id": "AB-007a",
@@ -576,7 +602,8 @@
         "parting_shot_mult": 1.5,
         "aggro_reduce": 0.6
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Mobility"
     },
     {
       "base_ability_id": "AB-007b",
@@ -597,7 +624,8 @@
         "parting_shot_mult": 1.5,
         "aggro_reduce": 0.6
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Mobility"
     },
     {
       "base_ability_id": "AB-008",
@@ -623,7 +651,8 @@
         "delivery": "projectile",
         "speed_mps": 16.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Ranged"
     },
     {
       "base_ability_id": "AB-012",
@@ -647,7 +676,8 @@
         "radius_m": 1.6,
         "poly_dur_s": 30.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-013",
@@ -668,7 +698,8 @@
         "gap_m": 1.4,
         "damage_mult": 2.6
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Mobility"
     },
     {
       "base_ability_id": "AB-030",
@@ -693,7 +724,8 @@
         "damage_mult": 0.4,
         "silence_s": 3.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-033",
@@ -711,7 +743,8 @@
         "barrier_hp": 90.0,
         "duration_s": 5.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Guard"
     },
     {
       "base_ability_id": "AB-048a",
@@ -729,7 +762,8 @@
         "reflect_cap": 40.0,
         "reflect_label": "반격 태세"
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Guard"
     },
     {
       "base_ability_id": "AB-048b",
@@ -749,7 +783,8 @@
         "reflect_cast_only": true,
         "reflect_label": "응수"
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Guard"
     },
     {
       "base_ability_id": "AB-055",
@@ -782,7 +817,8 @@
         "scatter_hit_radius_m": 0.55,
         "cast_s": 3.5
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "SustainDamage"
     },
     {
       "base_ability_id": "AB-056",
@@ -810,7 +846,8 @@
         "delivery": "projectile",
         "speed_mps": 22.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Ranged"
     },
     {
       "base_ability_id": "AB-058",
@@ -837,7 +874,8 @@
         "delivery": "projectile",
         "speed_mps": 18.0
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Burst"
     },
     {
       "base_ability_id": "AB-059",
@@ -868,7 +906,8 @@
           0.95
         ]
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Burst"
     },
     {
       "base_ability_id": "AB-066",
@@ -886,7 +925,8 @@
         "radius_m": 6.0,
         "heal_pct": 0.55
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Heal"
     },
     {
       "base_ability_id": "AB-073",
@@ -914,7 +954,8 @@
         "delivery": "projectile",
         "speed_mps": 24.0
       },
-      "tier": "Master"
+      "tier": "Master",
+      "skill_family": "Burst"
     },
     {
       "base_ability_id": "AB-035",
@@ -935,7 +976,8 @@
         "taunt_all": true,
         "cast_s": 2.5
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-051",
@@ -954,7 +996,8 @@
         "mark_threat": 90.0,
         "floor": 35.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-045",
@@ -970,7 +1013,8 @@
         "radius_m": 10.0,
         "relocate_m": 5.0
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Utility"
     },
     {
       "base_ability_id": "AB-032",
@@ -985,7 +1029,8 @@
         "cooldown_s": 10,
         "reveal_s": 3.5
       },
-      "tier": "Basic"
+      "tier": "Basic",
+      "skill_family": "Utility"
     },
     {
       "base_ability_id": "AB-100",
@@ -1006,7 +1051,8 @@
         "damage_mult": 2.0,
         "pin_s": 0.6
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Burst"
     },
     {
       "base_ability_id": "AB-102",
@@ -1027,7 +1073,8 @@
         "gather_m": 3.0,
         "damage_mult": 0.2
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-103",
@@ -1051,7 +1098,8 @@
         "tether_pull_mps": 2.5,
         "damage_mult": 0.4
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Control"
     },
     {
       "base_ability_id": "AB-106",
@@ -1075,7 +1123,9 @@
         "on_kill_heal_pct": 0.2,
         "on_kill_cd_refund": 0.5
       },
-      "tier": "Advanced"
+      "tier": "Advanced",
+      "skill_family": "Burst"
     }
-  ]
+  ],
+  "_note_family": "`skill_family` = spec **SSOT 파생**(U3 기본값): AB md frontmatter `skillFamily` 39건 + `D-012` 표 4열 10건. 게임에서 재분류하지 않았다 — 분류 축을 두 벌 만들면 곧 갈라진다. gear의 `allowed_slot_families`가 이걸 화이트리스트로 읽는다(F-008 §3.10 archetype 제한)."
 }

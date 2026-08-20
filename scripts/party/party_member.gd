@@ -278,8 +278,15 @@ func setup(gear: Dictionary, index: int, color: Color, collision_radius: float =
 ## base_gear_id -> bundled_identity_skill_id -> identities.json row -> stats/skills.
 ## reset_hp=true on spawn; false on mid-run swap (keep current HP, clamp to new max).
 func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
+	# **D2 소멸 (M4-6)** — gear가 바뀌면 이전 gear에 끼워져 있던 Q/E/R은 사라진다(`F-008` §3.10).
+	# 슬롯 AB는 **gear 인스턴스 소유**(`D-019` §3)이므로 gear를 벗는 순간 같이 벗겨지는 게 정본이다.
+	# 영속 쪽 소멸은 `Backpack.set_member_gear`가 담당하고(확인 모달 뒤), 여기는 **런타임 정합**이다 —
+	# 둘 중 하나만 있으면 "화면엔 남아 있는데 세이브엔 없는" 유령 슬롯이 생긴다.
+	var _prev_gear := String(base_gear_id)
 	equipped_gear = gear
 	base_gear_id = String(gear.get("base_gear_id", ""))
+	if _prev_gear != "" and _prev_gear != base_gear_id:
+		skillbook_slots = [null, null, null]
 	gear_kind = String(gear.get("gear_kind", ""))
 	basic_attack_profile_id = String(gear.get("basic_attack_profile_id", ""))
 	_apply_basic_behavior()   # F-008 §3.7 ba 아키타입 평타 특수거동(cleave/knockback)

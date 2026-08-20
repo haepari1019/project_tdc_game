@@ -1,43 +1,202 @@
 {
   "_ref": "spec F-020 §3.10 (스킬 트리 — Phase 4b) · F-029 `chapel` Tier · I-007 §14.5. **분석 의뢰 N=3 → 트리 노드 클릭 = 해금**으로 교체(F-009 §3.9.4 — 분석 UI 제거). 소비 = 금고 재료(`haul_*`) · (선택) `ward_scrap`.",
-
   "_note_types": "노드 4종(F-020 §3.10). **`Passive` 노드는 없다** — CS-1(DEC-20260813-003)에서 Passive 슬롯이 폐기되고 그 자리를 `Doctrine`이 받았다.\n  · `Unlock`   — `base_ability_id` 모딩·상점 구매 허용(구 분석 N=3 대체)\n  · `Upgrade`  — 같은 AB의 **행동 발전**(ROLE-001 OPENER→PAYOFF). stat 증폭은 트리가 아니라 **참**이다\n  · `Slot`     — `gear_skill_slot_count` +1 (`smithy` 연동, 소비는 M4)\n  · `Doctrine` — 파티 운용 doctrine 구매(F-030). 구매 이력은 `DoctrineProfile`이 소유",
-
   "_note_unit": "트리 단위 = **클래스별**(`F-029` chapel 「클래스당 트리 루트」). `F-030` OQ-5(교차 doctrine 별도 노드)는 Deferred라 클래스 안에서만 갈린다. **U6 기본값 — 플래그**.",
-  "_note_cost": "비용은 **placeholder**(U7 · `F-030` OQ-1 · `F-029` 수치 `D-###` 미작성). 금고 재료를 sink로 쓰되 곡선은 플테 후. 전부 tuning.",
+  "_note_cost": "`Unlock`/`Upgrade` = **공유 재료**(적 처치 → 금고). `Doctrine`/`Slot` = `haul_ward_splinter`(시설 승급과 같은 재료를 두고 경쟁 — I-007 §14.6 sink 경쟁). 두 축을 갈라 놨으므로 「스킬을 열려고 시설을 못 올리는」 교착은 생기지 않지만, `Upgrade`만은 `haul_shared_core`를 요구해 정예 처치를 강제한다.",
   "_note_playtest": "플테 프로필은 **전 노드 해금 상태로 시드**한다(D4 「전 카탈로그 개방」의 트리판) — 교정한 스킬에 손이 닿아야 한다. `HubProfile.PLAYTEST_TREE_ALL_UNLOCKED`.",
-
-  "node_types": ["Unlock", "Upgrade", "Slot", "Doctrine"],
-
+  "node_types": [
+    "Unlock",
+    "Upgrade",
+    "Slot",
+    "Doctrine"
+  ],
   "nodes": [
-    { "node_id": "TREE-TNK-ROOT", "class_id": "Tank",   "type": "Slot",     "display_name": "전선 숙련",   "cost": {}, "grants_slot": 1,
-      "desc": "gear 스킬 슬롯 +1", "_ref": "F-020 §3.10 Slot · smithy 연동(소비는 M4)" },
-    { "node_id": "TREE-DPS-ROOT", "class_id": "DPS",    "type": "Slot",     "display_name": "연격 숙련",   "cost": {}, "grants_slot": 1, "desc": "gear 스킬 슬롯 +1" },
-    { "node_id": "TREE-NUK-ROOT", "class_id": "Nuker",  "type": "Slot",     "display_name": "조준 숙련",   "cost": {}, "grants_slot": 1, "desc": "gear 스킬 슬롯 +1" },
-    { "node_id": "TREE-HEA-ROOT", "class_id": "Healer", "type": "Slot",     "display_name": "치유 숙련",   "cost": {}, "grants_slot": 1, "desc": "gear 스킬 슬롯 +1" },
-
-    { "node_id": "TREE-TNK-DOC1", "class_id": "Tank",   "type": "Doctrine", "display_name": "전열 위임",   "doctrine_id": "DOC-TNK-01",
-      "prerequisite": "TREE-TNK-ROOT", "cost": { "haul_ward_splinter": 4 },
-      "desc": "짧게 개입하고 AI에게 넘기는 운용" },
-    { "node_id": "TREE-TNK-DOC2", "class_id": "Tank",   "type": "Doctrine", "display_name": "최전선 고수", "doctrine_id": "DOC-TNK-02",
-      "prerequisite": "TREE-TNK-ROOT", "cost": { "haul_ward_splinter": 4 },
-      "desc": "직접 조작으로 버티고, 복귀해서 터뜨리는 운용" },
-
-    { "node_id": "TREE-TNK-U1",   "class_id": "Tank",   "type": "Unlock",   "display_name": "전방위 방벽", "base_ability_id": "AB-033",
-      "prerequisite": "TREE-TNK-ROOT", "cost": { "haul_ward_splinter": 2 }, "desc": "슬롯 장착·재구매 허용" },
-    { "node_id": "TREE-TNK-U2",   "class_id": "Tank",   "type": "Unlock",   "display_name": "성벽 강타",   "base_ability_id": "AB-034",
-      "prerequisite": "TREE-TNK-U1",   "cost": { "haul_ward_splinter": 3 }, "desc": "슬롯 장착·재구매 허용" },
-    { "node_id": "TREE-DPS-U1",   "class_id": "DPS",    "type": "Unlock",   "display_name": "작열 폭발",   "base_ability_id": "AB-053",
-      "prerequisite": "TREE-DPS-ROOT", "cost": { "haul_ward_splinter": 2 }, "desc": "슬롯 장착·재구매 허용" },
-    { "node_id": "TREE-NUK-U1",   "class_id": "Nuker",  "type": "Unlock",   "display_name": "전격 제압",   "base_ability_id": "AB-030",
-      "prerequisite": "TREE-NUK-ROOT", "cost": { "haul_ward_splinter": 2 }, "desc": "슬롯 장착·재구매 허용" },
-    { "node_id": "TREE-HEA-U1",   "class_id": "Healer", "type": "Unlock",   "display_name": "침묵 결계",   "base_ability_id": "AB-044",
-      "prerequisite": "TREE-HEA-ROOT", "cost": { "haul_ward_splinter": 2 }, "desc": "슬롯 장착·재구매 허용" },
-
-    { "node_id": "TREE-TNK-UP1",  "class_id": "Tank",   "type": "Upgrade",  "display_name": "방벽 심화",   "base_ability_id": "AB-033",
-      "prerequisite": "TREE-TNK-U1", "cost": { "haul_ward_splinter": 5 },
-      "param_override": { "shield": 1.25 },
+    {
+      "node_id": "TREE-TNK-ROOT",
+      "class_id": "Tank",
+      "type": "Slot",
+      "display_name": "전선 숙련",
+      "cost": {},
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1",
+      "_ref": "F-020 §3.10 Slot · smithy 연동(소비는 M4)"
+    },
+    {
+      "node_id": "TREE-DPS-ROOT",
+      "class_id": "DPS",
+      "type": "Slot",
+      "display_name": "연격 숙련",
+      "cost": {},
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1"
+    },
+    {
+      "node_id": "TREE-NUK-ROOT",
+      "class_id": "Nuker",
+      "type": "Slot",
+      "display_name": "조준 숙련",
+      "cost": {},
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1"
+    },
+    {
+      "node_id": "TREE-HEA-ROOT",
+      "class_id": "Healer",
+      "type": "Slot",
+      "display_name": "치유 숙련",
+      "cost": {},
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1"
+    },
+    {
+      "node_id": "TREE-TNK-SLOT2",
+      "class_id": "Tank",
+      "type": "Slot",
+      "display_name": "확장 결속",
+      "cost": {
+        "haul_ward_splinter": 3
+      },
+      "prerequisite": "TREE-TNK-ROOT",
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1 (3칸 gear의 마지막 칸)"
+    },
+    {
+      "node_id": "TREE-DPS-SLOT2",
+      "class_id": "DPS",
+      "type": "Slot",
+      "display_name": "확장 결속",
+      "cost": {
+        "haul_ward_splinter": 3
+      },
+      "prerequisite": "TREE-DPS-ROOT",
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1 (3칸 gear의 마지막 칸)"
+    },
+    {
+      "node_id": "TREE-NUK-SLOT2",
+      "class_id": "Nuker",
+      "type": "Slot",
+      "display_name": "확장 결속",
+      "cost": {
+        "haul_ward_splinter": 3
+      },
+      "prerequisite": "TREE-NUK-ROOT",
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1 (3칸 gear의 마지막 칸)"
+    },
+    {
+      "node_id": "TREE-HEA-SLOT2",
+      "class_id": "Healer",
+      "type": "Slot",
+      "display_name": "확장 결속",
+      "cost": {
+        "haul_ward_splinter": 3
+      },
+      "prerequisite": "TREE-HEA-ROOT",
+      "grants_slot": 1,
+      "desc": "gear 스킬 슬롯 +1 (3칸 gear의 마지막 칸)"
+    },
+    {
+      "node_id": "TREE-TNK-DOC1",
+      "class_id": "Tank",
+      "type": "Doctrine",
+      "display_name": "전열 위임",
+      "doctrine_id": "DOC-TNK-01",
+      "prerequisite": "TREE-TNK-ROOT",
+      "cost": {
+        "haul_ward_splinter": 4
+      },
+      "desc": "짧게 개입하고 AI에게 넘기는 운용"
+    },
+    {
+      "node_id": "TREE-TNK-DOC2",
+      "class_id": "Tank",
+      "type": "Doctrine",
+      "display_name": "최전선 고수",
+      "doctrine_id": "DOC-TNK-02",
+      "prerequisite": "TREE-TNK-ROOT",
+      "cost": {
+        "haul_ward_splinter": 4
+      },
+      "desc": "직접 조작으로 버티고, 복귀해서 터뜨리는 운용"
+    },
+    {
+      "node_id": "TREE-TNK-U1",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "전방위 방벽",
+      "base_ability_id": "AB-033",
+      "prerequisite": "TREE-TNK-ROOT",
+      "cost": {
+        "haul_shared_shard": 4
+      },
+      "desc": "슬롯 장착·재구매 허용"
+    },
+    {
+      "node_id": "TREE-TNK-U2",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "성벽 강타",
+      "base_ability_id": "AB-034",
+      "prerequisite": "TREE-TNK-U1",
+      "cost": {
+        "haul_shared_shard": 6
+      },
+      "desc": "슬롯 장착·재구매 허용"
+    },
+    {
+      "node_id": "TREE-DPS-U1",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "작열 폭발",
+      "base_ability_id": "AB-053",
+      "prerequisite": "TREE-DPS-ROOT",
+      "cost": {
+        "haul_shared_shard": 4
+      },
+      "desc": "슬롯 장착·재구매 허용"
+    },
+    {
+      "node_id": "TREE-NUK-U1",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "전격 제압",
+      "base_ability_id": "AB-030",
+      "prerequisite": "TREE-NUK-ROOT",
+      "cost": {
+        "haul_shared_shard": 4
+      },
+      "desc": "슬롯 장착·재구매 허용"
+    },
+    {
+      "node_id": "TREE-HEA-U1",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "침묵 결계",
+      "base_ability_id": "AB-044",
+      "prerequisite": "TREE-HEA-ROOT",
+      "cost": {
+        "haul_shared_shard": 4
+      },
+      "desc": "슬롯 장착·재구매 허용"
+    },
+    {
+      "node_id": "TREE-TNK-UP1",
+      "class_id": "Tank",
+      "type": "Upgrade",
+      "display_name": "방벽 심화",
+      "base_ability_id": "AB-033",
+      "prerequisite": "TREE-TNK-U1",
+      "cost": {
+        "haul_shared_shard": 6,
+        "haul_shared_core": 1
+      },
+      "param_override": {
+        "shield": 1.25
+      },
       "desc": "전방위 방벽의 흡수량 +25%",
-      "_ref": "F-020 §3.10 Upgrade = **행동 발전**(ROLE-001). 여기선 흡수 상한을 올려 「버티는 창」을 늘린다 — stat 증폭이 아니라 그 스킬의 역할을 깊게 하는 축. 수치는 placeholder." }
-  ]
+      "_ref": "F-020 §3.10 Upgrade = **행동 발전**(ROLE-001). 여기선 흡수 상한을 올려 「버티는 창」을 늘린다 — stat 증폭이 아니라 그 스킬의 역할을 깊게 하는 축. 수치는 placeholder."
+    }
+  ],
+  "_note_slot": "슬롯 수 = clamp(1 + Slot 노드 합, 1, gear.gear_skill_slot_count_max). 기본 1칸은 무료(ROOT 없이도 gear는 1칸), ROOT +1 · SLOT2 +1 → 최대 3. 스타터 gear는 max 1이라 노드를 사도 늘지 않는다 — 슬롯을 늘리려면 gear부터 바꿔야 한다(D-019 §2)."
 }

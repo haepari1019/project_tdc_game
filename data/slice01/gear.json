@@ -12,7 +12,15 @@
       "range_band": "Melee",
       "display_name": "거암의 대방패",
       "unlock_state": "Owned",
-      "starter": true
+      "starter": true,
+      "allowed_slot_families": [
+        "Guard",
+        "Control",
+        "Melee",
+        "Buff",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 1
     },
     {
       "base_gear_id": "gear_ward_dps_press_rod",
@@ -25,7 +33,14 @@
       "range_band": "Mid",
       "display_name": "연격의 지팡이",
       "unlock_state": "Owned",
-      "starter": true
+      "starter": true,
+      "allowed_slot_families": [
+        "SustainDamage",
+        "Ranged",
+        "Burst",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 1
     },
     {
       "base_gear_id": "gear_ward_nuker_ruin_sight",
@@ -38,7 +53,15 @@
       "range_band": "Mid",
       "display_name": "표적의 조준경",
       "unlock_state": "Owned",
-      "starter": true
+      "starter": true,
+      "allowed_slot_families": [
+        "Burst",
+        "Ranged",
+        "Control",
+        "Mobility",
+        "Debuff"
+      ],
+      "gear_skill_slot_count_max": 1
     },
     {
       "base_gear_id": "gear_ward_healer_mend_lantern",
@@ -51,7 +74,16 @@
       "range_band": "Long",
       "display_name": "온기의 등불",
       "unlock_state": "Owned",
-      "starter": true
+      "starter": true,
+      "allowed_slot_families": [
+        "Heal",
+        "Buff",
+        "Utility",
+        "Debuff",
+        "Control",
+        "Ranged"
+      ],
+      "gear_skill_slot_count_max": 1
     },
     {
       "base_gear_id": "gear_ward_tank_kite_shield",
@@ -67,7 +99,15 @@
       "starter": false,
       "basic_damage": 6,
       "basic_interval_s": 0.8,
-      "basic_range_m": 2.2
+      "basic_range_m": 2.2,
+      "allowed_slot_families": [
+        "Guard",
+        "Control",
+        "Melee",
+        "Buff",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_tank_beacon_hook",
@@ -83,7 +123,15 @@
       "starter": false,
       "basic_damage": 7,
       "basic_interval_s": 1.0,
-      "basic_range_m": 3.5
+      "basic_range_m": 3.5,
+      "allowed_slot_families": [
+        "Guard",
+        "Control",
+        "Melee",
+        "Buff",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_tank_march_plate",
@@ -99,7 +147,15 @@
       "starter": false,
       "basic_damage": 6,
       "basic_interval_s": 1.1,
-      "basic_range_m": 2.6
+      "basic_range_m": 2.6,
+      "allowed_slot_families": [
+        "Guard",
+        "Control",
+        "Melee",
+        "Buff",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_tank_rampart_wall",
@@ -115,7 +171,15 @@
       "starter": false,
       "basic_damage": 8,
       "basic_interval_s": 0.9,
-      "basic_range_m": 2.6
+      "basic_range_m": 2.6,
+      "allowed_slot_families": [
+        "Guard",
+        "Control",
+        "Melee",
+        "Buff",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_tank_sentinel_aegis",
@@ -131,7 +195,15 @@
       "starter": false,
       "basic_damage": 6,
       "basic_interval_s": 1.2,
-      "basic_range_m": 2.0
+      "basic_range_m": 2.0,
+      "allowed_slot_families": [
+        "Guard",
+        "Control",
+        "Melee",
+        "Buff",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_dps_weave_staff",
@@ -147,7 +219,14 @@
       "starter": false,
       "basic_damage": 12,
       "basic_interval_s": 0.9,
-      "basic_range_m": 14.0
+      "basic_range_m": 14.0,
+      "allowed_slot_families": [
+        "SustainDamage",
+        "Ranged",
+        "Burst",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_dps_rift_needle",
@@ -163,7 +242,14 @@
       "starter": false,
       "basic_damage": 9,
       "basic_interval_s": 0.5,
-      "basic_range_m": 14.0
+      "basic_range_m": 14.0,
+      "allowed_slot_families": [
+        "SustainDamage",
+        "Ranged",
+        "Burst",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_dps_ember_wand",
@@ -179,7 +265,14 @@
       "starter": false,
       "basic_damage": 14,
       "basic_interval_s": 0.8,
-      "basic_range_m": 8.0
+      "basic_range_m": 8.0,
+      "allowed_slot_families": [
+        "SustainDamage",
+        "Ranged",
+        "Burst",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_dps_brand_foci",
@@ -195,7 +288,14 @@
       "starter": false,
       "basic_damage": 13,
       "basic_interval_s": 0.75,
-      "basic_range_m": 8.0
+      "basic_range_m": 8.0,
+      "allowed_slot_families": [
+        "SustainDamage",
+        "Ranged",
+        "Burst",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_dps_tide_censer",
@@ -211,7 +311,14 @@
       "starter": false,
       "basic_damage": 10,
       "basic_interval_s": 0.85,
-      "basic_range_m": 8.0
+      "basic_range_m": 8.0,
+      "allowed_slot_families": [
+        "SustainDamage",
+        "Ranged",
+        "Burst",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_nuker_scout_frame",
@@ -227,7 +334,15 @@
       "starter": false,
       "basic_damage": 7,
       "basic_interval_s": 0.7,
-      "basic_range_m": 16.0
+      "basic_range_m": 16.0,
+      "allowed_slot_families": [
+        "Burst",
+        "Ranged",
+        "Control",
+        "Mobility",
+        "Debuff"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_nuker_flank_knife",
@@ -243,7 +358,15 @@
       "starter": false,
       "basic_damage": 16,
       "basic_interval_s": 0.9,
-      "basic_range_m": 2.0
+      "basic_range_m": 2.0,
+      "allowed_slot_families": [
+        "Burst",
+        "Control",
+        "Mobility",
+        "Debuff",
+        "Melee"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_nuker_hex_scope",
@@ -259,7 +382,15 @@
       "starter": false,
       "basic_damage": 11,
       "basic_interval_s": 1.0,
-      "basic_range_m": 8.0
+      "basic_range_m": 8.0,
+      "allowed_slot_families": [
+        "Burst",
+        "Ranged",
+        "Control",
+        "Mobility",
+        "Debuff"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_mag_nuker_coil_rifle",
@@ -275,7 +406,15 @@
       "starter": false,
       "basic_damage": 13,
       "basic_interval_s": 0.95,
-      "basic_range_m": 14.0
+      "basic_range_m": 14.0,
+      "allowed_slot_families": [
+        "Burst",
+        "Ranged",
+        "Control",
+        "Mobility",
+        "Debuff"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_mag_nuker_volt_lance",
@@ -291,7 +430,15 @@
       "starter": false,
       "basic_damage": 12,
       "basic_interval_s": 0.9,
-      "basic_range_m": 10.0
+      "basic_range_m": 10.0,
+      "allowed_slot_families": [
+        "Burst",
+        "Ranged",
+        "Control",
+        "Mobility",
+        "Debuff"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_healer_ward_sigil",
@@ -307,7 +454,15 @@
       "starter": false,
       "basic_damage": 5,
       "basic_interval_s": 1.1,
-      "basic_range_m": 2.0
+      "basic_range_m": 2.0,
+      "allowed_slot_families": [
+        "Heal",
+        "Buff",
+        "Utility",
+        "Debuff",
+        "Control"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_healer_beacon_lantern",
@@ -323,7 +478,16 @@
       "starter": false,
       "basic_damage": 5,
       "basic_interval_s": 1.1,
-      "basic_range_m": 2.0
+      "basic_range_m": 2.0,
+      "allowed_slot_families": [
+        "Heal",
+        "Buff",
+        "Utility",
+        "Debuff",
+        "Control",
+        "Ranged"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_tank_iron_set",
@@ -339,7 +503,15 @@
       "starter": false,
       "basic_damage": 9,
       "basic_interval_s": 1.0,
-      "basic_range_m": 3.0
+      "basic_range_m": 3.0,
+      "allowed_slot_families": [
+        "Guard",
+        "Control",
+        "Melee",
+        "Buff",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_dps_weave_set",
@@ -355,7 +527,14 @@
       "starter": false,
       "basic_damage": 18,
       "basic_interval_s": 0.7,
-      "basic_range_m": 11.0
+      "basic_range_m": 11.0,
+      "allowed_slot_families": [
+        "SustainDamage",
+        "Ranged",
+        "Burst",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_healer_ward_set",
@@ -371,7 +550,15 @@
       "starter": false,
       "basic_damage": 7,
       "basic_interval_s": 1.1,
-      "basic_range_m": 7.0
+      "basic_range_m": 7.0,
+      "allowed_slot_families": [
+        "Heal",
+        "Buff",
+        "Utility",
+        "Debuff",
+        "Control"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_tank_march_set",
@@ -387,7 +574,15 @@
       "starter": false,
       "basic_damage": 10,
       "basic_interval_s": 1.0,
-      "basic_range_m": 3.0
+      "basic_range_m": 3.0,
+      "allowed_slot_families": [
+        "Guard",
+        "Control",
+        "Melee",
+        "Buff",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_dps_guardbreak_set",
@@ -403,7 +598,14 @@
       "starter": false,
       "basic_damage": 20,
       "basic_interval_s": 0.65,
-      "basic_range_m": 10.0
+      "basic_range_m": 10.0,
+      "allowed_slot_families": [
+        "SustainDamage",
+        "Ranged",
+        "Burst",
+        "Mobility"
+      ],
+      "gear_skill_slot_count_max": 3
     },
     {
       "base_gear_id": "gear_ward_healer_beacon_set",
@@ -419,7 +621,18 @@
       "starter": false,
       "basic_damage": 8,
       "basic_interval_s": 1.1,
-      "basic_range_m": 8.0
+      "basic_range_m": 8.0,
+      "allowed_slot_families": [
+        "Heal",
+        "Buff",
+        "Utility",
+        "Debuff",
+        "Control",
+        "Ranged"
+      ],
+      "gear_skill_slot_count_max": 3
     }
-  ]
+  ],
+  "_note_slot_families": "`allowed_slot_families` = **역할 + `range_band` 파생**(U4 기본값 · F-008 §3.10 archetype 제한). 근접 gear는 `Ranged`를 못 받고 원거리 gear는 `Melee`를 못 받는다 — 「무엇을 끼울 수 있나」가 gear의 성격에서 나오게. 손으로 짠 표가 아니라 파생이라 gear가 늘어도 자동으로 따라온다. **전부 tuning** — 특정 gear만 예외를 주려면 그 행에 직접 쓰면 파생을 덮어쓴다.",
+  "_note_slot_max": "`gear_skill_slot_count_max` — 스타터 archetype **1**(D-019 §2 명시), 나머지 **3**. 인스턴스의 실제 해금 슬롯 수(`gear_skill_slot_count`)는 이 값과 `smithy`/트리 `Slot` 노드가 함께 정한다."
 }

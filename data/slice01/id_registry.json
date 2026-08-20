@@ -292,7 +292,11 @@
     "TREE-DPS-U1",
     "TREE-NUK-U1",
     "TREE-HEA-U1",
-    "TREE-TNK-UP1"
+    "TREE-TNK-UP1",
+    "TREE-TNK-SLOT2",
+    "TREE-DPS-SLOT2",
+    "TREE-NUK-SLOT2",
+    "TREE-HEA-SLOT2"
   ],
   "_note_tree": "F-020 §3.10 스킬 트리(Phase 4b) — 분석 N=3 해금을 **트리 노드 클릭**으로 교체. 노드 4종(Unlock/Upgrade/Slot/Doctrine); `Passive` 노드는 CS-1에서 폐기. 카탈로그 = skill_tree.json.",
   "blueprint_ids": [
@@ -377,7 +381,9 @@
     "haul_forge_coal",
     "haul_deep_core",
     "haul_boss_relay",
-    "haul_pack_frame"
+    "haul_pack_frame",
+    "haul_shared_shard",
+    "haul_shared_core"
   ],
   "_note_hub_ids": "P2-S4 Hub(F-029/D-029). facility/quest/haul = facilities_tiers.json·quests.json·haul_materials.json. armory catalog gear(gear_ward_*_iron/weave/ward/march/guardbreak/beacon)는 GEAR-COR-000 후속 — 미등록 시 카탈로그 비어있음(효과 stub).",
   "_note_ability_id_policy": "**번호 재사용 금지.** 폐기·이관된 AB 번호는 영구 결번으로 둔다 — 재사용하면 DRIFT 로그·git 커밋 메시지(현재 AB 언급 389건)·스펙 상호참조가 다른 스킬을 가리키게 된다. 신규 ID는 항상 **끝번호에서만** 발급(현재 최대 AB-111 → 다음 AB-112). 번호 상태는 4분류다 — `ability_ids`(구현) · `ability_ids_pending`(스펙 정의·미구현) · `ability_id_gaps`(영구 결번+사유) · `IDA-###`(정체성 프리픽스 이관). 이 넷이 1~111을 빈틈없이 덮는다(DRIFT-134). 재번호는 참조 5,194건 + 스펙 파일명 97개가 걸려 **하지 않는다**.",
@@ -430,5 +436,6 @@
     "AB-096",
     "AB-097"
   ],
-  "_note_ability_ids_pending": "**미구현 백로그** — 스펙(`docs/combat/abilities/AB-###_*.md`)에 정의돼 있으나 게임이 아직 등록·구현하지 않은 AB. **결번이 아니다**(`ability_id_gaps`와 구분). 번호가 비어 보이는 이유가 「폐기」인지 「미구현」인지 헷갈리던 것을 나눠 적는다(DRIFT-134). Phase 2 전수 커버리지 대상 — 구현 시 `ability_ids`로 옮긴다."
+  "_note_ability_ids_pending": "**미구현 백로그** — 스펙(`docs/combat/abilities/AB-###_*.md`)에 정의돼 있으나 게임이 아직 등록·구현하지 않은 AB. **결번이 아니다**(`ability_id_gaps`와 구분). 번호가 비어 보이는 이유가 「폐기」인지 「미구현」인지 헷갈리던 것을 나눠 적는다(DRIFT-134). Phase 2 전수 커버리지 대상 — 구현 시 `ability_ids`로 옮긴다.",
+  "_note_haul_shared": "`haul_shared_shard`/`haul_shared_core` = per-kill 스킬북 드롭의 대체재(`F-009` §3.9.2 — 스펙은 `shared_shard_*` 로만 적고 정예 재료엔 id를 주지 않았다). 게임이 두 id를 확정했다 → **PENDING-PROP**, `DRIFT-149`."
 }
