@@ -44,29 +44,31 @@ func _init() -> void:
 	_expect(sd.get_haul_drops("ENC-NORM-001").size() == 2, "haul_drops NORM-001 = 2행")
 	_expect(not sd.get_haul_drops("ENC-BOSS-001").is_empty(), "haul_drops BOSS-001 존재")
 
-	# F-009 §3.5 / D-018 §7.1 — Skillbook economy: 분석(N=3)→해금→상점 구매(ward_scrap).
-	_expect(String(hp.submit_analysis("AB-037").get("reason", "")) == "facility", "분석 — scriptorium 잠김 거부")
-	hp.facilities["scriptorium"] = 1   # 테스트: scriptorium T1 (분석 가능)
-	var r1: Dictionary = hp.submit_analysis("AB-037")
-	_expect(bool(r1.get("ok", false)) and int(r1.get("progress", 0)) == 1 and not bool(r1.get("unlocked", false)), "분석 1/3")
-	hp.submit_analysis("AB-037")
-	var r3: Dictionary = hp.submit_analysis("AB-037")
-	_expect(bool(r3.get("unlocked", false)) and hp.is_shop_unlocked("AB-037"), "분석 3/3 → 해금")
-	_expect(String(hp.submit_analysis("AB-037").get("reason", "")) == "already_unlocked", "해금 후 의뢰 거부")
-	_expect(String(hp.buy_raw("AB-037").get("reason", "")) == "tier_ceiling", "상점 — scribe_shop 잠김 차단")
-	hp.facilities["scribe_shop"] = 1   # 테스트: scribe_shop T1 (Basic 판매)
-	_expect(String(hp.buy_raw("AB-037").get("reason", "")) == "scrap", "상점 — scrap 부족 차단")
+	# ~~분석 N=3 → 해금 → 생본 구매 → 중복 sink~~ — **M5 폐기**(`D-018` §9 · `F-009` §3.9.4).
+	# 후임 = **트리 해금(권한)** + **모딩 시술비(시전이 아니라 새기는 값)**. 시술비가 없으면 D2 소멸이
+	# 이빨이 없다 — gear를 갈아도 해금은 남으니 공짜로 되끼우면 그만이기 때문이다.
+	_expect(not hp.has_method("submit_analysis"), "분석 API 부재(구 경로 완전 제거)")
+	_expect(not hp.has_method("buy_raw"), "생본 구매 API 부재")
+	_expect(not hp.has_method("is_shop_unlocked"), "해금 판정 단일화(is_ability_unlocked)")
+	hp.facilities["chapel"] = 1
+	hp.tree_unlocked = {}
+	hp.PLAYTEST_TREE_ALL_UNLOCKED = false
+	_expect(String(hp.mod_install("AB-002").get("reason", "")) == "locked", "모딩 — 미해금 AB 시술 거부")
+	hp.tree_unlocked["TREE-TNK-UL01"] = true      # AB-002 해금
+	hp.facilities["scribe_shop"] = 0
+	_expect(String(hp.mod_install("AB-002").get("reason", "")) == "tier_ceiling", "모딩 — scribe_shop 등급 차단")
+	hp.facilities["scribe_shop"] = 1
+	hp.ward_scrap = 0
+	_expect(String(hp.mod_install("AB-002").get("reason", "")) == "scrap", "모딩 — 시술비 부족 차단")
 	hp.add_scrap(30)
-	var buy: Dictionary = hp.buy_raw("AB-037")
-	_expect(bool(buy.get("ok", false)) and hp.scrap() == 18, "Basic 구매 -12 scrap (30→18)")
-	_expect(String(hp.buy_raw("AB-099").get("reason", "")) == "locked", "미해금 base 구매 차단")
-
-	# D-018 §7.5 중복 sink — 해금된 base=분해(8), 미해금=매각(4) + add_scrap 반영.
-	_expect(hp.skillbook_sink_value("AB-037") == hp.SINK_DISASSEMBLE, "sink — 해금 base 분해값 8")
-	_expect(hp.skillbook_sink_value("AB-099") == hp.SINK_SELL, "sink — 미해금 base 매각값 4")
-	var scrap_before: int = hp.scrap()
-	hp.add_scrap(hp.skillbook_sink_value("AB-037"))
-	_expect(hp.scrap() == scrap_before + 8, "sink — 분해 시 ward_scrap +8")
+	var mi: Dictionary = hp.mod_install("AB-002")
+	_expect(bool(mi.get("ok", false)) and hp.scrap() == 18, "모딩 시술 -12 scrap (Basic tier, 30→18)")
+	# 구 분석 해금은 **뺏지 않는다** — 형식이 바뀌는 것이지 잃는 게 아니다.
+	hp.shop_listing_unlocked = {"AB-053": true}
+	hp.migrate_analysis_to_tree()
+	_expect(hp.is_ability_unlocked("AB-053") and (hp.shop_listing_unlocked as Dictionary).is_empty(),
+		"M5 마이그레이션 — 구 분석 해금 → 트리 노드 이전")
+	hp.PLAYTEST_TREE_ALL_UNLOCKED = true
 
 	# 데모 이벤트 퀘스트(DRIFT-065) — 추출/전멸 횟수로 미구현 기능(2맵/복구/NPC) 대용.
 	hp.persist = false
@@ -107,12 +109,11 @@ func _init() -> void:
 	# S6b per-AB tier — skillbooks.json tier(스펙 abilityTier) + 상점 tier 천장 게이트.
 	_expect(String(sd.get_skillbook_master("AB-002").get("tier", "")) == "Basic", "per-AB tier — AB-002 Basic")
 	_expect(String(sd.get_skillbook_master("AB-004").get("tier", "")) == "Advanced", "per-AB tier — AB-004 Advanced")
-	hp.shop_listing_unlocked["AB-004"] = true
 	hp.ward_scrap = 200
 	hp.facilities["scribe_shop"] = 1
-	_expect(String(hp.buy_raw("AB-004", "Advanced").get("reason", "")) == "tier_ceiling", "Adv 생본 — scribe_shop T1선 차단")
+	_expect(String(hp.mod_install("AB-004").get("reason", "")) == "tier_ceiling", "Adv 모딩 — scribe_shop T1선 차단")
 	hp.facilities["scribe_shop"] = 2
-	_expect(bool(hp.buy_raw("AB-004", "Advanced").get("ok", false)), "Adv 생본 — scribe_shop T2서 구매")
+	_expect(bool(hp.mod_install("AB-004").get("ok", false)), "Adv 모딩 — scribe_shop T2서 시술")
 
 	# S7/QA-029 — capacity 게터 per tier (이번 세션 강제 축: 군수 런 운반 + 창고 영속).
 	hp.facilities["quartermaster"] = 0
@@ -170,13 +171,11 @@ func _init() -> void:
 		var gid := String(g.get("base_gear_id", "")) if typeof(g) == TYPE_DICTIONARY else String(g)
 		if sd.get_gear_master(gid).is_empty():
 			ghosts.append("Stash.gear %s" % gid)
-	for sb in st.skillbooks:
-		var sbid := String(sb.get("base_ability_id", "")) if typeof(sb) == TYPE_DICTIONARY else String(sb)
-		if sd.get_skillbook_master(sbid).is_empty():
-			ghosts.append("Stash.skillbooks %s" % sbid)
 	_expect(st.gear.size() > 0, "Stash 시드 기어 %d종(카탈로그 파생)" % st.gear.size())
-	_expect(st.skillbooks.size() == sd.get_skillbook_rows().size(),
-		"Stash 시드 서브 = 카탈로그 전량 %d종 (D4 전 카탈로그 개방)" % sd.get_skillbook_rows().size())
+	# **D4「전 카탈로그 개방」의 형식이 바뀌었다** — M5 이후 스태시는 스킬북을 소유하지 않는다.
+	# 개방은 이제 **트리 전 노드 해금**(`PLAYTEST_TREE_ALL_UNLOCKED`)으로 표현된다: 물건이 아니라
+	# 권한이 열려 있는 것이다.
+	_expect((st.skillbooks as Array).is_empty(), "Stash 시드 서브 0(권한은 트리가 소유)")
 	st.free()
 
 	# ②b 마석 (M1 · F-009 §3.8) — 비용표·스타터 정합.
@@ -322,7 +321,7 @@ func _init() -> void:
 	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "facility", "트리 — chapel T0 잠김(F-029)")
 	hp2.facilities["chapel"] = 1
 	# 선행은 **의미 있는 곳에만** 걸린다 — 해금 안 한 AB는 발전시킬 수 없다(U1 → UP1).
-	_expect(String(hp2.tree_check("TREE-TNK-UP1").get("reason", "")) == "prereq", "트리 — 선행 노드 미해금 차단")
+	_expect(String(hp2.tree_check("TREE-TNK-UL01").get("reason", "")) == "haul", "트리 — 재료 부족 차단(Unlock)")
 	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "haul", "트리 — 재료 부족 차단")
 	hp2.add_haul("haul_ward_splinter", 4)
 	_expect(bool(hp2.tree_buy("TREE-TNK-DOC1").get("ok", false)), "재료 충족 → doctrine 노드 구매")
@@ -332,7 +331,12 @@ func _init() -> void:
 	# ⚠️ 플테 플래그를 **끄고** 잰다 — 켜 두면 is_node_unlocked가 항상 true라 트리 로직을 안 타고
 	# 전부 통과한다(게이트가 아무것도 증명하지 못한다).
 	hp2.PLAYTEST_TREE_ALL_UNLOCKED = false
-	_expect(not hp2.is_ability_unlocked("AB-033"), "미해금 AB는 잠김(플래그 off 기준)")
+	# **스타터 프리모딩 4종은 플래그와 무관하게 열려 있다**(`F-008` §3.10.2) — 여기가 잠기면 첫 런에
+	# 끼울 AB가 없다. 그래서 「잠김」 판정은 **비스타터** AB로 잰다.
+	_expect(hp2.is_ability_unlocked("AB-033"), "스타터 프리모딩 AB는 무비용 해금(F-020 §3.2.0)")
+	for premod in ["AB-053", "AB-030", "AB-044"]:
+		_expect(hp2.is_ability_unlocked(premod), "스타터 프리모딩 %s 해금" % premod)
+	_expect(not hp2.is_ability_unlocked("AB-002"), "미해금 AB는 잠김(플래그 off 기준)")
 	# **루트는 슬롯을 주지 않는다** — 슬롯 사다리는 SLOT1/SLOT2가 소유하고 `smithy` T2/T3에 묶인다
 	# (`F-008` §3.10). 루트가 +1을 주면 대장간 없이 트리만으로 칸이 열려 스펙 사다리가 무너진다.
 	_expect(hp2.tree_slot_bonus("Tank") == 0, "Slot 노드 미구매 → 보너스 0")
@@ -343,9 +347,8 @@ func _init() -> void:
 	_expect(hp2.tree_slot_bonus("Tank") == 1, "Slot 노드 → gear 슬롯 +1")
 	_expect(String(hp2.tree_check("TREE-TNK-SLOT2").get("reason", "")) == "facility_req", "세 번째 슬롯 — 대장간 T3 게이트(Expansion)")
 	_expect(hp2.tree_slot_bonus("DPS") == 0, "다른 클래스 Slot은 미해금 → 0")
-	hp2.tree_unlocked["TREE-TNK-U1"] = true
-	_expect(hp2.is_ability_unlocked("AB-033"), "Unlock 노드 해금 → AB 열림")
-	_expect(hp2.is_shop_unlocked("AB-033"), "트리 해금이 상점 해금을 겸한다(구 분석 대체)")
+	hp2.tree_unlocked["TREE-TNK-UL01"] = true
+	_expect(hp2.is_ability_unlocked("AB-002"), "Unlock 노드 해금 → AB 열림")
 	_expect(hp2.ability_upgrades("AB-033").is_empty(), "Upgrade 미해금 → 배율 없음")
 	hp2.tree_unlocked["TREE-TNK-UP1"] = true
 	_expect(is_equal_approx(float(hp2.ability_upgrades("AB-033").get("shield", 0.0)), 1.25), "Upgrade 해금 → 파라미터 배율")
@@ -420,6 +423,75 @@ func _init() -> void:
 		if (tn.get("cost", {}) as Dictionary).has(ls.SHARED_SHARD_ID):
 			uses_shared = true
 	_expect(uses_shared, "트리 Unlock이 공유 재료를 소비 — 처치→재료→금고→해금 루프 성립")
+
+	# ②j M5 폐기 검증 — **없어졌어야 할 것이 정말 없는가**. 폐기는 "안 쓰는 코드"로 두면 되살아난다.
+	_expect(not FileAccess.file_exists("res://scripts/run/affix_roller.gd"), "affix_roller 파일 제거")
+	var IF = load("res://scripts/ui/inventory/item_factory.gd")
+	_expect(not IF.has_method("skillbook_item"), "ItemFactory.skillbook_item 제거(스킬북 타일 불가)")
+	for row in sd.get_skillbook_rows():
+		if (row as Dictionary).has("charges_max"):
+			ghosts.append("skillbooks %s — charges_max 잔존(D-018 §9 폐기)" % row.get("base_ability_id", "?"))
+	# 탄 게이트가 살아 있으면 **보이지 않는 두 번째 자원**이 된다(DRIFT-145의 재발). 인스턴스에 탄이
+	# 없는데 소비처가 남아 있으면 즉시 0으로 읽혀 전 스킬이 조용히 잠긴다 — 그걸 여기서 잡는다.
+	var pmx = load("res://scripts/party/party_member.gd").new()
+	pmx.class_id = "Tank"
+	pmx.equip_skillbook_by_id(0, "AB-033")
+	var instx = pmx.get_skillbook(0)
+	_expect(instx != null and not (instx as Dictionary).has("charges") and not (instx as Dictionary).has("affix"),
+		"슬롯 인스턴스 — charges·affix 필드 부재(쿨다운만 남는다)")
+	pmx.free()
+	# **시전 자원은 마석 하나** — 탄 게이트가 어디에도 남아 있으면 안 된다. 소스 텍스트로 잰다:
+	# DRIFT-145는 *표시만* 내리고 게이트를 남겼고, 그게 M5까지 **보이지 않는 두 번째 자원**으로 살아
+	# 있었다. 같은 방식의 재발을 막으려면 「없음」을 단언해야 한다.
+	for src_path in ["res://scripts/combat/abilities/ability_dispatch.gd",
+			"res://scripts/run/dungeon_run.gd", "res://scripts/dev/combat_sandbox.gd",
+			"res://scripts/party/party_member.gd", "res://scripts/combat/abilities/effects/skill_cast.gd"]:
+		var f := FileAccess.open(src_path, FileAccess.READ)
+		if f == null:
+			ghosts.append("소스 없음 %s" % src_path)
+			continue
+		var body := f.get_as_text()
+		f.close()
+		if body.contains("inst.charges") or body.contains("charges_max"):
+			ghosts.append("%s — 탄(charges) 소비/게이트 잔존" % src_path)
+	var adsrc := FileAccess.open("res://scripts/combat/abilities/ability_dispatch.gd", FileAccess.READ)
+	var adbody := adsrc.get_as_text() if adsrc != null else ""
+	if adsrc != null:
+		adsrc.close()
+	_expect(adbody.contains("manastone_cost_for") and adbody.contains("spend_manastone"),
+		"시전 자원 = 마석 단일 (cost 조회 + 차감이 dispatch에 실재)")
+	# 입력 레이어도 같은 자원을 본다 — 던전·샌드박스 **양쪽**(샌드박스가 유저의 실제 체감 무대).
+	for in_path in ["res://scripts/run/dungeon_run.gd", "res://scripts/dev/combat_sandbox.gd"]:
+		var f2 := FileAccess.open(in_path, FileAccess.READ)
+		var b2 := f2.get_as_text() if f2 != null else ""
+		if f2 != null:
+			f2.close()
+		_expect(b2.contains("manastone_count"), "입력 게이트 마석 확인 — %s" % in_path.get_file())
+
+	# 스타터 프리모딩 — `F-008` §3.10.2. 시드가 Q를 비우면 첫 런에 슬롯 스킬이 통째로 없다.
+	var bps = load("res://scripts/autoload/backpack.gd").new()
+	bps._seed()
+	var PREMOD := {"Tank": "AB-033", "DPS": "AB-053", "Nuker": "AB-030", "Healer": "AB-044"}
+	for cls3 in PREMOD:
+		var q = bps.gear_slot_abilities(String(cls3))[0]
+		_expect(typeof(q) == TYPE_DICTIONARY and String(q.get("base_ability_id", "")) == String(PREMOD[cls3]),
+			"%s 스타터 프리모딩 Q = %s" % [cls3, PREMOD[cls3]])
+	var books := 0
+	for it3 in bps.loose:
+		if typeof(it3) == TYPE_DICTIONARY and String(it3.get("kind", "")) == "skillbook":
+			books += 1
+	_expect(books == 0, "시드 — 낱개 스킬북 0(물건이 아니게 됐다)")
+	bps.free()
+	# 트리가 카탈로그 전체를 덮는가 — 구 분석 폴백을 지운 뒤엔 **여기가 유일한 해금 경로**다.
+	var covered: Dictionary = {}
+	for tn2 in sd.get_tree_nodes():
+		if String(tn2.get("type", "")) == "Unlock":
+			covered[String(tn2.get("base_ability_id", ""))] = true
+	var uncovered: Array = []
+	for row2 in sd.get_skillbook_rows():
+		if not covered.has(String((row2 as Dictionary).get("base_ability_id", ""))):
+			uncovered.append(String(row2.get("base_ability_id", "")))
+	_expect(uncovered.is_empty(), "트리 Unlock이 스킬북 49종 전수 커버" if uncovered.is_empty() else "미커버 AB: %s" % ", ".join(uncovered))
 
 	# ③ 샌드박스 픽스처 — dev 툴이지만 유저의 실제 체감 무대라 낡으면 "그 스킬 안 나오는데?"가 된다.
 	var sandbox = load("res://scripts/dev/combat_sandbox.gd")

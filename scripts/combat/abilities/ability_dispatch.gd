@@ -191,17 +191,17 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			member.consume_next_hit_bonus()   # 읽고 버림 = 초기화. 다른 소스(AB-006 등)와 곱해진 값도 함께 사라진다
 		print("[SB] %s 은신 취소(재입력) — 증폭 폐기" % member.class_id)
 		return
-	if int(inst.charges) <= 0:
-		print("[SB] %s depleted" % inst.get("display_name", "?"))
-		return
+	# ~~탄(charges) 고갈 게이트~~ — **M5에서 제거**(`D-018` §9 Deprecated). 마석이 정본 자원인데
+	# 탄이 **두 번째 게이트**로 남아 있었고, 고갈 시 `print`만 하고 조용히 무발동했다(DRIFT-139가
+	# 금지한 패턴). 표시는 DRIFT-145에서 이미 지웠으므로 **보이지도 않는 게이트**였다.
 	if float(inst.cooldown_s) > 0.0:
 		return
 	# F-009 §3.8 마석 — **슬롯(서브) 스킬 시전만** 소모한다. Identity는 무소모(`I-007` §6): NC 3인이
 	# 자동으로 쓰는 채널이라 여기에 자원을 물리면 파티가 통째로 고갈된다.
 	# 비용 = 스킬 tier 차등(Basic 1 / Advanced 2 / Master 3 · 사용자 결정 (나)). 고갈은 **의도된 고역**
 	# 이지만 소프트락이 아니다 — 거부는 반드시 **사유를 보이게** 한다(조용한 무발동 금지, DRIFT-139 교훈).
-	# 차감은 여기서 **선차감하지 않는다**: 아래 charges 선차감과 달리 실제 발현(`_resolve_sub`) 성공 후에
-	# 빠져나가야 시전 실패에 자원만 녹는 걸 막는다.
+	# 여기는 **빠른 거부**일 뿐 차감하지 않는다 — 실제 소유권 이전은 발현(`_resolve_sub`) 직전이라야
+	# 시전 실패에 자원만 녹는 걸 막는다. M5 이후 이것이 **유일한 시전 자원**이다(탄 폐기, `D-018` §9).
 	var ms_cost: int = Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", "")))
 	if ms_cost > 0 and not _combat.manastone_unlimited() and _combat.manastone_count() < ms_cost:
 		if member.has_method("popup_status"):
@@ -221,9 +221,9 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	# D-016 §3.2 / D-012 §2.4 — sub-class use is penalised by identity-distance band (the master's
 	# `sub_bands`); main class = full coeff. (was: flat −10% off the first equip class.)
 	var bands: Dictionary = Slice01Data.get_skillbook_master(String(inst.get("base_ability_id", ""))).get("sub_bands", {})
-	# D-018 §7.3 — affix coeffMult는 cross-class 밴드와 **독립**으로 곱(합산 ≤15% 안전 클램프). cd_trade는 쿨 가산.
-	var affix: Dictionary = inst.get("affix", {})
-	p["_coeff"] = _band_coeff(String(member.class_id), bands) * (1.0 + clampf(float(affix.get("coeff", 0.0)), -0.15, 0.15))
+	# ~~affix coeffMult / cd_trade~~ — **M5에서 제거**(`D-018` §9 · `F-008` §3.10.1). 빌드 변주는
+	# **Identity 굴림 + 결속**(`I-008`)이 소유한다. 계수에 남는 건 cross-class 밴드뿐이다.
+	p["_coeff"] = _band_coeff(String(member.class_id), bands)
 	p["_slot"] = slot_index   # 캐스트 취소 시 쿨/차지 환급용(skill_cast이 이 슬롯을 되돌림)
 	# 단일 대상 잠금(DRIFT-122) — 조준에서 고른 **유닛 자체**를 params로 실어 보낸다(`_coeff`·`_slot`과
 	# 같은 주입 경로). `get_skillbook_master`가 deep-duplicate를 주므로 이 dict는 인스턴스 전용 —
@@ -232,12 +232,11 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	p["_target"] = target_unit
 	if target_unit != null and is_instance_valid(target_unit):
 		target_pos = target_unit.global_position
-	var cd: float = float(p.get("cooldown_s", 6.0)) * (1.0 + float(affix.get("cd_trade", 0.0)))
+	var cd: float = float(p.get("cooldown_s", 6.0))
 	# P4a 「캐스팅 시간」(DRIFT-075) — cast_s>0이면 캐스트바 진행 후 **완료 시점에** 발현+결속(취소 시 환급).
 	# 캐스터(Nuker/DPS/Healer) 스킬은 이 경로가 기본. cast_s=0(즉발)은 아래 즉시 발현.
 	var cast_s: float = float(p.get("cast_s", 0.0))
 	if cast_s > 0.0:
-		inst.charges = int(inst.charges) - 1   # commit — 캐스트 시작에 선차감(취소면 skill_cast이 환급)
 		var node = _SkillCast.new()
 		add_child(node)
 		var pd: Dictionary = p.duplicate()     # 완료 시점 파라미터 고정
@@ -255,7 +254,6 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 	# 즉발 — 발현 성공 시에만 차감.
 	_cd_refund_frac = 0.0
 	if _resolve_sub(member, slot_index, p, target_pos):
-		inst.charges = int(inst.charges) - 1
 		inst.cooldown_s = cd * (1.0 - _cd_refund_frac)   # ON-KILL-FEED 환급(DRIFT-132)
 	_cd_refund_frac = 0.0
 
@@ -278,7 +276,7 @@ func _resolve_sub(member: CharacterBody3D, slot_index: int, p: Dictionary, targe
 	# F-009 §3.8 마석 — **발현 직전에 원자적으로 차감**한다. `cast_skillbook`의 사전 검사는 긴 캐스트를
 	# 헛돌리지 않으려는 빠른 거부일 뿐이고, 실제 소유권 이전은 여기다: 캐스트 도중 다른 멤버가 마석을
 	# 써서 그 사이 부족해질 수 있으므로 **발현 직전에 다시 확인**해야 두 번 쓰이지 않는다. 실패하면
-	# `skill.cast` 이전이라 아무것도 일어나지 않는다(탄·쿨도 호출부가 성공 시에만 소모).
+	# `skill.cast` 이전이라 아무것도 일어나지 않는다(쿨도 호출부가 성공 시에만 건다).
 	var ms: int = Slice01Data.manastone_cost_for(String(_slot_ability_id(member, slot_index)))
 	if ms > 0 and not _combat.spend_manastone(ms):
 		if member.has_method("popup_status"):
@@ -853,13 +851,12 @@ func tick_ally_disengage(party: Array) -> void:
 		var frac: float = float(m.hp) / maxf(float(m.max_hp), 1.0)
 		var armed: bool = bool(_disengage_armed.get(m, true))
 		if armed and frac < float(inst.params.get("trigger_frac", 0.4)) \
-				and float(inst.cooldown_s) <= 0.0 and int(inst.charges) > 0:
+				and float(inst.cooldown_s) <= 0.0:
 			_disengage_armed[m] = false
 			var p: Dictionary = inst.params.duplicate()
 			p["_coeff"] = 1.0
 			p["_slot"] = slot
 			_resolve_sub(m, slot, p, m.global_position)   # 효과 + 결속(집중/잠행) 적용
-			inst.charges = int(inst.charges) - 1
 			inst.cooldown_s = float(inst.params.get("cooldown_s", 8.0))
 		elif not armed and frac > float(inst.params.get("rearm_frac", 0.45)):
 			_disengage_armed[m] = true

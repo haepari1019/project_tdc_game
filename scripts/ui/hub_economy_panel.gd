@@ -1,7 +1,10 @@
 extends Control
-## F-009 §3.5 / UI-029 — 스킬북 분석·상점 패널. ① 분석: 스태시 보유 책을 의뢰 제출(소멸) → progress
-## N=3 → 상점 해금. ② 상점: 해금된 base의 생본(affix 없음)을 ward_scrap로 구매 → 스태시. 게이트:
-## scriptorium T1 = 분석, scribe_shop Tier = 구매 tier 상한. 규칙·통화 = HubProfile. ref: F-009 · D-018 §7.1.
+## **상점 패널** (`UI-029` · `F-009` §3.9.3 개편) — 무기고(gear) · 보급(소모품) · 창고 열람.
+##
+## ~~분석 의뢰(N=3) · 생본 구매~~ — **M5 제거**(`F-009` §3.9.4 · `D-018` §9). 해금은 **성소 트리**가,
+## 슬롯 스킬을 실제로 새기는 **모딩 시술**은 **대장간 패널**이 소유한다. 스킬북이 물건이 아니게 된
+## 뒤로 이 화면이 팔 「책」이 없다 — 남은 건 gear·소모품, 그리고 창고를 보는 일이다.
+## (`F-009` §3.9.3의 마석 티어 판매는 Phase 5 = M7.) 규칙·통화 = `HubProfile`.
 
 const OK := Color(0.62, 1.0, 0.62)
 const BAD := Color(1.0, 0.6, 0.55)
@@ -13,8 +16,6 @@ const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
 signal closed   # 패널 닫힘 → 호스트(main.gd)가 stash 에디터 소스를 재빌드(구매 반영·덮어쓰기 방지)
 
 var _scrap_lbl: Label
-var _analysis_box: VBoxContainer
-var _shop_box: VBoxContainer
 var _armory_box: VBoxContainer
 var _consum_box: VBoxContainer
 var _stash_cap_lbl: Label
@@ -78,15 +79,7 @@ func _ready() -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(col)
 
-	_header(col, "── 분석 / 중복 처리 (의뢰 N=3 → 해금 · 분해/매각 → ward_scrap) ──")
-	_analysis_box = VBoxContainer.new()
-	_analysis_box.add_theme_constant_override("separation", 2)
-	col.add_child(_analysis_box)
-	_header(col, "\n── 상점 (해금 base 생본 구매) ──")
-	_shop_box = VBoxContainer.new()
-	_shop_box.add_theme_constant_override("separation", 2)
-	col.add_child(_shop_box)
-	_header(col, "\n── 무기고 (armory 기어 세트 구매) ──")
+	_header(col, "── 무기고 (armory 기어 세트 구매) ──")
 	_armory_box = VBoxContainer.new()
 	_armory_box.add_theme_constant_override("separation", 2)
 	col.add_child(_armory_box)
@@ -137,8 +130,6 @@ func _refresh() -> void:
 		return
 	_scrap_lbl.text = "ward_scrap: %d" % int(_hub.scrap())
 	_scrap_lbl.modulate = OK if int(_hub.scrap()) > 0 else DIM
-	_refresh_analysis()
-	_refresh_shop()
 	_refresh_armory()
 	_refresh_consumables()
 	_refresh_stash()
@@ -166,15 +157,6 @@ func _refresh_stash() -> void:
 		if inst.has("rolls"):
 			gm["rolls"] = inst["rolls"]
 		_stash_grid.add_item_dict(ItemFactory.gear_item(gm, false))
-	for s in _stash.skillbooks:
-		var sinst: Dictionary = s if typeof(s) == TYPE_DICTIONARY else {"base_ability_id": String(s)}
-		var sm: Dictionary = Slice01Data.get_skillbook_master(String(sinst.get("base_ability_id", "")))
-		if sm.is_empty():
-			continue
-		var sit := ItemFactory.skillbook_item(sm, false)
-		if not (sinst.get("affix", {}) as Dictionary).is_empty():
-			sit["affix"] = sinst["affix"]
-		_stash_grid.add_item_dict(sit)
 	for cid in _stash.consumables:
 		var cm: Dictionary = Slice01Data.get_consumable_master(String(cid))
 		if cm.is_empty():
@@ -188,100 +170,14 @@ func _on_item_pressed(_event: InputEvent, _grid: Node, _item: Dictionary) -> voi
 	pass
 
 
-## Owned (stash) skillbooks → 의뢰 버튼. 게이트: scriptorium T1. 해금된 base는 '해금됨' 표시(거부).
-func _refresh_analysis() -> void:
-	for c in _analysis_box.get_children():
-		c.queue_free()
-	var can: bool = _hub.has_method("can_analyze") and _hub.can_analyze()
-	if not can:
-		_lbl(_analysis_box, "  필기소(scriptorium) Tier 1 필요 — 허브 시설에서 승급.", BAD)
-		return
-	if _stash == null:
-		return
-	var counts: Dictionary = {}
-	for b in _stash.skillbooks:
-		var bid := String(b.get("base_ability_id", "")) if typeof(b) == TYPE_DICTIONARY else String(b)
-		counts[bid] = int(counts.get(bid, 0)) + 1
-	if counts.is_empty():
-		_lbl(_analysis_box, "  스태시에 분석할 스킬북 없음 — 던전에서 회수해 스태시에 보관.", DIM)
-		return
-	for base in counts:
-		var m: Dictionary = Slice01Data.get_skillbook_master(String(base))
-		var disp: String = String(m.get("display_name", base))
-		var row := HBoxContainer.new()
-		var b: String = String(base)
-		if _hub.is_shop_unlocked(b):
-			_lbl(row, "%s — 보유 %d · 해금됨 ✓" % [disp, int(counts[base])], OK)
-		else:
-			var p: int = _hub.analysis_count(b)
-			_lbl(row, "%s — 보유 %d · 분석 %d/%d" % [disp, int(counts[base]), p, int(_hub.ANALYSIS_REQUIRED)], DIM)
-			var btn := Button.new()
-			btn.text = "분석 의뢰 (책 1권 소멸)"
-			btn.pressed.connect(func() -> void: _on_analyze(b))
-			row.add_child(btn)
-		# D-018 §7.5 중복 sink — 해금됨=분해(+8), 미해금=매각(+4, 분석 재료 대안). 책 1권 소멸 → ward_scrap.
-		var sink_val: int = int(_hub.skillbook_sink_value(b))
-		var sink := Button.new()
-		sink.text = "%s (+%d)" % [("분해" if _hub.is_shop_unlocked(b) else "매각"), sink_val]
-		sink.pressed.connect(func() -> void: _on_sink(b))
-		row.add_child(sink)
-		_analysis_box.add_child(row)
+## ~~`_refresh_analysis` · `_refresh_shop` · `_on_analyze` · `_on_buy`~~ — **M5 제거**.
+## 분석 의뢰와 생본 구매는 성소 트리(해금) + 대장간 모딩(시술)로 갈라졌다.
 
 
-## Unlocked bases → 구매 버튼. 게이트: scribe_shop Tier ≥ 1 (Basic 판매). 구매 = ward_scrap 차감 + 스태시.
-func _refresh_shop() -> void:
-	for c in _shop_box.get_children():
-		c.queue_free()
-	if int(_hub.shop_tier_ceiling()) < 1:
-		_lbl(_shop_box, "  상점(scribe_shop) Tier 1 필요 — 허브 시설에서 승급.", BAD)
-		return
-	var ceiling: int = int(_hub.shop_tier_ceiling())
-	var unlocked: Dictionary = _hub.shop_listing_unlocked
-	var any := false
-	for base in unlocked:
-		if not bool(unlocked[base]):
-			continue
-		any = true
-		var m: Dictionary = Slice01Data.get_skillbook_master(String(base))
-		var disp: String = String(m.get("display_name", base))
-		var tier: String = String(m.get("tier", "Basic"))   # per-AB tier(skillbooks.json ← 스펙 abilityTier)
-		var rank: int = int(_hub.TIER_RANK.get(tier, 9))
-		var price: int = int(_hub.shop_price(tier))
-		var locked: bool = rank > ceiling   # scribe_shop Tier 미달 → 상위 tier 구매 불가
-		var note: String = ("  (scribe_shop T%d 필요)" % rank) if locked else ""
-		var row := HBoxContainer.new()
-		_lbl(row, "%s — %s 생본 · %d scrap%s" % [disp, tier, price, note], BAD if locked else DIM)
-		var btn := Button.new()
-		btn.text = "구매"
-		btn.disabled = locked or int(_hub.scrap()) < price or _stash_full()
-		var b: String = String(base)
-		var t: String = tier
-		btn.pressed.connect(func() -> void: _on_buy(b, t))
-		row.add_child(btn)
-		_shop_box.add_child(row)
-	if not any:
-		_lbl(_shop_box, "  해금된 스킬북 없음 — 위에서 분석 3회로 해금.", DIM)
-
-
-func _on_analyze(base: String) -> void:
-	var r: Dictionary = _hub.submit_analysis(base)
-	if bool(r.get("ok", false)) and _stash != null:
-		_stash.remove_skillbook(base)   # 의뢰 = 인스턴스 소멸 (F-009 §3.5)
-	_refresh()
-
-
-## 창고(stash) 한도 — 구매 시 생본/기어가 스태시로 들어가므로 stash_capacity 초과면 구매 차단(scrap 미소진).
+## 창고(stash) 한도 — 구매한 기어가 스태시로 들어가므로 초과면 구매 차단(scrap 미소진).
 func _stash_full() -> bool:
-	return _stash != null and _hub != null and int(_stash.item_count()) >= int(_hub.stash_capacity())
-
-
-func _on_buy(base: String, tier: String = "Basic") -> void:
-	if _stash_full():
-		return
-	var r: Dictionary = _hub.buy_raw(base, tier)
-	if bool(r.get("ok", false)) and _stash != null:
-		_stash.add_skillbook(base)      # 생본(affix 없음) → 스태시
-	_refresh()
+	var hub := get_node_or_null("/root/HubProfile")
+	return hub != null and _stash != null and int(_stash.item_count()) >= int(hub.stash_capacity())
 
 
 ## D-018 §7.5 — 중복 스킬북 분해/매각: 스태시에서 1권 제거 → ward_scrap 획득(해금됨 8 / 미해금 4).
@@ -347,15 +243,6 @@ func _on_buy_consumable(consumable_id: String) -> void:
 	var r: Dictionary = _hub.buy_consumable(consumable_id)
 	if bool(r.get("ok", false)) and _stash != null:
 		_stash.return_consumable(consumable_id, 1)   # 스태시 소모품 +1(보급)
-	_refresh()
-
-
-func _on_sink(base: String) -> void:
-	if _stash == null:
-		return
-	var val: int = int(_hub.skillbook_sink_value(base))
-	if _stash.remove_skillbook(base):   # 인스턴스 1 소멸 (있을 때만)
-		_hub.add_scrap(val)
 	_refresh()
 
 

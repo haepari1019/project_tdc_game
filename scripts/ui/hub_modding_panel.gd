@@ -333,9 +333,11 @@ func _render_catalog() -> void:
 		nm.add_theme_font_size_override("font_size", 12)
 		hb.add_child(nm)
 		var fam := Label.new()
-		fam.text = "%s · %s · ◈%d" % [String(row.get("skill_family", "—")), String(row.get("tier", "—")),
-				Slice01Data.manastone_cost_for(abid)]
-		fam.custom_minimum_size = Vector2(190, 0)
+		# ◈ = 시전 1회 마석 · ⚙ = **모딩 시술비**(`F-008` §3.10). 둘은 다른 지갑이라 나란히 보여야
+		# "지금 못 끼우는 이유"가 읽힌다.
+		fam.text = "%s · %s · ◈%d · ⚙%d" % [String(row.get("skill_family", "—")), String(row.get("tier", "—")),
+				Slice01Data.manastone_cost_for(abid), int(_hub.mod_install_price(abid)) if _hub != null else 0]
+		fam.custom_minimum_size = Vector2(230, 0)
 		fam.add_theme_font_size_override("font_size", 11)
 		fam.modulate = DIM
 		hb.add_child(fam)
@@ -377,6 +379,8 @@ func _reason_text(reason: String) -> String:
 		"slot":    return "이 칸이 아직 안 열렸다"
 		"family":  return "이 건이 받지 않는 계열"
 		"locked":  return "미해금 — 성소 트리에서 해금"
+		"scrap":   return "시술비 부족(ward_scrap)"
+		"tier_ceiling": return "필기 상점 등급 부족 — scribe_shop 승급"
 		"dup":     return "이미 다른 칸에 있음"
 		_:         return "불가"
 
@@ -394,7 +398,8 @@ func _render_footer() -> void:
 				"manastone": carry += int(it.get("count", 0))
 				"charm": charms.append(String(Slice01Data.get_charm(String(it.get("charm_id", ""))).get("display", "?")))
 	var stash_ms: int = int(_stash.manastone_count()) if _stash != null else 0
-	_foot.text = "⑥ 반입 마석 ◈%d  ·  보관 ◈%d  ·  반입 참: %s" % [carry, stash_ms,
+	var scrap: int = int(_hub.ward_scrap) if _hub != null else 0
+	_foot.text = "⑥ 반입 마석 ◈%d  ·  보관 ◈%d  ·  시술비 ⚙%d  ·  반입 참: %s" % [carry, stash_ms, scrap,
 			", ".join(charms) if not charms.is_empty() else "없음"]
 	_foot.modulate = ACCENT if carry > 0 else BAD
 

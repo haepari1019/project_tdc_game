@@ -1836,3 +1836,28 @@
   - ⓒ `gearSkillSlotCount` `yes` → **`derived`**(`D-019` §3). 인스턴스 오버라이드는 P5 잭팟 예약.
   - ⓓ `F-020` §3.10 — **루트 노드 금지** + 선행 원칙 + **노드 id 카탈로그는 구현 소유** 명시.
   - **후속 TODO(spec):** `smithy` T3 = Expansion이라 **세 번째 슬롯이 Slice-01에서 도달 불가**다. 의도된 천장인지 플테로 확인.
+
+### DRIFT-152 — M5: `F-009` 구 경제 · affix · 탄(charges) 폐기 + 세이브 마이그레이션 🔶 rule 구현(파괴적) + 판정 3건
+- **근거:** `D-018` §9(Deprecated & migration) · `F-009` §3.9.2/§3.9.3/§3.9.4 · `F-008` §3.10/§3.10.1/§3.10.2 · `F-020` §3.10. 사용자 판정: **스킬북 소멸만(보상 없음)** · **gear 굴림 극소화** · **Unlock 비용 tier 차등**.
+- **🔴 착수 전 대조에서 하드 블로커 2건이 나왔다.** `D-018` §9의 마이그레이션 지침은 한 줄(*"인벤 스킬북 → `baseAbilityId` 추출 → gear 슬롯 이전 · `charges` 폐기 · affix 삭제"*)뿐이라 아래 둘을 덮지 못한다. 그대로 넣었으면 게임이 잠겼다.
+  - **① 트리 `Unlock` 노드가 5종인데 AB는 49종.** `shopListingUnlocked` 폴백을 지우면 **44종이 영구 잠김**이다(모딩 패널 전량 회색). → `Unlock` 노드를 **역할 × AB 전수 63종**으로 확장(한 AB가 두 역할에 걸리면 노드도 둘 — 트리 단위가 클래스라 Tank가 산 해금이 Nuker에게 넘어가면 클래스 트리가 아니게 된다). 비용 = tier 차등 **Basic 3 / Advanced 5 / Master 8** `haul_shared_shard` — 마석 시전비(1/2/3)와 **같은 축**이라 「비싼 스킬은 열기도 쓰기도 비싸다」가 일관된다.
+  - **② 스타터 프리모딩 미구현.** `F-008` §3.10.2는 스타터 gear Q에 AB가 **미리 끼워져** 있어야 한다고 규정하는데(Tank `AB-033`/DPS `AB-053`/Nuker `AB-030`/Healer `AB-044`), 게임은 슬롯을 비우고 스킬북을 가방에 넣고 있었다. 책이 사라지면 **첫 런에 슬롯 스킬이 통째로 없다**(`F-020` §3.2.0 「첫 런 ≥1 슬롯」 위반). → 시드 `slot_abilities[0]`에 프리모딩 + 대응 `Unlock` 노드에 `starter_unlocked: true`(무비용·기본 해금). **AB id를 코드에 하드코딩하지 않았다** — 데이터가 소유한다.
+- **🐞 ③ 탄(charges)이 아직 실제로 게이트하고 차감되고 있었다.** [[DRIFT-145]]가 **표시만** 내렸고 `ability_dispatch`의 고갈 게이트·선차감·즉발차감·auto-disengage 4곳은 살아 있었다. 고갈 시 `print`만 하고 **조용히 무발동** — [[DRIFT-139]]가 금지한 바로 그 패턴이 **보이지도 않는 자원**으로 남아 있었던 것이다(`charges_max` 50~80이라 체감이 안 됐을 뿐).
+  - → 게이트·차감·환급·`full_restore` 리필·인스턴스 필드·`skillbooks.json` `charges_max` 49행·로드 검증까지 전부 제거. 시전 자원은 **마석 하나**다.
+- **🐞 ③b 탄 게이트가 두 곳 더 살아 있었다(사용자 지적 후 정리).** 코어(`ability_dispatch`)만 걷어냈더니 **입력 레이어**의 `int(inst.charges) <= 0` 두 곳이 남았다 — [dungeon_run.gd](../scripts/run/dungeon_run.gd) `_cast_sub` · [combat_sandbox.gd](../scripts/dev/combat_sandbox.gd) `_cast_sub`. 인스턴스에 `charges`가 없어졌으므로 이건 **런타임 에러**(`Invalid access to property 'charges'`)였고, 전 슬롯 스킬이 입력 단계에서 죽는다.
+  - → 둘 다 **마석 사전 검사**로 교체. 조준 모달을 띄운 뒤 시전 시점에 거부하면 "왜 안 나가지"가 되므로 **입력에서 막고 머리 위에 사유**를 띄운다(「마석 부족 N」). 차감은 여전히 발현 직전 원자적(선차감하면 실패한 시전에 자원만 녹는다).
+  - **샌드박스에도 같은 게이트를 둔다** — 유저의 실제 체감 무대라 여기가 낡으면 "던전에선 되는데 여기선 안 된다"가 된다([[sandbox-input-parity]] 교훈).
+  - **액션바가 자원 부족을 보여준다.** `Q·◈2`만 적어 두고 누르면 안 나가는 건 「고장」으로 읽힌다 → 부족하면 키 라벨을 보라색으로, 아이콘을 어둡게. 툴팁은 이미 `◈ 마석 N · 보유 M`을 띄우고 있었다.
+- **④ 모딩 시술비 신설 — D2 소멸에 이빨을 달았다.** `F-008` §3.10이 *"gear 교체 시 슬롯 AB 소멸 — 동일 AB **재구매** 후 새 gear에 모딩"* 이라 못박았는데, 트리 해금만 있으면 **갈아도 공짜로 되끼우면 그만**이라 소멸이 무의미해진다. → `HubProfile.mod_install`(구 `buy_raw` 가격·게이트 승계: 해금 + `scribe_shop` tier 상한 + `ward_scrap`). **트리 해금은 허가, 시술은 매번 값을 치른다.** 같은 칸에 같은 AB 재입력은 무변경으로 **두 번 받지 않는다**.
+- **⑤ 스킬북이 물건이 아니게 됐다**(`D-018` §9 Frozen). 생산자(시드·킬 드롭·상자·상점·`ItemFactory.skillbook_item`)와 저장소(`Stash.skillbooks`·`Backpack.loose`)와 소비자(드래그 라우터 분기·장착/회수·툴팁·정산 카운트)를 **전부** 걷어냈다. `affix_roller.gd`는 파일째 삭제.
+  - **드래그 라우터는 「건드리지 않는다」가 아니라 「분기를 지운다」였다.** 작업지시서의 불가침 대상은 *중앙 라우터의 구조*이고, 존재하지 않는 kind의 분기를 남기는 건 보존이 아니라 유령이다.
+  - **아군 유물함 → 재료 상자.** 존재 이유가 「적이 안 쓰는 아군 전용 스킬은 처치 드롭으로 못 얻는다」였는데 M5 이후 **스킬은 어차피 드롭되지 않는다**. 상자를 없앨 수도 있었지만 배치된 보상은 탐색의 이유라 **해금 재료**를 담게 했다. `ALLY_CACHE_POOL`은 「아군 전용 AB」 축의 인간 판독 스냅샷으로 남긴다.
+  - **상자 스킬북 → 공유 재료.** 확률은 그대로 두고 내용물만 바꿨다 — 상자를 열 이유가 사라지면 탐색이 죽는다.
+- **⑥ 마이그레이션(1회, 손실 최소).** `Stash.skillbooks`·`Backpack.loose`의 책은 **소멸**(사용자 판정)하되 **해금은 뺏지 않는다** — `HubProfile.migrate_analysis_to_tree`가 구 `shopListingUnlocked`를 대응 `Unlock` 노드로 옮긴다. **잃는 게 아니라 형식이 바뀌는 것**이다. 세 마이그레이션 모두 **몇 개를 없앴는지 로그를 남긴다**(조용한 삭제 금지).
+- **⑦ gear 굴림 극소화** — `F-008` §3.10.1. 던전 굴림 `±10% → ±5%`(구 값은 **스펙 상한 초과**였다). 빌드 변주의 주도권은 `rolledIdentitySkillId` + 결속으로 넘어갔고 굴림은 「같은 건이라도 미세하게 다르다」만 남는다. 상점 ±2%는 미구현(상점이 gear 굴림을 아직 굴리지 않는다) — M7 잭팟에서 함께.
+- **⑧ `hub_economy_panel` = 상점 패널로 축소.** 분석 의뢰·생본 구매·중복 sink 제거 → 무기고(gear)·보급(소모품)·창고 열람. `F-009` §3.9.3이 상점을 **폐지가 아니라 개편**으로 두었고, 마석 티어 판매는 §3.9.5 = Phase 5(M7)라 지금 팔 것이 그것뿐이다.
+- **⚠️ 판정(사용자 확정):** ⓐ 스태시 49종 → **소멸만**(플테 플래그가 트리를 열어 두므로 모딩은 계속 가능). ⓑ gear 굴림 → **극소화**(폐기 아님). ⓒ `Unlock` 비용 → **tier 차등**.
+- **`PENDING-PROP` 1건:** **모딩 시술비**는 `F-008` §3.10의 「재구매」를 게임이 구체화한 것이다. 가격 축(구 생본가 승계)·`scribe_shop` tier 게이트 유지가 스펙 의도와 맞는지 판정 필요.
+- **영향 파일:** `ability_dispatch.gd` · `skill_cast.gd` · `party_member.gd` · `backpack.gd` · `stash.gd` · `hub_profile.gd` · `slice01_data.gd` · `loot_service.gd` · `dungeon_run.gd` · `run_end_controller.gd` · `item_drop.gd` · `main.gd` · `inventory_ui.gd` · `equip_panel.gd` · `inventory_grid.gd` · `item_factory.gd` · `settlement_panel.gd` · `skill_text.gd` · `controlled_sheet.gd` · `hub_economy_panel.gd` · `hub_modding_panel.gd` · **`affix_roller.gd`(삭제)** · `skill_tree.json` · `skillbooks.json` · `display_names.json` · `id_registry.json` · `tools/hub_smoke.gd` · `tools/party_pool_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **12/12 PASS** — 신규: **소스 텍스트로 「탄 없음」을 단언**(`ability_dispatch`·`dungeon_run`·`combat_sandbox`·`party_member`·`skill_cast` 5파일에 `inst.charges`/`charges_max` 0건 + dispatch에 `manastone_cost_for`/`spend_manastone` 실재 + 입력 2경로에 `manastone_count` 실재). *DRIFT-145가 표시만 내리고 게이트를 남긴 재발을 막으려면 「있음」이 아니라 **「없음」을 단언**해야 한다.* · 분석/생본/`is_shop_unlocked` **API 부재 단언**(폐기는 "안 쓰는 코드"로 두면 되살아난다) · `affix_roller` 파일 부재 · `ItemFactory.skillbook_item` 부재 · `charges_max` 데이터 잔존 0 · **슬롯 인스턴스에 `charges`/`affix` 필드 부재** · 모딩 시술 4단 게이트(locked/tier_ceiling/scrap/성공 차감) · 구 분석 해금 → 트리 이전 · 스타터 프리모딩 4역할 · 시드 낱개 스킬북 0 · **트리 `Unlock`이 49종 전수 커버**(이게 깨지면 그 AB는 영원히 못 연다) · 구 세이브 스킬북 소멸(스태시·가방, 다른 종류는 보존).
+- **상태:** LOGGED · M5 완료 · **시술비 `PENDING-PROP`**.

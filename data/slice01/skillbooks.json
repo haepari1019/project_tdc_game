@@ -9,7 +9,6 @@
         "Tank"
       ],
       "range_band": "Melee",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_strike",
         "cooldown_s": 2,
@@ -28,7 +27,6 @@
         "DPS"
       ],
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_poison",
         "element": "poison",
@@ -54,7 +52,6 @@
         "Tank"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_stun",
         "cooldown_s": 8,
@@ -75,7 +72,6 @@
         "Nuker"
       ],
       "range_band": "Long",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
         "element": "cold",
@@ -109,7 +105,6 @@
         "Nuker": "B2"
       },
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
         "element": "fire",
@@ -137,7 +132,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 6,
@@ -156,7 +150,6 @@
         "Tank"
       ],
       "range_band": "Melee",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_dr",
         "cooldown_s": 16,
@@ -179,7 +172,6 @@
         "Healer": "B3"
       },
       "range_band": "Mid",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_dr",
         "cooldown_s": 16,
@@ -198,7 +190,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_shield",
         "cooldown_s": 9,
@@ -219,7 +210,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_dr",
         "cooldown_s": 14,
@@ -238,7 +228,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_ward_heal",
         "cooldown_s": 11,
@@ -261,7 +250,6 @@
         "Nuker": "B2"
       },
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_vulnerable",
         "single_target": true,
@@ -282,7 +270,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_haste",
         "cooldown_s": 11,
@@ -300,7 +287,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_shield",
         "cooldown_s": 14,
@@ -319,7 +305,6 @@
         "Nuker"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_stealth",
         "cooldown_s": 14,
@@ -337,7 +322,6 @@
         "DPS"
       ],
       "range_band": "Long",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_channeling",
         "channel_shape": "line",
@@ -362,7 +346,6 @@
         "DPS"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_channeling",
         "channel_shape": "cone",
@@ -385,7 +368,6 @@
         "DPS"
       ],
       "range_band": "Mid",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_channeling",
         "channel_shape": "cloud",
@@ -411,7 +393,6 @@
         "DPS"
       ],
       "range_band": "Melee",
-      "charges_max": 40,
       "cast": {
         "kind": "skillbook_channeling",
         "channel_shape": "nova",
@@ -434,7 +415,6 @@
         "Tank"
       ],
       "range_band": "Melee",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_barrier",
         "cooldown_s": 10,
@@ -455,7 +435,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_purge",
         "cooldown_s": 13,
@@ -473,7 +452,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_silence",
         "cooldown_s": 12,
@@ -497,7 +475,6 @@
         "Nuker": "B1"
       },
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
         "element": "lightning",
@@ -525,7 +502,6 @@
         "DPS": "B3"
       },
       "range_band": "Long",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_bolt",
         "single_target": true,
@@ -548,7 +524,6 @@
         "Nuker"
       ],
       "range_band": "Melee",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_strike",
         "cooldown_s": 16,
@@ -571,7 +546,6 @@
         "Nuker"
       ],
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_blink",
         "cooldown_s": 4,
@@ -590,7 +564,6 @@
         "Nuker"
       ],
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_blink",
         "cooldown_s": 8,
@@ -612,7 +585,6 @@
         "Nuker"
       ],
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_blink",
         "cooldown_s": 8,
@@ -639,7 +611,6 @@
         "Nuker": "B1"
       },
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
         "cooldown_s": 5,
@@ -665,7 +636,6 @@
         "Nuker": "B2"
       },
       "range_band": "Long",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_polymorph",
         "single_target": true,
@@ -686,7 +656,6 @@
         "Nuker"
       ],
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_dash",
         "single_target": true,
@@ -712,7 +681,6 @@
         "DPS": "B2"
       },
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_silence",
         "single_target": true,
@@ -734,7 +702,6 @@
         "Tank"
       ],
       "range_band": "Melee",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_barrier",
         "shape": "dome",
@@ -753,7 +720,6 @@
         "Tank"
       ],
       "range_band": "Melee",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_reflect",
         "cooldown_s": 9,
@@ -772,7 +738,6 @@
         "Tank"
       ],
       "range_band": "Melee",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_reflect",
         "cooldown_s": 12,
@@ -797,7 +762,6 @@
         "Nuker": "B2"
       },
       "range_band": "Mid",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
         "cooldown_s": 6,
@@ -831,7 +795,6 @@
         "DPS": "B1"
       },
       "range_band": "Long",
-      "charges_max": 80,
       "cast": {
         "kind": "skillbook_bolt",
         "single_target": true,
@@ -860,7 +823,6 @@
         "DPS": "B1"
       },
       "range_band": "Mid",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_bolt",
         "element": "lightning",
@@ -888,7 +850,6 @@
         "DPS": "B2"
       },
       "range_band": "Long",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_bolt",
         "single_target": true,
@@ -916,7 +877,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 14,
@@ -939,7 +899,6 @@
         "DPS": "B2"
       },
       "range_band": "Long",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_bolt",
         "single_target": true,
@@ -964,7 +923,6 @@
         "Tank"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_taunt",
         "cooldown_s": 12,
@@ -986,7 +944,6 @@
         "Tank"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_taunt",
         "cooldown_s": 11,
@@ -1006,7 +963,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_relocate_ally",
         "cooldown_s": 14,
@@ -1023,7 +979,6 @@
         "Healer"
       ],
       "range_band": "Mid",
-      "charges_max": 50,
       "cast": {
         "kind": "skillbook_reveal",
         "cooldown_s": 10,
@@ -1039,7 +994,6 @@
         "Nuker"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_pin",
         "single_target": true,
@@ -1061,7 +1015,6 @@
         "DPS"
       ],
       "range_band": "Long",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_root",
         "cooldown_s": 16,
@@ -1083,7 +1036,6 @@
         "Nuker"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_tether",
         "single_target": true,
@@ -1108,7 +1060,6 @@
         "Nuker"
       ],
       "range_band": "Mid",
-      "charges_max": 60,
       "cast": {
         "kind": "skillbook_execute",
         "single_target": true,
@@ -1127,5 +1078,6 @@
       "skill_family": "Burst"
     }
   ],
-  "_note_family": "`skill_family` = spec **SSOT 파생**(U3 기본값): AB md frontmatter `skillFamily` 39건 + `D-012` 표 4열 10건. 게임에서 재분류하지 않았다 — 분류 축을 두 벌 만들면 곧 갈라진다. gear의 `allowed_slot_families`가 이걸 화이트리스트로 읽는다(F-008 §3.10 archetype 제한)."
+  "_note_family": "`skill_family` = spec **SSOT 파생**(U3 기본값): AB md frontmatter `skillFamily` 39건 + `D-012` 표 4열 10건. 게임에서 재분류하지 않았다 — 분류 축을 두 벌 만들면 곧 갈라진다. gear의 `allowed_slot_families`가 이걸 화이트리스트로 읽는다(F-008 §3.10 archetype 제한).",
+  "_note_charges": "`charges_max` **제거**(M5 · `D-018` §9 Deprecated) — 시전 자원은 **마석 하나**다(`F-009` §3.8, 비용 축 = `manastones.json` `cast_cost_by_tier` × 이 행의 `tier`). 탄은 표시가 먼저 내려가고(DRIFT-145) 게이트가 남아 **보이지 않는 두 번째 자원**이 됐던 이력이 있다."
 }

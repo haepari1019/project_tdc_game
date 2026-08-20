@@ -180,10 +180,17 @@ func _process(_delta: float) -> void:
 					s.key.add_theme_color_override("font_color", Color(0.5, 0.77, 1.0))   # 하늘색 '자동' = 패시브(키 누름 불가)
 					s.key.text = "자동"
 				else:
-					s.key.add_theme_color_override("font_color", Color(1.0, 0.5, 0.25) if _pen else Color(0.92, 0.92, 0.92))
-					# 「Q·8」의 8은 charges였는데, 실제 소모는 마석이라 **거짓 정보**였다. 마석 비용으로 교체.
+					# 「Q·8」의 8은 탄(charges)이었는데 실제 소모는 마석이라 **거짓 정보**였다(DRIFT-145).
+					# M5에서 탄이 폐기돼 이제 ◈ 하나가 유일한 시전 자원이다 — 그러니 **못 쓸 때 그렇게 보여야**
+					# 한다. 비용만 적어 두고 누르면 안 나가는 건 「고장」으로 읽힌다.
 					var _mc: int = Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", "")))
+					var _have: int = int(_combat.manastone_count()) if _combat != null and _combat.has_method("manastone_count") else -1
+					var _broke: bool = _mc > 0 and _have >= 0 and _have < _mc
+					var _kcol := Color(0.72, 0.55, 1.0) if _broke else (Color(1.0, 0.5, 0.25) if _pen else Color(0.92, 0.92, 0.92))
+					s.key.add_theme_color_override("font_color", _kcol)
 					s.key.text = "%s%s%s" % [key, ("·◈%d" % _mc) if _mc > 0 else "", ("▼" if _pen else "")]
+					if _broke:
+						s.radial.set_icon_color(inst.color.darkened(0.55))   # 자원 부족 = 아이콘도 죽인다
 				s.radial.tooltip_text = _sub_tip(m, inst, key, cdmax, idx)
 
 
@@ -215,7 +222,7 @@ func _skill_tip(m, header: String) -> String:
 	return "\n".join(lines)
 
 
-## 보조(Q/E/R) 스킬북 슬롯 툴팁 — 표시명 + 설명문 + 탄/쿨 + affix(색) + 비주력 패널티(색) +
+## 보조(Q/E/R) 슬롯 툴팁 — 표시명 + 설명문 + 마석/쿨 + 비주력 패널티(색) +
 ## 결속 오버레이(다른 색: identity 연동으로 추가된 효과). BBCode. ref: F-020 §3.7 · binding_overlays.gd.
 func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) -> String:
 	var kind := String(inst.params.get("kind", ""))
@@ -234,7 +241,6 @@ func _sub_tip(m: Node, inst: Dictionary, key: String, cdmax: float, idx: int) ->
 			"#ff8080" if short else "#b48aff", ms_cost, "∞" if have < 0 else str(have)])
 	if bool(inst.params.get("auto_disengage", false)):   # 이탈 패시브(007b) — 액티브로 누를 수 없음
 		lines.insert(1, "[color=#7fc4ff]⚙ 패시브 · 저HP 시 자동 발동 (직접 사용 불가)[/color]")
-	lines.append_array(SkillText.affix_lines(inst.get("affix", {})))
 	var bp := SkillText.band_pct(String(inst.get("base_ability_id", "")), String(m.class_id))
 	if bp > 0:
 		lines.append(SkillText.band_line(bp))

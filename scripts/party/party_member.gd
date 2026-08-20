@@ -92,7 +92,7 @@ var sub_ability_id: String = ""
 var sub_params: Dictionary = {}
 var sub_cooldown_s: float = 0.0
 ## Sub skillbook slots Q/E/R (F-009 §3.1 / DEC-20260611-002). Each = null or an instance:
-## {base_ability_id, display_name, params, charges, charges_max, cooldown_s, equip_classes, color}.
+## {base_ability_id, display_name, params, cooldown_s, equip_classes, color}.
 var skillbook_slots: Array = [null, null, null]
 ## Damage-absorbing shield (consumed before HP). IDA-020 Shield Policy.
 var shield: float = 0.0
@@ -385,7 +385,7 @@ func _apply_chapel_passive() -> void:
 	pass   # no-op — 호출부(_bind_gear)는 남겨 둔다: 되돌릴 일이 아니라 **여기가 비어 있음**이 기록이다.
 
 
-func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Dictionary = {}) -> void:
+func equip_skillbook_by_id(sb_slot: int, base_ability_id: String) -> void:
 	if sb_slot < 0 or sb_slot >= skillbook_slots.size() or base_ability_id == "":
 		return
 	var master: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
@@ -396,18 +396,15 @@ func equip_skillbook_by_id(sb_slot: int, base_ability_id: String, affix: Diction
 		# 이제는 소리를 낸다. 부팅 시 전수 검증은 tools/hub_smoke.gd(시드·픽스처 감사).
 		push_warning("[TDC] 스킬북 마스터 없음 — '%s' 슬롯 %d 미장착(폐기 AB 유령 참조?)" % [base_ability_id, sb_slot])
 		return
-	# D-018 §7.6 affix_charges_small → chargesMax 가산(coeff affix와 별도).
-	var cmax := int(master.get("charges_max", 30)) + int(affix.get("charges", 0))
+	# ~~탄(charges)·affix~~ — **M5에서 폐기**(`D-018` §9). 시전 자원은 마석 하나(`F-009` §3.8)이고,
+	# 빌드 변주는 Identity 굴림 + 결속(`I-008`)이 소유한다. 슬롯 인스턴스에 남는 상태는 **쿨다운뿐**이다.
 	set_skillbook(sb_slot, {
 		"base_ability_id": base_ability_id,
 		"display_name": String(master.get("display_name", base_ability_id)),
 		"params": master.get("cast", {}),
-		"charges": cmax,
-		"charges_max": cmax,
 		"cooldown_s": 0.0,
 		"equip_classes": master.get("equip_classes", [class_id]),
 		"color": _base_color,
-		"affix": affix,   # D-018 §7.3 — coeffMult/cd_trade는 cast 시 적용(ability_dispatch)
 	})
 
 
@@ -797,7 +794,7 @@ func notify_kill(_enemy) -> void:
 
 
 ## DEBUG (combat sandbox): full reset to re-run an experiment — alive, full HP, all statuses +
-## cooldowns cleared, sub charges refilled, downed members revived.
+## cooldowns cleared, downed members revived.
 func debug_reset() -> void:
 	_alive = true
 	basic_enabled = true
@@ -828,7 +825,6 @@ func debug_reset() -> void:
 	binding_reset()   # P4a Kit Binding transient state (스택/ICD/만료타이머/표식)
 	for s in skillbook_slots:
 		if s != null:
-			s.charges = int(s.charges_max)
 			s.cooldown_s = 0.0
 	if _body_material:
 		_body_material.albedo_color = _base_color

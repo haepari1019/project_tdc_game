@@ -163,7 +163,7 @@ func _stash_at_cap() -> bool:
 		return false
 	var n := 0
 	for it in _loot.items:
-		if String(it.get("kind", "")) in ["gear", "skillbook"]:
+		if String(it.get("kind", "")) == "gear":
 			n += 1
 	return n >= int(hub.stash_capacity())
 
@@ -297,26 +297,6 @@ func add_gear_to_backpack(base_gear_id: String, at_risk: bool, inst: Dictionary 
 	return _backpack.add_item_dict(ItemFactory.gear_item(m, at_risk))
 
 
-
-
-## Add a looted skillbook to the backpack as an At-Risk run-inventory item. Skillbooks
-## stay At-Risk even when equipped (F-009 §3.7). Returns false if the backpack is full.
-## inst = 선택적 인스턴스 디스크립터 {affix?, charges?} — affix·잔여탄 보존(D-018 §7.3).
-func add_skillbook_to_backpack(base_ability_id: String, at_risk: bool, inst: Dictionary = {}) -> bool:
-	var m: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
-	if m.is_empty():
-		return false
-	var item := ItemFactory.skillbook_item(m, at_risk)
-	var affix: Dictionary = inst.get("affix", {})
-	if not affix.is_empty():
-		item["affix"] = affix
-		item["charges_max"] = int(item.get("charges_max", 0)) + int(affix.get("charges", 0))   # §7.6 탄 보너스
-		item["charges"] = int(item["charges_max"])
-	if inst.has("charges"):
-		item["charges"] = int(inst["charges"])    # 저장된 잔여 탄
-	if _run_carry_full():
-		return false
-	return _backpack.add_item_dict(item)
 
 
 # --- 참 (F-010 §3.11) — 인벤 점유 stat 오오라 ----------------------------------
@@ -525,7 +505,9 @@ func _load_backpack_from_autoload() -> void:
 			"gear":
 				add_gear_to_backpack(String(d.get("base_gear_id", "")), bool(d.get("at_risk", true)), d)   # rolled 보존(G2)
 			"skillbook":
-				add_skillbook_to_backpack(String(d.get("base_ability_id", "")), bool(d.get("at_risk", true)), d)   # affix·탄 보존
+				# **M5 — 스킬북 인스턴스 Frozen**(`D-018` §9). 구 세이브에 남아 있으면 소멸시킨다
+				# (사용자 판정: 보상 없음). 해금은 트리로 이미 이전됐다(`migrate_analysis_to_tree`).
+				push_warning("[TDC] M5 — 구 스킬북 '%s' 소멸(인스턴스 폐기, 해금은 트리 보존)" % d.get("base_ability_id", "?"))
 			"haul":
 				add_haul_to_backpack(String(d.get("haul_material_id", "")), bool(d.get("at_risk", true)), int(d.get("count", 1)))
 			"manastone":
@@ -565,24 +547,6 @@ func make_gear_stash_item(inst) -> Dictionary:
 		if (inst as Dictionary).has("rolls"):
 			m["rolls"] = (inst as Dictionary)["rolls"]
 	return ItemFactory.gear_item(m, true)
-
-
-## inst = stash 스킬북 인스턴스 {base_ability_id, affix?, charges?} (레거시=문자열). affix·잔여탄 캐리(D-018 §7.3).
-func make_skillbook_stash_item(inst) -> Dictionary:
-	var base := String(inst.get("base_ability_id", "")) if typeof(inst) == TYPE_DICTIONARY else String(inst)
-	var m := Slice01Data.get_skillbook_master(base)
-	if m.is_empty():
-		return {}
-	var it := ItemFactory.skillbook_item(m, true)
-	if typeof(inst) == TYPE_DICTIONARY:
-		var affix: Dictionary = (inst as Dictionary).get("affix", {})
-		if not affix.is_empty():
-			it["affix"] = affix
-			it["charges_max"] = int(it.get("charges_max", 0)) + int(affix.get("charges", 0))
-			it["charges"] = int(it["charges_max"])
-		if (inst as Dictionary).has("charges"):
-			it["charges"] = int((inst as Dictionary)["charges"])
-	return it
 
 
 ## 스태시 참 타일 — 허브 보관분(F-010 §3.11). 비스택이라 1항목 = 1타일.
@@ -679,8 +643,6 @@ func _revert_drag() -> void:
 	match String(_drag_src.get("kind", "grid")):
 		"gear":
 			_equip.revert_gear(int(_drag_src.char), String(_drag.get("base_gear_id", "")))
-		"sub":
-			_equip.revert_sub(int(_drag_src.char), int(_drag_src.slot), _drag)
 		_:
 			if _from != null:
 				_drag.w = _orig.w
@@ -824,8 +786,6 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 			_stow_to_backpack(grid, item)  # chest → backpack: auto-stow to free space
 		elif String(item.get("kind", "")) == "gear":
 			_equip.equip_gear_to_matching(grid, item)  # right-click → auto-equip to matching class
-		elif String(item.get("kind", "")) == "skillbook":
-			_equip.equip_sub_to_first(grid, item)  # right-click → first matching sub slot
 		elif String(item.get("kind", "")) == "consumable":
 			consumable_use_requested.emit(String(item.get("consumable_id", "")))  # → use (revive targeting)
 		accept_event()
@@ -873,7 +833,7 @@ func _do_discard(grid: InventoryGrid, item: Dictionary) -> void:
 func _drop_def(item: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for k in ["id", "w", "h", "color", "kind", "base_gear_id", "base_ability_id",
-			"haul_material_id", "consumable_id", "count", "charges", "charges_max"]:
+			"haul_material_id", "consumable_id", "count"]:
 		if item.has(k):
 			out[k] = item[k]
 	return out
@@ -1026,12 +986,6 @@ func _drop() -> void:
 			if not _equip.try_equip_gear(si, _drag):
 				_revert_drag()
 			placed = true
-	elif String(_drag.get("kind", "")) == "skillbook":
-		var ssi := _equip.sub_slot_under(mouse)
-		if ssi >= 0:
-			if not _equip.try_equip_sub(ssi, _drag):
-				_revert_drag()
-			placed = true
 	elif String(_drag.get("kind", "")) == "consumable":
 		var bi := _consumables.bar_slot_under(mouse)
 		if bi >= 0:
@@ -1056,12 +1010,12 @@ func _drop() -> void:
 			# 아니라 HubProfile 금고로 일원화 → '재료 모두 금고로' 버튼/금고 탭 사용. 스태시 내부 재배치는 예외.
 			var rearrange_in_stash: bool = _from == _loot and String(_drag_src.get("kind", "grid")) == "grid"
 			if target == _loot and _loot_is_stash and not rearrange_in_stash \
-					and not (String(_drag.get("kind", "")) in ["gear", "skillbook", "consumable"]):
+					and not (String(_drag.get("kind", "")) in ["gear", "consumable"]):
 				_msg("창고엔 기어·스킬북·소비만 — 재료(haul)는 금고/버튼으로")
 				_revert_drag()
 				placed = true   # 원위치 복귀 후 아래 공통 정리로 폴백 — 조기 return을 하면 드래그 상태/비주얼이
 				# 남아 다음 클릭에 한 번 더 놓여 '복제'되던 버그. placed=true는 재배치만 건너뜀.
-			if target == _loot and _loot_is_stash and not rearrange_in_stash and String(_drag.get("kind", "")) in ["gear", "skillbook"] and _stash_at_cap():
+			if target == _loot and _loot_is_stash and not rearrange_in_stash and String(_drag.get("kind", "")) == "gear" and _stash_at_cap():
 				_msg("창고 한도 초과 — 창고를 승급하거나 비워야 함")
 				_revert_drag()
 				placed = true   # 입금 거부(비파괴) — 기존 창고 아이템 유지

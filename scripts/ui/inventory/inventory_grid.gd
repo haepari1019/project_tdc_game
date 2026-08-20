@@ -192,17 +192,12 @@ func _make_node(item: Dictionary) -> Panel:
 	return p
 
 
-## Item tile caption: 스택류(consumable·haul)=보유 수, 스킬북=남은 탄수, 그 외(기어 등)=이름만.
+## Item tile caption: 스택류(consumable·haul·manastone)=보유 수, 그 외(기어 등)=이름만.
 ## (구: 차지 칸수 w×h — 불필요해 제거. 사용자 요청.)
 func _node_label(item: Dictionary) -> String:
 	var kind := String(item.get("kind", ""))
 	if kind == "consumable" or kind == "haul" or kind == "manastone":
 		return "%s\nx%d" % [String(item.id), int(item.get("count", 1))]
-	if kind == "skillbook":
-		# 탄(charges) 표시 폐지 — 실제 소모는 **마석**(F-009 §3.8)이라 탄수는 거짓 정보였다.
-		# 필드는 살아 있다(폐기는 M5) — 표시만 내려 두 탄약계가 동시에 보이는 혼란을 없앤다. DRIFT-145.
-		var mc := Slice01Data.manastone_cost_for(String(item.get("base_ability_id", "")))
-		return "%s\n◈%d" % [String(item.id), mc] if mc > 0 else String(item.id)
 	return String(item.id)   # 기어 등 — 이름만
 
 
@@ -231,7 +226,6 @@ func _item_tip(item: Dictionary) -> String:
 	var lines: Array = ["[b]%s[/b]" % id]   # 이름 = 헤더(굵게). 나머지 라인은 종류별 상세.
 	match String(item.get("kind", "")):
 		"gear": lines.append_array(_gear_tip(item))
-		"skillbook": lines.append_array(_skillbook_tip(item))
 		"consumable": lines.append("소모품 · 보유 x%d · 호버+Z/X/C 또는 드래그로 핫키 등록" % int(item.get("count", 1)))
 		"haul": lines.append("재료 (haul) · 금고/'재료 모두 금고로'로 입금")
 	var desc := String(ITEM_DESC.get(id, ""))
@@ -262,28 +256,8 @@ func _gear_tip(item: Dictionary) -> Array:
 	return out
 
 
-## Skillbook detail — 표시명(상단) + 풀 설명문(SkillText) + 쿨/장착 + affix(색구분). 액션바 툴팁과 동일 수준. F-009/D-018.
-func _skillbook_tip(item: Dictionary) -> Array:
-	var out: Array = []
-	out.append("[color=#9aa4b2]스킬북 (서브) · ◈ 마석 %d/시전 · At Risk[/color]" % Slice01Data.manastone_cost_for(String(item.get("base_ability_id", ""))))
-	var m: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
-	if not m.is_empty():
-		var cast: Dictionary = m.get("cast", {})
-		out.append(SkillText.describe(String(cast.get("kind", "")), cast))   # 풀 설명문 + 핵심 수치
-		var eq: Array = []
-		for c in m.get("equip_classes", []):
-			eq.append(Slice01Data.get_role_label(String(c)))
-		out.append("[color=#9aa4b2]쿨 %ss · 장착: %s[/color]" % [str(cast.get("cooldown_s", "?")), ", ".join(eq)])
-		var tier := String(m.get("tier", "Basic"))   # per-AB tier(스펙 abilityTier) — 등급 색구분
-		var tcol := "#9aa4b2"
-		if tier == "Advanced":
-			tcol = "#7fc8ff"
-		elif tier == "Master":
-			tcol = "#ffcf6b"
-		out.append("[color=%s]등급: %s[/color]" % [tcol, tier])
-	# D-018 §7.3 affix — 루팅 인스턴스 굴림. 색구분(긍정 초록/부정 빨강) 라인. {} = 무affix(스태시 base).
-	out.append_array(SkillText.affix_lines(item.get("affix", {})))
-	return out
+## ~~`_skillbook_tip`~~ — **M5 제거**. 스킬북 타일이 존재하지 않으므로 띄울 툴팁도 없다.
+## 슬롯 스킬의 상세는 액션바(`controlled_sheet`)와 모딩 패널이 보여준다.
 
 
 ## Grid cell for an item whose top-left is at `global_topleft` (screen). Used by the

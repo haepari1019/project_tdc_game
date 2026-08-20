@@ -126,22 +126,18 @@ func show_settlement(summary: Dictionary) -> void:
 ## Category roll-up (장비/스킬북/소모품) + total stacks for the summary line.
 func _category_summary(items: Array) -> String:
 	var g := 0
-	var s := 0
 	var c := 0
 	var hl := 0
 	var o := 0
 	for it in items:
 		match String(it.get("kind", "")):
 			"gear": g += 1
-			"skillbook": s += 1
 			"consumable": c += 1
 			"haul": hl += 1
 			_: o += 1
 	var parts: Array = []
 	if g > 0:
 		parts.append("장비 %d" % g)
-	if s > 0:
-		parts.append("스킬북 %d" % s)
 	if c > 0:
 		parts.append("소모품 %d" % c)
 	if hl > 0:

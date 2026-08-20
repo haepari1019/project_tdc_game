@@ -2,14 +2,14 @@ extends Node
 ## Backpack — the single persistent CARRIED inventory (At-Risk), the SoT for what the party brings
 ## into a run and keeps between runs (B-model unification). Distinct from Stash (safe storage).
 ##  · loose[]   = serializable item DESCRIPTORS in the pack (gear/skillbook/haul/consumable/generic).
-##  · equipped{} = per-member assignment {member_key: {gear: base_gear_id, subs: [{base_ability_id,charges}×3]}}.
+##  · equipped{} = per-member assignment {member_key: {gear: base_gear_id, slot_abilities: [{base_ability_id}×3]}}.
 ## Persisted as SaveProfile "backpack" section (single user://save.json). Loaded by BOTH the hub
 ## editor and the run inventory (autoload survives the scene change → it IS the hub→run bridge).
 ## SETTLE: extract keeps everything; death clears At-Risk = loose + equipped SUBS, but equipped GEAR
 ## is Safe (F-009 §3.7). ref: 사용자 B안 / F-007 / F-009 / DEC(meta-save).
 
-var loose: Array = []          # [{id, kind, base_gear_id|base_ability_id|haul_material_id|consumable_id, w, h, count?, charges?, charges_max?, at_risk}]
-var equipped: Dictionary = {}  # member_key(String) -> {"gear": base_gear_id|"", "subs": [ {base_ability_id, charges} | null ×3 ]}
+var loose: Array = []          # [{id, kind, base_gear_id|haul_material_id|manastone_id|charm_id|consumable_id, w, h, count?, at_risk}]
+var equipped: Dictionary = {}  # member_key(String) -> {"gear": base_gear_id|"", "slot_abilities": [ {base_ability_id} | null ×3 ]}
 var _seeded: bool = false
 ## 스타터 기어 id 스펙 정렬(GEAR-COR-000 §2) — 구 세이브의 _set id를 spec 슬러그로 1회 마이그레이션.
 const GEAR_ID_ALIAS := {
@@ -32,6 +32,7 @@ func _ready() -> void:
 		_seeded = true
 		_migrate_gear_ids()   # 구 세이브 _set id → spec 슬러그 (1회)
 		migrate_subs_to_gear()  # M4 — 멤버 서브 → gear 인스턴스 슬롯 (1회)
+		migrate_drop_skillbooks()  # M5 — 낱개 스킬북 소멸 (1회)
 
 
 ## Rewrite legacy starter gear ids (equipped + loose) to the spec slugs. ref: GEAR-COR-000 §2.
@@ -75,15 +76,10 @@ func _seed() -> void:
 	# 저작된 Q 슬롯 — `docs/design/dps_binding_kit.md` §공유3서브 + `BIND-019`(press_rod × IDA-024 ×
 	# AB-053 @ slot 0)가 이미 등재돼 있어 **첫 런부터 「초월」 결속이 실제로 걸린다**. Basic tier·DPS 주력
 	# 밴드(sub_bands = Nuker만 B2). 구 시드 AB-008은 slot-0 결속이 없어 GENERIC 폴백만 됐다.
-	# 스킬북 탄환수는 PIN하지 않음 — 로드 시 add_skillbook_to_backpack가 master(skillbooks.json charges_max,
-	# 현재 50~80)로 채움. (구 하드코딩 6/8/5가 새 값을 덮어쓰던 버그 수정. Slice01Data는 autoload 순서상
-	# _seed 시점엔 미준비 → 여기서 조회 불가, 그래서 charges 생략으로 master 위임.)
+	# ~~스타터 스킬북 5권~~ — **M5에서 제거**. `F-009` §3.1.1(StarterGrant 인스턴스)이 §3.9.4에서
+	# Deprecated 되고 **gear 프리모딩**으로 대체됐다(`F-008` §3.10.2). 슬롯 AB는 이제 물건이 아니라
+	# gear에 새겨진 등록이라 가방에 넣을 것 자체가 없다 — 아래 `equipped`의 Q 슬롯을 보라.
 	loose = [
-		{"id": "전방위 방벽", "kind": "skillbook", "base_ability_id": "AB-033", "w": 1, "h": 1, "at_risk": true},
-		{"id": "작열 폭발", "kind": "skillbook", "base_ability_id": "AB-053", "w": 1, "h": 1, "at_risk": true},
-		{"id": "전격 제압", "kind": "skillbook", "base_ability_id": "AB-030", "w": 1, "h": 1, "at_risk": true},
-		{"id": "침묵 결계", "kind": "skillbook", "base_ability_id": "AB-044", "w": 1, "h": 1, "at_risk": true},
-		{"id": "구명 견인", "kind": "skillbook", "base_ability_id": "AB-045", "w": 1, "h": 1, "at_risk": true},
 		{"id": "con_revive_scroll", "kind": "consumable", "consumable_id": "con_revive_scroll", "count": 3, "w": 1, "h": 1},
 		# F-009 §3.8 / F-020 §3.2.0 — 스타터 마석. **빈 마석으로 첫 ENC에 들어가면 슬롯 스킬이 통째로
 		# 잠긴다.** 수량 SSOT는 `manastones.json` `starter_grant`지만, 시드는 오토로드 순서상
@@ -97,12 +93,17 @@ func _seed() -> void:
 	# Worn starter Identity Gear per role (F-008 §3.7). Gear lives in equipped (Safe on death),
 	# NOT in the Stash library — equipping a spare from the stash consumes it; the worn gear here.
 	# `slot_abilities` = gear 인스턴스 귀속 Q/E/R (`D-019` §3). 스타터 gear는 슬롯 1칸이라
-	# 나머지 2칸은 트리 `Slot` 노드를 사기 전엔 잠겨 있다(`gear_skill_slot_count_max`).
+	# 나머지 2칸은 트리 `Slot` 노드(대장간 T2/T3)를 사기 전엔 잠겨 있다.
+	#
+	# **Q는 비워 두지 않는다** — `F-008` §3.10.2 스타터 프리모딩(Tank `AB-033` · DPS `AB-053` ·
+	# Nuker `AB-030` · Healer `AB-044`). 슬롯 AB가 물건이 아니게 된 뒤로 **여기가 비면 첫 런에
+	# 슬롯 스킬이 통째로 없다**(`F-020` §3.2.0 「첫 런 ≥1 슬롯」 위반). 각 AB는 트리에
+	# `starter_unlocked` 노드로도 등재돼 있어, 실수로 빼도 되끼울 수 있다.
 	equipped = {
-		"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "subs": [null, null, null], "slot_abilities": [null, null, null]},
-		"DPS": {"gear": "gear_ward_dps_press_rod", "subs": [null, null, null], "slot_abilities": [null, null, null]},
-		"Nuker": {"gear": "gear_ward_nuker_ruin_sight", "subs": [null, null, null], "slot_abilities": [null, null, null]},
-		"Healer": {"gear": "gear_ward_healer_mend_lantern", "subs": [null, null, null], "slot_abilities": [null, null, null]},
+		"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "slot_abilities": [{"base_ability_id": "AB-033"}, null, null]},
+		"DPS": {"gear": "gear_ward_dps_press_rod", "slot_abilities": [{"base_ability_id": "AB-053"}, null, null]},
+		"Nuker": {"gear": "gear_ward_nuker_ruin_sight", "slot_abilities": [{"base_ability_id": "AB-030"}, null, null]},
+		"Healer": {"gear": "gear_ward_healer_mend_lantern", "slot_abilities": [{"base_ability_id": "AB-044"}, null, null]},
 	}
 
 
@@ -155,7 +156,6 @@ func set_member_gear(member_key: String, base_gear_id: String, inst: Dictionary 
 		e = equipped.get(member_key, {})           # clear_gear_slots가 다시 쓴 걸 읽는다
 		e.erase("rolled_identity")
 		e.erase("rolls")
-		e["subs"] = [null, null, null]             # 구 모델 폴백도 같이 소멸(안 그러면 옛 서브가 부활한다)
 	if String(inst.get("rolled_identity_skill_id", "")) != "":
 		e["rolled_identity"] = String(inst["rolled_identity_skill_id"])
 	if typeof(inst.get("rolls", null)) == TYPE_DICTIONARY and not (inst["rolls"] as Dictionary).is_empty():
@@ -187,11 +187,8 @@ func gear_slot_count(member_key: String) -> int:
 	return clampi(1 + bonus, 1, maxi(cap, 1))
 
 
-func set_member_subs(member_key: String, subs: Array) -> void:
-	var e: Dictionary = equipped.get(member_key, {})
-	e["subs"] = subs
-	equipped[member_key] = e
-	save()
+## ~~`set_member_subs`~~ — **M5 제거**. 서브가 멤버에 붙던 시절의 API다. 슬롯은 gear가 소유하므로
+## `set_gear_slot_ability`(저수준) 또는 `equip_slot_ability`(검사+시술비)를 쓴다.
 
 
 func member_entry(member_key: String) -> Dictionary:
@@ -201,20 +198,15 @@ func member_entry(member_key: String) -> Dictionary:
 
 ## Death — equipped SUBS are At-Risk (lost), equipped GEAR is Safe (kept). F-009 §3.7.
 ## `slot_abilities`는 **건드리지 않는다** — gear 인스턴스에 귀속돼 있고 gear는 Safe다(`F-009` §3.7).
-## 죽어서 사라지는 건 낱개 스킬북(`loose`)과 잔탄(`subs`)뿐이다. 슬롯 AB가 사라지는 유일한 길은
-## **gear 교체**(D2 소멸, `clear_gear_slots`).
+## M5 이후 「장착분 중 At-Risk」는 **공집합**이다: 낱개(`loose`)는 `clear_loose`가 지우고, 슬롯 AB는
+## gear와 함께 Safe다. 함수는 호출부 계약으로 남긴다 — 나중에 At-Risk 장착분이 생기면 여기가 자리다.
 func clear_at_risk_equipped() -> void:
-	for k in equipped.keys():
-		var e: Dictionary = equipped[k]
-		e["subs"] = [null, null, null]
-		equipped[k] = e
-	save()
+	pass
 
 
-## Apply persisted equipped GEAR + SUBS to a LIVE party (run start / hub load). Keyed by class_id
-## (4 distinct roles). Gear overrides the starter spawn (F-008); equipping a sub resets it to max
-## 탄수, so we then RESTORE the persisted remaining charges (I5) — a partially-spent skillbook carries
-## its 탄수 across runs (F-009).
+## Apply persisted equipped GEAR + 슬롯 AB to a LIVE party (run start / hub load). Keyed by class_id
+## (4 distinct roles). Gear overrides the starter spawn (F-008). ~~탄수 복원(I5)~~ — M5에서 탄이
+## 폐기돼 런을 넘겨 이어갈 상태가 없다(마석은 인벤 소유라 이 경로와 무관하다).
 func apply_to_party(party) -> void:
 	if party == null or not party.has_method("get_members"):
 		return
@@ -234,40 +226,27 @@ func apply_to_party(party) -> void:
 				if e.has("rolls") and typeof(e["rolls"]) == TYPE_DICTIONARY and not (e["rolls"] as Dictionary).is_empty():
 					gm["rolls"] = e["rolls"]
 				m.equip_gear(gm)
-		# Q/E/R 슬롯 — **정본은 gear 인스턴스**(`D-019` §3). `subs`는 구 모델 폴백 + 탄수 보관용.
-		# gear 슬롯에 뭐가 끼워져 있으면 그게 이긴다. 같은 AB면 `subs`의 잔탄을 이어받는다.
+		# Q/E/R 슬롯 — **정본은 gear 인스턴스**(`D-019` §3). `subs`(구 모델)는 M5에서 읽기를 멈췄다.
 		if m.has_method("equip_skillbook_by_id"):
-			var subs: Array = e.get("subs", [])
 			var slots: Array = gear_slot_abilities(String(m.get("class_id")))
 			# `D-019` §3 `effectiveSlotAbilities` — **해금된 칸만** 살아난다. 잠긴 칸은 정본이 `null`이라
 			# 구 세이브가 3칸을 채워 뒀어도 여기서 잘린다(스타터 gear는 1칸). 조용히 자르지 않고 알린다.
 			var open_slots: int = gear_slot_count(String(m.get("class_id")))
 			for j in 3:
 				m.set_skillbook(j, null)   # 저장분이 정본 — 이전 상태를 먼저 비운다(모딩에서 뺀 슬롯이 남지 않게)
-				if j >= open_slots:
-					var blocked = slots[j] if slots[j] != null else (subs[j] if j < subs.size() else null)
-					if typeof(blocked) == TYPE_DICTIONARY:
-						push_warning("[TDC] %s 슬롯 %d 잠김(열린 칸 %d) — '%s' 미장착. gear 교체 또는 트리 Slot 노드 필요." % [String(m.get("class_id")), j, open_slots, String(blocked.get("base_ability_id", "?"))])
-					continue
-				var s = subs[j] if j < subs.size() else null
 				var g = slots[j]
+				if j >= open_slots:
+					if typeof(g) == TYPE_DICTIONARY:
+						push_warning("[TDC] %s 슬롯 %d 잠김(열린 칸 %d) — '%s' 미장착. gear 교체 또는 트리 Slot 노드 필요." % [String(m.get("class_id")), j, open_slots, String(g.get("base_ability_id", "?"))])
+					continue
 				if typeof(g) == TYPE_DICTIONARY and String(g.get("base_ability_id", "")) != "":
-					# gear 슬롯이 정본 — subs가 다른 AB를 들고 있으면 탄수는 버린다(다른 스킬이니까).
-					if typeof(s) != TYPE_DICTIONARY or String(s.get("base_ability_id", "")) != String(g["base_ability_id"]):
-						s = {"base_ability_id": String(g["base_ability_id"])}
-				if typeof(s) == TYPE_DICTIONARY and String(s.get("base_ability_id", "")) != "":
-					m.equip_skillbook_by_id(j, String(s["base_ability_id"]), s.get("affix", {}))   # D-018 affix 복원
-					# Restore persisted remaining 탄수 (equip set it to max). I5 charge persistence.
-					if s.has("charges"):
-						var inst = m.get_skillbook(j)
-						if inst != null:
-							inst.charges = clampi(int(s["charges"]), 0, int(inst.charges_max))
+					m.equip_skillbook_by_id(j, String(g["base_ability_id"]))
 
 
 ## **M4 마이그레이션** — 구 모델은 서브가 **멤버**에 붙어 있었다(`equipped[cls].subs`). P4b 정본은
 ## **gear 인스턴스 귀속**(`D-019` §3 `equippedSlotAbilities[3]`)이라, 착용 중인 gear 쪽으로 1회 옮긴다.
-## 옮긴 뒤에도 `subs`를 **지우지 않는다** — M5(F-009 폐기) 전까지 구 경로 폴백이 남아 있고, 지우면
-## 롤백이 불가능해진다. 읽기 우선순위는 gear > subs.
+## 옮긴 뒤 `subs`를 **비운다**(M5) — 읽는 곳이 사라졌으므로 남겨 두면 죽은 데이터이고, 언젠가
+## 누가 되살려 두 벌의 진실이 된다.
 func migrate_subs_to_gear() -> void:
 	var moved := 0
 	for k in equipped.keys():
@@ -282,9 +261,28 @@ func migrate_subs_to_gear() -> void:
 				slots[j] = {"base_ability_id": String(sdd["base_ability_id"])}
 				moved += 1
 		e["slot_abilities"] = slots
+		e.erase("subs")
 		equipped[k] = e
 	if moved > 0:
 		print("[TDC] M4 마이그레이션 — 멤버 서브 %d개를 gear 슬롯으로 이관" % moved)
+	save()
+
+
+## **M5 마이그레이션(1회)** — 가방에 남은 낱개 스킬북을 **소멸**시킨다(`D-018` §9 인스턴스 Frozen ·
+## 사용자 판정: 보상 없음). 해금은 잃지 않는다 — `HubProfile.migrate_analysis_to_tree`가 구 분석
+## 해금을 트리 노드로 이미 옮겼다. 조용히 지우지 않고 **몇 권인지 알린다**.
+func migrate_drop_skillbooks() -> void:
+	var kept: Array = []
+	var dropped := 0
+	for it in loose:
+		if typeof(it) == TYPE_DICTIONARY and String(it.get("kind", "")) == "skillbook":
+			dropped += 1
+			continue
+		kept.append(it)
+	if dropped == 0:
+		return
+	loose = kept
+	print("[TDC] M5 마이그레이션 — 가방 스킬북 %d권 소멸(해금은 트리 보존)" % dropped)
 	save()
 
 
@@ -312,6 +310,8 @@ func set_gear_slot_ability(member_key: String, slot: int, base_ability_id: Strin
 ##   `family`    : `allowed_slot_families` 불일치 또는 Role Gate 불통과 (`F-008` §3.10 / `F-009` §3.2.1)
 ##   `locked`    : 트리 `Unlock` 노드 미구매 (`F-020` §3.10)
 ##   `dup`       : 같은 AB가 다른 칸에 이미 있음 — 한 gear에 같은 스킬 두 번은 막는다
+##   `scrap`     : 모딩 시술비 부족 (`F-008` §3.10 — 해금은 허가일 뿐, 새기는 데는 매번 값을 치른다)
+##   `tier_ceiling`: `scribe_shop` tier가 이 AB의 tier를 못 받음
 func slot_equip_check(member_key: String, slot: int, base_ability_id: String) -> Dictionary:
 	if base_ability_id == "":
 		return {"ok": false, "reason": "invalid"}
@@ -323,7 +323,7 @@ func slot_equip_check(member_key: String, slot: int, base_ability_id: String) ->
 	if not Slice01Data.gear_allows_slot_ability(gid, base_ability_id, member_key):
 		return {"ok": false, "reason": "family"}
 	var hp := get_node_or_null("/root/HubProfile") if is_inside_tree() else null
-	if hp != null and not bool(hp.is_shop_unlocked(base_ability_id)):
+	if hp != null and not bool(hp.is_ability_unlocked(base_ability_id)):
 		return {"ok": false, "reason": "locked"}
 	var cur: Array = gear_slot_abilities(member_key)
 	for j in cur.size():
@@ -332,12 +332,23 @@ func slot_equip_check(member_key: String, slot: int, base_ability_id: String) ->
 	return {"ok": true}
 
 
-## 검사 후 장착. 통과하면 `set_gear_slot_ability`로 내려간다(그쪽은 검사 없는 저수준 쓰기 — 마이그레이션·
-## 테스트가 쓴다). UI 경로는 **반드시 이쪽**을 쓸 것.
+## 검사 후 장착 — **시술비를 여기서 치른다**(`HubProfile.mod_install`). 통과하면 `set_gear_slot_ability`로
+## 내려간다(그쪽은 검사 없는 저수준 쓰기 — 마이그레이션·테스트가 쓴다). UI 경로는 **반드시 이쪽**을 쓸 것.
+## 같은 칸에 이미 있는 AB를 다시 누르면 **돈을 두 번 받지 않는다**(무변경).
 func equip_slot_ability(member_key: String, slot: int, base_ability_id: String) -> Dictionary:
+	var cur: Array = gear_slot_abilities(member_key)
+	if slot >= 0 and slot < cur.size() and typeof(cur[slot]) == TYPE_DICTIONARY 			and String(cur[slot].get("base_ability_id", "")) == base_ability_id:
+		return {"ok": true, "reason": "unchanged", "cost": 0}
 	var chk := slot_equip_check(member_key, slot, base_ability_id)
-	if bool(chk.get("ok", false)):
-		set_gear_slot_ability(member_key, slot, base_ability_id)
+	if not bool(chk.get("ok", false)):
+		return chk
+	var hp := get_node_or_null("/root/HubProfile") if is_inside_tree() else null
+	if hp != null:
+		var pay: Dictionary = hp.mod_install(base_ability_id)
+		if not bool(pay.get("ok", false)):
+			return pay                              # scrap / tier_ceiling / locked — 슬롯은 안 건드린다
+		chk["cost"] = int(pay.get("cost", 0))
+	set_gear_slot_ability(member_key, slot, base_ability_id)
 	return chk
 
 
@@ -355,9 +366,9 @@ func clear_gear_slots(member_key: String) -> Array:
 	return lost
 
 
-## Capture a live party's equipped GEAR + SUBS into the persistent store (extract / hub deploy). One save.
-## 슬롯 AB(`slot_abilities`)는 **캡처하지 않는다** — 그건 gear 인스턴스 소유라 허브 모딩에서만 바뀐다.
-## 런 중에 바뀌는 건 `charges`뿐이고 그건 `subs`가 계속 들고 있다.
+## Capture a live party's equipped GEAR into the persistent store (extract / hub deploy). One save.
+## 슬롯 AB(`slot_abilities`)는 **캡처하지 않는다** — gear 인스턴스 소유라 허브 모딩에서만 바뀐다.
+## M5 이후 런 중에 변하는 슬롯 상태가 아예 없다(탄 폐기) — 캡처할 것은 gear와 그 굴림뿐이다.
 func capture_from_party(party) -> void:
 	if party == null or not party.has_method("get_members"):
 		return
@@ -372,15 +383,6 @@ func capture_from_party(party) -> void:
 			e["rolls"] = gr
 		else:
 			e.erase("rolls")
-		if m.has_method("get_skillbook"):
-			var subs: Array = []
-			for j in 3:
-				var sb = m.get_skillbook(j)
-				if sb != null:
-					subs.append({"base_ability_id": String(sb.get("base_ability_id", "")), "charges": int(sb.get("charges", 0)), "affix": sb.get("affix", {})})
-				else:
-					subs.append(null)
-			e["subs"] = subs
 		equipped[String(m.get("class_id"))] = e
 	save()
 
@@ -390,9 +392,8 @@ func capture_from_party(party) -> void:
 func _strip(it: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key in ["id", "kind", "base_gear_id", "base_ability_id", "haul_material_id", "manastone_id", "charm_id",
-			"consumable_id", "w", "h", "count", "charges", "charges_max", "at_risk", "equipped",
-			"rolled_identity_skill_id", "rolls",    # F-008 §3.7 gear 인스턴스 굴림 보존(G2)
-			"affix"]:                               # D-018 §7.3/§7.6 스킬북 affix 인스턴스 보존
+			"consumable_id", "w", "h", "count", "at_risk", "equipped",
+			"rolled_identity_skill_id", "rolls"]:   # F-008 §3.7 gear 인스턴스 굴림 보존(G2)
 		if it.has(key):
 			out[key] = it[key]
 	return out

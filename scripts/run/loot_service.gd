@@ -1,12 +1,11 @@
 extends Node3D
 ## Per-kill loot drops (F-009 / F-010) — on CombatController.enemy_defeated, rolls one drop
-## (skillbook from the enemy's lootable AB > gear; else NO drop) and spawns an ItemDrop world
+## (공유 재료 from the enemy's lootable AB > gear; else NO drop) and spawns an ItemDrop world
 ## pickup at the death position. setup(inventory_ui); connect combat.enemy_defeated → on_enemy_defeated.
 ## (generic filler loot removed per 사용자 요청 — only lootable skill / 장비 / haul(ENC clear) drop.)
 
 const ItemDrop := preload("res://scripts/world/objects/item_drop.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
-const AffixRoller := preload("res://scripts/run/affix_roller.gd")   # D-018 §7.6 스킬북 affix roll
 const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")   # 상자 소모품 item dict
 
 # ~~per-kill 스킬북 드롭~~ — **폐기**(`F-009` §3.9.2 Deprecated 행, M4-8). 적을 죽여 얻는 건 이제
@@ -25,7 +24,7 @@ const KILL_SCRAP := 1                    # 스킬 미드롭 킬당 재화(소량
 const CHEST_HAUL_COMMON := Vector2i(1, 3)   # 일반(안좋은) 상자: 재료 1~3 (재료 주 공급원)
 const CHEST_HAUL_RARE := Vector2i(1, 1)     # 희귀(좋은) 상자: 재료 1 + 스킬/기어 집중
 const CHEST_SKILL_COMMON := 0.40
-const CHEST_SKILL_RARE := 0.90              # 희귀 상자 = 스킬 거의 + affix 강제
+const CHEST_SKILL_RARE := 0.90              # 희귀 상자 = 공유 핵 거의 확정
 const CHEST_GEAR_COMMON := 0.15
 const CHEST_GEAR_RARE := 0.50
 const CHEST_CONSUM_COMMON := 0.25           # 소모품(부활 두루마리 등) — 상자에서 획득
@@ -55,7 +54,7 @@ func setup(inventory_ui: Node) -> void:
 
 
 ## Drop a backpack item back into the world (player Shift+우클릭 버리기) — a re-pickable ItemDrop
-## beside the player. Reuses the item's def so pickup routing (gear/skillbook/haul/generic) restores it.
+## beside the player. Reuses the item's def so pickup routing (gear/haul/consumable/generic) restores it.
 func drop_item(def: Dictionary, world_pos: Vector3) -> void:
 	if def.is_empty():
 		return
@@ -151,7 +150,7 @@ func _record_class_drop(equip_classes: Array) -> void:
 
 
 ## 상자 내용물 빌드 — 티어별(common/rare) 재료·스킬·기어 인스턴스 item dict 배열(그리드 col/row 포함).
-## 일반(안좋은)=재료 多 + 스킬/기어 적음(자연 affix). 희귀(좋은)=재료 1 + 스킬/기어 多 + **affix 보장**.
+## 일반(안좋은)=재료 多 + 기어 적음. 희귀(좋은)=재료 1 + **공유 핵** + 기어 多.
 ## 콘텐츠는 global randf(다양성), 배치 시드는 호출측(dungeon_run)이 담당. ref: F-009/F-010.
 func build_chest_items(tier: String) -> Array:
 	var rare := tier == "rare"
@@ -166,15 +165,11 @@ func build_chest_items(tier: String) -> Array:
 		var span: Vector2i = CHEST_HAUL_RARE if rare else CHEST_HAUL_COMMON
 		for _h in randi_range(span.x, span.y):
 			out.append(_make_haul_drop_def(String(haul_ids[randi() % haul_ids.size()])))
-	# 2) 스킬북 — 희귀 상자는 거의 항상 + affix 강제. 일반은 자연 18% affix.
+	# 2) ~~스킬북~~ — **M5에서 제거**. 스킬북 인스턴스가 Frozen(`D-018` §9)이라 상자에서 나올 것이
+	# 없다. 상자의 스킬 축은 **공유 재료**가 대신하며(위 haul), 실제 스킬은 트리 해금 + 모딩이다.
+	# 대신 재료를 그만큼 더 준다 — 상자를 열 이유가 사라지면 탐색이 죽는다.
 	if randf() < (CHEST_SKILL_RARE if rare else CHEST_SKILL_COMMON):
-		var rows: Array = Slice01Data.get_skillbook_rows()
-		if not rows.is_empty():
-			var base := String((rows[randi() % rows.size()] as Dictionary).get("base_ability_id", ""))
-			var def := _make_skillbook_drop_def(base)   # 자연 18% affix 내장
-			if rare and (def.get("affix", {}) as Dictionary).is_empty():
-				def["affix"] = AffixRoller.roll_forced()   # 좋은 상자 = affix 보장
-			out.append(def)
+		out.append(_make_haul_drop_def(SHARED_CORE_ID if rare else SHARED_SHARD_ID))
 	# 3) 기어 — 희귀 상자가 더 잘(기어는 항상 rolled 보유).
 	if randf() < (CHEST_GEAR_RARE if rare else CHEST_GEAR_COMMON):
 		var grows: Array = Slice01Data.get_gear_rows()
@@ -222,20 +217,6 @@ func _make_haul_drop_def(haul_material_id: String) -> Dictionary:
 	}
 
 
-func _make_skillbook_drop_def(base_ability_id: String) -> Dictionary:
-	var m: Dictionary = Slice01Data.get_skillbook_master(base_ability_id)
-	var classes: Array = m.get("equip_classes", [])
-	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
-	return {
-		"id": String(m.get("display_name", base_ability_id)),
-		"w": 1, "h": 1,
-		"color": UnitVisuals.role_color(cid).lightened(0.15),
-		"kind": "skillbook",
-		"base_ability_id": base_ability_id,
-		"affix": AffixRoller.roll(),   # D-018 §7.6 — 루팅만 18% affix(상점 Raw=0%). {} = 무affix.
-	}
-
-
 func _make_gear_drop_def(base_gear_id: String) -> Dictionary:
 	var m: Dictionary = Slice01Data.get_gear_master(base_gear_id)
 	var classes: Array = m.get("equip_classes", [])
@@ -247,7 +228,10 @@ func _make_gear_drop_def(base_gear_id: String) -> Dictionary:
 		"color": UnitVisuals.role_color(cid),
 		"kind": "gear",
 		"base_gear_id": base_gear_id,
-		"rolls": {"dmg_mult": snappedf(randf_range(0.90, 1.10), 0.01), "cd_mult": snappedf(randf_range(0.94, 1.06), 0.01), "potency_mult": snappedf(randf_range(0.92, 1.10), 0.01)},
+		# `F-008` §3.10.1 **극소화** — 던전 굴림 상한 **±5%**(구 ±10%는 스펙 상한 초과였다). 빌드 변주의
+		# 주도권은 `rolledIdentitySkillId` + 결속으로 넘어갔고, 굴림은 「같은 건이라도 미세하게 다르다」
+		# 수준만 남긴다. 상점 gear는 ±2%(`hub_profile` 쪽 미구현 — M7 잭팟에서 함께).
+		"rolls": {"dmg_mult": snappedf(randf_range(0.95, 1.05), 0.01), "cd_mult": snappedf(randf_range(0.95, 1.05), 0.01), "potency_mult": snappedf(randf_range(0.95, 1.05), 0.01)},
 	}
 	var rid := _roll_identity(base_gear_id)
 	if rid != "":

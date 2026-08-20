@@ -132,9 +132,6 @@ func get_effect_label(kind: String) -> String:
 func get_role_label(class_id: String) -> String:
 	return String((_display.get("roles", {}) as Dictionary).get(class_id, class_id))
 
-func get_affix_label(affix_id: String) -> String:
-	return String((_display.get("affixes", {}) as Dictionary).get(affix_id, affix_id))
-
 func get_skill_desc(kind: String) -> String:
 	return String((_display.get("skill_desc", {}) as Dictionary).get(kind, ""))
 
@@ -640,7 +637,7 @@ func _parse_gear(doc: Dictionary, errors: Array[String]) -> void:
 
 
 ## Skillbook masters (F-009 §3.2 / DEC-20260611-002). base_ability_id (Shared AB,
-## D-016), equip_classes (role gate), charges_max (탄수), player-cast effect (cast).
+## D-016), equip_classes (role gate), tier (마석 비용 축), player-cast effect (cast).
 func _parse_skillbooks(doc: Dictionary, errors: Array[String]) -> void:
 	var raw = doc.get("skillbooks", [])
 	if typeof(raw) != TYPE_ARRAY:
@@ -664,8 +661,6 @@ func _parse_skillbooks(doc: Dictionary, errors: Array[String]) -> void:
 				IdValidate.require_id(String(c), allowed_class, "equip_classes", errors)
 		if not _RANGE_BANDS.has(String(row.get("range_band", ""))):
 			errors.append("skillbooks.json %s: invalid range_band" % aid)
-		if int(row.get("charges_max", 0)) <= 0:
-			errors.append("skillbooks.json %s: charges_max must be > 0" % aid)
 		var cast = row.get("cast", {})
 		if typeof(cast) != TYPE_DICTIONARY or String(cast.get("kind", "")).is_empty():
 			errors.append("skillbooks.json %s: cast.kind required" % aid)

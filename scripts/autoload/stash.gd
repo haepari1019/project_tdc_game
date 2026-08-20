@@ -5,7 +5,9 @@ extends Node
 ## demo content on first load. ref: F-010 §3.2.
 
 var gear: Array = []               # owned gear 인스턴스 {base_gear_id, rolled_identity_skill_id?, rolls?} — F-008 §3.7. 레거시=문자열(로드 시 정규화).
-var skillbooks: Array = []         # owned 스킬북 인스턴스 {base_ability_id, affix?, charges?} — D-018 §7.3. 레거시=문자열(로드 시 정규화).
+## ~~스킬북 인스턴스~~ — **M5 폐기**(`D-018` §9 Frozen). 필드는 **마이그레이션 1회 판독용**으로만
+## 남는다: 구 세이브가 들고 있던 목록을 읽어 소멸시키고 비운다(`migrate_drop_skillbooks`).
+var skillbooks: Array = []         # (deprecated) 구 세이브 판독 전용
 var consumables: Dictionary = {}   # consumable_id -> count owned
 var manastones: Dictionary = {}     # manastone_id -> count owned (F-009 §3.8 — 허브 보관분)
 var charms: Array = []              # charm_id 목록 (F-010 §3.11 — **비스택**: 같은 참 2개 = 항목 2개)
@@ -30,20 +32,26 @@ func _ready() -> void:
 
 ## Persist owned items — 변경마다 호출. SaveProfile "stash" 섹션(단일 파일).
 func save_stash() -> void:
+	# 스모크/테스트는 이 스크립트를 **트리 밖 인스턴스**로 쓴다 — 그땐 절대경로 조회가 에러를 뱉고
+	# 저장할 곳도 없다. 조용히 넘긴다(실 오토로드는 항상 트리 안이라 영향 없음).
+	if not is_inside_tree():
+		return
 	var sp := get_node_or_null("/root/SaveProfile")
 	if sp != null:
 		sp.put("stash", to_dict())
 
 
+## `skillbooks`를 **쓰지 않는다** — M5 이후 항상 비어 있으므로 저장할 것이 없다(다음 로드에서 키가
+## 없으면 `[]`가 된다 = 소멸 완료). 구 세이브의 키는 `apply_dict`가 읽고 마이그레이션이 비운다.
 func to_dict() -> Dictionary:
-	return {"gear": gear, "skillbooks": skillbooks, "consumables": consumables, "manastones": manastones, "charms": charms}
+	return {"gear": gear, "consumables": consumables, "manastones": manastones, "charms": charms}
 
 
 func apply_dict(d: Dictionary) -> void:
 	gear = d.get("gear", [])
 	_normalize_gear()   # 레거시 세이브(문자열 gear) → 인스턴스 dict 마이그레이션
 	skillbooks = d.get("skillbooks", [])
-	_normalize_skillbooks()   # 레거시 세이브(문자열 skillbook) → 인스턴스 dict 마이그레이션
+	migrate_drop_skillbooks()   # M5 — 구 세이브 스킬북 소멸(1회, 로그 남김)
 	consumables = d.get("consumables", {})
 	manastones = d.get("manastones", {})
 	charms = d.get("charms", [])
@@ -58,12 +66,15 @@ func _normalize_gear() -> void:
 			gear[i] = {"base_gear_id": String(gear[i])}
 
 
-## skillbook 엔트리 정규화 — 시드/레거시 세이브의 문자열 base_ability_id → {base_ability_id}.
-## 인스턴스 = {base_ability_id, affix?, charges?} (D-018 §7.3 — 스태시도 affix·잔여탄 보존).
-func _normalize_skillbooks() -> void:
-	for i in skillbooks.size():
-		if typeof(skillbooks[i]) == TYPE_STRING:
-			skillbooks[i] = {"base_ability_id": String(skillbooks[i])}
+## **M5 마이그레이션(1회)** — 스태시에 남은 스킬북 인스턴스를 **소멸**시킨다(사용자 판정: 보상 없음).
+## 해금은 잃지 않는다 — `HubProfile.migrate_analysis_to_tree`가 구 분석 해금을 트리로 이미 옮겼고,
+## 플테 프로필은 전 노드 해금이라 모딩에서 그대로 꺼내 쓸 수 있다. 조용히 지우지 않고 몇 권인지 알린다.
+func migrate_drop_skillbooks() -> void:
+	if skillbooks.is_empty():
+		return
+	print("[TDC] M5 마이그레이션 — 스태시 스킬북 %d권 소멸(인스턴스 Frozen, 해금은 트리 보존)" % skillbooks.size())
+	skillbooks = []
+	save_stash()
 
 
 ## 플레이테스트 시드 = **전 카탈로그 개방**(사용자 결정 D4, 2026-08-12 · P4b_WORK_ORDER §0).
@@ -97,10 +108,9 @@ func _seed_from_catalog() -> bool:
 		if String(row.get("unlock_state", "")) == "Purchasable":
 			continue                                            # armory 세트 = 상점 물건
 		gear.append(String(row.get("base_gear_id", "")))
+	# ~~스킬북 전 카탈로그 시드~~ — **M5 제거**. D4「전 카탈로그 개방」은 이제 **트리 전 노드 해금**
+	# (`HubProfile.PLAYTEST_TREE_ALL_UNLOCKED`)으로 표현된다. 물건이 아니라 권한이 열려 있는 것이다.
 	skillbooks = []
-	if PLAYTEST_FULL_CATALOG:
-		for row in sd.get_skillbook_rows():
-			skillbooks.append(String(row.get("base_ability_id", "")))
 	consumables = {"con_revive_scroll": 8}
 	# 허브 보관 마석 — 백팩 스타터(반입분)와 **별개**다. 스태시 = 다음 런에 꺼내 쓸 여유분.
 	# `sd`는 get_node_or_null 반환이라 untyped → `:=` 추론이 안 된다(파스 에러). 명시 타입 필수.
@@ -110,8 +120,7 @@ func _seed_from_catalog() -> bool:
 	charms = []
 	for crow in sd.get_charm_rows():
 		charms.append(String(crow.get("charm_id", "")))
-	_normalize_gear()         # 시드는 문자열로 적고 인스턴스로 정규화(roll/affix 없음=base)
-	_normalize_skillbooks()
+	_normalize_gear()         # 시드는 문자열로 적고 인스턴스로 정규화(roll 없음=base)
 	return true
 
 
@@ -213,37 +222,5 @@ func add_gear(base_gear_id: String, rolled_identity_skill_id: String = "", rolls
 	save_stash()
 
 
-## Add one owned skillbook to the stash (shop 구매 / 회수). 상점 생본=affix 없음; 회수 본은 affix/잔여탄 보존.
-func add_skillbook(base_ability_id: String, affix: Dictionary = {}, charges: int = -1) -> void:
-	if base_ability_id.is_empty():
-		return
-	var inst := {"base_ability_id": base_ability_id}
-	if not affix.is_empty():
-		inst["affix"] = affix          # D-018 §7.3 affix 보존
-	if charges >= 0:
-		inst["charges"] = charges      # 잔여 탄 보존
-	skillbooks.append(inst)
-	save_stash()
-
-
-## Permanently remove one owned skillbook (analysis/sink/버리기) by base id. affix본 보존을 위해 plain(무affix)
-## 사본을 우선 제거하고, 모두 affix면 첫 매칭을 제거. True if one was present.
-func remove_skillbook(base_ability_id: String) -> bool:
-	var first := -1
-	for i in skillbooks.size():
-		var s = skillbooks[i]
-		var bid := String(s.get("base_ability_id", "")) if typeof(s) == TYPE_DICTIONARY else String(s)
-		if bid != base_ability_id:
-			continue
-		if first < 0:
-			first = i
-		var has_affix := typeof(s) == TYPE_DICTIONARY and not (s.get("affix", {}) as Dictionary).is_empty()
-		if not has_affix:
-			skillbooks.remove_at(i)   # plain 사본 우선 소멸 → affix본 보존
-			save_stash()
-			return true
-	if first < 0:
-		return false
-	skillbooks.remove_at(first)
-	save_stash()
-	return true
+## ~~`add_skillbook` / `remove_skillbook`~~ — **M5 제거**. 스킬북이 물건이 아니게 됐으므로
+## 스태시가 소유할 것이 없다. 슬롯 AB의 획득 = 트리 해금(권한) + 모딩 시술(`F-008` §3.10).

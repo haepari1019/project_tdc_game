@@ -1,7 +1,7 @@
 extends RefCounted
-## 스킬/affix 툴팁 텍스트 빌더 (BBCode). 설명문 = display_names.json `skill_desc[kind]` + 핵심 수치.
-## affix·밴드 패널티는 색 구분(긍정 초록 · 부정 빨강 · affix 특별 금색) — RichTooltip(custom tooltip) 사용 컨트롤에서만 색이 보인다.
-## 액션바(controlled_sheet)와 인벤 그리드(inventory_grid)가 공유. ref: docs/design/affix_design.md.
+## 스킬 툴팁 텍스트 빌더 (BBCode). 설명문 = display_names.json `skill_desc[kind]` + 핵심 수치.
+## 밴드 패널티·gear 굴림은 색 구분(긍정 초록 · 부정 빨강) — RichTooltip 사용 컨트롤에서만 색이 보인다.
+## 액션바(controlled_sheet)와 인벤 그리드(inventory_grid)가 공유. (~~affix~~ 폐기 = M5 · `D-018` §9)
 
 const RT := preload("res://scripts/ui/rich_tooltip.gd")
 const _BAND_COEFF := {"B0": 1.0, "B1": 0.9, "B2": 0.75, "B3": 0.55}   # D-016 §3.2 / ability_dispatch와 동일
@@ -151,27 +151,8 @@ static func _key_nums(p: Dictionary) -> String:
 	return "  ·  ".join(parts)
 
 
-## affix 색구분 라인들(BBCode) — 없으면 []. ▲ 긍정 초록 · ▼ 부정(쿨 트레이드) 빨강.
-static func affix_lines(affix) -> Array:
-	if typeof(affix) != TYPE_DICTIONARY or (affix as Dictionary).is_empty():
-		return []
-	var a: Dictionary = affix
-	var ids: Array = a.get("ids", [])
-	var names: Array = []
-	for id in ids:
-		names.append(Slice01Data.get_affix_label(String(id)))   # 다종 affix = 모든 라벨 표시
-	var nm := " + ".join(names) if not names.is_empty() else "특수 옵션"
-	var out: Array = ["[color=#%s]✦ %s · %s[/color]" % [RT.ACCENT, nm, String(a.get("tier", ""))]]
-	if float(a.get("coeff", 0.0)) > 0.0:
-		out.append("  [color=#%s]▲ 효과 +%d%%[/color]" % [RT.POS, roundi(float(a["coeff"]) * 100.0)])
-	if int(a.get("charges", 0)) > 0:
-		out.append("  [color=#%s]▲ 탄약 +%d[/color]" % [RT.POS, int(a["charges"])])
-	if float(a.get("cd_trade", 0.0)) > 0.0:
-		out.append("  [color=#%s]▼ 쿨다운 +%d%%[/color]" % [RT.NEG, roundi(float(a["cd_trade"]) * 100.0)])
-	return out
-
-
-## 비주력(서브 클래스) 적성 패널티 % — main class = 0. sub_bands × BAND_COEFF.
+## ~~`affix_lines`~~ — **M5 제거**(`D-018` §9). 스킬북 affix가 폐기돼 색구분할 것이 없다.
+## gear 굴림 라인(`gear_roll_line`)은 남는다 — 그쪽은 `F-008` §3.10.1로 **극소화**됐을 뿐 살아 있다.
 static func band_pct(base_ability_id: String, class_id: String) -> int:
 	var bands: Dictionary = Slice01Data.get_skillbook_master(base_ability_id).get("sub_bands", {})
 	var coeff := float(_BAND_COEFF.get(String(bands.get(class_id, "B0")), 1.0))

@@ -1308,7 +1308,14 @@ func _cast_sub(slot: int) -> void:
 	var inst = ctrl.get_skillbook(slot)
 	if inst == null:
 		return
-	if int(inst.charges) <= 0 or float(inst.cooldown_s) > 0.0:
+	if float(inst.cooldown_s) > 0.0:
+		return
+	# **시전 자원 = 마석 하나**(M5 — 탄 폐기). 던전(`dungeon_run._cast_sub`)과 **같은 게이트**를 둔다:
+	# 유저는 샌드박스에서 플테하므로 여기가 낡으면 "던전에선 되는데 여기선 안 된다"가 된다.
+	var ms_cost: int = Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", "")))
+	if ms_cost > 0 and not _combat.manastone_unlimited() and _combat.manastone_count() < ms_cost:
+		if ctrl.has_method("popup_status"):
+			ctrl.popup_status("마석 부족 %d" % ms_cost, Color(0.72, 0.55, 1.0))
 		return
 	# Targeted 서브(DPS lunge / Nuker nova 등) → 조준 모달(좌클릭=지면 시전, Esc=취소). 그 외 = 발밑 즉발.
 	if bool(inst.params.get("targeted", false)):

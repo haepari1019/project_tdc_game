@@ -7,6 +7,7 @@ extends Node
 const FACILITY_IDS := ["barracks", "stash", "scriptorium", "scribe_shop", "armory", "quartermaster", "smithy", "chapel"]
 # 영속 = SaveProfile 단일 파일(user://save.json)의 "hub" 섹션 (구 user://hub_profile.json은 1회 마이그레이션).
 # Skillbook economy (F-009 §3.5 / D-018 §7.1) — 분석 의뢰 N=3 → 상점 해금; 생본 가격 ward_scrap/tier.
+## ~~분석 N=3 · 중복 sink~~ — M5 폐기. 상수는 **마이그레이션 판독용**으로만 남는다.
 const ANALYSIS_REQUIRED := 3
 const SHOP_PRICE := {"Basic": 12, "Advanced": 30, "Master": 60}   # ward_scrap, D-018 §7.1
 const TIER_RANK := {"Basic": 1, "Advanced": 2, "Master": 3}       # vs shop_tier_ceiling (scribe_shop Tier)
@@ -25,8 +26,10 @@ var enc_cleared: Dictionary = {}       # encounterId -> true (런 이벤트 퀘�
 var hard_cleared: bool = false         # Hard 난이도 인카운터 1회+ 클리어 (Q-HUB-020 무기고 게이트 — 절차생성과 정합)
 var extraction_success: int = 0        # 누적 추출 성공 횟수 (데모 이벤트 퀘스트: 군수 1·창고T2 2 대용)
 var party_wiped: int = 0               # 누적 전멸 횟수 (데모 이벤트 퀘스트: 성소 복구 대용)
-var analysis_progress: Dictionary = {} # baseAbilityId -> 분석 의뢰 누적 횟수 (Safe meta, F-009 §3.5)
-var shop_listing_unlocked: Dictionary = {}  # baseAbilityId -> bool (progress >= ANALYSIS_REQUIRED)
+## ~~분석 경제~~ — **M5 폐기**(`D-018` §9). 필드는 **읽기 전용 유물**로 남는다: 구 세이브를
+## 트리 해금으로 옮기는 `migrate_analysis_to_tree`가 이걸 읽고 비운다. 새로 쓰는 곳은 없다.
+var analysis_progress: Dictionary = {} # (deprecated) baseAbilityId -> 분석 누적
+var shop_listing_unlocked: Dictionary = {}  # (deprecated) baseAbilityId -> bool
 ## F-020 §3.10 스킬 트리 — 해금한 노드 id. **구 분석(N=3)의 후임**이라 같은 자리에 둔다:
 ## sink(금고 재료)·게이트(chapel Tier)·해금 상태가 전부 여기 모여 있어야 한 곳만 보면 된다.
 ## 분석 경로는 M5(F-009 폐기)에서 걷어낸다 — 그때까지 **두 경로가 공존**하되 트리가 우선한다.
@@ -289,49 +292,69 @@ func run_inventory_capacity() -> int:
 func armory_catalog_tier() -> int:
 	return facility_tier("armory")   # 0=none, 1=B, 2=B+C
 
-func can_analyze() -> bool:
-	return facility_tier("scriptorium") >= 1
-
 func shop_tier_ceiling() -> int:
 	return facility_tier("scribe_shop")   # 0=locked, 1=Basic, 2=Advanced
 
 
 # --- Skillbook economy (F-009 §3.5 / D-018 §7.1) ----------------------------------------------
 
-## Submit a skillbook for analysis (caller consumes the instance): +1 progress, unlock at N=3.
-## Returns {ok, progress, unlocked, reason}. Rejects if scriptorium locked / already unlocked
-## (no duplicate burn, F-009 §3.5). Safe meta — survives death.
-func submit_analysis(base_id: String) -> Dictionary:
-	if base_id.is_empty():
-		return {"ok": false, "reason": "invalid"}
-	if not can_analyze():
-		return {"ok": false, "reason": "facility"}        # scriptorium Tier 1 needed
-	if is_shop_unlocked(base_id):
-		return {"ok": false, "reason": "already_unlocked"} # 해금 후 의뢰 거부
-	var p := int(analysis_progress.get(base_id, 0)) + 1
-	analysis_progress[base_id] = p
-	var unlocked: bool = p >= ANALYSIS_REQUIRED
-	if unlocked:
-		shop_listing_unlocked[base_id] = true
+## ~~`submit_analysis` · `analysis_count` · `is_shop_unlocked`~~ — **M5에서 폐기**(`D-018` §9 ·
+## `F-009` §3.9.4). 「같은 책 3권 제출 → 해금」은 **트리 노드 클릭**으로 대체됐다. 해금 판정은
+## 이제 `is_ability_unlocked` **하나**다 — 폴백을 남기면 두 벌의 진실이 생긴다.
+##
+## **모딩 시술비**(`F-008` §3.10 「동일 AB **재구매** 후 새 gear에 모딩」) — 트리 해금은 *허가*이고,
+## 실제로 슬롯에 새기는 데는 매번 `ward_scrap`이 든다. 이게 없으면 D2 소멸이 이빨이 없다: gear를
+## 갈아도 해금은 남아 있으니 공짜로 되끼우면 그만이기 때문이다. 가격 = 구 생본 가격(tier 차등) 승계.
+func mod_install_price(base_id: String) -> int:
+	return shop_price(String(Slice01Data.get_skillbook_master(base_id).get("tier", "Basic")))
+
+
+## 슬롯 모딩 시술 — 해금 + `scribe_shop` tier 상한 + `ward_scrap`. 성공 시 차감(호출부가 슬롯을 쓴다).
+## {ok, reason("ok"|"locked"|"tier_ceiling"|"scrap"), cost}.
+func mod_install(base_id: String) -> Dictionary:
+	if not is_ability_unlocked(base_id):
+		return {"ok": false, "reason": "locked", "cost": 0}
+	var tier := String(Slice01Data.get_skillbook_master(base_id).get("tier", "Basic"))
+	if int(TIER_RANK.get(tier, 9)) > shop_tier_ceiling():
+		return {"ok": false, "reason": "tier_ceiling", "cost": shop_price(tier)}
+	var cost := shop_price(tier)
+	if ward_scrap < cost:
+		return {"ok": false, "reason": "scrap", "cost": cost}
+	ward_scrap -= cost
 	economy_changed.emit()
 	save_profile()
-	return {"ok": true, "progress": p, "unlocked": unlocked, "reason": "ok"}
+	return {"ok": true, "reason": "ok", "cost": cost}
 
 
-func analysis_count(base_id: String) -> int:
-	return int(analysis_progress.get(base_id, 0))
-
-
-## 이 AB를 슬롯에 끼우거나 상점에서 살 수 있는가. **트리 해금이 정본**이고(F-020 §3.10), 구 분석
-## 경로는 M5까지 남는 폴백이다 — 둘 중 하나만 열려도 허용(마이그레이션 중 잠기는 걸 막는다).
-func is_shop_unlocked(base_id: String) -> bool:
-	return is_ability_unlocked(base_id) or bool(shop_listing_unlocked.get(base_id, false))
+## **1회 마이그레이션** — 구 분석 경제(`shop_listing_unlocked`)로 열어 둔 AB를 **트리 해금으로 이전**.
+## 스킬북 인스턴스는 소멸시키지만(사용자 판정), **이미 열어 둔 해금은 뺏지 않는다** — 그건 잃는 게
+## 아니라 형식이 바뀌는 것이다. 대응 노드가 여러 역할에 걸리면 전부 연다.
+func migrate_analysis_to_tree() -> void:
+	if shop_listing_unlocked.is_empty():
+		return
+	var moved := 0
+	for row in Slice01Data.get_tree_nodes():
+		if String(row.get("type", "")) != "Unlock":
+			continue
+		if bool(shop_listing_unlocked.get(String(row.get("base_ability_id", "")), false)) 				and not bool(tree_unlocked.get(String(row.get("node_id", "")), false)):
+			tree_unlocked[String(row["node_id"])] = true
+			moved += 1
+	shop_listing_unlocked = {}
+	analysis_progress = {}
+	if moved > 0:
+		print("[TDC] M5 마이그레이션 — 구 분석 해금 %d건을 트리 노드로 이전" % moved)
+	save_profile()
 
 
 # --- F-020 §3.10 스킬 트리 -----------------------------------------------------
 
+## `starter_unlocked` = `F-008` §3.10.2 프리모딩 4종 — **사지 않아도 열려 있다.** 이게 없으면 첫 런에
+## 끼울 AB가 하나도 없어 `F-020` §3.2.0(첫 런 ≥1 슬롯)이 무너진다. 데이터가 소유하므로 코드에
+## AB id를 하드코딩하지 않는다.
 func is_node_unlocked(node_id: String) -> bool:
-	return PLAYTEST_TREE_ALL_UNLOCKED or bool(tree_unlocked.get(node_id, false))
+	if PLAYTEST_TREE_ALL_UNLOCKED or bool(tree_unlocked.get(node_id, false)):
+		return true
+	return bool(Slice01Data.get_tree_node(node_id).get("starter_unlocked", false))
 
 
 ## 트리로 이 AB가 열렸는가 — `Unlock` 노드가 가리키는 `base_ability_id`.
@@ -427,12 +450,6 @@ func shop_price(tier: String) -> int:
 	return int(SHOP_PRICE.get(tier, 999))
 
 
-## D-018 §7.5 중복 스킬북 sink 값 — 해금된 base = 분해(8), 미해금 = 매각(4). 둘 다 인스턴스 1 소멸.
-## CALLER가 스태시에서 책을 제거하고 add_scrap(이 값)을 호출(buy_raw와 대칭: hub=통화, caller=인스턴스).
-func skillbook_sink_value(base_id: String) -> int:
-	return SINK_DISASSEMBLE if is_shop_unlocked(base_id) else SINK_SELL
-
-
 func gear_price(catalog_tier: int) -> int:
 	return int(GEAR_PRICE.get(catalog_tier, 999))
 
@@ -464,17 +481,4 @@ func buy_gear(base_gear_id: String, catalog_tier: int) -> Dictionary:
 	return {"ok": true, "reason": "ok", "cost": cost}
 
 
-## Buy a Raw (affix-less) skillbook of `base_id` (default Basic). Gated by unlock + scribe_shop Tier
-## ceiling + ward_scrap. Spends scrap on success; the CALLER grants the instance. {ok, reason, cost}.
-func buy_raw(base_id: String, tier: String = "Basic") -> Dictionary:
-	if not is_shop_unlocked(base_id):
-		return {"ok": false, "reason": "locked", "cost": 0}
-	if int(TIER_RANK.get(tier, 9)) > shop_tier_ceiling():
-		return {"ok": false, "reason": "tier_ceiling", "cost": shop_price(tier)}
-	var cost := shop_price(tier)
-	if ward_scrap < cost:
-		return {"ok": false, "reason": "scrap", "cost": cost}
-	ward_scrap -= cost
-	economy_changed.emit()
-	save_profile()
-	return {"ok": true, "reason": "ok", "cost": cost}
+

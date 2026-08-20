@@ -7,9 +7,9 @@ const DamageIndicator := preload("res://scripts/ui/damage_indicator.gd")
 const InventoryUI := preload("res://scripts/ui/inventory/inventory_ui.gd")
 const Chest := preload("res://scripts/world/objects/chest.gd")
 const ItemFactory := preload("res://scripts/ui/inventory/item_factory.gd")
-## S6b acquisition path — ally-only / party-support skillbooks that NO dungeon enemy uses, so they
-## never drop from kills (F-009). Stocked in an in-run "ally cache" chest. The new B1 ally-only books
-## (usable_by_enemy=false) + the pure party-support subs enemies don't carry. ref: ROADMAP P2-S6b.
+## ~~S6b 아군 캐시 풀~~ — **M5 이후 미사용**(스킬북 드롭 전면 폐지). 목록은 **아군 전용 AB의 기록**
+## 으로 남긴다: 「적이 안 쓰는 스킬」 구분은 `usable_by_enemy`가 여전히 소유하고, 이 목록이 그 축의
+## 인간 판독 가능한 스냅샷이다. 상자 내용물은 `_build_ally_cache_items`가 재료로 채운다.
 const ALLY_CACHE_POOL := [
 	"AB-075", "AB-062", "AB-054", "AB-034", "AB-044",
 	"AB-064", "AB-065", "AB-068", "AB-069", "AB-057", "AB-046", "AB-047",
@@ -229,8 +229,7 @@ func _ready() -> void:
 	chest.setup(_inventory_ui)
 	chest.position = _map.get_spawn_position("RM-OBJ-01") + Vector3(3.0, 0.0, 0.0)
 	add_child(chest)
-	# Ally cache (S6b acquisition) — ally-only / party-support skillbooks can't drop from enemy kills
-	# (F-009), so seed an in-run cache the player loots into the backpack (At-Risk like any loot).
+	# 아군 유물함 — M5 이후 **해금 재료** 상자(구 아군 전용 스킬북 캐시). At-Risk like any loot.
 	var ally_cache := Chest.new()
 	ally_cache.title = "아군 유물함"
 	ally_cache.items = _build_ally_cache_items(2)
@@ -488,14 +487,29 @@ func _on_sub_key(slot_index: int) -> void:
 	var inst = ctrl.get_skillbook(slot_index)
 	if inst == null:
 		return
-	if int(inst.charges) <= 0 or float(inst.cooldown_s) > 0.0:
-		return  # depleted or on cooldown — no aim marker, no cast
+	if float(inst.cooldown_s) > 0.0:
+		return  # on cooldown — no aim marker, no cast
+	# **시전 자원 = 마석 하나**(`F-009` §3.8 · M5에서 탄 폐기). 여기서 미리 막는 이유: 조준 모달을
+	# 띄운 뒤 시전 시점에 거부하면 "왜 안 나가지"가 된다. 거부는 **사유를 보이게** 한다(DRIFT-139).
+	if not _can_afford_sub(ctrl, inst):
+		return
 	# Targeted subs (DPS lunge / Nuker nova) → aim mode: left-click a ground point to cast.
 	# Self-centered subs (taunt/sanctuary/skillbook strike/poison/stun) → instant.
 	if bool(inst.params.get("targeted", false)):
 		_aim_ctrl.start_aim(ctrl, slot_index, inst)  # ground-target modal
 	else:
 		_combat.cast_skillbook(ctrl, slot_index, ctrl.global_position)
+
+
+## 이 서브를 지금 시전할 마석이 있는가. 없으면 **머리 위에 사유를 띄우고** false.
+## 실제 차감은 `ability_dispatch`가 발현 성공 후에 한다(선차감하면 실패한 시전에 자원만 녹는다).
+func _can_afford_sub(ctrl: CharacterBody3D, inst) -> bool:
+	var cost: int = Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", "")))
+	if cost <= 0 or _combat.manastone_unlimited() or _combat.manastone_count() >= cost:
+		return true
+	if ctrl.has_method("popup_status"):
+		ctrl.popup_status("마석 부족 %d" % cost, Color(0.72, 0.55, 1.0))
+	return false
 
 
 # --- consumables: hotkey use + targeted revive channel --------------------------
@@ -549,18 +563,16 @@ func _hide_alert(tok: int) -> void:
 		_alert_banner.visible = false
 
 
-## Pick `count` random ally-cache skillbooks → loot-grid item dicts (At-Risk like any loot, F-009 §3.7).
-## S6b acquisition path for ally-only / party-support books that never drop from enemy kills.
+## 아군 유물함 내용물 — **M5에서 스킬북 → 공유 재료**로 바뀌었다. 캐시가 있던 이유는 「적이 안 쓰는
+## 아군 전용 스킬은 처치 드롭으로 못 얻는다」였는데, M5 이후 **스킬은 어차피 드롭되지 않는다**
+## (트리 해금 + 모딩). 이유가 사라졌으므로 상자를 없앨 수도 있었지만, 배치된 보상은 탐색의 이유라
+## **해금 재료**를 담는 쪽으로 남긴다 — 아군 전용 AB도 결국 이 재료로 열린다.
 func _build_ally_cache_items(count: int) -> Array:
-	var pool: Array = ALLY_CACHE_POOL.duplicate()
-	pool.shuffle()
 	var out: Array = []
-	for i in mini(count, pool.size()):
-		var master: Dictionary = Slice01Data.get_skillbook_master(String(pool[i]))
-		if master.is_empty():
-			continue
-		var it: Dictionary = ItemFactory.skillbook_item(master, true)   # looted = At-Risk
-		it["col"] = out.size()
+	for i in maxi(count, 1):
+		var mid := "haul_shared_core" if i == 0 else "haul_shared_shard"
+		var it: Dictionary = ItemFactory.haul_item(mid, String(Slice01Data.get_haul_material(mid).get("display", mid)), true)
+		it["col"] = i
 		it["row"] = 0
 		out.append(it)
 	return out

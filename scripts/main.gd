@@ -1,6 +1,6 @@
 extends Control
 ## Deployment hub (UI-005 / F-010) — confirm Identity loadout + edit the run loadout from the
-## stash (equip gear/skillbooks onto the 4 members, bring consumables = At-Risk) → deploy to the
+## stash (equip gear onto the 4 members, bring consumables = At-Risk) → deploy to the
 ## demo dungeon. Reuses InventoryUI (combat=null → equip allowed) as the character-slot UI and
 ## the player Stash as its container grid. ref: QA-030 §3.1–3.2 / F-010 §3.2.
 
@@ -218,7 +218,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_refresh_economy_line()
 
 
-## Build the stash container items (gear 2×2, skillbooks 1×1, consumables 1×1) with grid
+## Build the stash container items (gear 2×2, 소모품·마석·참 1×1) with grid
 ## placement, from the Stash autoload. Reuses InventoryUI's item builders for the exact format.
 ## 스태시 전체를 10×12 그리드에 배치(기어 2×2 → 스킬북 1×1 → 소비 1×1, 행 흐름). 모든 항목을 표시해야
 ## deploy 시 _sync_stash_from_source(에디터 = 스태시 최종 상태)가 표시 안 된 항목을 잃지 않는다.
@@ -240,10 +240,6 @@ func _build_stash_items() -> Array:
 	# 스킬북·소비는 **좌표를 주지 않는다** — open_loot의 자동 배치(first-fit)에 맡겨 기어 블록이
 	# 남긴 빈칸까지 채운다. 예전엔 여기서 행을 직접 계산했는데, 카탈로그가 커지자(서브 49종)
 	# 계산상 행이 그리드 밖으로 넘어가 배치가 통째로 실패했다. 자동 배치는 셀이 남아 있는 한 성공한다.
-	for i in _stash.skillbooks.size():
-		var it: Dictionary = _inv.make_skillbook_stash_item(_stash.skillbooks[i])   # 인스턴스(affix/탄 포함)
-		if not it.is_empty():
-			items.append(it)
 	for cid in _stash.consumables:
 		var it: Dictionary = _inv.make_consumable_stash_item(String(cid), int(_stash.consumables[cid]))
 		if not it.is_empty():
@@ -267,7 +263,6 @@ func _build_stash_items() -> Array:
 func _on_stash_item_discarded(item: Dictionary) -> void:
 	match String(item.get("kind", "")):
 		"gear": _stash.remove_gear(String(item.get("base_gear_id", "")))
-		"skillbook": _stash.remove_skillbook(String(item.get("base_ability_id", "")))
 		"consumable": _stash.take_consumable(String(item.get("consumable_id", "")), int(item.get("count", 1)))
 
 
@@ -304,12 +299,11 @@ func _serialize_loadout() -> void:
 
 
 ## Deploy 시 스태시 오토로드를 에디터의 최종 상태(_stash_src, 닫을 때 export됨)로 맞춘다. 에디터에서
-## 캐릭터(장착)나 백팩(인출)으로 옮긴 스킬북·소비는 스태시에서 빠진다 — 장착=Backpack.equipped,
+## 캐릭터(장착)나 백팩(인출)으로 옮긴 기어·소비는 스태시에서 빠진다 — 장착=Backpack.equipped,
 ## 인출=Backpack.loose로 영속되므로 스태시에 남기면 중복(라이브러리 복제)이 된다. 기어는 장착 영속
 ## (I4) 전까지 라이브러리 모델 유지 → _stash.gear는 그대로 보존(동기화 시 손실 방지).
 func _sync_stash_from_source() -> void:
 	var gear: Array = []
-	var skillbooks: Array = []
 	var consumables: Dictionary = {}
 	var manastones: Dictionary = {}
 	var charms: Array = []
@@ -328,15 +322,6 @@ func _sync_stash_from_source() -> void:
 				if it.has("rolls"):
 					gi["rolls"] = it["rolls"]
 				gear.append(gi)
-			"skillbook":
-				# D-018 §7.3 인스턴스 — 스태시도 affix·잔여 탄 보존.
-				var si := {"base_ability_id": String(it.get("base_ability_id", ""))}
-				var af = it.get("affix", {})
-				if typeof(af) == TYPE_DICTIONARY and not (af as Dictionary).is_empty():
-					si["affix"] = af
-				if it.has("charges"):
-					si["charges"] = int(it["charges"])
-				skillbooks.append(si)
 			"consumable":
 				var cid := String(it.get("consumable_id", ""))
 				consumables[cid] = int(consumables.get(cid, 0)) + int(it.get("count", 1))
@@ -350,7 +335,8 @@ func _sync_stash_from_source() -> void:
 				# 없는 종류는 그대로 증발한다 — 마석이 정확히 이랬다(M1이 런 쪽만 배선, DRIFT-145).
 				# **새 아이템 종류를 추가하면 여기 + `_build_stash_items` 둘 다 봐야 한다.**
 				push_warning("[TDC] 스태시 sync — 미처리 kind '%s' (소유 유실 위험)" % String(it.get("kind", "")))
-	_stash.apply_dict({"gear": gear, "skillbooks": skillbooks, "consumables": consumables, "manastones": manastones, "charms": charms})
+	# `skillbooks`는 **넘기지 않는다** — M5에서 스태시가 스킬북을 소유하지 않으므로 빈 배열이 정본이다.
+	_stash.apply_dict({"gear": gear, "consumables": consumables, "manastones": manastones, "charms": charms})
 	_stash.save_stash()
 
 

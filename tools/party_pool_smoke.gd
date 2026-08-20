@@ -1032,12 +1032,12 @@ func _initialize() -> void:
 
 	var ad3 = AD.new()
 	var pm4 = PM.new()
-	pm4.set_skillbook(0, {"base_ability_id": "AB-062", "params": c62, "charges": 3, "cooldown_s": 14.0})
+	pm4.set_skillbook(0, {"base_ability_id": "AB-062", "params": c62, "cooldown_s": 14.0})
 	pm4.apply_veil(60.0, true)
 	pm4.grant_next_hit_bonus(float(c62.get("next_hit_bonus", 0.0)))
 	ad3.cast_skillbook(pm4, 0)
 	_chk("은신 재입력 = 취소(쿨 중에도)", not pm4.is_veiled() and not pm4.holds_fire())
-	_chk("취소는 무비용(차지 불변)", int(pm4.get_skillbook(0).charges) == 3)
+	_chk("취소는 무비용(마석 선차감 없음 — 발현 성공 후 차감)", pm4.get_skillbook(0) != null)
 	# 취소로 증폭이 남으면 "은신 → 즉시 취소 → 강화 평타"가 은신을 건너뛰고 보상만 챙기는 경로가 된다.
 	_chk("취소 = 증폭 폐기", is_equal_approx(pm4.consume_next_hit_bonus(), 0.0))
 	pm4.free()
@@ -1053,18 +1053,17 @@ func _initialize() -> void:
 	_chk("Purge nothing -> ''", en.purge_one_buff() == "")
 	en.free()
 
-	# 6) I5 charge persistence — Backpack.apply_to_party restores a sub's stored 탄수 (not max).
+	# 6) 슬롯 적재 — `Backpack.apply_to_party`가 **gear 인스턴스**의 슬롯 AB를 파티에 싣는가(M4/M5).
+	#    구 「탄수 영속(I5)」 판정은 M5에서 탄이 폐기돼 잴 대상이 없다.
 	var BP = load("res://scripts/autoload/backpack.gd")
 	var bp = BP.new()   # bare instance (not in tree → no _ready seed)
-	# M4 — 슬롯은 **gear에 붙는다**(`D-019` §3). gear가 없으면 열린 칸이 0이라 아무것도 안 실린다.
-	# 그게 정본이므로 테스트도 gear를 먼저 신는다(구 모델에선 gear 없이도 서브가 실렸다).
 	bp.set_member_gear("Healer", "gear_ward_healer_mend_lantern")
-	bp.set_member_subs("Healer", [{"base_ability_id": "AB-064", "charges": 3}, null, null])
+	bp.set_gear_slot_ability("Healer", 0, "AB-064")
 	var pm2 = PM.new()
 	pm2.class_id = "Healer"
 	bp.apply_to_party(_PartyStub.new([pm2]))
 	var inst0 = pm2.get_skillbook(0)
-	_chk("charge persist (stored 3, not max)", inst0 != null and int(inst0.charges) == 3 and int(inst0.charges_max) > 3)
+	_chk("gear 슬롯 AB 적재", inst0 != null and String(inst0.get("base_ability_id", "")) == "AB-064")
 	pm2.free()
 
 	# 7) Deferred ability details — Shadowstep next-hit, Beam channel flag, Sentinel reflect.
@@ -1188,57 +1187,22 @@ func _initialize() -> void:
 	var stseed = StashScript.new()
 	root.add_child(stseed)          # _seed_from_catalog가 /root/Slice01Data를 조회한다
 	stseed.reset_to_seed()
-	_chk("stash 시드 = 카탈로그 파생(기어 %d + 서브 %d)" % [stseed.gear.size(), stseed.skillbooks.size()],
-		stseed.gear.size() > 0 and stseed.skillbooks.size() == sd.get_skillbook_rows().size())
+	_chk("stash 시드 = 카탈로그 파생(기어 %d) · 서브 0(M5 — 권한은 트리가 소유)" % stseed.gear.size(),
+		stseed.gear.size() > 0 and (stseed.skillbooks as Array).is_empty())
 	stseed.free()
 
-	# 15b) Stash 스킬북 인스턴스화(D-018 §7.3) — 문자열 정규화 + affix 보존 + remove는 plain 우선(affix본 보존).
+	# ~~15b/16) Stash 스킬북 인스턴스 · affix 굴림~~ — **M5 제거**(`D-018` §9). 스킬북은 물건이
+	# 아니게 됐고(Frozen) affix는 폐기됐다. 대체 판정 = **소멸 마이그레이션이 실제로 비우는가**.
 	var st3 = StashScript.new()
-	st3.apply_dict({"gear": [], "skillbooks": ["AB-002", {"base_ability_id": "AB-002", "affix": {"ids": ["affix_eff_plus"], "tier": "T1", "coeff": 0.09, "charges": 0, "cd_trade": 0.0}}], "consumables": {}})
-	_chk("Stash 스킬북 문자열 정규화", typeof(st3.skillbooks[0]) == TYPE_DICTIONARY and String((st3.skillbooks[0] as Dictionary).get("base_ability_id", "")) == "AB-002")
-	_chk("Stash 스킬북 affix 보존", not ((st3.skillbooks[1] as Dictionary).get("affix", {}) as Dictionary).is_empty())
-	st3.remove_skillbook("AB-002")   # plain(0번) 우선 소멸 → affix본 잔존
-	_chk("Stash remove plain 우선(affix본 보존)", st3.skillbooks.size() == 1 and not ((st3.skillbooks[0] as Dictionary).get("affix", {}) as Dictionary).is_empty())
+	st3.apply_dict({"gear": [], "skillbooks": ["AB-002", {"base_ability_id": "AB-002"}], "consumables": {}})
+	_chk("M5 — 구 세이브 스태시 스킬북 소멸", (st3.skillbooks as Array).is_empty())
 	st3.free()
-
-	# 16) 스킬북 affix(D-018 §7.3/§7.6) — roll cap 준수 + charges 가산 + capture/apply 영속.
-	var AffixRoller = load("res://scripts/run/affix_roller.gd")
-	var any_affix := false
-	var caps_ok := true
-	var ids_ok := true
-	var multi_seen := false
-	for _i in 600:
-		var a: Dictionary = AffixRoller.roll_forced()   # 보장 굴림(병합 확인 표본 확보)
-		if a.is_empty():
-			continue
-		any_affix = true
-		if float(a.get("coeff", 0.0)) > 0.1501 or int(a.get("charges", 0)) < 0 or int(a.get("charges", 0)) > 6:
-			caps_ok = false   # multi-affix: coeff 합산 ≤15%(§7.3), charges는 단일 charges종만 → 0..6 유지
-		var ids := a.get("ids", []) as Array
-		if ids.is_empty() or String(a.get("tier", "")).is_empty():
-			ids_ok = false
-		if ids.size() >= 2:
-			multi_seen = true
-	_chk("affix 발생", any_affix)
-	_chk("affix coeff≤15%(합산캡)·탄0..6", caps_ok)
-	_chk("multi-affix 병합(2종 ids) 발생", multi_seen)
-	_chk("affix ids·tier 존재", ids_ok)
-	# charges 가산 + 인스턴스 저장
-	var base_cmax := int(sd.get_skillbook_master("AB-044").get("charges_max", 30))
-	var pmc = PM.new(); pmc.class_id = "Healer"
-	pmc.equip_skillbook_by_id(0, "AB-044", {"ids": ["affix_charges_small"], "tier": "T1", "coeff": 0.0, "charges": 5, "cd_trade": 0.0})
-	var sb0 = pmc.get_skillbook(0)
-	_chk("affix charges_max +5", sb0 != null and int(sb0.charges_max) == base_cmax + 5)
-	_chk("affix 인스턴스 저장", sb0 != null and int((sb0.affix as Dictionary).get("charges", 0)) == 5)
-	# capture/apply 영속 round-trip
-	var bpc = BP.new()
-	bpc.capture_from_party(_PartyStub.new([pmc]))
-	bpc.set_member_gear("Healer", "gear_ward_healer_mend_lantern")   # M4 — 슬롯 소유자(pmc는 맨몸 스텁)
-	var pmc2 = PM.new(); pmc2.class_id = "Healer"
-	bpc.apply_to_party(_PartyStub.new([pmc2]))
-	var sb1 = pmc2.get_skillbook(0)
-	_chk("affix 영속(capture/apply)", sb1 != null and int((sb1.affix as Dictionary).get("charges", 0)) == 5 and int(sb1.charges_max) == base_cmax + 5)
-	pmc.free(); pmc2.free()
+	var bpx = BP.new()
+	bpx.loose = [{"kind": "skillbook", "base_ability_id": "AB-002"}, {"kind": "consumable", "consumable_id": "con_revive_scroll", "count": 1}]
+	bpx.migrate_drop_skillbooks()
+	_chk("M5 — 구 세이브 가방 스킬북 소멸(다른 종류는 보존)",
+		(bpx.loose as Array).size() == 1 and String((bpx.loose[0] as Dictionary).get("kind", "")) == "consumable")
+	bpx.free()
 
 	# 17b) 클래스 밸런스 소프트-피티 (loot_service) — 과대표 클래스 점감, 미표 클래스 유지(EN-001 Tank 쏠림 보완).
 	var LS = load("res://scripts/run/loot_service.gd")
@@ -1251,21 +1215,19 @@ func _initialize() -> void:
 	_chk("멀티클래스는 부족한 쪽 기준(통과)", is_equal_approx(float(ls._class_balance_factor(["Tank", "Nuker"])), 1.0))
 	ls.free()
 
-	# 18) 절차적 상자 루트 — roll_forced 항상 affix · rare 상자 스킬 affix 보장 · common 재료 위주.
-	var AR = load("res://scripts/run/affix_roller.gd")
-	var fa: Dictionary = AR.roll_forced()
-	_chk("roll_forced 항상 affix", not fa.is_empty() and not (fa.get("ids", []) as Array).is_empty())
+	# 18) 절차적 상자 루트 — **M5 이후 상자에는 스킬북이 없다**(`D-018` §9 Frozen). 스킬 축은
+	# **공유 재료**가 대신하고(rare = `haul_shared_core`), 재료 위주 구성은 그대로다.
 	var ls2 = LS.new()
-	var rare_skill_seen := false
-	var rare_skill_affixed := true
+	var rare_core_seen := false
+	var rare_book_seen := false
 	for _k in 40:
 		for it in ls2.build_chest_items("rare"):
 			if String(it.get("kind", "")) == "skillbook":
-				rare_skill_seen = true
-				if (it.get("affix", {}) as Dictionary).is_empty():
-					rare_skill_affixed = false
-	_chk("rare 상자 스킬 등장", rare_skill_seen)
-	_chk("rare 상자 스킬 affix 보장", rare_skill_affixed)
+				rare_book_seen = true
+			if String(it.get("haul_material_id", "")) == "haul_shared_core":
+				rare_core_seen = true
+	_chk("rare 상자 — 공유 핵 등장(구 스킬북 자리)", rare_core_seen)
+	_chk("rare 상자 — 스킬북 0(M5 폐기)", not rare_book_seen)
 	var ch_haul := 0
 	var ch_total := 0
 	var consum_seen := false
@@ -1332,8 +1294,9 @@ func _initialize() -> void:
 	# 17) 스킬 설명문 + 색구분 툴팁 빌더 (display_names.skill_desc / SkillText).
 	_chk("skill_desc(silence) 존재", not sd.get_skill_desc("skillbook_silence").is_empty())
 	var ST = load("res://scripts/ui/skill_text.gd")
-	var alines: Array = ST.affix_lines({"ids": ["affix_eff_plus"], "tier": "T1", "coeff": 0.09, "charges": 0, "cd_trade": 0.0})
-	_chk("affix_lines 색태그", alines.size() >= 1 and String(alines[0]).contains("color="))
+	# ~~`affix_lines`~~ — M5 제거(스킬북 affix 폐기). **없음**을 단언한다: 폐기 함수가 남아 있으면
+	# 언젠가 누가 부르고, 그때 죽은 축이 되살아난다.
+	_chk("affix_lines 부재(M5 — 스킬북 affix 폐기)", not ST.has_method("affix_lines"))
 	_chk("band_pct 주력=0", ST.band_pct("AB-044", "Healer") == 0)
 	_chk("gear_roll_line 색태그", String(ST.gear_roll_line({"dmg_mult": 1.1, "cd_mult": 0.95})).contains("color="))
 

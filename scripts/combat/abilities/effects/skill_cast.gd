@@ -63,7 +63,9 @@ func _process(delta: float) -> void:
 		queue_free()
 
 
-## 취소 — 점유 해제 + 쿨/차지 환급(사용 안 됨). on_complete 미실행.
+## 취소 — 점유 해제 + 쿨 환급(사용 안 됨). on_complete 미실행.
+## ~~차지 환급~~ — M5에서 탄이 폐기돼 환급할 것이 없다. **마석은 애초에 선차감하지 않으므로**
+## (발현 성공 후 차감, `ability_dispatch`) 취소가 자원을 태우는 경로는 남지 않는다.
 func _cancel() -> void:
 	_done = true
 	if is_instance_valid(_caster):
@@ -72,7 +74,6 @@ func _cancel() -> void:
 		var inst = _caster.get_skillbook(_slot)
 		if inst != null:
 			inst.cooldown_s = 0.0
-			inst.charges = int(inst.charges) + 1
 		if _caster.has_method("popup_status"):
 			_caster.popup_status("취소", Color(0.82, 0.82, 0.82))
 	queue_free()

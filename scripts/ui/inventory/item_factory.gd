@@ -74,21 +74,8 @@ static func manastone_item(manastone_id: String, display: String, at_risk: bool,
 	}
 
 
-## Backpack item dict from a skillbook master (1×1, role-tinted, full charges).
-static func skillbook_item(master: Dictionary, at_risk: bool) -> Dictionary:
-	var classes: Array = master.get("equip_classes", [])
-	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
-	var cmax := int(master.get("charges_max", 0))
-	return {
-		"id": String(master.get("display_name", master.get("base_ability_id", "Skillbook"))),
-		"w": 1, "h": 1,
-		"color": UnitVisuals.role_color(cid).lightened(0.15),
-		"kind": "skillbook",
-		"base_ability_id": String(master.get("base_ability_id", "")),
-		"charges": cmax,
-		"charges_max": cmax,
-		"at_risk": at_risk,
-	}
+## ~~`skillbook_item`~~ — **M5에서 제거**(`D-018` §9 인스턴스 Frozen). 슬롯 AB는 물건이 아니라
+## gear에 새겨진 등록이라 가방 타일이 될 수 없다. 만드는 함수가 남아 있으면 언젠가 누가 부른다.
 
 
 static func consumable_color(master: Dictionary) -> Color:

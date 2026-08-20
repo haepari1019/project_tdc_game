@@ -165,17 +165,8 @@ func _settle_failure(cause: String) -> void:
 ## 모듈은 Safe(허브 메타)라 제외한다.
 func _collect_at_risk() -> Array:
 	var out: Array = _inv.collect_run_inventory()
-	for m in _party.get_members():
-		if not is_instance_valid(m) or not m.has_method("get_skillbook"):
-			continue
-		for i in 3:
-			var sb = m.get_skillbook(i)
-			if sb != null:
-				out.append({
-					"label": "%s (장착)" % String(sb.get("display_name", "Skillbook")),
-					"count": 1,
-					"kind": "skillbook",
-				})
+	# ~~장착 서브 스킬북~~ — **M5 제거**. 슬롯 AB는 gear 귀속이고 gear는 Safe라(`F-009` §3.7)
+	# 정산에서 잃거나 얻는 항목이 아니다. 정산표에 넣으면 「잃을 수 있는 것」처럼 읽힌다.
 	return out
 
 

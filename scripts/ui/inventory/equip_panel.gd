@@ -248,11 +248,6 @@ func update_previews(mouse: Vector2, drag: Dictionary) -> void:
 		if si >= 0:
 			var master: Dictionary = Slice01Data.get_gear_master(String(drag.get("base_gear_id", "")))
 			_set_slot_preview(si, _can_equip_now(_party.get_member(si), master))
-	elif kind == "skillbook":
-		var si := sub_slot_under(mouse)
-		if si >= 0:
-			var master: Dictionary = Slice01Data.get_skillbook_master(String(drag.get("base_ability_id", "")))
-			_set_sub_preview(si, _can_equip_sub_now(si, master))
 
 
 # --- sub skillbook slots (per-character Q/E/R — F-009 §3.1) ---------------------
@@ -358,7 +353,7 @@ func _gear_slot_tip(m: Node) -> String:
 	return "\n".join(lines)
 
 
-## 장착 서브 스킬 슬롯 툴팁(BBCode) — 표시명 + 설명문 + 탄/쿨 + affix(색) + 비주력 패널티(색) + 회수 안내.
+## 장착 서브 스킬 슬롯 툴팁(BBCode) — 표시명 + 설명문 + 마석/쿨 + 비주력 패널티(색). 표시 전용(M5).
 func _sub_slot_tip(m: Node, inst: Dictionary, key: String) -> String:
 	var kind := String(inst.params.get("kind", ""))
 	var lines: Array = [
@@ -366,7 +361,6 @@ func _sub_slot_tip(m: Node, inst: Dictionary, key: String) -> String:
 		SkillText.describe(kind, inst.params),
 		"[color=#9aa4b2]◈ 마석 %d · 쿨 %ss[/color]" % [Slice01Data.manastone_cost_for(String(inst.get("base_ability_id", ""))), str(inst.params.get("cooldown_s", "?"))],
 	]
-	lines.append_array(SkillText.affix_lines(inst.get("affix", {})))
 	var bp := SkillText.band_pct(String(inst.get("base_ability_id", "")), String(m.class_id))
 	if bp > 0:
 		lines.append(SkillText.band_line(bp))
@@ -382,123 +376,13 @@ func sub_slot_under(mouse: Vector2) -> int:
 	return -1
 
 
-## Can the slot's owner char equip this skillbook now? combat gate + equipClasses.
-## 드래그 프리뷰 — **항상 거부색**. M4 이후 이 컬럼은 표시 전용이라 "여기 놓을 수 있어 보이는" 초록은
-## 거짓말이다.
-func _can_equip_sub_now(flat_index: int, master: Dictionary) -> bool:
-	return false
-	@warning_ignore("unreachable_code")
-	if master.is_empty() or flat_index < 0 or flat_index >= _sub_slots.size():
-		return false
-	if _combat != null and _combat.is_engaged():
-		return false
-	var m: Node = _party.get_member(int(_sub_slots[flat_index].char)) if _party != null else null
-	return m != null and m.can_equip_skillbook(master)
+## ~~서브 장착·회수·드래그 경로 일체~~ — **M5에서 제거**(`D-018` §9 스킬북 인스턴스 Frozen).
+## `_skillbook_inst` · `_skillbook_item_from_inst` · `_commit_sub_equip` · `try_equip_sub` ·
+## `equip_sub_to_first` · `revert_sub` · `_can_equip_sub_now` — 전부 **스킬북이 물건이던 시절**의
+## 배관이다. 슬롯 AB는 이제 gear에 새겨진 등록이라 집을 수도, 가방에 넣을 수도 없다.
+## SUB 컬럼은 `_refresh_sub_slots`가 그리는 **표시 전용**으로만 남는다(변경 = `hub_modding_panel`).
 
 
-## Slot instance from a backpack skillbook item + its master (carries current charges).
-func _skillbook_inst(master: Dictionary, item: Dictionary) -> Dictionary:
-	var classes: Array = master.get("equip_classes", [])
-	var cid := String(classes[0]) if not classes.is_empty() else "DPS"
-	var affix: Dictionary = item.get("affix", {})           # D-018 §7.3 인스턴스 affix
-	var cmax := int(master.get("charges_max", 0)) + int(affix.get("charges", 0))
-	return {
-		"base_ability_id": String(master.get("base_ability_id", "")),
-		"display_name": String(master.get("display_name", "")),
-		"params": master.get("cast", {}),
-		"charges": int(item.get("charges", cmax)),
-		"charges_max": cmax,
-		"cooldown_s": 0.0,
-		"equip_classes": classes,
-		"color": item.get("color", UnitVisuals.role_color(cid)),
-		"affix": affix,
-	}
-
-
-## Backpack item from a displaced slot instance (preserves remaining charges; At-Risk).
-func _skillbook_item_from_inst(inst: Dictionary) -> Dictionary:
-	return {
-		"id": String(inst.display_name),
-		"w": 1, "h": 1,
-		"color": inst.get("color", Color(0.5, 0.6, 0.85)),
-		"kind": "skillbook",
-		"base_ability_id": String(inst.base_ability_id),
-		"charges": int(inst.charges),
-		"charges_max": int(inst.charges_max),
-		"at_risk": true,
-		"affix": inst.get("affix", {}),   # D-018 — 해제 시 affix 보존
-	}
-
-
-func _commit_sub_equip(m: Node, slot_index: int, item: Dictionary, master: Dictionary) -> void:
-	var inst := _skillbook_inst(master, item)
-	var displaced = m.set_skillbook(slot_index, inst)
-	if displaced != null:
-		if not _inv.backpack_grid().add_item_dict(_skillbook_item_from_inst(displaced)):
-			push_warning("[TDC] Backpack full — displaced skillbook had nowhere to go")
-	_refresh_sub_slots()
-	msg("%s %s → %s 장착" % [String(m.class_id), ["Q", "E", "R"][slot_index], String(master.get("display_name", ""))])
-
-
-## ~~Drag-drop equip~~ — **M4에서 폐지**. 슬롯 AB는 gear 인스턴스 소유라 여기서 멤버에 꽂아 봐야
-## `Backpack.apply_to_party`가 저장분으로 덮어쓴다. "되는 것처럼 보이는데 안 되는" 경로를 남기느니
-## 거절하고 **어디로 가야 하는지 말한다**. 실제 장착 = `hub_modding_panel`(`F-009` §3.9.2 허브 모딩).
-func try_equip_sub(flat_index: int, item: Dictionary) -> bool:
-	msg("슬롯 스킬은 건(gear)에 귀속된다 — 「대장간 · 건 모딩」에서 장착 (F-009 §3.9.2)")
-	return false
-	@warning_ignore("unreachable_code")
-	if flat_index < 0 or flat_index >= _sub_slots.size():
-		return false
-	var e = _sub_slots[flat_index]
-	var m: Node = _party.get_member(int(e.char)) if _party != null else null
-	var master: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
-	if m == null or master.is_empty():
-		return false
-	if _combat != null and _combat.is_engaged():
-		msg("전투 중에는 스킬북 교체 불가 (F-009 §3.4)")
-		return false
-	if not m.can_equip_skillbook(master):
-		msg("역할 불일치 — %s 전용 스킬북" % String((master.get("equip_classes", ["?"]) as Array)[0]))
-		return false
-	_commit_sub_equip(m, int(e.slot), item, master)
-	return true
-
-
-## Right-click equip: first matching-class char with an empty slot (else that char's Q).
-func equip_sub_to_first(grid: Node, item: Dictionary) -> void:
-	var master: Dictionary = Slice01Data.get_skillbook_master(String(item.get("base_ability_id", "")))
-	if master.is_empty():
-		return
-	if _combat != null and _combat.is_engaged():
-		msg("전투 중에는 스킬북 교체 불가 (F-009 §3.4)")
-		return
-	var members: Array = _party.get_members() if _party != null else []
-	var fb_char := -1
-	for ci in members.size():
-		var m: Node = members[ci]
-		if not m.can_equip_skillbook(master):
-			continue
-		if fb_char < 0:
-			fb_char = ci
-		for si in 3:
-			if m.get_skillbook(si) == null:
-				grid.lift(item)
-				_commit_sub_equip(m, si, item, master)
-				return
-	if fb_char < 0:
-		msg("착용 가능한 %s 캐릭터 없음" % String((master.get("equip_classes", ["?"]) as Array)[0]))
-		return
-	grid.lift(item)
-	_commit_sub_equip(members[fb_char], 0, item, master)
-
-
-## Re-equip a skillbook reverted onto its origin slot (coordinator._revert_drag "sub").
-func revert_sub(char_index: int, slot: int, drag_item: Dictionary) -> void:
-	var m: Node = _party.get_member(char_index) if _party != null else null
-	if m != null:
-		var master := Slice01Data.get_skillbook_master(String(drag_item.get("base_ability_id", "")))
-		m.set_skillbook(slot, _skillbook_inst(master, drag_item))
-	_refresh_sub_slots()
 
 
 func _set_sub_preview(i: int, ok: bool) -> void:
@@ -529,17 +413,16 @@ func _on_gear_slot_input(event: InputEvent, char_index: int) -> void:
 		accept_event()
 
 
-func _on_sub_slot_input(event: InputEvent, flat_index: int) -> void:
+## SUB 슬롯은 **표시 전용**이다(M5). 좌·우클릭 모두 안내만 한다 — 조용히 무시하면 "고장났나"가
+## 되므로 어디로 가야 하는지 말해 준다.
+func _on_sub_slot_input(event: InputEvent, _flat_index: int) -> void:
 	if not (event is InputEventMouseButton):
 		return
 	var mb := event as InputEventMouseButton
-	if not mb.pressed:
+	if not mb.pressed or _inv.is_dragging():
 		return
-	if mb.button_index == MOUSE_BUTTON_LEFT and not _inv.is_dragging():
-		_begin_sub_slot_drag(flat_index)
-		accept_event()
-	elif mb.button_index == MOUSE_BUTTON_RIGHT and not _inv.is_dragging():
-		_unequip_sub_to_backpack(flat_index)   # 우클릭 = 가방으로 회수
+	if mb.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+		msg("슬롯 스킬은 건(gear)에 귀속된다 — 「대장간 · 건 모딩」에서 변경 (F-009 §3.9.2)")
 		accept_event()
 
 
@@ -563,36 +446,6 @@ func _unequip_gear_to_backpack(char_index: int) -> void:
 	msg("%s 장비 → 가방" % String(m.class_id))
 
 
-## ~~우클릭 회수~~ — **M4에서 폐지**(위와 같은 이유). 게다가 P4b에선 슬롯 AB를 빼도 **책으로 돌아오지
-## 않는다** — 스킬북 인스턴스가 아니라 gear에 새겨진 등록이라, 빼는 건 곧 비우는 것이다.
-func _unequip_sub_to_backpack(flat_index: int) -> void:
-	msg("슬롯 스킬은 가방으로 회수되지 않는다 — 「대장간 · 건 모딩」에서 빼기 (F-009 §3.9.2)")
-	return
-	@warning_ignore("unreachable_code")
-	if flat_index < 0 or flat_index >= _sub_slots.size():
-		return
-	var e = _sub_slots[flat_index]
-	var m: Node = _party.get_member(int(e.char)) if _party != null else null
-	if m == null:
-		return
-	var inst = m.get_skillbook(int(e.slot))
-	if inst == null:
-		return
-	if _combat != null and _combat.is_engaged():
-		msg("전투 중에는 스킬북 해제 불가 (F-009 §3.4)")
-		return
-	if float(inst.cooldown_s) > 0.0:
-		msg("스킬북 쿨다운 중 — 해제 불가")
-		return
-	var item := _skillbook_item_from_inst(inst)   # affix + 잔여 탄 캐리
-	if not _inv.backpack_grid().add_item_dict(item):
-		msg("가방이 가득 참 — 회수 불가")
-		return
-	m.set_skillbook(int(e.slot), null)
-	_refresh_sub_slots()
-	msg("%s %s 스킬북 → 가방" % [String(m.class_id), ["Q", "E", "R"][int(e.slot)]])
-
-
 func _begin_gear_slot_drag(char_index: int) -> void:
 	var m: Node = _party.get_member(char_index) if _party != null else null
 	if m == null or (m.equipped_gear as Dictionary).is_empty():
@@ -608,27 +461,3 @@ func _begin_gear_slot_drag(char_index: int) -> void:
 	_refresh_equip_slots()
 	_inv.start_drag_from_slot(item, {"kind": "gear", "char": char_index})
 
-
-## ~~슬롯에서 끌어내기~~ — **M4에서 폐지**. 슬롯 AB는 집을 수 있는 물건이 아니다(gear에 새겨진 등록).
-func _begin_sub_slot_drag(flat_index: int) -> void:
-	return
-	@warning_ignore("unreachable_code")
-	if flat_index < 0 or flat_index >= _sub_slots.size():
-		return
-	var e = _sub_slots[flat_index]
-	var m: Node = _party.get_member(int(e.char)) if _party != null else null
-	if m == null:
-		return
-	var inst = m.get_skillbook(int(e.slot))
-	if inst == null:
-		return
-	if _combat != null and _combat.is_engaged():
-		msg("전투 중에는 스킬북 해제 불가 (F-009 §3.4)")
-		return
-	if float(inst.cooldown_s) > 0.0:
-		msg("스킬북 쿨다운 중 — 해제 불가")
-		return
-	var item := _skillbook_item_from_inst(inst)
-	m.set_skillbook(int(e.slot), null)
-	_refresh_sub_slots()
-	_inv.start_drag_from_slot(item, {"kind": "sub", "char": int(e.char), "slot": int(e.slot)})

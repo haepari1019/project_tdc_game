@@ -2,7 +2,7 @@
   "_ref": "spec F-020 §3.10 (스킬 트리 — Phase 4b) · F-029 `chapel` Tier · I-007 §14.5. **분석 의뢰 N=3 → 트리 노드 클릭 = 해금**으로 교체(F-009 §3.9.4 — 분석 UI 제거). 소비 = 금고 재료(`haul_*`) · (선택) `ward_scrap`.",
   "_note_types": "노드 4종 = `Slot`/`Unlock`/`Upgrade`/`Doctrine` (`F-020` §3.10). **루트 노드는 없다** — 클래스 트리의 진입 게이트는 `chapel` T1이고(`F-029`), 아무것도 주지 않는 의례 노드를 두면 「샀는데 아무 일도 안 일어남」이 첫 경험이 된다. 선행 관계는 의미 있는 곳에만 건다: `U1 → U2`(해금 사슬) · `U1 → UP1`(해금 안 한 AB는 발전시킬 수 없다) · `SLOT1 → SLOT2`.",
   "_note_unit": "트리 단위 = **클래스별**(`F-029` chapel 「클래스당 트리 루트」). `F-030` OQ-5(교차 doctrine 별도 노드)는 Deferred라 클래스 안에서만 갈린다. **U6 기본값 — 플래그**.",
-  "_note_cost": "`Unlock`/`Upgrade` = **공유 재료**(적 처치 → 금고). `Doctrine`/`Slot` = `haul_ward_splinter`(시설 승급과 같은 재료를 두고 경쟁 — I-007 §14.6 sink 경쟁). 두 축을 갈라 놨으므로 「스킬을 열려고 시설을 못 올리는」 교착은 생기지 않지만, `Upgrade`만은 `haul_shared_core`를 요구해 정예 처치를 강제한다.",
+  "_note_cost": "`Unlock` = **공유 재료**(적 처치 → 금고), tier 차등 **Basic 3 / Advanced 5 / Master 8** — 마석 시전비(Basic 1 / Adv 2 / Master 3)와 같은 축이라 「비싼 스킬은 열기도 쓰기도 비싸다」가 일관된다. `Upgrade`도 공유 재료(+ `haul_shared_core` 1). `Doctrine`/`Slot` = `haul_ward_splinter`/`haul_forge_coal` — 시설 승급과 같은 재료를 두고 경쟁한다(`I-007` §14.6 sink 경쟁). 축을 갈라 놨으므로 「스킬을 열려고 시설을 못 올리는」 교착은 생기지 않는다.",
   "_note_playtest": "플테 프로필은 **전 노드 해금 상태로 시드**한다(D4 「전 카탈로그 개방」의 트리판) — 교정한 스킬에 손이 닿아야 한다. `HubProfile.PLAYTEST_TREE_ALL_UNLOCKED`.",
   "node_types": [
     "Unlock",
@@ -150,60 +150,693 @@
       "desc": "직접 조작으로 버티고, 복귀해서 터뜨리는 운용"
     },
     {
-      "node_id": "TREE-TNK-U1",
+      "node_id": "TREE-TNK-UL01",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "방패 강타",
+      "base_ability_id": "AB-002",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Control"
+    },
+    {
+      "node_id": "TREE-TNK-UL02",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "일격 기절",
+      "base_ability_id": "AB-011",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Control"
+    },
+    {
+      "node_id": "TREE-TNK-UL03",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "철벽 태세",
+      "base_ability_id": "AB-046",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Guard"
+    },
+    {
+      "node_id": "TREE-TNK-UL04",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "수호 파동",
+      "base_ability_id": "AB-047",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Guard"
+    },
+    {
+      "node_id": "TREE-TNK-UL05",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "성벽 전개",
+      "base_ability_id": "AB-034",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Control"
+    },
+    {
+      "node_id": "TREE-TNK-UL06",
       "class_id": "Tank",
       "type": "Unlock",
       "display_name": "전방위 방벽",
       "base_ability_id": "AB-033",
-      "cost": {
-        "haul_shared_shard": 4
-      },
-      "desc": "슬롯 장착·재구매 허용"
+      "cost": {},
+      "desc": "Basic · Guard · **스타터 프리모딩**(F-008 §3.10.2)",
+      "starter_unlocked": true
     },
     {
-      "node_id": "TREE-TNK-U2",
+      "node_id": "TREE-TNK-UL07",
       "class_id": "Tank",
       "type": "Unlock",
-      "display_name": "성벽 강타",
-      "base_ability_id": "AB-034",
-      "prerequisite": "TREE-TNK-U1",
+      "display_name": "반격 태세",
+      "base_ability_id": "AB-048a",
       "cost": {
-        "haul_shared_shard": 6
+        "haul_shared_shard": 5
       },
-      "desc": "슬롯 장착·재구매 허용"
+      "desc": "Advanced · Guard"
     },
     {
-      "node_id": "TREE-DPS-U1",
+      "node_id": "TREE-TNK-UL08",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "간파 반격",
+      "base_ability_id": "AB-048b",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Guard"
+    },
+    {
+      "node_id": "TREE-TNK-UL09",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "도전 선포",
+      "base_ability_id": "AB-035",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Control"
+    },
+    {
+      "node_id": "TREE-TNK-UL10",
+      "class_id": "Tank",
+      "type": "Unlock",
+      "display_name": "방패 도발",
+      "base_ability_id": "AB-051",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Control"
+    },
+    {
+      "node_id": "TREE-DPS-UL01",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "맹독 분사",
+      "base_ability_id": "AB-010",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Debuff"
+    },
+    {
+      "node_id": "TREE-DPS-UL02",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "빙결 파동",
+      "base_ability_id": "AB-041",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Ranged"
+    },
+    {
+      "node_id": "TREE-DPS-UL03",
       "class_id": "DPS",
       "type": "Unlock",
       "display_name": "작열 폭발",
       "base_ability_id": "AB-053",
-      "cost": {
-        "haul_shared_shard": 4
-      },
-      "desc": "슬롯 장착·재구매 허용"
+      "cost": {},
+      "desc": "Basic · SustainDamage · **스타터 프리모딩**(F-008 §3.10.2)",
+      "starter_unlocked": true
     },
     {
-      "node_id": "TREE-NUK-U1",
-      "class_id": "Nuker",
+      "node_id": "TREE-DPS-UL04",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "절단 광선",
+      "base_ability_id": "AB-054",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · SustainDamage"
+    },
+    {
+      "node_id": "TREE-DPS-UL05",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "화염 분사",
+      "base_ability_id": "AB-109",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · SustainDamage"
+    },
+    {
+      "node_id": "TREE-DPS-UL06",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "독무 살포",
+      "base_ability_id": "AB-110",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · SustainDamage"
+    },
+    {
+      "node_id": "TREE-DPS-UL07",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "냉기 폭풍",
+      "base_ability_id": "AB-111",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · SustainDamage"
+    },
+    {
+      "node_id": "TREE-DPS-UL08",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "전격 연사",
+      "base_ability_id": "AB-003",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Ranged"
+    },
+    {
+      "node_id": "TREE-DPS-UL09",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "전격 사격",
+      "base_ability_id": "AB-004",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Ranged"
+    },
+    {
+      "node_id": "TREE-DPS-UL10",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "광재 분출",
+      "base_ability_id": "AB-008",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Ranged"
+    },
+    {
+      "node_id": "TREE-DPS-UL11",
+      "class_id": "DPS",
       "type": "Unlock",
       "display_name": "전격 제압",
       "base_ability_id": "AB-030",
       "cost": {
-        "haul_shared_shard": 4
+        "haul_shared_shard": 3
       },
-      "desc": "슬롯 장착·재구매 허용"
+      "desc": "Basic · Control"
     },
     {
-      "node_id": "TREE-HEA-U1",
+      "node_id": "TREE-DPS-UL12",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "산탄 사격",
+      "base_ability_id": "AB-055",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · SustainDamage"
+    },
+    {
+      "node_id": "TREE-DPS-UL13",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "서리 저격",
+      "base_ability_id": "AB-056",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Ranged"
+    },
+    {
+      "node_id": "TREE-DPS-UL14",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "방전 작렬",
+      "base_ability_id": "AB-058",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Burst"
+    },
+    {
+      "node_id": "TREE-DPS-UL15",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "공허창",
+      "base_ability_id": "AB-059",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Burst"
+    },
+    {
+      "node_id": "TREE-DPS-UL16",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "과부하 방전",
+      "base_ability_id": "AB-073",
+      "cost": {
+        "haul_shared_shard": 8
+      },
+      "desc": "Master · Burst"
+    },
+    {
+      "node_id": "TREE-DPS-UL17",
+      "class_id": "DPS",
+      "type": "Unlock",
+      "display_name": "포획 그물",
+      "base_ability_id": "AB-102",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Control"
+    },
+    {
+      "node_id": "TREE-NUK-UL01",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "빙결 파동",
+      "base_ability_id": "AB-041",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Ranged"
+    },
+    {
+      "node_id": "TREE-NUK-UL02",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "작열 폭발",
+      "base_ability_id": "AB-053",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · SustainDamage"
+    },
+    {
+      "node_id": "TREE-NUK-UL03",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "취약 표식",
+      "base_ability_id": "AB-057",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Debuff"
+    },
+    {
+      "node_id": "TREE-NUK-UL04",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "연막 은신",
+      "base_ability_id": "AB-062",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Mobility"
+    },
+    {
+      "node_id": "TREE-NUK-UL05",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "전격 연사",
+      "base_ability_id": "AB-003",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Ranged"
+    },
+    {
+      "node_id": "TREE-NUK-UL06",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "전격 사격",
+      "base_ability_id": "AB-004",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Ranged"
+    },
+    {
+      "node_id": "TREE-NUK-UL07",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "연격 난무",
+      "base_ability_id": "AB-005",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Melee"
+    },
+    {
+      "node_id": "TREE-NUK-UL08",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "쇄도 도약",
+      "base_ability_id": "AB-006",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Mobility"
+    },
+    {
+      "node_id": "TREE-NUK-UL09",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "이탈 도약",
+      "base_ability_id": "AB-007a",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Mobility"
+    },
+    {
+      "node_id": "TREE-NUK-UL10",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "반사 이탈",
+      "base_ability_id": "AB-007b",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Mobility"
+    },
+    {
+      "node_id": "TREE-NUK-UL11",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "광재 분출",
+      "base_ability_id": "AB-008",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Ranged"
+    },
+    {
+      "node_id": "TREE-NUK-UL12",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "변이 저주",
+      "base_ability_id": "AB-012",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Control"
+    },
+    {
+      "node_id": "TREE-NUK-UL13",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "배후 급습",
+      "base_ability_id": "AB-013",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Mobility"
+    },
+    {
+      "node_id": "TREE-NUK-UL14",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "전격 제압",
+      "base_ability_id": "AB-030",
+      "cost": {},
+      "desc": "Basic · Control · **스타터 프리모딩**(F-008 §3.10.2)",
+      "starter_unlocked": true
+    },
+    {
+      "node_id": "TREE-NUK-UL15",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "산탄 사격",
+      "base_ability_id": "AB-055",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · SustainDamage"
+    },
+    {
+      "node_id": "TREE-NUK-UL16",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "서리 저격",
+      "base_ability_id": "AB-056",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Ranged"
+    },
+    {
+      "node_id": "TREE-NUK-UL17",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "방전 작렬",
+      "base_ability_id": "AB-058",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Burst"
+    },
+    {
+      "node_id": "TREE-NUK-UL18",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "공허창",
+      "base_ability_id": "AB-059",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Burst"
+    },
+    {
+      "node_id": "TREE-NUK-UL19",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "과부하 방전",
+      "base_ability_id": "AB-073",
+      "cost": {
+        "haul_shared_shard": 8
+      },
+      "desc": "Master · Burst"
+    },
+    {
+      "node_id": "TREE-NUK-UL20",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "급습 고정",
+      "base_ability_id": "AB-100",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Burst"
+    },
+    {
+      "node_id": "TREE-NUK-UL21",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "사슬 포박",
+      "base_ability_id": "AB-103",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Control"
+    },
+    {
+      "node_id": "TREE-NUK-UL22",
+      "class_id": "Nuker",
+      "type": "Unlock",
+      "display_name": "포식 처형",
+      "base_ability_id": "AB-106",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Burst"
+    },
+    {
+      "node_id": "TREE-HEA-UL01",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "집중 치유",
+      "base_ability_id": "AB-064",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Heal"
+    },
+    {
+      "node_id": "TREE-HEA-UL02",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "수호 파동",
+      "base_ability_id": "AB-047",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Guard"
+    },
+    {
+      "node_id": "TREE-HEA-UL03",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "수호 축복",
+      "base_ability_id": "AB-067",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Buff"
+    },
+    {
+      "node_id": "TREE-HEA-UL04",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "수호 인장",
+      "base_ability_id": "AB-068",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Buff"
+    },
+    {
+      "node_id": "TREE-HEA-UL05",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "환류 보호막",
+      "base_ability_id": "AB-065",
+      "cost": {
+        "haul_shared_shard": 8
+      },
+      "desc": "Master · Heal"
+    },
+    {
+      "node_id": "TREE-HEA-UL06",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "취약 표식",
+      "base_ability_id": "AB-057",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Debuff"
+    },
+    {
+      "node_id": "TREE-HEA-UL07",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "신속 가호",
+      "base_ability_id": "AB-069",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Buff"
+    },
+    {
+      "node_id": "TREE-HEA-UL08",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "축복의 방벽",
+      "base_ability_id": "AB-075",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Buff"
+    },
+    {
+      "node_id": "TREE-HEA-UL09",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "정화의 빛",
+      "base_ability_id": "AB-070",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Debuff"
+    },
+    {
+      "node_id": "TREE-HEA-UL10",
       "class_id": "Healer",
       "type": "Unlock",
       "display_name": "침묵 결계",
       "base_ability_id": "AB-044",
+      "cost": {},
+      "desc": "Basic · Debuff · **스타터 프리모딩**(F-008 §3.10.2)",
+      "starter_unlocked": true
+    },
+    {
+      "node_id": "TREE-HEA-UL11",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "변이 저주",
+      "base_ability_id": "AB-012",
       "cost": {
-        "haul_shared_shard": 4
+        "haul_shared_shard": 3
       },
-      "desc": "슬롯 장착·재구매 허용"
+      "desc": "Basic · Control"
+    },
+    {
+      "node_id": "TREE-HEA-UL12",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "대치유 의식",
+      "base_ability_id": "AB-066",
+      "cost": {
+        "haul_shared_shard": 5
+      },
+      "desc": "Advanced · Heal"
+    },
+    {
+      "node_id": "TREE-HEA-UL13",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "구명 견인",
+      "base_ability_id": "AB-045",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Utility"
+    },
+    {
+      "node_id": "TREE-HEA-UL14",
+      "class_id": "Healer",
+      "type": "Unlock",
+      "display_name": "정찰 신호",
+      "base_ability_id": "AB-032",
+      "cost": {
+        "haul_shared_shard": 3
+      },
+      "desc": "Basic · Utility"
     },
     {
       "node_id": "TREE-TNK-UP1",
@@ -211,7 +844,7 @@
       "type": "Upgrade",
       "display_name": "방벽 심화",
       "base_ability_id": "AB-033",
-      "prerequisite": "TREE-TNK-U1",
+      "prerequisite": "TREE-TNK-UL06",
       "cost": {
         "haul_shared_shard": 6,
         "haul_shared_core": 1
@@ -223,5 +856,6 @@
       "_ref": "F-020 §3.10 Upgrade = **행동 발전**(ROLE-001). 여기선 흡수 상한을 올려 「버티는 창」을 늘린다 — stat 증폭이 아니라 그 스킬의 역할을 깊게 하는 축. 수치는 placeholder."
     }
   ],
-  "_note_slot": "슬롯 수 = clamp(1 + Slot 노드 합, 1, gear.gear_skill_slot_count_max). **`smithy` tier를 따로 더하지 않는다** — `F-008` §3.10 사다리(starter 1 → smithy T2 = 2 → T3 = 3)와 `F-020` §3.10 `Slot` 노드(「예: smithy 연동」)는 **같은 +1**이고, 트리 노드가 그 구매 표면이며 smithy tier는 `facility_req` 게이트다. 두 축으로 더하면 대장간 없이 트리만으로 3칸이 열려 `F-008`의 사다리가 무너진다. 스타터 gear는 max 1이라 노드를 사도 안 늘어난다(D-019 §2)."
+  "_note_slot": "슬롯 수 = clamp(1 + Slot 노드 합, 1, gear.gear_skill_slot_count_max). **`smithy` tier를 따로 더하지 않는다** — `F-008` §3.10 사다리(starter 1 → smithy T2 = 2 → T3 = 3)와 `F-020` §3.10 `Slot` 노드(「예: smithy 연동」)는 **같은 +1**이고, 트리 노드가 그 구매 표면이며 smithy tier는 `facility_req` 게이트다. 두 축으로 더하면 대장간 없이 트리만으로 3칸이 열려 `F-008`의 사다리가 무너진다. 스타터 gear는 max 1이라 노드를 사도 안 늘어난다(D-019 §2).",
+  "_note_unlock": "`Unlock` 노드는 **역할 × AB 전수**다(`equip_classes` 기준). 한 AB가 두 역할에 걸리면 노드도 둘 — 트리 단위가 클래스라(U6) Tank가 산 해금이 Nuker에게 넘어가면 클래스 트리가 아니게 된다. **M5 선행 필수였다:** 구 `analysisProgress` 폴백을 지우는데 노드가 5종뿐이면 44종이 영구 잠긴다. `starter_unlocked: true` 4종은 `F-008` §3.10.2 프리모딩 — 무비용·기본 해금(`F-020` §3.2.0 첫 런 ≥1 슬롯)."
 }
