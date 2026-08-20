@@ -185,7 +185,7 @@
           "effect": "건 모딩 해금 (Q/E/R 장착)",
           "quest": "Q-HUB-030",
           "haul": {
-            "haul_forge_coal": 8
+            "haul_ward_splinter": 6
           }
         },
         {
@@ -193,14 +193,25 @@
           "effect": "gear 슬롯 +1 (2칸)",
           "quest": "Q-HUB-031",
           "haul": {
-            "haul_forge_coal": 15
+            "haul_ward_splinter": 10,
+            "haul_forge_coal": 2
+          }
+        },
+        {
+          "tier": 3,
+          "effect": "gear 슬롯 +1 (3칸) · F-008 §3.8 재조합",
+          "quest": "Q-HUB-032",
+          "haul": {
+            "haul_forge_coal": 6,
+            "haul_deep_core": 1
           }
         }
       ],
       "map_pos": [
         0.28,
         0.34
-      ]
+      ],
+      "_note_tiers": "**요구 재료를 진행 단계에 맞춰 재편**(DRIFT-154). 구 표는 T1부터 `haul_forge_coal` ×8을 요구했는데 연료는 **Deep 분기 전용**(`ENC-DEEP-001` 0.4/런)이라 건 모딩이 ~20런 뒤에 열렸다 — P4b의 중심 기능이 그때까지 통째로 잠긴다. T1은 가장 흔한 파편(2.4/런)으로 내리고, **연료는 T2부터**(심층에 갈 이유) **심층 코어는 T3**(반복 방문)으로 올렸다. **T3 실체화** — 구 `F-029`는 T3+를 Expansion으로 미뤄 뒀는데, 그러면 `gearSkillSlotCountMax=3` gear의 세 번째 칸이 Slice-01에서 **영원히 안 열린다**(존재하되 도달 불가). 슬롯 사다리가 `smithy`에 묶인 이상 사다리의 마지막 칸도 이 표 안에 있어야 한다."
     },
     "chapel": {
       "display": "성소",

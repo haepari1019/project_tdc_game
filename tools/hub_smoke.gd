@@ -390,7 +390,7 @@ func _init() -> void:
 	hp2.add_haul("haul_forge_coal", 4)
 	_expect(bool(hp2.tree_buy("TREE-TNK-SLOT1").get("ok", false)), "대장간 T2 → 두 번째 슬롯 구매")
 	_expect(hp2.tree_slot_bonus("Tank") == 1, "Slot 노드 → gear 슬롯 +1")
-	_expect(String(hp2.tree_check("TREE-TNK-SLOT2").get("reason", "")) == "facility_req", "세 번째 슬롯 — 대장간 T3 게이트(Expansion)")
+	_expect(String(hp2.tree_check("TREE-TNK-SLOT2").get("reason", "")) == "facility_req", "세 번째 슬롯 — 대장간 T3 게이트")
 	_expect(hp2.tree_slot_bonus("DPS") == 0, "다른 클래스 Slot은 미해금 → 0")
 	hp2.tree_unlocked["TREE-TNK-UL01"] = true
 	_expect(hp2.is_ability_unlocked("AB-002"), "Unlock 노드 해금 → AB 열림")
@@ -568,6 +568,47 @@ func _init() -> void:
 		if not owned.has(String(tn3.get("type", ""))):
 			orphan.append(String(tn3.get("node_id", "")))
 	_expect(orphan.is_empty(), "트리 노드 유형 전원 소유 건물 있음" if orphan.is_empty() else "고아 노드: %s" % ", ".join(orphan))
+
+	# ②m 대장간 사다리 **도달 가능성** (DRIFT-154) — 슬롯 3칸이 실제로 열리는가.
+	# 구 표는 T1부터 Deep 전용 연료 8개를 요구했고(건 모딩 ~20런 뒤), T3는 아예 Expansion이라
+	# **3칸 gear의 세 번째 칸이 영원히 안 열렸다**. 「존재하되 도달 불가」는 데이터 결함이다.
+	var hp3 = load("res://scripts/autoload/hub_profile.gd").new()
+	hp3.persist = false
+	for f3 in hp3.FACILITY_IDS:
+		hp3.facilities[f3] = 0
+	_expect(not sd.get_facility_tier("smithy", 3).is_empty(), "대장간 T3 실재(슬롯 3칸의 자리)")
+	for aq in ["Q-HUB-030", "Q-HUB-031", "Q-HUB-032"]:
+		hp3.quest_accepted[aq] = true
+	# T1 — **초반 재료로** 열려야 한다(파편은 2.4/런, 연료는 0.4/런 Deep 전용).
+	hp3.add_haul("haul_ward_splinter", 6)
+	hp3.evaluate_quests()
+	_expect(bool(hp3.upgrade_check("smithy").get("ok", false)), "대장간 T1 — 파편만으로 건립 가능(연료 불요)")
+	_expect(hp3.attempt_upgrade("smithy") and hp3.facility_tier("smithy") == 1, "대장간 T1 적용")
+	# T2 — 슬롯 2칸. 여기서부터 연료(심층에 갈 이유).
+	hp3.add_haul("haul_ward_splinter", 10)
+	hp3.add_haul("haul_forge_coal", 2)
+	hp3.evaluate_quests()
+	_expect(hp3.attempt_upgrade("smithy") and hp3.facility_tier("smithy") == 2, "대장간 T2 — 슬롯 2칸")
+	# T3 — 슬롯 3칸. 심층 ENC 클리어 + 연료·코어.
+	hp3.add_haul("haul_forge_coal", 6)
+	hp3.add_haul("haul_deep_core", 1)
+	hp3.evaluate_quests()
+	_expect(not bool(hp3.upgrade_check("smithy").get("ok", false)), "대장간 T3 — 심층 ENC 전 차단")
+	hp3.record_enc_cleared("ENC-DEEP-001", "Normal")
+	hp3.evaluate_quests()
+	_expect(hp3.attempt_upgrade("smithy") and hp3.facility_tier("smithy") == 3, "대장간 T3 — 심층 노두로 슬롯 3칸")
+	# **사다리의 목적지를 단언한다** — 트리 `Slot` 노드 둘을 *실제로 사서* 보너스 2를 만든다.
+	# `gear_slot_count`는 `clamp(1 + 보너스, 1, gear max)`이므로 보너스 2 = 3칸이다. 여기서 재는 것은
+	# 「살 수 있는가」이고, 그게 구 스펙에서 불가능했던 부분이다(T3가 Expansion이라 `SLOT2`가 영원히 잠김).
+	hp3.PLAYTEST_TREE_ALL_UNLOCKED = false   # 플테 우회를 끄고 **진짜 구매**로 잰다
+	hp3.facilities["chapel"] = 1             # 트리 진입 게이트
+	hp3.facilities["scribe_shop"] = 2
+	hp3.add_haul("haul_forge_coal", 12)
+	_expect(hp3.tree_slot_bonus("Tank") == 0, "Slot 노드 미구매 → 보너스 0")
+	_expect(bool(hp3.tree_buy("TREE-TNK-SLOT1").get("ok", false)), "SLOT1 구매(대장간 T2 충족)")
+	_expect(bool(hp3.tree_buy("TREE-TNK-SLOT2").get("ok", false)), "SLOT2 구매(대장간 T3 충족) — 구 스펙에선 영영 불가")
+	_expect(hp3.tree_slot_bonus("Tank") == 2, "슬롯 보너스 2 → 3칸 gear의 세 번째 칸 도달")
+	hp3.free()
 
 	# ②l 의뢰 수락 동선 (M6) — **모든 의뢰가 어느 건물에선가 받을 수 있어야** 한다. 받을 곳이 없는
 	# 의뢰는 영원히 미수락 → 그 시설이 영구 잠김이다(수락 게이트를 넣었으므로 조용히 그렇게 된다).

@@ -48,14 +48,21 @@
       "facility": "smithy",
       "tier": 1,
       "one_liner": "대장간 건립",
-      "completion": "haul_forge_coal×3"
+      "completion": "haul_ward_splinter×3 in vault"
     },
     {
       "quest_id": "Q-HUB-031",
       "facility": "smithy",
       "tier": 2,
-      "one_liner": "대장간 2단",
-      "completion": "smithy T1 + haul"
+      "one_liner": "대장간 2단 — 심층의 연료",
+      "completion": "smithy T1 + haul_forge_coal×1 in vault"
+    },
+    {
+      "quest_id": "Q-HUB-032",
+      "facility": "smithy",
+      "tier": 3,
+      "one_liner": "대장간 3단 — 심층 노두를 열어라",
+      "completion": "ENC-DEEP-001 clear once (심층 분기)"
     },
     {
       "quest_id": "Q-HUB-040",

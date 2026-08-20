@@ -262,8 +262,13 @@ func evaluate_quests() -> void:
 	# 소유하게 옮겼다 — `spawn_table` `force_overrides`가 `P-BOSS-01`에 보스를 난이도 무관 고정한다.
 	_q_if("Q-HUB-020", bool(enc_cleared.get("ENC-BOSS-001", false)))
 	_q_if("Q-HUB-021", facility_tier("armory") >= 1)             # 무기고 T2
-	_q_if("Q-HUB-030", vault_count("haul_forge_coal") >= 3)      # 대장간 건립 — 연료
-	_q_if("Q-HUB-031", facility_tier("smithy") >= 1)             # 대장간 T2
+	# 대장간 사다리 — **초반 재료로 연다**(DRIFT-154). 연료(`haul_forge_coal`)는 Deep 분기 전용
+	# (0.4/런)이라 T1부터 요구하면 건 모딩이 ~20런 뒤에 열린다. T1은 파편, T2부터 연료.
+	_q_if("Q-HUB-030", vault_count("haul_ward_splinter") >= 3)   # 대장간 건립 — 파편
+	_q_if("Q-HUB-031", facility_tier("smithy") >= 1 and vault_count("haul_forge_coal") >= 1)
+	# T3 = **심층 노두**. `gear_skill_slot_count_max = 3` gear의 세 번째 칸이 여기서 열린다 —
+	# 구 스펙은 T3+를 Expansion으로 미뤄 그 칸이 Slice-01에서 영영 도달 불가였다.
+	_q_if("Q-HUB-032", bool(enc_cleared.get("ENC-DEEP-001", false)))
 	_q_if("Q-HUB-051", vault_count("haul_pack_frame") >= 2)      # 군수 T2
 	if _q_dirty:
 		save_profile()
