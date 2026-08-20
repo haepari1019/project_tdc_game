@@ -1830,4 +1830,9 @@
 - **🐞 잡은 것:** 트리 밖 인스턴스에서 `get_node_or_null("/root/...")`가 에러를 뱉고 있었다(스모크 로그 오염). `is_inside_tree()` 가드로 정리.
 - **영향 파일:** `backpack.gd` · `slice01_data.gd` · `party_member.gd` · `loot_service.gd` · `combat_controller.gd` · `main.gd` · `equip_panel.gd` · **`hub_modding_panel.gd`(신규)** · `gear.json` · `skillbooks.json` · `haul_materials.json` · `skill_tree.json` · `id_registry.json` · `tools/hub_smoke.gd` · `tools/party_pool_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **12/12 PASS** — 신규: gear 27종 `allowed_slot_families`/`slot_max` 정합(**미존재 계열명 검출 포함**) · 스킬북 49종 `skill_family` 전수 · **역할별 「스타터 건에 끼울 수 있는 AB ≥1」**(첫 런에 슬롯이 통째로 죽는 걸 막는다) · 거부 사유 분기(`slot`/`family`) · D2 소멸 잃은 목록 · 마이그레이션 · 공유 재료 실재 + 트리 소비.
-- **상태:** LOGGED · M4 완료 · **판정 ⓐ~ⓓ `PENDING-PROP`**(M5 착수 전 `OPS_30` 묶음 전파).
+- **상태:** ✅ **전파 완료(2026-08-20, spec `890bf73` · `DEC-20260820-001`)** · M4 완료 · 재핀 완료.
+  - ⓐ = **판정 아님**(⑦에서 자체 해소). 남은 전파는 `F-029` 요약표 정합 1건 + `F-008` §3.10 교차 주석(같은 오독 재발 방지).
+  - ⓑ `haul_shared_shard`/`haul_shared_core` → `D-029` §3 등재 + `F-009` §3.9.2 직접 참조 + **상자·ENC 드롭표 편입 금지** 조항.
+  - ⓒ `gearSkillSlotCount` `yes` → **`derived`**(`D-019` §3). 인스턴스 오버라이드는 P5 잭팟 예약.
+  - ⓓ `F-020` §3.10 — **루트 노드 금지** + 선행 원칙 + **노드 id 카탈로그는 구현 소유** 명시.
+  - **후속 TODO(spec):** `smithy` T3 = Expansion이라 **세 번째 슬롯이 Slice-01에서 도달 불가**다. 의도된 천장인지 플테로 확인.

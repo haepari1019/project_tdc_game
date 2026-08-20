@@ -259,7 +259,7 @@ M1 마석 ✅ ┬ M2 참 ✅ ┐          │
 **DoD:** 허브에서 gear를 골라 Q/E/R에 스킬을 끼우고, 결속 1줄이 그 자리에서 보이며, gear를 갈아끼우면 경고 후 슬롯이 소멸하고 트리/상점에서 재획득할 수 있다. 처치 → 재료 → 금고 → 해금 루프가 돈다. ✅ 전부 충족(`ci_smoke` 12/12).
 
 > **M4 결과 요약** — 슬롯 소유자가 멤버 → **gear 인스턴스**로 이관(`slot_abilities[3]`), 열린 칸 = `clamp(1 + smithy + 트리 Slot, 1, gear max)`, D2 소멸을 영속·런타임 **양층**에 배선, per-kill 스킬북 → **공유 재료**(`haul_shared_shard`/`haul_shared_core`) 대체, `hub_modding_panel` 신설(6영역).
-> **판정 4건 `PENDING-PROP`** — ⓐ slot 증가 경로(`F-029` 요약표 vs `D-019` §3 충돌) · ⓑ 공유 재료 id · ⓒ `gearSkillSlotCount` 파생 구현 · ⓓ `TREE-*-SLOT2` 노드 신설. 상세 = [SPEC_DRIFT DRIFT-151](../SPEC_DRIFT.md).
+> **판정 4건 → ✅ 전파 완료** (spec `890bf73` · `DEC-20260820-001` · 재핀 완료). ⓐ는 판정이 아니라 **구현의 이중 계산**이었고(`F-008` §3.10 사다리 오독) 착수 중 자체 해소. ⓑ 공유 재료 id · ⓒ `gearSkillSlotCount` → `derived` · ⓓ 루트 노드 금지 + 노드 카탈로그 구현 소유 = SSOT 반영. 상세 = [SPEC_DRIFT DRIFT-151](../SPEC_DRIFT.md).
 > **드래그 → 클릭 배치로 변경** — 스태시 드래그 라우터 불가침 제약과 상충. 기능 동치 + 거부 사유 표기 가능.
 
 ### M5 — F-009 폐기 + affix 폐기  *(파괴적 · M1~M4 선행 필수)*
