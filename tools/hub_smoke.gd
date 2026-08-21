@@ -569,6 +569,34 @@ func _init() -> void:
 			orphan.append(String(tn3.get("node_id", "")))
 	_expect(orphan.is_empty(), "트리 노드 유형 전원 소유 건물 있음" if orphan.is_empty() else "고아 노드: %s" % ", ".join(orphan))
 
+	# ②n **소프트락 부재** — 신규 세이브에서 프리모딩 칸을 비우면 되돌릴 수 있는가.
+	# 재현 경로 그대로 잰다: `ward_scrap` 0 · `scribe_shop` T0(신규 세이브 상태) · 칸 비우기 → 재설치.
+	# 이게 막히면 **출정 게이트(역할당 ≥1)와 시술비가 서로를 막아 영구 교착**이다. 실제로 그랬다.
+	var hps = load("res://scripts/autoload/hub_profile.gd").new()
+	hps.persist = false
+	for fs in hps.FACILITY_IDS:
+		hps.facilities[fs] = 0
+	hps.ward_scrap = 0
+	_expect(int(hps.shop_tier_ceiling()) == 0, "신규 세이브 — 필기상점 T0(등급 상한 0)")
+	# 기본 장착: 시술비도 등급도 안 본다. 「건 하나에 스킬 하나」는 원래 딸려 오는 것.
+	var basic_pay: Dictionary = hps.mod_install("AB-033", true)
+	_expect(bool(basic_pay.get("ok", false)) and int(basic_pay.get("cost", -1)) == 0,
+		"기본 장착 — scrap 0 · 상점 T0에서도 통과")
+	# 확장은 여전히 막힌다(그게 값이 붙는 이유다).
+	_expect(String(hps.mod_install("AB-033", false).get("reason", "")) == "tier_ceiling",
+		"확장 시술 — 상점 T0에서 차단")
+	hps.free()
+
+	var bps2 = load("res://scripts/autoload/backpack.gd").new()
+	bps2._seed()
+	_expect(int(bps2.filled_slot_count("Tank")) == 1, "시드 — 프리모딩으로 1칸 채워짐")
+	_expect(int(bps2.slot_install_price("Tank", "AB-034")) > 0, "이미 1칸 있음 → 다음 칸은 확장(유료)")
+	bps2.set_gear_slot_ability("Tank", 0, "")           # ← 소프트락 재현: 프리모딩 칸을 비운다
+	_expect(int(bps2.filled_slot_count("Tank")) == 0, "칸 비우기 — 0칸")
+	_expect(int(bps2.slot_install_price("Tank", "AB-033")) == 0, "0칸 → 다음 설치는 기본(무료)")
+	_expect(bps2.is_basic_install("Tank"), "0칸 = 기본 장착 상태")
+	bps2.free()
+
 	# ②m 대장간 사다리 **도달 가능성** (DRIFT-154) — 슬롯 3칸이 실제로 열리는가.
 	# 구 표는 T1부터 Deep 전용 연료 8개를 요구했고(건 모딩 ~20런 뒤), T3는 아예 Expansion이라
 	# **3칸 gear의 세 번째 칸이 영원히 안 열렸다**. 「존재하되 도달 불가」는 데이터 결함이다.

@@ -371,16 +371,26 @@ func shop_tier_ceiling() -> int:
 ## **모딩 시술비**(`F-008` §3.10 「동일 AB **재구매** 후 새 gear에 모딩」) — 트리 해금은 *허가*이고,
 ## 실제로 슬롯에 새기는 데는 매번 `ward_scrap`이 든다. 이게 없으면 D2 소멸이 이빨이 없다: gear를
 ## 갈아도 해금은 남아 있으니 공짜로 되끼우면 그만이기 때문이다. 가격 = 구 생본 가격(tier 차등) 승계.
-func mod_install_price(base_id: String) -> int:
-	return shop_price(String(Slice01Data.get_skillbook_master(base_id).get("tier", "Basic")))
-
-
+## 실제 청구액은 `Backpack.slot_install_price`가 계산한다 — **첫 칸은 기본 장착이라 0**이기 때문이다.
 ## 슬롯 모딩 시술 — 해금 + `scribe_shop` tier 상한 + `ward_scrap`. 성공 시 차감(호출부가 슬롯을 쓴다).
 ## {ok, reason("ok"|"locked"|"tier_ceiling"|"scrap"), cost}.
-func mod_install(base_id: String) -> Dictionary:
+##
+## **`basic` = 그 건의 첫 칸.** 건 하나에 스킬 하나는 **원래 당연한 것**이라 시술비도, 상점 등급도
+## 요구하지 않는다 — 값이 붙는 것은 **2·3칸으로 확장**할 때다(`F-008` §3.10 슬롯 사다리와 같은 결).
+##
+## 이 예외가 없으면 **시술비와 출정 게이트가 서로를 막는다**: 출정은 역할당 슬롯 ≥1을 요구하는데
+## (`F-020` §3.2.0) 슬롯을 채우려면 `ward_scrap`이 필요하고, `ward_scrap`은 **추출 성공으로만** 들어온다.
+## 신규 세이브에서 프리모딩 칸을 비우면 그 자리에서 영구 교착이었다(2클릭 소프트락).
+##
+## 등급 상한까지 건너뛰는 이유: 신규 세이브는 `scribe_shop` T0라 상한이 0이고, 그러면 **Basic조차**
+## 시술이 막힌다(상점 T1은 목표 클리어 = 런 완주가 선행). 그리고 이건 구멍이 아니다 — **해금**(트리
+## `Unlock`)이 이미 상점 등급을 요구하므로, 시술 쪽 등급 게이트는 애초에 **이중**이었다.
+func mod_install(base_id: String, basic: bool = false) -> Dictionary:
 	if not is_ability_unlocked(base_id):
 		return {"ok": false, "reason": "locked", "cost": 0}
 	var tier := String(Slice01Data.get_skillbook_master(base_id).get("tier", "Basic"))
+	if basic:
+		return {"ok": true, "reason": "basic", "cost": 0}
 	if int(TIER_RANK.get(tier, 9)) > shop_tier_ceiling():
 		return {"ok": false, "reason": "tier_ceiling", "cost": shop_price(tier)}
 	var cost := shop_price(tier)

@@ -11,6 +11,8 @@ extends Node
 var loose: Array = []          # [{id, kind, base_gear_id|haul_material_id|manastone_id|charm_id|consumable_id, w, h, count?, at_risk}]
 var equipped: Dictionary = {}  # member_key(String) -> {"gear": base_gear_id|"", "slot_abilities": [ {base_ability_id} | null ×3 ]}
 var _seeded: bool = false
+## 가격표(`SHOP_PRICE`)를 상수로 읽기 위한 참조 — 인스턴스가 아니라 **스크립트**다(트리 무관).
+const _HubProfileScript := preload("res://scripts/autoload/hub_profile.gd")
 ## 스타터 기어 id 스펙 정렬(GEAR-COR-000 §2) — 구 세이브의 _set id를 spec 슬러그로 1회 마이그레이션.
 const GEAR_ID_ALIAS := {
 	"gear_ward_tank_anchor_set": "gear_ward_tank_anchor_bulwark",
@@ -310,7 +312,8 @@ func set_gear_slot_ability(member_key: String, slot: int, base_ability_id: Strin
 ##   `family`    : `allowed_slot_families` 불일치 또는 Role Gate 불통과 (`F-008` §3.10 / `F-009` §3.2.1)
 ##   `locked`    : 트리 `Unlock` 노드 미구매 (`F-020` §3.10)
 ##   `dup`       : 같은 AB가 다른 칸에 이미 있음 — 한 gear에 같은 스킬 두 번은 막는다
-##   `scrap`     : 모딩 시술비 부족 (`F-008` §3.10 — 해금은 허가일 뿐, 새기는 데는 매번 값을 치른다)
+##   `scrap`     : 모딩 시술비 부족 (`F-008` §3.10 — 해금은 허가일 뿐, 새기는 데는 값을 치른다).
+##                 단 **그 건의 첫 칸은 무료**다(`is_basic_install`) — 건 하나에 스킬 하나는 기본.
 ##   `tier_ceiling`: `scribe_shop` tier가 이 AB의 tier를 못 받음
 func slot_equip_check(member_key: String, slot: int, base_ability_id: String) -> Dictionary:
 	if base_ability_id == "":
@@ -332,6 +335,33 @@ func slot_equip_check(member_key: String, slot: int, base_ability_id: String) ->
 	return {"ok": true}
 
 
+## 이 건에 지금 **몇 칸이 채워져 있는가**. 0이면 다음 설치가 「기본 장착」이다.
+func filled_slot_count(member_key: String) -> int:
+	var n := 0
+	for sd in gear_slot_abilities(member_key):
+		if typeof(sd) == TYPE_DICTIONARY and String(sd.get("base_ability_id", "")) != "":
+			n += 1
+	return n
+
+
+## 이 설치가 **기본 장착**(그 건의 첫 칸)인가 — 건 하나에 스킬 하나는 원래 당연한 것이라 무료다.
+## 2·3칸은 **확장**이라 값이 붙는다. 판정을 여기 두는 이유: 슬롯 상태를 아는 것은 가방뿐이다.
+func is_basic_install(member_key: String) -> bool:
+	return filled_slot_count(member_key) == 0
+
+
+## 이 설치에 실제로 드는 시술비(0 = 기본 장착). UI가 값을 **미리** 보여줄 때 쓴다.
+##
+## 가격표는 `HubProfile.SHOP_PRICE` **한 곳**에서 읽는다(스크립트 상수라 인스턴스가 필요 없다) —
+## 여기서 값을 복제하면 두 벌이 되고, `/root/HubProfile` 조회로 바꾸면 **트리 밖에서 조용히 0**을
+## 돌려준다. 가격 함수가 「모르면 공짜」로 답하는 건 틀린 방향이다.
+func slot_install_price(member_key: String, base_ability_id: String) -> int:
+	if is_basic_install(member_key):
+		return 0
+	var tier := String(Slice01Data.get_skillbook_master(base_ability_id).get("tier", "Basic"))
+	return int(_HubProfileScript.SHOP_PRICE.get(tier, 999))
+
+
 ## 검사 후 장착 — **시술비를 여기서 치른다**(`HubProfile.mod_install`). 통과하면 `set_gear_slot_ability`로
 ## 내려간다(그쪽은 검사 없는 저수준 쓰기 — 마이그레이션·테스트가 쓴다). UI 경로는 **반드시 이쪽**을 쓸 것.
 ## 같은 칸에 이미 있는 AB를 다시 누르면 **돈을 두 번 받지 않는다**(무변경).
@@ -344,10 +374,13 @@ func equip_slot_ability(member_key: String, slot: int, base_ability_id: String) 
 		return chk
 	var hp := get_node_or_null("/root/HubProfile") if is_inside_tree() else null
 	if hp != null:
-		var pay: Dictionary = hp.mod_install(base_ability_id)
+		# **첫 칸은 기본 장착**(무료·등급 불요). 이게 없으면 시술비와 출정 게이트가 서로를 막아
+		# 신규 세이브에서 영구 교착이 난다 — `HubProfile.mod_install` 주석 참조.
+		var pay: Dictionary = hp.mod_install(base_ability_id, is_basic_install(member_key))
 		if not bool(pay.get("ok", false)):
 			return pay                              # scrap / tier_ceiling / locked — 슬롯은 안 건드린다
 		chk["cost"] = int(pay.get("cost", 0))
+		chk["basic"] = String(pay.get("reason", "")) == "basic"
 	set_gear_slot_ability(member_key, slot, base_ability_id)
 	return chk
 

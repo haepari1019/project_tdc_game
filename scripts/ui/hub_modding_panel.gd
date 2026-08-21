@@ -174,6 +174,9 @@ func _render_slots() -> void:
 	var gmax := int(Slice01Data.get_gear_master(gid).get("gear_skill_slot_count_max", 0))
 	_left.add_child(HubTheme.spacer())
 	_left.add_child(HubTheme.section("Q / E / R   —   열린 칸 %d / 이 건의 최대 %d" % [cap, gmax]))
+	# 규칙을 화면에 적어 둔다 — 비용이 붙는 칸과 안 붙는 칸이 왜 갈리는지가 여기서 답해져야 한다.
+	_left.add_child(HubTheme.para("첫 칸은 건에 딸려 오는 기본이라 시술비가 없다. 둘째·셋째 칸이 확장이고 값이 붙는다.",
+		"HubMeta", null, 470))
 	var slots: Array = _bp.gear_slot_abilities(_role)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", HubTheme.GAP_M)
@@ -354,9 +357,11 @@ func _catalog_row(g: GridContainer, row: Dictionary, abid: String) -> void:
 			_pick = abid
 			refresh())
 	g.add_child(nm)
-	g.add_child(HubTheme.label("%s · %s · ◈%d · ⚙%d" % [String(row.get("skill_family", "—")),
+	# 시술비 자리에 **기본/확장**을 적는다. 값만 ⚙0으로 두면 「왜 어떤 건 공짜지」가 남는다.
+	var price: int = int(_bp.slot_install_price(_role, abid))
+	g.add_child(HubTheme.label("%s · %s · ◈%d · %s" % [String(row.get("skill_family", "—")),
 		String(row.get("tier", "—")), Slice01Data.manastone_cost_for(abid),
-		int(_hub.mod_install_price(abid)) if _hub != null else 0], "HubMeta"))
+		"기본" if price <= 0 else "⚙%d" % price], "HubMeta"))
 	var why := HubTheme.label("" if ok else _reason_text(String(chk.get("reason", ""))), "HubMeta", HubTheme.BAD)
 	why.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	g.add_child(why)
@@ -389,12 +394,20 @@ func _render_pick() -> void:
 	vb.add_child(HubTheme.para(SkillText.describe(String((m.get("cast", {}) as Dictionary).get("kind", "")),
 		m.get("cast", {})), "HubMeta"))
 	vb.add_child(HubTheme.para("결속 — %s" % _binding_line(_gear_id(), _pick, _slot), "", HubTheme.LINK))
-	var price: int = int(_hub.mod_install_price(_pick)) if _hub != null else 0
+	var price: int = int(_bp.slot_install_price(_role, _pick))
 	var have: int = int(_hub.scrap()) if _hub != null else 0
-	vb.add_child(HubTheme.label("시술비 ⚙%d  ·  보유 ⚙%d      시전 ◈%d/회" % [
-		price, have, Slice01Data.manastone_cost_for(_pick)], "", HubTheme.OK if have >= price else HubTheme.BAD))
+	if price <= 0:
+		vb.add_child(HubTheme.label("기본 장착 — 시술비 없음      시전 ◈%d/회"
+			% Slice01Data.manastone_cost_for(_pick), "", HubTheme.OK))
+		vb.add_child(HubTheme.para(
+			"건 하나에 스킬 하나는 원래 딸려 오는 것이다. 값이 붙는 건 **둘째·셋째 칸으로 확장**할 때다.",
+			"HubMeta", null, 420))
+	else:
+		vb.add_child(HubTheme.label("확장 시술비 ⚙%d  ·  보유 ⚙%d      시전 ◈%d/회" % [
+			price, have, Slice01Data.manastone_cost_for(_pick)], "",
+			HubTheme.OK if have >= price else HubTheme.BAD))
 	var go := Button.new()
-	go.text = "[%s] 칸에 새긴다 (⚙%d)" % [SLOT_KEY[_slot], price]
+	go.text = "[%s] 칸에 새긴다%s" % [SLOT_KEY[_slot], "" if price <= 0 else " (⚙%d)" % price]
 	go.disabled = not ok
 	go.tooltip_text = "" if ok else _reason_text(String(chk.get("reason", "")))
 	go.pressed.connect(func() -> void:
@@ -422,7 +435,7 @@ func _reason_text(reason: String) -> String:
 		"family": return "이 건이 받지 않는 계열"
 		"locked": return "미해금 — 필기 상점에서 해금"
 		"dup": return "이미 다른 칸에 있음"
-		"scrap": return "시술비 부족"
+		"scrap": return "확장 시술비 부족"
 		"tier_ceiling": return "필기 상점 등급 부족"
 		"facility_req": return "대장간 승급 필요"
 		"haul": return "금고 재료 부족"
