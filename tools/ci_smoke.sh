@@ -52,6 +52,16 @@ if [ "$ccode" -ne 0 ] || ! grep -qF "CHARM SMOKE PASSED" "$charmlog"; then
   echo "  FAIL: charm smoke (exit=$ccode) —"; grep -nE "FAIL|$ERRPAT" "$charmlog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# 인벤 스택 분리 (Ctrl+드래그): 나눠 집은 조각은 어느 그리드에도 속하지 않아 「원위치 복귀」가
+# 통하지 않는다 — 되돌리기 경로가 없으면 덜어 낸 만큼이 조용히 증발한다. 총합 보존만 묻는다.
+echo "== inventory split smoke (Ctrl+drag) =="
+invlog="/tmp/ci_inventory_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/inventory_smoke.gd >"$invlog" 2>&1
+icode=$?
+if [ "$icode" -ne 0 ] || ! grep -qF "INVENTORY SMOKE PASSED" "$invlog"; then
+  echo "  FAIL: inventory smoke (exit=$icode) —"; grep -nE "FAIL|$ERRPAT" "$invlog" | head -8; fail=1
+else echo "  PASS"; fi
+
 # Third-faction (Stalker Pack, DEC-20260621-001): outcome logic (Root/Pin lock, Bloodlust buff) +
 # data wiring (AB-100~106 kinds, rom_* basics, PT-023/024/025, ENC-3RD-001 units).
 echo "== third-faction smoke (DEC-20260621-001) =="

@@ -667,6 +667,8 @@ func _revert_drag() -> void:
 	match String(_drag_src.get("kind", "grid")):
 		"gear":
 			_equip.revert_gear(int(_drag_src.char), _drag)
+		"split":
+			_revert_split()   # 나눠 집은 것 — 원본에 합쳐 되돌린다(증발 방지)
 		_:
 			if _from != null:
 				_drag.w = _orig.w
@@ -795,9 +797,11 @@ func _on_item_pressed(event: InputEvent, grid: InventoryGrid, item: Dictionary) 
 	if not mb.pressed or not _drag.is_empty():
 		return
 	if mb.button_index == MOUSE_BUTTON_LEFT:
-		# Ctrl+drag a stackable consumable → split off half into a new floating stack.
-		if mb.ctrl_pressed and String(item.get("kind", "")) == "consumable" and int(item.get("count", 1)) > 1:
-			_open_split_popup(grid, item)   # Ctrl+click → ask how many to split off
+		# **Ctrl+드래그 = 나눠 집기.** 스택형이면 종류를 가리지 않는다(`_stack_key`) — 예전엔
+		# `consumable` 하드코딩이라 마석·재료는 통째로만 옮길 수 있었다. 스택을 쪼갤 수 없으면
+		# 「20개 중 5개만 창고에 두기」 같은 평범한 정리가 불가능하다.
+		if mb.ctrl_pressed and _stack_key(item) != "" and int(item.get("count", 1)) > 1:
+			_open_split_popup(grid, item)
 		else:
 			_begin_drag(grid, item)
 		accept_event()
@@ -892,56 +896,135 @@ func _begin_drag(grid: InventoryGrid, item: Dictionary) -> void:
 	_update_drag()
 
 
-## Ctrl+click a consumable stack → popup asking how many to split off into a NEW stack (placed
-## in the first free cell). Drag a stack onto a same-id stack to merge them back. ref: F-010.
+## **Ctrl+드래그 → 개수조절바 → 나눈 만큼 커서에 들려 나온다.**
+##
+## 예전 구현은 확정한 수량을 **같은 그리드의 빈 칸에** 놓았다. 그러면 「창고에서 5개만 꺼내
+## 가방에 넣기」가 두 동작(쪼개기 → 다시 집어 끌기)이 되고, 빈 칸이 없으면 **아무 말 없이
+## 원상복구**됐다. 지금은 확정 즉시 **드래그 상태로 넘어간다** — 사용자가 Ctrl을 누른 이유가
+## 「쪼개고 싶다」가 아니라 **「이만큼만 저기로 옮기고 싶다」**이기 때문이다.
 func _open_split_popup(grid: InventoryGrid, item: Dictionary) -> void:
-	var total := int(item.count)
+	var total := int(item.get("count", 1))
 	if total <= 1:
 		return
 	var pop := PopupPanel.new()
+	var mg := MarginContainer.new()
+	for sd in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		mg.add_theme_constant_override(sd, 12)
+	pop.add_child(mg)
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8)
-	pop.add_child(vb)
-	var lbl := Label.new()
-	lbl.text = "%s — 분해 수량 (1~%d)" % [String(item.get("id", "")), total - 1]
-	vb.add_child(lbl)
-	var spin := SpinBox.new()
-	spin.min_value = 1
-	spin.max_value = total - 1
-	@warning_ignore("integer_division")  # 절반 분할 기본값 — 아이템 개수라 정수 의도
-	spin.value = total / 2
-	vb.add_child(spin)
+	vb.add_theme_constant_override("separation", 6)
+	vb.custom_minimum_size = Vector2(260, 0)
+	mg.add_child(vb)
+
+	var title := Label.new()
+	title.text = String(item.get("id", "아이템"))
+	vb.add_child(title)
+
+	# **지금 몇 개를 집는가 / 몇 개가 남는가** — 둘 다 보여야 한다. 「집는 수」만 보이면
+	# 원본이 얼마나 남는지 세느라 눈이 왔다 갔다 한다.
+	var read := Label.new()
+	read.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	read.add_theme_font_size_override("font_size", 18)
+	vb.add_child(read)
+
+	var slider := HSlider.new()
+	slider.min_value = 1
+	slider.max_value = total - 1        # 전부 집는 건 분리가 아니라 그냥 드래그다
+	slider.step = 1
+	@warning_ignore("integer_division")  # 절반 기본값 — 개수라 정수 의도
+	slider.value = maxi(1, total / 2)
+	slider.custom_minimum_size = Vector2(0, 22)
+	vb.add_child(slider)
+
+	var quick := HBoxContainer.new()
+	quick.add_theme_constant_override("separation", 6)
+	vb.add_child(quick)
+	for preset in [["1개", 1], ["절반", maxi(1, total / 2)], ["전부−1", total - 1]]:
+		var qb := Button.new()
+		qb.text = String(preset[0])
+		qb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var qv := int(preset[1])
+		qb.pressed.connect(func() -> void: slider.value = qv)
+		quick.add_child(qb)
+
 	var hb := HBoxContainer.new()
-	hb.alignment = BoxContainer.ALIGNMENT_END
+	hb.add_theme_constant_override("separation", 6)
+	vb.add_child(hb)
 	var cancel := Button.new()
-	cancel.text = "취소"
+	cancel.text = "취소 (Esc)"
+	cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cancel.pressed.connect(pop.queue_free)
 	hb.add_child(cancel)
 	var ok := Button.new()
-	ok.text = "분해"
-	ok.pressed.connect(func() -> void:
-		_do_split(grid, item, int(spin.value))
-		pop.queue_free()
-	)
+	ok.text = "집는다 (Enter)"
+	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(ok)
-	vb.add_child(hb)
+
+	var refresh := func() -> void:
+		read.text = "%d  집기   ·   %d  남김" % [int(slider.value), total - int(slider.value)]
+	refresh.call()
+	slider.value_changed.connect(func(_v: float) -> void: refresh.call())
+	var confirm := func() -> void:
+		var n := int(slider.value)
+		pop.queue_free()
+		_begin_split_drag(grid, item, n)
+	ok.pressed.connect(confirm)
+	# Enter로도 확정 — 마우스를 버튼까지 옮기게 하면 「이만큼만」이 두 동작이 된다.
+	pop.window_input.connect(func(e: InputEvent) -> void:
+		if e.is_action_pressed("ui_accept"):
+			pop.set_input_as_handled()
+			confirm.call())
 	add_child(pop)
-	pop.popup(Rect2i(get_viewport().get_mouse_position(), Vector2i(230, 116)))
+	var mp: Vector2i = Vector2i(get_viewport().get_mouse_position())
+	pop.popup(Rect2i(mp - Vector2i(140, 20), Vector2i(284, 0)))
+	slider.grab_focus()
 
 
-## Split `n` units off `item` into a new stack placed in the grid's first free cell.
-func _do_split(grid: InventoryGrid, item: Dictionary, n: int) -> void:
-	n = clampi(n, 1, int(item.count) - 1)
-	if n <= 0:
+## 확정 — 원본에서 `n`을 덜어 내고 **그만큼을 커서에 들린다**.
+##
+## ⚠️ 되돌리기 경로가 반드시 있어야 한다. 이 드래그는 그리드에 자리가 없던 물건이라
+## `_revert_drag`의 기본 분기(원위치 복귀)가 통하지 않는다 — 그대로 두면 놓을 곳이 없을 때
+## **덜어 낸 `n`이 증발한다.** 그래서 출처를 `_drag_src`에 실어 두고 되돌릴 때 **원본에 합친다**.
+func _begin_split_drag(grid: InventoryGrid, src: Dictionary, n: int) -> void:
+	# **1개짜리는 나눌 수 없다.** 여기서 막지 않으면 `clampi(n, 1, 0)`의 결과에 기대게 되는데,
+	# 하한이 상한보다 큰 clamp는 「무엇이 나올지」가 읽는 사람에 따라 갈린다 — 개수 산수를
+	# 그런 것에 맡기지 않는다.
+	if int(src.get("count", 1)) <= 1 or not _drag.is_empty():
 		return
-	item.count = int(item.count) - n
-	grid.refresh_item_label(item)
-	var part: Dictionary = item.duplicate()
+	n = clampi(n, 1, int(src.count) - 1)
+	src.count = int(src.count) - n
+	grid.refresh_item_label(src)
+	var part: Dictionary = src.duplicate()
 	part.erase("node")
+	part.erase("col")
+	part.erase("row")
 	part.count = n
-	if not grid.add_item_dict(part):
-		item.count = int(item.count) + n   # no free cell → undo the split
-		grid.refresh_item_label(item)
+	_drag = part
+	_from = grid                     # 창밖 버리기·창고 입금 판정이 출처 그리드를 본다
+	_drag_src = {"kind": "split", "src": src}
+	_rotated = false
+	_orig = {"w": int(part.w), "h": int(part.h), "col": int(src.get("col", 0)), "row": int(src.get("row", 0))}
+	_grab_off = Vector2(int(part.w) * CELL * 0.5, int(part.h) * CELL * 0.5)
+	_drag_vis = _make_drag_vis(part)
+	add_child(_drag_vis)
+	_update_drag()
+
+
+## 나눠 집은 것을 **원본에 도로 합친다**(원본이 사라졌으면 빈 칸에, 그것도 안 되면 마지막
+## 수단으로 자동 배치). 어느 경로로도 못 돌려놓으면 그때만 소리를 낸다 — 조용히 잃는 것보다 낫다.
+func _revert_split() -> void:
+	var src = _drag_src.get("src", null)
+	var n := int(_drag.get("count", 0))
+	if typeof(src) == TYPE_DICTIONARY and _from != null and _from.items.has(src):
+		src.count = int(src.count) + n
+		_from.refresh_item_label(src)
+		return
+	if _from != null and _from.add_item_dict(_drag):
+		return
+	if _backpack != null and _backpack.add_item_dict(_drag):
+		return
+	push_warning("[TDC] 스택 분리 되돌리기 실패 — '%s' ×%d 놓을 곳 없음" % [String(_drag.get("id", "?")), n])
+	_msg("놓을 자리가 없다 — 가방을 비우고 다시")
 
 
 func _make_drag_vis(item: Dictionary) -> Panel:
@@ -1077,8 +1160,12 @@ func _drop() -> void:
 			var out_of_window: bool = _window != null and not _window.get_global_rect().has_point(mouse)
 			var src_grid: InventoryGrid = _from
 			var dragged: Dictionary = _drag
+			# **나눠 집은 것은 창밖으로 끌어도 버리기로 치지 않는다.** `_revert_split`이 이미 원본에
+			# 합쳐 넣었으므로 그 dict는 어느 그리드에도 없다 — 버리기에 넘기면 유령을 버리게 된다.
+			# 버리려면 원본을 Shift+우클릭하면 된다(수량 선택은 그쪽 확인창의 몫이 아니다).
+			var was_split: bool = String(_drag_src.get("kind", "")) == "split"
 			_revert_drag()
-			if out_of_window and (src_grid == _backpack or (src_grid == _loot and _loot_is_stash)):
+			if out_of_window and not was_split and (src_grid == _backpack or (src_grid == _loot and _loot_is_stash)):
 				call_deferred("_request_discard", src_grid, dragged)
 	for g: InventoryGrid in _grids:
 		g.clear_preview()
