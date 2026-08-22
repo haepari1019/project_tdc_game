@@ -42,6 +42,16 @@ if [ "$hcode" -ne 0 ] || ! grep -qF "HUB SMOKE PASSED" "$hublog"; then
   echo "  FAIL: hub smoke (exit=$hcode) —"; grep -nE "FAIL|$ERRPAT" "$hublog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# 참 오오라 (F-010 §3.11): **런 씬을 실제로 띄워** 멤버에 값이 붙었는지 읽는다. 배선이 아니라 결과를
+# 묻는 게 요점 — 「인벤을 한 번 열었다 닫아야 켜지는」 상태는 소스 단언으로 잡히지 않았다.
+echo "== charm aura smoke (F-010 §3.11) =="
+charmlog="/tmp/ci_charm_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/charm_smoke.gd >"$charmlog" 2>&1
+ccode=$?
+if [ "$ccode" -ne 0 ] || ! grep -qF "CHARM SMOKE PASSED" "$charmlog"; then
+  echo "  FAIL: charm smoke (exit=$ccode) —"; grep -nE "FAIL|$ERRPAT" "$charmlog" | head -8; fail=1
+else echo "  PASS"; fi
+
 # Third-faction (Stalker Pack, DEC-20260621-001): outcome logic (Root/Pin lock, Bloodlust buff) +
 # data wiring (AB-100~106 kinds, rom_* basics, PT-023/024/025, ENC-3RD-001 units).
 echo "== third-faction smoke (DEC-20260621-001) =="

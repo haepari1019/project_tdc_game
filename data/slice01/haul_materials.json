@@ -3,59 +3,71 @@
   "haul_materials": [
     {
       "haul_material_id": "haul_ward_splinter",
+      "color": "#8d99ae",
       "display": "성채 파편",
       "source": "일반 ENC / 상자"
     },
     {
       "haul_material_id": "haul_script_fragment",
+      "color": "#d7c9a7",
       "display": "필기 파편",
       "source": "Upper"
     },
     {
       "haul_material_id": "haul_arc_ink",
+      "color": "#6f7fd6",
       "display": "아크 잉크",
       "source": "Mid / 마법"
     },
     {
       "haul_material_id": "haul_ward_plate",
+      "color": "#9a7b4f",
       "display": "와드 판금",
       "source": "Mid·정예"
     },
     {
       "haul_material_id": "haul_ruin_glass",
+      "color": "#5fc2b0",
       "display": "폐허 유리",
       "source": "Nuker·폐허"
     },
     {
       "haul_material_id": "haul_forge_coal",
+      "color": "#c9603a",
       "display": "단조 연료",
       "source": "Deep / 보스 근처"
     },
     {
       "haul_material_id": "haul_deep_core",
+      "color": "#a663d9",
       "display": "심층 코어",
       "source": "Deep rare"
     },
     {
       "haul_material_id": "haul_boss_relay",
+      "color": "#d9b036",
       "display": "중계 부품",
       "source": "Objective / 보스"
     },
     {
       "haul_material_id": "haul_pack_frame",
+      "color": "#7f8c5a",
       "display": "군수 프레임",
       "source": "군수 상자"
     },
     {
       "haul_material_id": "haul_shared_shard",
+      "color": "#e2e6ee",
       "display": "공유 파편",
       "source": "Shared AB 보유 적 처치 (F-009 §3.9.2 `shared_shard_*`)"
     },
     {
       "haul_material_id": "haul_shared_core",
+      "color": "#f2f4f8",
       "display": "재구현 핵",
       "source": "정예/보스 Shared AB 처치 — 금고용 (F-009 §3.9.2)"
     }
   ],
+  "_note_color": "`color` = **게임측 표시 레이어**(스펙 미규정 필드, DRIFT-158). 재료 타일이 전부 같은 황토색 1×1이라 「뭐가 뭔지 구분이 안 되고 딱히 의미도 없다」(사용자)는 문제의 절반이 여기 있었다. 색은 재료의 정체(돌/양피지/잉크/숯/유리…)를 따르고, 스킬 계열 공유재료 2종만 무채색으로 묶어 승급재료와 갈라 놓는다. 소비처는 데이터로 파생한다 — `Slice01Data.haul_consumers()`가 facilities_tiers.json을 읽으므로 여기 복제하지 않는다.",
   "_note_shared": "`haul_shared_shard`/`haul_shared_core` = per-kill 스킬북 드롭의 **대체재**(F-009 §3.9.2 Deprecated 행). 적을 죽여 얻는 건 이제 책이 아니라 재료고, 재료는 금고를 거쳐 트리 `Unlock` 노드로 AB를 연다 — 학습 체감은 유지, 인스턴스 인벤 압박은 제거(I-006 K1)."
 }

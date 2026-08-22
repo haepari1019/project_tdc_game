@@ -37,13 +37,25 @@ func interact() -> void:
 		return
 	# Identity Gear loot (F-008 §3.3 / DEC-20260611-001): enters the run inventory as an
 	# At-Risk instance (Extraction Success → Owned; Run Failure → Loss Bundle candidate).
+	# ⚠️ **분기가 없는 종류는 익명 블록으로 돌아온다.** `add_to_backpack`은 id·크기·색만 받으므로
+	# `kind`도 `charm_id`도 잃는다 — 참·마석·소비를 버렸다 주우면 정체가 사라져 있었다(버리기는
+	# 실경로다: `InventoryUI._do_discard` → `item_dropped` → 여기). `_drop_def` 화이트리스트와
+	# **짝**이다: 한쪽만 고치면 반쪽만 살아 돌아온다.
 	var ok: bool
-	if String(item.get("kind", "")) == "gear":
-		ok = _inv.add_gear_to_backpack(String(item.get("base_gear_id", "")), true, item)   # def=인스턴스(rolled/rolls)
-	elif String(item.get("kind", "")) == "haul":
-		ok = _inv.add_haul_to_backpack(String(item.get("haul_material_id", "")), true)
-	else:
-		ok = _inv.add_to_backpack(String(item.id), int(item.w), int(item.h), item.color)
+	match String(item.get("kind", "")):
+		"gear":
+			ok = _inv.add_gear_to_backpack(String(item.get("base_gear_id", "")), true, item)   # def=인스턴스(rolled/rolls)
+		"haul":
+			ok = _inv.add_haul_to_backpack(String(item.get("haul_material_id", "")), true)
+		"charm":
+			ok = _inv.add_charm_to_backpack(String(item.get("charm_id", "")), true)
+		"manastone":
+			ok = _inv.add_manastone_to_backpack(int(item.get("count", 1)), true)
+		"consumable":
+			# 이것만 **넣은 개수**(int)를 돌려준다 — 부분 적재가 있어서다. 0이면 못 넣은 것.
+			ok = int(_inv.add_consumable_to_backpack(String(item.get("consumable_id", "")), int(item.get("count", 1)))) > 0
+		_:
+			ok = _inv.add_to_backpack(String(item.id), int(item.w), int(item.h), item.color)
 	if ok:
 		queue_free()  # picked up — remove from the world
 	else:

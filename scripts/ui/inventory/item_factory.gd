@@ -26,6 +26,10 @@ static func gear_item(g: Dictionary, at_risk: bool) -> Dictionary:
 		out["rolled_identity_skill_id"] = rid
 	if g.has("rolls") and typeof(g["rolls"]) == TYPE_DICTIONARY and not (g["rolls"] as Dictionary).is_empty():
 		out["rolls"] = g["rolls"]
+	# **새긴 빌드는 건에 붙어 다닌다**(`D-019` §3). 이걸 안 실으면 가방에 들어간 순간 슬롯이
+	# 증발하고, 다시 신었을 때 빈 건이 된다 — 런 중 갈아입기를 허용한 뒤 실제로 그랬다.
+	if g.has("slot_abilities") and typeof(g["slot_abilities"]) == TYPE_ARRAY:
+		out["slot_abilities"] = (g["slot_abilities"] as Array).duplicate(true)
 	return out
 
 
@@ -37,7 +41,7 @@ static func haul_item(haul_material_id: String, display: String, at_risk: bool, 
 	return {
 		"id": display if not display.is_empty() else haul_material_id,
 		"w": 1, "h": 1,
-		"color": Color(0.62, 0.5, 0.32),
+		"color": Slice01Data.haul_color(haul_material_id),   # 재료마다 다른 색(표시 레이어)
 		"kind": "haul",
 		"haul_material_id": haul_material_id,
 		"count": count,

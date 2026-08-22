@@ -227,7 +227,8 @@ func _item_tip(item: Dictionary) -> String:
 	match String(item.get("kind", "")):
 		"gear": lines.append_array(_gear_tip(item))
 		"consumable": lines.append("소모품 · 보유 x%d · 호버+Z/X/C 또는 드래그로 핫키 등록" % int(item.get("count", 1)))
-		"haul": lines.append("재료 (haul) · 금고/'재료 모두 금고로'로 입금")
+		"haul": lines.append_array(_haul_tip(item))
+		"charm": lines.append_array(_charm_tip(item))
 	var desc := String(ITEM_DESC.get(id, ""))
 	if not desc.is_empty():
 		lines.append(desc)
@@ -253,6 +254,47 @@ func _gear_tip(item: Dictionary) -> Array:
 	var roll_line := SkillText.gear_roll_line(item.get("rolls", {}))   # 색구분(피해↑/쿨↓ 초록)
 	if not roll_line.is_empty():
 		out.append(roll_line)
+	return out
+
+
+## 참 상세 — **무엇을 해 주는가**. 예전엔 이름과 크기만 나와서, 참이 실제로 효과가 있는지조차
+## 화면에서 알 수 없었다(효과가 꺼져 있던 기간과 구분이 안 됐다 — 그게 이 툴팁이 필요한 이유다).
+## 「들고 있을 때만 적용 = 칸 vs 파워」가 이 물건의 전부이므로, 그 대가도 같이 적는다.
+func _charm_tip(item: Dictionary) -> Array:
+	var cid := String(item.get("charm_id", ""))
+	var row: Dictionary = Slice01Data.get_charm(cid)
+	if row.is_empty():
+		return ["[color=#c98b7b]알 수 없는 참 '%s'[/color]" % cid]
+	var out: Array = ["참 (charm) · 시전 없음 — **들고 있는 동안** 적용"]
+	out.append("[color=#9ad1a5]%s[/color]" % String(row.get("desc", "?")))
+	var scope: Array = row.get("applies_to", [])
+	if not scope.is_empty():
+		var names: Array = []
+		for c in scope:
+			names.append(Slice01Data.get_role_label(String(c)))
+		out.append("[color=#d8c14e]%s에게만 걸린다[/color]" % " · ".join(names))
+	if row.has("condition"):
+		out.append("[color=#d8c14e]조건부 — %s[/color]" % String(row.get("desc", "")))
+	out.append("[color=#9aa4b2]같은 참을 여러 개 들면 곱연산으로 겹친다(칸을 더 쓴 만큼).[/color]")
+	return out
+
+
+## 재료 상세 — **무엇에 쓰는가**를 말한다. 예전엔 「재료 (haul) · 금고로 입금」 한 줄이라, 11종이
+## 전부 같은 문장을 달고 있었다: 이름만 다른 잡템 더미로 보일 수밖에 없었다(사용자 보고
+## 「너무 퀘템이 많이 나오는데 구분이 안되고 딱히 의미도 없으니」).
+## 소비처는 `facilities_tiers.json`에서 파생한다 — 툴팁이 비용표를 복제하면 둘이 어긋난다.
+func _haul_tip(item: Dictionary) -> Array:
+	var hid := String(item.get("haul_material_id", ""))
+	var m: Dictionary = Slice01Data.get_haul_material(hid)
+	var out: Array = ["재료 · 출처 %s · 보유 x%d" % [String(m.get("source", "?")), int(item.get("count", 1))]]
+	var users: Array = Slice01Data.haul_consumers(hid)
+	if users.is_empty():
+		out.append("[color=#c98b7b]지금 이 재료를 쓰는 건물이 없다.[/color]")
+	else:
+		out.append("[color=#9ad1a5]쓰는 곳: %s[/color]" % " · ".join(users))
+	var hub := get_node_or_null("/root/HubProfile")
+	if hub != null and hub.has_method("vault_count"):
+		out.append("[color=#9aa4b2]금고 보유 %d — 탈출해야 금고로 넘어간다[/color]" % int(hub.vault_count(hid)))
 	return out
 
 

@@ -188,12 +188,19 @@ func _render_slots() -> void:
 	if typeof(cur) == TYPE_DICTIONARY:
 		_left.add_child(HubTheme.para("└ %s" % _binding_line(gid, String(cur.get("base_ability_id", "")), _slot),
 			"HubMeta", HubTheme.LINK, 470))
+		# **주워 온 능력은 빼면 돌아오지 않는다.** 프리모딩된 건은 트리 해금 없이도 그 AB를 쓰게
+		# 해 주지만(`loot_service._premod_slots`), 그건 「이 건에 한해」다 — 빼는 순간 다시 새기려면
+		# 필기 상점 해금이 필요하다. 조용히 비워 주면 「왜 되끼워지지가 않지」로만 남는다.
+		var cur_ab := String(cur.get("base_ability_id", ""))
+		var granted: bool = _hub != null and bool(_hub.is_ability_unlocked(cur_ab))
 		var rm := Button.new()
 		rm.text = "[%s] 칸 비우기" % SLOT_KEY[_slot]
+		rm.tooltip_text = "" if granted else "이 능력은 이 건에 새겨진 것뿐이다 — 빼면 해금 전까지 되끼울 수 없다."
 		rm.pressed.connect(func() -> void:
-			_bp.set_gear_slot_ability(_role, _slot, "")
-			_reapply()
-			refresh())
+			if granted:
+				_clear_slot()
+			else:
+				_confirm_clear(cur_ab))
 		_left.add_child(rm)
 
 
@@ -275,34 +282,50 @@ func _render_slot_expand() -> void:
 			g.add_child(buy)
 
 
-## ⑤ 건 교체 — 소멸 경고 모달을 반드시 거친다(`F-008` §3.10 D2).
+## ⑤ 건 교체 — **인스턴스 목록**이다. 아키타입으로 묶지 않는다(예전엔 `seen`으로 중복을 접었다):
+## 같은 이름의 건이라도 굴림과 **새겨진 빌드**가 다르므로, 접으면 고른 것과 다른 개체가 나간다.
+## 그래서 줄마다 그 개체의 Q/E/R을 적고, 집을 때도 id가 아니라 **자리**로 집는다(`take_gear_at`).
 func _render_gear_swap() -> void:
 	_left.add_child(HubTheme.spacer())
-	_left.add_child(HubTheme.section("건 교체   —   갈아끼우면 이 건의 슬롯 스킬은 소멸한다"))
+	_left.add_child(HubTheme.section("건 교체   —   벗은 건은 새긴 스킬을 들고 창고로 간다"))
 	var cur := _gear_id()
-	var seen: Dictionary = {}
 	var g := HubTheme.grid(3)
 	_left.add_child(g)
 	var any := false
-	for inst in (_stash.gear if _stash != null else []):
+	var all: Array = _stash.gear if _stash != null else []
+	for i in all.size():
+		var inst = all[i]
 		var bgid := String(inst.get("base_gear_id", "")) if typeof(inst) == TYPE_DICTIONARY else String(inst)
-		if bgid == "" or bgid == cur or seen.has(bgid):
+		if bgid == "":
 			continue
 		var gm: Dictionary = Slice01Data.get_gear_master(bgid)
 		if gm.is_empty() or not (gm.get("equip_classes", []) as Array).has(_role):
 			continue
-		seen[bgid] = true
 		any = true
 		g.add_child(HubTheme.label(String(gm.get("display_name", bgid))))
-		g.add_child(HubTheme.label("슬롯 최대 %d · %s" % [int(gm.get("gear_skill_slot_count_max", 3)),
-			String(gm.get("range_band", "—"))], "HubMeta"))
+		g.add_child(HubTheme.label("슬롯 최대 %d · %s · %s" % [int(gm.get("gear_skill_slot_count_max", 3)),
+			String(gm.get("range_band", "—")), _inst_build_text(inst)], "HubMeta"))
 		var b := Button.new()
 		b.text = "착용"
+		var idx := i
 		var snap: Dictionary = inst.duplicate(true) if typeof(inst) == TYPE_DICTIONARY else {"base_gear_id": bgid}
-		b.pressed.connect(func() -> void: _confirm_swap(bgid, snap))
+		b.pressed.connect(func() -> void: _confirm_swap(bgid, snap, idx))
 		g.add_child(b)
 	if not any:
-		_left.add_child(HubTheme.label("교체할 건이 창고에 없다 (같은 역할 · 현재 착용분 제외).", "HubMeta"))
+		_left.add_child(HubTheme.label("교체할 건이 창고에 없다 (같은 역할). 던전 상자에서 드물게 나온다.", "HubMeta"))
+
+
+## 창고 인스턴스의 새겨진 빌드 한 줄 — 「이 건은 이미 뭘 할 줄 아는가」. 던전에서 주운 건은
+## 빌드째로 오기 때문에(`loot_service._premod_slots`) 이게 없으면 어느 줄을 골라야 할지 알 수 없다.
+func _inst_build_text(inst) -> String:
+	if typeof(inst) != TYPE_DICTIONARY:
+		return "맨건"
+	var names: Array = []
+	for sd in (inst.get("slot_abilities", []) as Array):
+		if typeof(sd) == TYPE_DICTIONARY and String(sd.get("base_ability_id", "")) != "":
+			var ab := String(sd["base_ability_id"])
+			names.append(String(Slice01Data.get_skillbook_master(ab).get("display_name", ab)))
+	return "맨건" if names.is_empty() else " / ".join(names)
 
 
 ## ④ 카탈로그 — **계열 필터 + 고르기**. 49행을 한 번에 늘어놓으면 아무것도 안 읽힌다.
@@ -445,27 +468,66 @@ func _reason_text(reason: String) -> String:
 
 # --- ⑤ 소멸 확인 모달 --------------------------------------------------------
 
-## 되돌릴 수 없는 유일한 행동이라 **무엇을 잃는지 이름으로** 보여준다. 「정말?」만 묻는 모달은
-## 아무것도 막지 못한다.
-func _confirm_swap(new_gid: String, inst: Dictionary = {}) -> void:
+## **교체는 더 이상 소멸이 아니다** — 벗은 건은 자기 빌드를 들고 창고로 돌아가고, 신은 건은 자기
+## 빌드를 데려온다(`D-019` §3 인스턴스 필드). 그래서 모달도 「무엇을 잃는가」가 아니라
+## **「무엇으로 바뀌는가」**를 보여준다. 지금 건에 새긴 게 없으면 묻지 않는다.
+func _confirm_swap(new_gid: String, inst: Dictionary = {}, stash_index: int = -1) -> void:
+	var incoming: Array = []
+	var sl = inst.get("slot_abilities", null)
+	if typeof(sl) == TYPE_ARRAY:
+		for sd in sl:
+			if typeof(sd) == TYPE_DICTIONARY and String(sd.get("base_ability_id", "")) != "":
+				incoming.append(String(Slice01Data.get_skillbook_master(
+					String(sd["base_ability_id"])).get("display_name", sd["base_ability_id"])))
 	var lost: Array = []
-	for sd in _bp.gear_slot_abilities(_role):
-		if typeof(sd) == TYPE_DICTIONARY:
-			var abid := String(sd.get("base_ability_id", ""))
+	for sd2 in _bp.gear_slot_abilities(_role):
+		if typeof(sd2) == TYPE_DICTIONARY:
+			var abid := String(sd2.get("base_ability_id", ""))
 			lost.append(String(Slice01Data.get_skillbook_master(abid).get("display_name", abid)))
 	if lost.is_empty():
-		_do_swap(new_gid, inst)     # 잃을 게 없으면 굳이 묻지 않는다
+		_do_swap(new_gid, inst, stash_index)   # 지금 건에 새긴 게 없으면 굳이 묻지 않는다
 		return
 	var dlg := ConfirmationDialog.new()
-	dlg.title = "건을 갈아끼우면 슬롯 스킬이 사라진다"
-	dlg.dialog_text = "소멸: %s\n\n같은 스킬은 필기 상점 해금이 남아 있으므로 시술비만 다시 내면 새 건에 새길 수 있다(F-009 §3.9.3).\n마석·참은 영향 없다." % ", ".join(lost)
-	dlg.ok_button_text = "소멸 감수하고 착용"
+	dlg.title = "건을 갈아끼운다"
+	dlg.dialog_text = "지금 건: %s
+바꿀 건: %s
+
+벗은 건은 새긴 스킬을 그대로 들고 창고로 돌아간다 — 다시 신으면 그 빌드가 따라온다." % [
+		", ".join(lost), ", ".join(incoming) if not incoming.is_empty() else "— 빈 슬롯 —"]
+	dlg.ok_button_text = "갈아입는다"
 	dlg.cancel_button_text = "취소"
 	add_child(dlg)
 	_modal = dlg
 	dlg.confirmed.connect(func() -> void:
 		_modal = null
-		_do_swap(new_gid, inst))
+		_do_swap(new_gid, inst, stash_index))
+	dlg.canceled.connect(func() -> void:
+		_modal = null
+		dlg.queue_free())
+	dlg.popup_centered()
+
+
+func _clear_slot() -> void:
+	_bp.set_gear_slot_ability(_role, _slot, "")
+	_reapply()
+	refresh()
+
+
+## 해금하지 않은(= 주워 온) 능력을 뺄 때만 묻는다. 해금된 것은 언제든 되끼울 수 있으니 안 묻는다.
+func _confirm_clear(abid: String) -> void:
+	_close_modal()
+	var nm := String(Slice01Data.get_skillbook_master(abid).get("display_name", abid))
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "이건 되돌릴 수 없다"
+	dlg.dialog_text = "「%s」는 이 건에 새겨진 채로 발견된 것이다 — 아직 필기 상점에서 해금하지 않았다.
+빼면 이 건에도 다시 새길 수 없다." % nm
+	dlg.ok_button_text = "그래도 비운다"
+	dlg.cancel_button_text = "취소"
+	add_child(dlg)
+	_modal = dlg
+	dlg.confirmed.connect(func() -> void:
+		_modal = null
+		_clear_slot())
 	dlg.canceled.connect(func() -> void:
 		_modal = null
 		dlg.queue_free())
@@ -478,19 +540,21 @@ func _close_modal() -> void:
 		_modal = null
 
 
-## 건은 **하나뿐인 물건**이다 — 창고에서 꺼내 신고, 벗은 건 창고로 돌려놓는다(굴림째로).
-## 이 교환을 빼먹으면 착용할 때마다 건이 복제되고 소멸 경고가 무의미해진다.
-func _do_swap(new_gid: String, inst: Dictionary = {}) -> void:
-	var old_gid := _gear_id()
-	var old_e: Dictionary = _entry()
-	var lost: Array = _bp.set_member_gear(_role, new_gid, inst)   # 소멸은 여기서(반환 = 잃은 목록)
+## 건은 **하나뿐인 물건**이다 — 창고에서 꺼내 신고, 벗은 건은 창고로 돌려놓는다(굴림·**빌드째로**).
+## 이 교환을 빼먹으면 착용할 때마다 건이 복제되거나 빌드가 증발한다.
+func _do_swap(new_gid: String, inst: Dictionary = {}, stash_index: int = -1) -> void:
+	var worn: Dictionary = _bp.worn_instance(_role)          # 벗을 건 — 지금 새겨진 빌드 포함
+	var incoming: Dictionary = {}
 	if _stash != null:
-		_stash.remove_gear(new_gid)
-		if old_gid != "":
-			_stash.add_gear(old_gid, String(old_e.get("rolled_identity", "")),
-				old_e.get("rolls", {}) if typeof(old_e.get("rolls", {})) == TYPE_DICTIONARY else {})
-	if not lost.is_empty():
-		print("[TDC] 건 교체 — %s 슬롯 AB 소멸: %s" % [_role, ", ".join(lost)])
+		# **자리로 집는다** — 같은 아키타입이 여러 개면 id로 집었을 때 목록에서 고른 개체와 다른 게 나온다.
+		incoming = _stash.take_gear_at(stash_index) if stash_index >= 0 else _stash.take_gear(new_gid)
+	if incoming.is_empty() or String(incoming.get("base_gear_id", "")) != new_gid:
+		incoming = inst.duplicate(true) if not inst.is_empty() else {"base_gear_id": new_gid}
+	_bp.set_member_gear(_role, new_gid, incoming)
+	if _stash != null and not worn.is_empty():
+		_stash.add_gear(String(worn.get("base_gear_id", "")), String(worn.get("rolled_identity_skill_id", "")),
+			worn.get("rolls", {}) if typeof(worn.get("rolls", {})) == TYPE_DICTIONARY else {},
+			worn.get("slot_abilities", []))
 	_reapply()
 	refresh()
 

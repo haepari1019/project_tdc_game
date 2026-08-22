@@ -25,8 +25,13 @@ const CHEST_HAUL_COMMON := Vector2i(1, 3)   # 일반(안좋은) 상자: 재료 1
 const CHEST_HAUL_RARE := Vector2i(1, 1)     # 희귀(좋은) 상자: 재료 1 + 스킬/기어 집중
 const CHEST_SKILL_COMMON := 0.40
 const CHEST_SKILL_RARE := 0.90              # 희귀 상자 = 공유 핵 거의 확정
-const CHEST_GEAR_COMMON := 0.15
-const CHEST_GEAR_RARE := 0.50
+# 기어 드롭 — **아주 드물게**(사용자 판정). 건은 이제 *빌드째로* 나오므로(아래 `_premod_slots`)
+# 하나 주울 때마다 파티 구성이 통째로 흔들린다. 흔하면 그 무게가 사라지고, 창고가 「꽝 더미」가 된다.
+# 구 0.15/0.50은 M6 이전 — 스타치가 전 카탈로그를 들고 시작하던 시절의 값이라 이미 의미가 없었다.
+const CHEST_GEAR_COMMON := 0.04
+const CHEST_GEAR_RARE := 0.15
+const PREMOD_SLOTS_COMMON := 1   # 일반 상자 건: Q만 새겨져 나온다
+const PREMOD_SLOTS_RARE := 3     # 희귀 상자 건: 그 건이 가진 칸을 다 채워서 나온다(칸 수는 건이 정함)
 const CHEST_CONSUM_COMMON := 0.25           # 소모품(부활 두루마리 등) — 상자에서 획득
 const CHEST_CONSUM_RARE := 0.40
 const CHEST_GRID_COLS := 5                  # chest open_loot 그리드 기준
@@ -170,7 +175,7 @@ func build_chest_items(tier: String) -> Array:
 	# 대신 재료를 그만큼 더 준다 — 상자를 열 이유가 사라지면 탐색이 죽는다.
 	if randf() < (CHEST_SKILL_RARE if rare else CHEST_SKILL_COMMON):
 		out.append(_make_haul_drop_def(SHARED_CORE_ID if rare else SHARED_SHARD_ID))
-	# 3) 기어 — 희귀 상자가 더 잘(기어는 항상 rolled 보유).
+	# 3) 기어 — 희귀 상자가 더 잘(기어는 항상 rolled 보유 + **빌드가 새겨진 채로** 나온다).
 	if randf() < (CHEST_GEAR_RARE if rare else CHEST_GEAR_COMMON):
 		# **스타터는 드롭 풀에서 뺀다** — 4명이 이미 착용 중이라 중복이 나오면 「꽝」이다.
 		# 창고를 스타터만으로 시작하게 바꾼 뒤(M6) 상자는 **두 번째 건을 만나는 자리**가 됐다.
@@ -179,7 +184,8 @@ func build_chest_items(tier: String) -> Array:
 			if not bool((gr as Dictionary).get("starter", false)):
 				grows.append(gr)
 		if not grows.is_empty():
-			out.append(_make_gear_drop_def(String((grows[randi() % grows.size()] as Dictionary).get("base_gear_id", ""))))
+			out.append(_make_gear_drop_def(String((grows[randi() % grows.size()] as Dictionary).get("base_gear_id", "")),
+				PREMOD_SLOTS_RARE if rare else PREMOD_SLOTS_COMMON))
 	# 4) 소모품 — 부활 두루마리 등(상자에서도 획득). 픽업/드래그 시 스택.
 	if randf() < (CHEST_CONSUM_RARE if rare else CHEST_CONSUM_COMMON):
 		var crows: Array = Slice01Data.get_consumable_rows()
@@ -216,13 +222,14 @@ func _make_haul_drop_def(haul_material_id: String) -> Dictionary:
 	return {
 		"id": String(m.get("display", haul_material_id)),
 		"w": 1, "h": 1,
-		"color": Color(0.62, 0.5, 0.32),
+		"color": Slice01Data.haul_color(haul_material_id),   # 바닥 드롭도 가방과 같은 색이어야 이어진다
 		"kind": "haul",
 		"haul_material_id": haul_material_id,
 	}
 
 
-func _make_gear_drop_def(base_gear_id: String) -> Dictionary:
+## `premod` = 새겨진 채로 나올 칸 수(0이면 맨건). 실제 칸 수는 건의 `gear_skill_slot_count_max`가 잘라낸다.
+func _make_gear_drop_def(base_gear_id: String, premod: int = 0) -> Dictionary:
 	var m: Dictionary = Slice01Data.get_gear_master(base_gear_id)
 	var classes: Array = m.get("equip_classes", [])
 	var cid := String(classes[0]) if not classes.is_empty() else "Tank"
@@ -241,7 +248,41 @@ func _make_gear_drop_def(base_gear_id: String) -> Dictionary:
 	var rid := _roll_identity(base_gear_id)
 	if rid != "":
 		def["rolled_identity_skill_id"] = rid
+	if premod > 0:
+		def["slot_abilities"] = _premod_slots(base_gear_id, cid, premod)
 	return def
+
+
+## **주운 건은 빌드째로 나온다**(사용자 판정: *「기어가 서브스킬을 장착되서 나오게하되 기어가 루팅되는
+## 확률을 아주낮춰줘」*). 상자를 열어 나온 것이 「이름만 다른 스탯 덩어리」면 파밍이 재미없다 —
+## **남이 쓰던 무기를 통째로 줍는 것**이어야 흔들림이 생긴다.
+##
+## 뽑는 풀은 그 건이 허용하는 계열 × 역할(`gear_allows_slot_ability`, 모딩 게이트와 **같은 규칙**)이고,
+## **트리 해금 여부는 보지 않는다.** 그래서 새 규칙이 하나 생긴다(DRIFT-157 → 전파):
+##   · 건에 이미 새겨진 AB는 **해금 없이 쓸 수 있다** — 주웠으니까.
+##   · 그걸 **다른 건으로 옮기려면** 여전히 트리 해금이 필요하다(`F-008` §3.10 모딩 게이트 그대로).
+## 즉 루팅은 「그 AB를 쓸 권리」가 아니라 **「이 건에 한해 쓸 권리」**를 준다.
+func _premod_slots(base_gear_id: String, cid: String, want: int) -> Array:
+	var out: Array = [null, null, null]
+	var master: Dictionary = Slice01Data.get_gear_master(base_gear_id)
+	var cap: int = clampi(int(master.get("gear_skill_slot_count_max", 1)), 1, 3)
+	var n: int = mini(want, cap)
+	if n <= 0:
+		return out
+	var pool: Array = []
+	for row in Slice01Data.get_skillbook_rows():
+		var ab := String((row as Dictionary).get("base_ability_id", ""))
+		if ab != "" and Slice01Data.gear_allows_slot_ability(base_gear_id, ab, cid):
+			pool.append(ab)
+	if pool.is_empty():
+		# 조용히 맨건을 내보내지 않는다 — 계열 표가 비면 **모든** 드롭이 빈 건이 되는데, 그건
+		# 「가끔 안 새겨져 나온다」와 구분이 안 된다. AB-### 정리 때 실제로 이렇게 새어 나갔다.
+		push_warning("[TDC] 프리모딩 풀 없음 — '%s'(%s) 맨건 드롭. allowed_slot_families 확인." % [base_gear_id, cid])
+		return out
+	pool.shuffle()
+	for j in mini(n, pool.size()):
+		out[j] = {"base_ability_id": pool[j]}
+	return out
 
 
 ## Weighted pick from a gear's identity roll table (F-008 §3.7). "" if no table.

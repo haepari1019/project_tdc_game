@@ -246,32 +246,96 @@ func building_action(facility_id: String) -> String:
 	return ""
 
 
+## **의뢰 판정표** — 조건을 코드가 아니라 **데이터**로 둔다(M6 후속). 예전엔 `evaluate_quests()`
+## 안에 `_q_if(...)` 줄이 늘어서 있었고, 그래서 「지금 이 의뢰가 얼마나 찼는가」를 물을 방법이
+## 없었다. 런 중 의뢰 목록(`quest_tracker`, J)이 진행도를 보여주려면 **완료 판정과 진행도 표시가
+## 같은 규칙**을 읽어야 한다 — 두 벌이면 하나는 반드시 거짓말을 하게 된다.
+##
+## 행 문법: {kind, ...}. `all`은 하위 행을 전부 만족해야 한다.
+##   vault(haul, need) · extract(need) · wipe(need) · facility(fid, need) · enc(enc)
+const QUEST_RULES := {
+	"Q-HUB-002": {"kind": "vault", "haul": "haul_ward_splinter", "need": 2},   # 창고 T1 — 파편 반입
+	# 데모 이벤트 퀘스트(미구현 기능 대용, DRIFT-065): 2번째 맵·전멸 복구·NPC → 추출/전멸 횟수로 근사.
+	"Q-HUB-003": {"kind": "extract", "need": 2},                               # 창고 T2 — 추출 2회
+	"Q-HUB-040": {"kind": "wipe", "need": 1},                                  # 성소 T1 — 전멸 1회
+	"Q-HUB-050": {"kind": "extract", "need": 1},                               # 군수 T1 — 추출 1회
+	"Q-HUB-013": {"kind": "facility", "fid": "scribe_shop", "need": 1},        # 상점 T2
+	# 무기고 T1 — **고정 보스 처치**(M6). 구 조건은 「Hard 인카운터 클리어」였는데 허브에서 난이도를
+	# 고르는 UI가 사라져 `hard_cleared`가 영영 서지 않는다. 「어려운 관문」을 토글이 아니라 **맵의 방**이
+	# 소유하게 옮겼다 — `spawn_table` `force_overrides`가 `P-BOSS-01`에 보스를 난이도 무관 고정한다.
+	"Q-HUB-020": {"kind": "enc", "enc": "ENC-BOSS-001"},
+	"Q-HUB-021": {"kind": "facility", "fid": "armory", "need": 1},             # 무기고 T2
+	# 대장간 사다리 — **초반 재료로 연다**(DRIFT-154). 연료(`haul_forge_coal`)는 Deep 분기 전용
+	# (0.4/런)이라 T1부터 요구하면 건 모딩이 ~20런 뒤에 열린다. T1은 파편, T2부터 연료.
+	"Q-HUB-030": {"kind": "vault", "haul": "haul_ward_splinter", "need": 3},   # 대장간 건립
+	"Q-HUB-031": {"kind": "all", "of": [
+		{"kind": "facility", "fid": "smithy", "need": 1},
+		{"kind": "vault", "haul": "haul_forge_coal", "need": 1}]},
+	# T3 = **심층 노두**. `gear_skill_slot_count_max = 3` gear의 세 번째 칸이 여기서 열린다 —
+	# 구 스펙은 T3+를 Expansion으로 미뤄 그 칸이 Slice-01에서 영영 도달 불가였다.
+	"Q-HUB-032": {"kind": "enc", "enc": "ENC-DEEP-001"},
+	"Q-HUB-051": {"kind": "vault", "haul": "haul_pack_frame", "need": 2},      # 군수 T2
+}
+
+
 ## B4-lite: 충족 가능한 Slice-01 퀘스트 stub(vault 수량·시설 Tier 기반)을 자동 완료 처리한다
 ## (F-029 §3.3.1). 런 이벤트형(ENC clear·map success·GIMMICK·party wipe·NPC)은 B4 full에서
 ## 런 훅으로 완료. 비가역(완료는 유지) — 허브 진입/vault·시설 변동 시 호출.
 func evaluate_quests() -> void:
 	_q_dirty = false
-	_q_if("Q-HUB-002", vault_count("haul_ward_splinter") >= 2)   # 창고 T1 — 파편 반입
-	# 데모 이벤트 퀘스트(미구현 기능 대용, DRIFT-065): 2번째 맵·전멸 복구·NPC → 추출/전멸 횟수로 근사.
-	_q_if("Q-HUB-003", extraction_success >= 2)                  # 창고 T2 — 추출 2회(맵 2종 대용)
-	_q_if("Q-HUB-040", party_wiped >= 1)                         # 성소 T1 — 전멸 1회(복구 대용)
-	_q_if("Q-HUB-050", extraction_success >= 1)                  # 군수 T1 — 추출 1회(NPC 고용 대용)
-	_q_if("Q-HUB-013", facility_tier("scribe_shop") >= 1)        # 상점 T2
-	# 무기고 T1 — **고정 보스 처치**(M6). 구 조건은 「Hard 인카운터 클리어」였는데 허브에서 난이도를
-	# 고르는 UI가 사라져 `hard_cleared`가 영영 서지 않는다. 「어려운 관문」을 토글이 아니라 **맵의 방**이
-	# 소유하게 옮겼다 — `spawn_table` `force_overrides`가 `P-BOSS-01`에 보스를 난이도 무관 고정한다.
-	_q_if("Q-HUB-020", bool(enc_cleared.get("ENC-BOSS-001", false)))
-	_q_if("Q-HUB-021", facility_tier("armory") >= 1)             # 무기고 T2
-	# 대장간 사다리 — **초반 재료로 연다**(DRIFT-154). 연료(`haul_forge_coal`)는 Deep 분기 전용
-	# (0.4/런)이라 T1부터 요구하면 건 모딩이 ~20런 뒤에 열린다. T1은 파편, T2부터 연료.
-	_q_if("Q-HUB-030", vault_count("haul_ward_splinter") >= 3)   # 대장간 건립 — 파편
-	_q_if("Q-HUB-031", facility_tier("smithy") >= 1 and vault_count("haul_forge_coal") >= 1)
-	# T3 = **심층 노두**. `gear_skill_slot_count_max = 3` gear의 세 번째 칸이 여기서 열린다 —
-	# 구 스펙은 T3+를 Expansion으로 미뤄 그 칸이 Slice-01에서 영영 도달 불가였다.
-	_q_if("Q-HUB-032", bool(enc_cleared.get("ENC-DEEP-001", false)))
-	_q_if("Q-HUB-051", vault_count("haul_pack_frame") >= 2)      # 군수 T2
+	for qid in QUEST_RULES:
+		_q_if(String(qid), bool(_rule_eval(QUEST_RULES[qid]).get("done", false)))
 	if _q_dirty:
 		save_profile()
+
+
+## 한 의뢰의 **지금 상태** — {done, have, need, text}. 런 중 의뢰 패널과 허브 장부가 같이 읽는다.
+## 등재되지 않은 의뢰(런 훅으로만 끝나는 것 등)는 `{"unknown": true}`를 돌려준다 — 「0/0」이라고
+## 우기는 것보다 모른다고 말하는 편이 낫다.
+func quest_progress(quest_id: String) -> Dictionary:
+	if is_quest_done(quest_id):
+		return {"done": true, "have": 1, "need": 1, "text": "완료"}
+	if not QUEST_RULES.has(quest_id):
+		return {"done": false, "unknown": true, "text": ""}
+	return _rule_eval(QUEST_RULES[quest_id])
+
+
+func _rule_eval(rule: Dictionary) -> Dictionary:
+	match String(rule.get("kind", "")):
+		"vault":
+			var hid := String(rule.get("haul", ""))
+			var have := int(vault_count(hid))
+			var need := int(rule.get("need", 1))
+			return {"done": have >= need, "have": have, "need": need,
+				"text": "%s %d/%d" % [String(Slice01Data.get_haul_material(hid).get("display", hid)), mini(have, need), need]}
+		"extract":
+			var n := int(rule.get("need", 1))
+			return {"done": extraction_success >= n, "have": extraction_success, "need": n,
+				"text": "추출 성공 %d/%d" % [mini(extraction_success, n), n]}
+		"wipe":
+			var w := int(rule.get("need", 1))
+			return {"done": party_wiped >= w, "have": party_wiped, "need": w,
+				"text": "전멸 %d/%d" % [mini(party_wiped, w), w]}
+		"facility":
+			var fid := String(rule.get("fid", ""))
+			var t := int(facility_tier(fid))
+			var nt := int(rule.get("need", 1))
+			return {"done": t >= nt, "have": t, "need": nt,
+				"text": "%s T%d/T%d" % [String(Slice01Data.get_facility_def(fid).get("display", fid)), t, nt]}
+		"enc":
+			var eid := String(rule.get("enc", ""))
+			var ok: bool = bool(enc_cleared.get(eid, false))
+			return {"done": ok, "have": 1 if ok else 0, "need": 1,
+				"text": "%s 처치 %s" % [eid, "✔" if ok else "—"]}
+		"all":
+			var parts: Array = []
+			var all_done := true
+			for sub in (rule.get("of", []) as Array):
+				var r: Dictionary = _rule_eval(sub)
+				all_done = all_done and bool(r.get("done", false))
+				parts.append(String(r.get("text", "")))
+			return {"done": all_done, "have": 1 if all_done else 0, "need": 1, "text": " · ".join(parts)}
+	return {"done": false, "unknown": true, "text": ""}
 
 
 ## 자동 판정 — **수락한 의뢰만** 완료된다(M6). 수락 전에는 조건을 충족해도 아무 일이 없다.

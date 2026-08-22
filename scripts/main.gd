@@ -490,8 +490,7 @@ func _identity_ab(role: String) -> String:
 func _open_stash() -> void:
 	if _inv.is_open():
 		_inv.toggle()
-		_sync_stash_from_source()                 # 닫기 = 에디터 상태를 Stash에 반영(상점과 단일 SoT)
-		refresh_all()
+		_close_stash_commit()
 	else:
 		_stash_src.items = _build_stash_items()   # 열기 = 최신 Stash(상점 구매 포함) 반영
 		_inv.open_loot(_stash_src)
@@ -500,8 +499,18 @@ func _open_stash() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and _inv != null and _inv.is_open():
 		_inv.toggle()
-		_sync_stash_from_source()   # ESC 닫기도 Stash에 반영(open 시 재빌드와 짝)
-		refresh_all()
+		_close_stash_commit()
+
+
+## 🐞 창고를 닫을 때는 **양쪽을 다 커밋**해야 한다. 예전엔 `_sync_stash_from_source()`만 불렀는데,
+## 그러면 창고에서 가방으로 옮긴 마석·참이 **증발**했다: 창고 쪽은 통째로 재작성돼 빠지고, 가방 쪽은
+## `Backpack`에 기록되지 않아 화면(그리드) 안에만 남는다. 상단 지갑도 안 바뀌어 「옮겨지지 않았다」로
+## 보이고, 씬을 다시 그리면 진짜로 사라진다. 출정(`_commit_run_loadout`)에는 둘 다 있었는데
+## **닫기 경로에만 한쪽이 빠져 있었다.**
+func _close_stash_commit() -> void:
+	_sync_stash_from_source()         # 창고 = 에디터 최종 상태
+	_inv.commit_loose_to_backpack()   # 가방 = 영속 Backpack.loose
+	refresh_all()
 
 
 ## Build the stash container items (gear 2×2, 소모품·마석·참 1×1) with grid placement, from the Stash
@@ -590,6 +599,8 @@ func _sync_stash_from_source() -> void:
 					gi["rolled_identity_skill_id"] = rid
 				if it.has("rolls"):
 					gi["rolls"] = it["rolls"]
+				if typeof(it.get("slot_abilities", null)) == TYPE_ARRAY:
+					gi["slot_abilities"] = it["slot_abilities"]   # 건은 자기 빌드를 들고 창고에 눕는다
 				gear.append(gi)
 			"consumable":
 				var cid := String(it.get("consumable_id", ""))

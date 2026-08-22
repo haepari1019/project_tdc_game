@@ -157,6 +157,20 @@ func _run_carry_full() -> bool:
 
 
 ## 창고(stash) 한도 — 편집 중 stash 그리드(_loot)의 기어·스킬북 타일 수 ≥ stash_capacity면 입금 거부(비파괴).
+## 창고가 받아 주는 종류. `haul`(승급 재료)은 **금고**가 소유하므로 여기 없다 — 그 하나만 예외다.
+const STASHABLE_KINDS := ["gear", "consumable", "manastone", "charm"]
+
+## 스택 합치기 키 — 같은 키면 한 타일로 합쳐진다. `""`면 비스택(기어·참처럼 개체로 세는 것).
+## 종류마다 id 필드 이름이 다르므로 여기서 한 번에 정규화한다: 분기를 흘리면 새 종류가 조용히
+## 「안 합쳐지는 것」이 된다(마석이 정확히 그랬다).
+func _stack_key(it: Dictionary) -> String:
+	match String(it.get("kind", "")):
+		"consumable": return "consumable:" + String(it.get("consumable_id", ""))
+		"manastone": return "manastone:" + String(it.get("manastone_id", ""))
+		"haul": return "haul:" + String(it.get("haul_material_id", ""))
+		_: return ""
+
+
 func _stash_at_cap() -> bool:
 	var hub := get_node_or_null("/root/HubProfile")
 	if hub == null or not hub.has_method("stash_capacity") or not _loot_is_stash:
@@ -353,7 +367,13 @@ func add_charm_to_backpack(charm_id: String, at_risk: bool = true) -> bool:
 	var row: Dictionary = Slice01Data.get_charm(charm_id)
 	if row.is_empty() or _run_carry_full():
 		return false
-	return _backpack.add_item_dict(ItemFactory.charm_item(charm_id, String(row.get("display_name", charm_id)), at_risk))
+	var ok: bool = _backpack.add_item_dict(ItemFactory.charm_item(charm_id, String(row.get("display_name", charm_id)), at_risk))
+	if ok and not _loading_carry:
+		# 바닥에서 주운 참은 **인벤이 닫힌 채로** 들어온다 — `_close()`를 기다리면 다음에 인벤을
+		# 열었다 닫을 때까지 효과가 안 붙는다. 캐리 최초 적재(`_loading_carry`) 때는 호스트가
+		# `refresh_charms()`를 직접 부르므로 여기서 또 쏘지 않는다.
+		charms_changed.emit()
+	return ok
 
 
 # --- 마석 (F-009 §3.8) — 슬롯 스킬 시전 자원 -----------------------------------
@@ -546,6 +566,10 @@ func make_gear_stash_item(inst) -> Dictionary:
 			m["rolled_identity_skill_id"] = rid
 		if (inst as Dictionary).has("rolls"):
 			m["rolls"] = (inst as Dictionary)["rolls"]
+		# **새겨진 빌드**(`D-019` §3) — 이걸 안 실으면 창고 타일이 「맨건」이 되고, 창고를 닫을 때
+		# `_sync_stash_from_source`가 타일을 정본으로 다시 쓰면서 빌드가 통째로 증발한다.
+		if (inst as Dictionary).has("slot_abilities"):
+			m["slot_abilities"] = (inst as Dictionary)["slot_abilities"]
 	return ItemFactory.gear_item(m, true)
 
 
@@ -642,7 +666,7 @@ func start_drag_from_slot(item: Dictionary, src: Dictionary) -> void:
 func _revert_drag() -> void:
 	match String(_drag_src.get("kind", "grid")):
 		"gear":
-			_equip.revert_gear(int(_drag_src.char), String(_drag.get("base_gear_id", "")))
+			_equip.revert_gear(int(_drag_src.char), _drag)
 		_:
 			if _from != null:
 				_drag.w = _orig.w
@@ -822,6 +846,8 @@ func _do_discard(grid: InventoryGrid, item: Dictionary) -> void:
 		var def := _drop_def(item)
 		grid.lift(item)
 		item_dropped.emit(def)
+		if String(item.get("kind", "")) == "charm":
+			charms_changed.emit()   # 버린 참의 오오라는 즉시 꺼져야 한다
 	elif grid == _loot and _loot_is_stash:
 		var def := _drop_def(item)
 		grid.lift(item)
@@ -832,8 +858,12 @@ func _do_discard(grid: InventoryGrid, item: Dictionary) -> void:
 ## grid-internal state (col/row/node) that must not leak into a new world ItemDrop.
 func _drop_def(item: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
+	# ⚠️ **여기 없는 필드는 바닥에 떨어지는 순간 사라진다.** `charm_id`/`manastone_id`가 빠져 있어서
+	# 참·마석을 버리면 정체 없는 익명 블록이 됐다(주워도 복구 불가). 새 아이템 종류를 만들면
+	# 이 목록 + `ItemDrop.interact()` 둘 다 봐야 한다 — 한쪽만 고치면 반쪽만 살아 돌아온다.
 	for k in ["id", "w", "h", "color", "kind", "base_gear_id", "base_ability_id",
-			"haul_material_id", "consumable_id", "count"]:
+			"haul_material_id", "consumable_id", "charm_id", "manastone_id", "count",
+			"max_stack", "at_risk"]:
 		if item.has(k):
 			out[k] = item[k]
 	return out
@@ -1006,12 +1036,16 @@ func _drop() -> void:
 		var target := _grid_under(mouse)
 		if target != null:
 			var c := target.cell_from_global_topleft(topleft)
-			# 스태시(창고) 입금 가드 — 기어·스킬북·소비만(deploy 동기화 3종). 재료(haul)는 일반 스태시가
-			# 아니라 HubProfile 금고로 일원화 → '재료 모두 금고로' 버튼/금고 탭 사용. 스태시 내부 재배치는 예외.
+			# 스태시(창고) 입금 가드. 재료(haul)만 창고가 아니라 **금고**로 간다 — 시설 승급의 유일한
+			# 화폐라 한 곳에 모여야 세어진다. 창고 내부 재배치는 입금이 아니므로 통과시킨다.
 			var rearrange_in_stash: bool = _from == _loot and String(_drag_src.get("kind", "grid")) == "grid"
+			# 🐞 **창고에 들어갈 수 있는 것** — 예전엔 `["gear","consumable"]`뿐이었다. 그런데
+			# `_build_stash_items`/`_sync_stash_from_source`는 마석·참을 **이미 다루고 있었다** —
+			# 즉 창고에서 꺼낼 수는 있는데 **되돌려 놓을 수가 없었다**. 사용자 보고 「스태시에 마석이나
+			# 참이 배낭과 잘 연동이 안된듯함. 옮겨지지 않고」의 정체. `haul`만 계속 막는다(금고 전용).
 			if target == _loot and _loot_is_stash and not rearrange_in_stash \
-					and not (String(_drag.get("kind", "")) in ["gear", "consumable"]):
-				_msg("창고엔 기어·스킬북·소비만 — 재료(haul)는 금고/버튼으로")
+					and not (String(_drag.get("kind", "")) in STASHABLE_KINDS):
+				_msg("창고엔 기어·소비·마석·참만 — 재료(haul)는 금고로 간다")
 				_revert_drag()
 				placed = true   # 원위치 복귀 후 아래 공통 정리로 폴백 — 조기 return을 하면 드래그 상태/비주얼이
 				# 남아 다음 클릭에 한 번 더 놓여 '복제'되던 버그. placed=true는 재배치만 건너뜀.
@@ -1019,11 +1053,13 @@ func _drop() -> void:
 				_msg("창고 한도 초과 — 창고를 승급하거나 비워야 함")
 				_revert_drag()
 				placed = true   # 입금 거부(비파괴) — 기존 창고 아이템 유지
-			# consumable merge: dropping onto a same-id stack combines (≤ max_stack).
-			if String(_drag.get("kind", "")) == "consumable":
+			# **같은 것끼리는 합친다** — 소비품만 합치던 것을 스택형 전체로 넓혔다. 마석 40개를 창고에서
+			# 꺼내 가방의 마석 위에 놓으면 예전엔 **타일 두 개**가 됐고, 그게 사용자 보고
+			# 「중복된건지 아닌지도 모르겠으」였다. 합칠 수 있으면 합쳐야 셈이 눈에 보인다.
+			var skey := _stack_key(_drag)
+			if skey != "":
 				var dest: Dictionary = target.item_at(int(c.x), int(c.y))
-				if not dest.is_empty() and dest != _drag \
-						and String(dest.get("consumable_id", "")) == String(_drag.get("consumable_id", "")):
+				if not dest.is_empty() and dest != _drag and _stack_key(dest) == skey:
 					var room := int(_drag.get("max_stack", 1)) - int(dest.get("count", 0))
 					var move := mini(room, int(_drag.get("count", 0)))
 					if move > 0:

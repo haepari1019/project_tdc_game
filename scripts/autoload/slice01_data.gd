@@ -358,6 +358,45 @@ func get_haul_material(id: String) -> Dictionary:
 	return _haul_materials.get(id, {})
 
 
+## 재료 타일 색 — `haul_materials.json` `color`(게임측 표시 레이어). 없으면 구 황토색으로 폴백한다.
+## 왜 색을 주는가: 재료 11종이 **전부 같은 1×1 황토 타일**이라 가방이 「구분 안 되는 퀘템 더미」로
+## 보였다(사용자 보고). 이름은 타일이 작아 잘리므로, 한눈에 갈리는 축은 색밖에 없다.
+func haul_color(id: String) -> Color:
+	var c := String(get_haul_material(id).get("color", ""))
+	return Color(c) if c != "" and Color.html_is_valid(c) else Color(0.62, 0.5, 0.32)
+
+
+## 이 재료를 **무엇이 먹는가** — `facilities_tiers.json`에서 **파생**한다(복제 금지: 승급 비용의
+## 정본은 시설 표 하나뿐이다). 반환 = ["대장간 T2 ×2", …]. 소비처가 비면 그 재료는 지금
+## 슬라이스에서 쓸 데가 없다는 뜻이고, 그건 툴팁이 솔직히 말해야 한다.
+func haul_consumers(haul_material_id: String) -> Array:
+	var out: Array = []
+	for fid in _facilities:
+		var def: Dictionary = _facilities[fid]
+		for t in (def.get("tiers", []) as Array):
+			var haul: Dictionary = (t as Dictionary).get("haul", {})
+			if haul.has(haul_material_id):
+				out.append("%s T%d ×%d" % [String(def.get("display", fid)),
+					int((t as Dictionary).get("tier", 0)), int(haul[haul_material_id])])
+	# **스킬 트리도 재료를 먹는다.** 공유 파편·재구현 핵은 시설이 아니라 트리 해금이 소비하므로,
+	# 시설만 훑으면 그 둘이 「쓸 데 없는 재료」로 표시된다 — 정작 가장 많이 나오는 재료인데.
+	var tree_n := 0
+	var tree_lo := 0
+	var tree_hi := 0
+	for nid in _tree:
+		var cost: Dictionary = (_tree[nid] as Dictionary).get("cost", {})
+		if not cost.has(haul_material_id):
+			continue
+		var q := int(cost[haul_material_id])
+		tree_n += 1
+		tree_lo = q if tree_lo == 0 else mini(tree_lo, q)
+		tree_hi = maxi(tree_hi, q)
+	if tree_n > 0:
+		out.append("필기 상점 해금 %d종 ×%s" % [tree_n,
+			str(tree_lo) if tree_lo == tree_hi else "%d~%d" % [tree_lo, tree_hi]])
+	return out
+
+
 # --- 마석 (F-009 §3.8) — 슬롯 스킬 시전 소모 ------------------------------------
 
 func get_manastone(id: String) -> Dictionary:
@@ -368,6 +407,12 @@ func get_manastone(id: String) -> Dictionary:
 
 func get_charm(id: String) -> Dictionary:
 	return _charms.get(id, {})
+
+
+## 참 전종 id — 카탈로그 전수 감사(`charm_smoke`)가 읽는다. `effect` 이름이 집계 사전과 어긋난
+## 참은 `charm_mods`가 **조용히 건너뛰므로**, 「전종을 훑을 수단」이 없으면 그 침묵을 못 잡는다.
+func get_charm_ids() -> Array:
+	return _charms.keys()
 
 
 # --- doctrine (F-030 / D-021) — 파티 운용 성장 -----------------------------------

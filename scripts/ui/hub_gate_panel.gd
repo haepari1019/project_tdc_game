@@ -107,7 +107,9 @@ func refresh() -> void:
 				"manastone":
 					ms += int(it.get("count", 0))
 				"charm":
-					charms.append(String(Slice01Data.get_charm(String(it.get("charm_id", ""))).get("display", "?")))
+					# `charms.json`의 필드는 `display_name`이다 — `display`를 읽던 동안 반입 목록이
+					# **전부 `?`**로 나왔다. 출정 직전에 뭘 들고 가는지 보는 자리인데.
+					charms.append(String(Slice01Data.get_charm(String(it.get("charm_id", ""))).get("display_name", "?")))
 				"consumable":
 					consum += int(it.get("count", 1))
 	var g := HubTheme.grid(2)

@@ -443,13 +443,22 @@ func _init() -> void:
 	# 게이트 사유가 실제로 갈리는지(전부 통과/전부 거부면 게이트가 아니다).
 	_expect(String(bpm.slot_equip_check("Tank", 2, "AB-033").get("reason", "")) == "slot", "잠긴 칸 거부 사유 = slot")
 	_expect(String(bpm.slot_equip_check("Tank", 0, "AB-064").get("reason", "")) == "family", "Role/계열 불일치 거부")
-	# D2 소멸 — 교체하면 슬롯이 비고, 잃은 목록이 **이름으로** 돌아온다(모달이 그걸 읽는다).
+	# **~~D2 소멸~~ → 빌드는 건에 붙어 다닌다**(`D-019` §3, DRIFT-156). 갈아입으면 새 건의 빌드가
+	# 오고, 벗은 건은 자기 빌드를 그대로 들고 나간다. 예전엔 여기서 「소멸했는가」를 물었다 —
+	# 그 모델은 런 중 갈아입기를 허용한 순간 「서브가 사라진다」는 버그로만 체감됐다.
 	bpm.set_gear_slot_ability("Tank", 0, "AB-033")
 	_expect(String(bpm.gear_slot_abilities("Tank")[0].get("base_ability_id", "")) == "AB-033", "슬롯 장착 반영")
-	var lost2: Array = bpm.set_member_gear("Tank", "gear_ward_tank_kite_shield")
-	_expect(lost2 == ["AB-033"], "D2 — 건 교체 시 슬롯 AB 소멸(잃은 목록 반환)")
-	_expect(bpm.gear_slot_abilities("Tank")[0] == null, "교체 후 슬롯 비었음")
+	var worn2: Dictionary = bpm.worn_instance("Tank")
+	_expect(typeof(worn2.get("slot_abilities", null)) == TYPE_ARRAY
+		and String((worn2["slot_abilities"] as Array)[0].get("base_ability_id", "")) == "AB-033",
+		"worn_instance — 벗을 때 빌드가 따라 나온다")
+	bpm.set_member_gear("Tank", "gear_ward_tank_kite_shield")
+	_expect(bpm.gear_slot_abilities("Tank")[0] == null, "다른 건으로 교체 — 새 건은 자기(빈) 빌드")
 	_expect(bpm.gear_slot_count("Tank") >= 1, "교체한 건(max 3)도 최소 1칸")
+	# 되신으면 그 건의 빌드가 돌아온다 — 인스턴스를 넘겨야 한다(창고가 보관하는 형태 그대로).
+	bpm.set_member_gear("Tank", String(worn2.get("base_gear_id", "")), worn2)
+	_expect(String(bpm.gear_slot_abilities("Tank")[0].get("base_ability_id", "")) == "AB-033",
+		"되신으면 그 건에 새긴 빌드가 그대로 돌아온다")
 	# 마이그레이션 — 구 세이브(subs만)에 slot_abilities가 생기고, 값이 옮겨진다.
 	var bpg = load("res://scripts/autoload/backpack.gd").new()
 	bpg.equipped = {"Tank": {"gear": "gear_ward_tank_anchor_bulwark", "subs": [{"base_ability_id": "AB-033"}, null, null]}}
@@ -481,8 +490,8 @@ func _init() -> void:
 	var pmx = load("res://scripts/party/party_member.gd").new()
 	pmx.class_id = "Tank"
 	pmx.equip_skillbook_by_id(0, "AB-033")
-	var instx = pmx.get_skillbook(0)
-	_expect(instx != null and not (instx as Dictionary).has("charges") and not (instx as Dictionary).has("affix"),
+	var inst = pmx.get_skillbook(0)
+	_expect(inst != null and not (inst as Dictionary).has("charges") and not (inst as Dictionary).has("affix"),
 		"슬롯 인스턴스 — charges·affix 필드 부재(쿨다운만 남는다)")
 	pmx.free()
 	# **시전 자원은 마석 하나** — 탄 게이트가 어디에도 남아 있으면 안 된다. 소스 텍스트로 잰다:
@@ -682,6 +691,106 @@ func _init() -> void:
 	for gh in ghosts:
 		print("  GHOST  " + gh)
 	_expect(ghosts.is_empty(), "유령 참조 0건 (시드·픽스처 전수)")
+
+	# ══ 인스턴스 귀속 빌드 · 재료 가독성 · 의뢰 진행도 (DRIFT-156~159) ═════════════════
+	# 이 묶음은 전부 **「없어야 할 것이 없는가」**를 묻는다. 여기서 무너진 것들은 하나같이
+	# 조용히 무너졌다 — 슬롯이 사라져도, 재료가 안 쓰여도, 의뢰가 안 차도 게임은 계속 돌아간다.
+
+	# ① 창고는 **인스턴스를 자리로** 내준다. id로 집으면 목록에서 고른 개체와 다른 게 나온다.
+	var st2 = load("res://scripts/autoload/stash.gd").new()
+	st2.gear = [{"base_gear_id": "gear_ward_tank_anchor_bulwark"},
+		{"base_gear_id": "gear_ward_tank_anchor_bulwark", "slot_abilities": [{"base_ability_id": "AB-033"}, null, null]}]
+	var picked: Dictionary = st2.take_gear_at(1)
+	_expect(typeof(picked.get("slot_abilities", null)) == TYPE_ARRAY
+		and String((picked["slot_abilities"] as Array)[0].get("base_ability_id", "")) == "AB-033",
+		"take_gear_at — 같은 아키타입 2개 중 **그 자리의** 인스턴스를 집는다")
+	_expect(st2.gear.size() == 1 and not (st2.gear[0] as Dictionary).has("slot_abilities"),
+		"take_gear_at — 집은 개체만 빠지고 나머지는 그대로")
+	st2.add_gear("gear_ward_tank_kite_shield", "", {}, [{"base_ability_id": "AB-033"}, null, null])
+	_expect(typeof((st2.gear[-1] as Dictionary).get("slot_abilities", null)) == TYPE_ARRAY,
+		"add_gear — 벗은 건의 빌드를 실어서 보관한다")
+	st2.free()
+
+	# ② 창고 편집기가 받아 주는 종류에 **마석·참**이 있는가. 없으면 꺼낼 수는 있는데 되돌려 놓을
+	#    수가 없어 「연동이 안 된다」가 된다(실제 사용자 보고). 소스 텍스트로 단언한다.
+	var inv_src := FileAccess.get_file_as_string("res://scripts/ui/inventory/inventory_ui.gd")
+	_expect(inv_src.contains('STASHABLE_KINDS := ["gear", "consumable", "manastone", "charm"]'),
+		"창고 입금 허용 종류 = 기어·소비·마석·참 (haul만 금고)")
+	_expect(inv_src.contains("func _stack_key("), "스택 합치기 키 = 종류별 id 정규화(마석도 합쳐진다)")
+
+	# ③ 재료 11종이 **전부 색을 갖고**, **전부 소비처가 있다**. 소비처 없는 재료 = 줍는 이유가
+	#    없는 재료고, 그게 「퀘템만 많고 의미 없다」의 정체다.
+	var no_color: Array = []
+	var no_use: Array = []
+	for hid in sd.get_haul_material_ids():
+		if String(sd.get_haul_material(String(hid)).get("color", "")) == "":
+			no_color.append(String(hid))
+		if (sd.haul_consumers(String(hid)) as Array).is_empty():
+			no_use.append(String(hid))
+	_expect(no_color.is_empty(), "재료 전종 표시색 보유 (%s)" % ("없음" if no_color.is_empty() else ", ".join(no_color)))
+	_expect(no_use.is_empty(), "재료 전종 소비처 보유 (%s)" % ("없음" if no_use.is_empty() else ", ".join(no_use)))
+
+	# ④ 의뢰 진행도와 완료 판정이 **같은 표**를 읽는가. 두 벌이면 「다 찼는데 완료가 안 된다」가 난다.
+	var hpq = load("res://scripts/autoload/hub_profile.gd").new()
+	var bad_rule: Array = []
+	for qid4 in hpq.QUEST_RULES:
+		var pr: Dictionary = hpq.quest_progress(String(qid4))
+		if bool(pr.get("unknown", false)) or String(pr.get("text", "")) == "":
+			bad_rule.append(String(qid4))
+		if sd.get_quest(String(qid4)).is_empty():
+			bad_rule.append(String(qid4) + "(미등재)")
+	_expect(bad_rule.is_empty(), "QUEST_RULES 전건 진행도 산출 + 카탈로그 등재 (%s)" % ", ".join(bad_rule))
+	# 시설 승급이 요구하는 의뢰는 **끝낼 방법이 실재해야** 한다. 방법은 둘뿐이다:
+	#   ① 판정표(`QUEST_RULES`) — 금고/시설/추출 카운터로 자동 판정
+	#   ② 런 훅 — 런 스크립트가 `set_quest_completed`를 직접 부른다
+	# 둘 다 아니면 그 의뢰는 **영영 안 끝나고**, 그 시설은 영영 안 올라간다. 조용히.
+	# (구 `Q-HUB-010`/`011`이 정확히 그랬다 — 필기소가 사라진 뒤 참조만 남았다.)
+	var hooked := FileAccess.get_file_as_string("res://scripts/run/run_controller.gd") 		+ FileAccess.get_file_as_string("res://scripts/run/dungeon_run.gd")
+	var unruled: Array = []
+	for fid4 in sd.get_facility_ids():
+		var fdef: Dictionary = sd.get_facility_def(str(fid4))
+		for t4 in (fdef.get("tiers", []) as Array):
+			var trow: Dictionary = t4
+			var qv = trow.get("quest", null)
+			var q4: String = str(qv) if typeof(qv) == TYPE_STRING else ""
+			if q4 == "" or hpq.QUEST_RULES.has(q4) or hooked.contains('"%s"' % q4):
+				continue
+			unruled.append(q4)
+	_expect(unruled.is_empty(), "시설 요구 의뢰 전건 — 판정표 또는 런 훅으로 완료 가능 (%s)"
+		% ("없음" if unruled.is_empty() else ", ".join(unruled)))
+	hpq.free()
+
+	# ⑤ 런 트래커에 **죽은 목표가 없는가**. `Cell`은 이 게임에 없는 아이템인데 상시 패널에
+	#    「Cell 회수 0/6」으로 박혀 있었다 — 영원히 0인 줄은 목록 전체의 신뢰를 깎는다.
+	var qt_src := FileAccess.get_file_as_string("res://scripts/ui/quest_tracker.gd")
+	_expect(not qt_src.contains('count_item("Cell")'), "트래커 — 죽은 목표(Cell) 없음")
+	_expect(qt_src.contains('is_action_pressed("toggle_quests")'), "트래커 — 의뢰 목록은 J 토글(상시 패널 비대화 방지)")
+	_expect(InputMap.has_action("toggle_quests"), "입력 액션 toggle_quests 등록")
+
+	# ⑥ 주운 건은 **빌드째로** 나오고, 그 빌드는 모딩 게이트와 **같은 규칙**을 통과한다.
+	var ls_src := FileAccess.get_file_as_string("res://scripts/run/loot_service.gd")
+	_expect(ls_src.contains("func _premod_slots("), "루팅 gear 프리모딩 구현 존재")
+	_expect(ls_src.contains("gear_allows_slot_ability"), "프리모딩 풀 = 모딩과 동일 게이트(계열×역할)")
+	# 드롭률이 실제로 낮은가 — 「낮췄다」는 주석만 남고 값이 그대로인 사고가 잦다.
+	var lsvc = load("res://scripts/run/loot_service.gd")
+	_expect(float(lsvc.CHEST_GEAR_COMMON) <= 0.05 and float(lsvc.CHEST_GEAR_RARE) <= 0.20,
+		"gear 드롭률 극소화 (일반 %.2f / 희귀 %.2f)" % [lsvc.CHEST_GEAR_COMMON, lsvc.CHEST_GEAR_RARE])
+	# 모든 스타터 gear가 프리모딩 풀을 갖는가 — 비면 맨건이 나오고 그건 조용한 꽝이다.
+	var dry: Array = []
+	for grow in sd.get_gear_rows():
+		var gid5 := String((grow as Dictionary).get("base_gear_id", ""))
+		var cls5: Array = (grow as Dictionary).get("equip_classes", [])
+		if cls5.is_empty():
+			continue
+		var hit := false
+		for srow in sd.get_skillbook_rows():
+			if sd.gear_allows_slot_ability(gid5, String((srow as Dictionary).get("base_ability_id", "")), String(cls5[0])):
+				hit = true
+				break
+		if not hit:
+			dry.append(gid5)
+	_expect(dry.is_empty(), "전 gear 프리모딩 풀 ≥1 (%s)" % ("없음" if dry.is_empty() else ", ".join(dry)))
+
 
 	hp.free()
 	if _ok:

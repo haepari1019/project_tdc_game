@@ -195,6 +195,31 @@ func return_consumable(cid: String, amount: int = 1) -> void:
 
 
 ## Permanently remove one owned gear from the stash (hub 버리기). True if it was present.
+## 창고에서 **인스턴스째** 꺼낸다(슬롯 포함). 착용하러 갈 때 쓴다 — id만 빼면 빌드가 증발한다.
+## 인스턴스를 **자리로** 꺼낸다. 같은 아키타입이라도 굴림·빌드가 다르므로, UI가 「이 줄의 그 건」을
+## 집으려면 id가 아니라 위치로 집어야 한다 — id로 집으면 목록에서 고른 것과 다른 개체가 나온다.
+func take_gear_at(index: int) -> Dictionary:
+	if index < 0 or index >= gear.size():
+		return {}
+	var g = gear[index]
+	var inst: Dictionary = g.duplicate(true) if typeof(g) == TYPE_DICTIONARY else {"base_gear_id": String(g)}
+	gear.remove_at(index)
+	save_stash()
+	return inst
+
+
+func take_gear(base_gear_id: String) -> Dictionary:
+	for i in gear.size():
+		var g = gear[i]
+		var bid := String(g.get("base_gear_id", "")) if typeof(g) == TYPE_DICTIONARY else String(g)
+		if bid == base_gear_id:
+			var inst: Dictionary = g.duplicate(true) if typeof(g) == TYPE_DICTIONARY else {"base_gear_id": bid}
+			gear.remove_at(i)
+			save_stash()
+			return inst
+	return {}
+
+
 func remove_gear(base_gear_id: String) -> bool:
 	for i in gear.size():
 		var g = gear[i]
@@ -212,7 +237,11 @@ func item_count() -> int:
 
 
 ## Add one owned gear to the stash (무기고 구매 / 회수). 상점 기어 = bundled identity(굴림 없음, 확정 세트).
-func add_gear(base_gear_id: String, rolled_identity_skill_id: String = "", rolls: Dictionary = {}) -> void:
+## `slot_abilities` = 이 건에 **새겨진 Q/E/R**(`D-019` §3 `equippedSlotAbilities`). 스펙은 이걸 gear
+## **인스턴스 필드**로 정의하는데, 구현은 「착용 중인 한 벌」만 저장하고 있었다 — 그래서 갈아입으면
+## 건은 남는데 **빌드만 사라졌다**. 이제 창고에 있는 건도 자기 빌드를 들고 있는다.
+func add_gear(base_gear_id: String, rolled_identity_skill_id: String = "", rolls: Dictionary = {},
+		slot_abilities: Array = []) -> void:
 	if base_gear_id.is_empty():
 		return
 	var inst := {"base_gear_id": base_gear_id}
@@ -220,6 +249,8 @@ func add_gear(base_gear_id: String, rolled_identity_skill_id: String = "", rolls
 		inst["rolled_identity_skill_id"] = rolled_identity_skill_id
 	if not rolls.is_empty():
 		inst["rolls"] = rolls
+	if not slot_abilities.is_empty():
+		inst["slot_abilities"] = slot_abilities
 	gear.append(inst)
 	save_stash()
 

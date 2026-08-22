@@ -166,8 +166,12 @@ func _matching_member(master: Dictionary) -> int:
 
 ## Apply the equip (caller already removed the item from its grid). Displaced gear
 ## returns to the backpack as an At-Risk instance (F-008 §3.3, decision B).
+## **건은 빌드째로 오간다**(`D-019` §3, M6 후속). 벗는 건에는 지금 새겨진 Q/E/R을 실어서 가방에
+## 넣고, 신는 건에는 그 건이 들고 온 Q/E/R을 실어서 준다. 예전엔 `master`(카탈로그 원본)만 넘겨서
+## **던전에서 갈아입으면 서브가 통째로 사라졌다** — 사용자 보고 「게임중 기어를 바꿀때 서브스킬이
+## 안바뀜」의 정체. 영속 반영은 추출 시 `Backpack.capture_from_party()`가 맡는다.
 func _commit_equip(member: Node, master: Dictionary, item: Dictionary = {}) -> void:
-	var displaced: Dictionary = member.equipped_gear
+	var displaced: Dictionary = _worn_with_slots(member)
 	# F-008 §3.7 — 아이템 인스턴스의 rolled(identity/rolls)을 master에 병합해 장착(G2). 없으면 bundled.
 	var gm := master.duplicate(true)
 	var rid := String(item.get("rolled_identity_skill_id", ""))
@@ -175,6 +179,9 @@ func _commit_equip(member: Node, master: Dictionary, item: Dictionary = {}) -> v
 		gm["rolled_identity_skill_id"] = rid
 	if item.has("rolls") and typeof(item["rolls"]) == TYPE_DICTIONARY:
 		gm["rolls"] = item["rolls"]
+	var sl_in = item.get("slot_abilities", null)
+	if typeof(sl_in) == TYPE_ARRAY:
+		gm["slot_abilities"] = (sl_in as Array).duplicate(true)
 	member.equip_gear(gm)
 	if not displaced.is_empty():
 		if not _inv.backpack_grid().add_item_dict(ItemFactory.gear_item(displaced, true)):
@@ -216,11 +223,37 @@ func equip_gear_to_matching(grid: Node, item: Dictionary) -> void:
 	_commit_equip(_party.get_member(idx), master, item)
 
 
+## 지금 착용한 건 + **런타임 Q/E/R**을 한 덩어리로 뜬다. `member.equipped_gear`만으로는 부족하다 —
+## 슬롯은 `skillbook_slots`(런타임)에 있고 그 dict에는 없다.
+func _worn_with_slots(member: Node) -> Dictionary:
+	if member == null:
+		return {}
+	var out: Dictionary = (member.equipped_gear as Dictionary).duplicate(true)
+	if out.is_empty() or not member.has_method("get_skillbook"):
+		return out
+	var sl: Array = [null, null, null]
+	for j in 3:
+		var sb = member.get_skillbook(j)
+		if sb != null and String(sb.get("base_ability_id", "")) != "":
+			sl[j] = {"base_ability_id": String(sb.get("base_ability_id", ""))}
+	out["slot_abilities"] = sl
+	return out
+
+
 ## Re-equip a gear item reverted onto its origin slot (coordinator._revert_drag "gear").
-func revert_gear(char_index: int, base_gear_id: String) -> void:
+## `item`은 끌던 아이템 dict — **`slot_abilities`가 실려 있으므로** 취소해도 빌드가 돌아온다.
+func revert_gear(char_index: int, item: Dictionary) -> void:
 	var m: Node = _party.get_member(char_index) if _party != null else null
 	if m != null:
-		m.equip_gear(Slice01Data.get_gear_master(base_gear_id))
+		var gm: Dictionary = Slice01Data.get_gear_master(String(item.get("base_gear_id", ""))).duplicate(true)
+		var rid := String(item.get("rolled_identity_skill_id", ""))
+		if rid != "":
+			gm["rolled_identity_skill_id"] = rid
+		if item.has("rolls") and typeof(item["rolls"]) == TYPE_DICTIONARY:
+			gm["rolls"] = item["rolls"]
+		if typeof(item.get("slot_abilities", null)) == TYPE_ARRAY:
+			gm["slot_abilities"] = (item["slot_abilities"] as Array).duplicate(true)
+		m.equip_gear(gm)
 	_refresh_equip_slots()
 
 
@@ -437,7 +470,7 @@ func _unequip_gear_to_backpack(char_index: int) -> void:
 	if float(m.identity_cooldown_s) > 0.0:
 		msg("Identity 스킬 쿨다운 중 — 장비 해제 불가")
 		return
-	var item := ItemFactory.gear_item(m.equipped_gear, true)   # rolled identity/rolls 캐리(G2) → At-Risk
+	var item := ItemFactory.gear_item(_worn_with_slots(m), true)   # rolled identity/rolls/슬롯 캐리(G2) → At-Risk
 	if not _inv.backpack_grid().add_item_dict(item):
 		msg("가방이 가득 참 — 회수 불가")
 		return
@@ -456,7 +489,7 @@ func _begin_gear_slot_drag(char_index: int) -> void:
 	if float(m.identity_cooldown_s) > 0.0:
 		msg("Identity 스킬 쿨다운 중 — 장비 해제 불가")
 		return
-	var item := ItemFactory.gear_item(m.equipped_gear, true)  # unequipped → At-Risk in inventory
+	var item := ItemFactory.gear_item(_worn_with_slots(m), true)  # unequipped → At-Risk (빌드째)
 	m.unequip_gear()
 	_refresh_equip_slots()
 	_inv.start_drag_from_slot(item, {"kind": "gear", "char": char_index})

@@ -141,31 +141,51 @@ func clear_loose() -> void:
 
 # --- equipped assignment API (I3/I4 wire member slots to these) --------------
 
-## **D2 — gear를 갈면 슬롯 AB는 소멸한다**(`F-008` §3.10, 사용자 판정 "spec 정본 · 교체 시 소멸").
-## 소멸한 AB id 목록을 돌려주니 호출부는 **미리 확인 모달**을 띄우고(모딩 패널), 사후에 로그를 남긴다.
-## 같은 gear로 재장착(id 동일)이면 아무것도 잃지 않는다 — 인스턴스가 그대로이므로.
-## `inst`는 스태시 gear **인스턴스**({base_gear_id, rolled_identity_skill_id?, rolls?}) — 넘기면 굴림이
-## 따라온다. 안 넘기면 굴림을 **지운다**: 새 건에 옛 건의 굴림이 남으면 정체성이 어긋난다(F-008 §3.7).
-func set_member_gear(member_key: String, base_gear_id: String, inst: Dictionary = {}) -> Array:
+## **~~D2 소멸~~ → 건이 자기 빌드를 소유한다**(`D-019` §3 `equippedSlotAbilities`, DRIFT-156).
+##
+## 예전 모델은 「갈아끼우면 슬롯 AB가 전부 사라진다」였다. 허브에서만 갈아입을 땐 「비싼 선택」으로
+## 읽혔지만, **런 중 비전투 교체를 허용한 순간** 그건 선택이 아니라 *버그*로 체감됐다 — 사용자 보고
+## 「게임중 기어를 바꿀때 서브스킬이 안바뀜」. 그래서 소멸을 버리고 **인스턴스 귀속**으로 간다:
+## 벗은 건은 자기 Q/E/R을 들고 창고로 가고, 신은 건은 자기 Q/E/R을 데려온다.
+##
+## `inst` = gear **인스턴스**({base_gear_id, rolled_identity_skill_id?, rolls?, slot_abilities?}).
+## 굴림과 마찬가지로 슬롯도 **인스턴스가 정본**이다 — 안 넘기면 새 건은 빈 빌드로 시작한다(옛 건의
+## 굴림/빌드가 새 건에 남으면 정체성이 어긋난다, `F-008` §3.7).
+func set_member_gear(member_key: String, base_gear_id: String, inst: Dictionary = {}) -> void:
 	var e: Dictionary = equipped.get(member_key, {})
-	var lost: Array = []
-	# **맨몸 → 착용**은 교체가 아니다(잃을 게 없다). 소멸은 **이미 신고 있던 건을 벗을 때**만.
+	# **맨몸 → 착용**은 교체가 아니다. 초기화는 **이미 신고 있던 다른 건을 벗을 때**만 —
 	# `_bind_gear`의 런타임 판정과 같은 조건이어야 둘이 갈리지 않는다.
 	var prev := String(e.get("gear", ""))
-	var changed: bool = prev != "" and prev != base_gear_id
-	if changed:
-		lost = clear_gear_slots(member_key)
-		e = equipped.get(member_key, {})           # clear_gear_slots가 다시 쓴 걸 읽는다
+	if prev != "" and prev != base_gear_id:
 		e.erase("rolled_identity")
 		e.erase("rolls")
+		e["slot_abilities"] = [null, null, null]
 	if String(inst.get("rolled_identity_skill_id", "")) != "":
 		e["rolled_identity"] = String(inst["rolled_identity_skill_id"])
 	if typeof(inst.get("rolls", null)) == TYPE_DICTIONARY and not (inst["rolls"] as Dictionary).is_empty():
 		e["rolls"] = inst["rolls"]
+	var sl = inst.get("slot_abilities", null)
+	if typeof(sl) == TYPE_ARRAY and (sl as Array).size() == 3:
+		e["slot_abilities"] = (sl as Array).duplicate(true)
 	e["gear"] = base_gear_id
 	equipped[member_key] = e
 	save()
-	return lost
+
+
+## 지금 착용 중인 건을 **인스턴스 한 덩어리**로 뜬다 — 창고가 보관하는 것과 같은 모양이라
+## 그대로 `Stash.add_gear(...)`에 실어 보낼 수 있다. 교체는 이 dict의 **교환**이다.
+func worn_instance(member_key: String) -> Dictionary:
+	var e: Dictionary = equipped.get(member_key, {})
+	var gid := String(e.get("gear", ""))
+	if gid == "":
+		return {}
+	var out: Dictionary = {"base_gear_id": gid}
+	if String(e.get("rolled_identity", "")) != "":
+		out["rolled_identity_skill_id"] = String(e["rolled_identity"])
+	if typeof(e.get("rolls", null)) == TYPE_DICTIONARY and not (e["rolls"] as Dictionary).is_empty():
+		out["rolls"] = (e["rolls"] as Dictionary).duplicate(true)
+	out["slot_abilities"] = gear_slot_abilities(member_key).duplicate(true)
+	return out
 
 
 ## 이 역할이 **지금 실제로 쓸 수 있는** gear 스킬 슬롯 수 = `D-019` §3 `gearSkillSlotCount`.
@@ -231,15 +251,17 @@ func apply_to_party(party) -> void:
 		# Q/E/R 슬롯 — **정본은 gear 인스턴스**(`D-019` §3). `subs`(구 모델)는 M5에서 읽기를 멈췄다.
 		if m.has_method("equip_skillbook_by_id"):
 			var slots: Array = gear_slot_abilities(String(m.get("class_id")))
-			# `D-019` §3 `effectiveSlotAbilities` — **해금된 칸만** 살아난다. 잠긴 칸은 정본이 `null`이라
-			# 구 세이브가 3칸을 채워 뒀어도 여기서 잘린다(스타터 gear는 1칸). 조용히 자르지 않고 알린다.
+			# `D-019` §3 `effectiveSlotAbilities` — **열린 칸만** 살아난다. 잠긴 칸의 내용은 **지워지지
+			# 않는다**(gear 인스턴스가 소유). 대장간이 그 칸을 열면 그대로 깨어난다 — 프리모딩된 건을
+			# 주웠는데 아직 T2가 아닐 때가 정확히 이 상태다. 그래서 이건 버그가 아니라 **안내**이고,
+			# `push_warning`이 아니라 `print`로 내린다(주운 건마다 경고가 뜨면 경고가 무의미해진다).
 			var open_slots: int = gear_slot_count(String(m.get("class_id")))
 			for j in 3:
 				m.set_skillbook(j, null)   # 저장분이 정본 — 이전 상태를 먼저 비운다(모딩에서 뺀 슬롯이 남지 않게)
 				var g = slots[j]
 				if j >= open_slots:
 					if typeof(g) == TYPE_DICTIONARY:
-						push_warning("[TDC] %s 슬롯 %d 잠김(열린 칸 %d) — '%s' 미장착. gear 교체 또는 트리 Slot 노드 필요." % [String(m.get("class_id")), j, open_slots, String(g.get("base_ability_id", "?"))])
+						print("[TDC] %s 슬롯 %d 잠김(열린 칸 %d) — '%s' 대기. 대장간 승급(트리 Slot 노드)이 이 칸을 연다." % [String(m.get("class_id")), j, open_slots, String(g.get("base_ability_id", "?"))])
 					continue
 				if typeof(g) == TYPE_DICTIONARY and String(g.get("base_ability_id", "")) != "":
 					m.equip_skillbook_by_id(j, String(g["base_ability_id"]))
@@ -385,8 +407,8 @@ func equip_slot_ability(member_key: String, slot: int, base_ability_id: String) 
 	return chk
 
 
-## **D2 소멸** — gear를 갈아끼우면 이전 인스턴스에 끼운 슬롯 AB가 **전부 사라진다**(`F-008` §3.10).
-## 재획득은 트리 해금 + 상점 재구매(`F-009` §3.9.3). 되돌릴 수 없으므로 호출부가 확인을 받아야 한다.
+## 슬롯을 통째로 비운다. **더 이상 교체 경로가 쓰지 않는다**(교체는 인스턴스 교환) — 남겨 둔 건
+## 마이그레이션·디버그처럼 「이 건의 빌드를 지운다」가 진짜 의도인 자리를 위해서다.
 func clear_gear_slots(member_key: String) -> Array:
 	var lost: Array = []
 	for s in gear_slot_abilities(member_key):
@@ -416,6 +438,15 @@ func capture_from_party(party) -> void:
 			e["rolls"] = gr
 		else:
 			e.erase("rolls")
+		# 런타임 슬롯 → 저장. 런 중 gear 교체(비전투)가 허용되면서 슬롯이 런 안에서 바뀔 수 있게 됐다 —
+		# 안 캡처하면 던전에서 갈아입은 건의 빌드가 추출 시 옛것으로 되돌아간다.
+		if m.has_method("get_skillbook"):
+			var sl: Array = [null, null, null]
+			for j in 3:
+				var sb = m.get_skillbook(j)
+				if sb != null and String(sb.get("base_ability_id", "")) != "":
+					sl[j] = {"base_ability_id": String(sb.get("base_ability_id", ""))}
+			e["slot_abilities"] = sl
 		equipped[String(m.get("class_id"))] = e
 	save()
 
@@ -426,7 +457,8 @@ func _strip(it: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key in ["id", "kind", "base_gear_id", "base_ability_id", "haul_material_id", "manastone_id", "charm_id",
 			"consumable_id", "w", "h", "count", "at_risk", "equipped",
-			"rolled_identity_skill_id", "rolls"]:   # F-008 §3.7 gear 인스턴스 굴림 보존(G2)
+			"rolled_identity_skill_id", "rolls",    # F-008 §3.7 gear 인스턴스 굴림 보존(G2)
+			"slot_abilities"]:                      # D-019 §3 — 건이 자기 Q/E/R을 들고 다닌다
 		if it.has(key):
 			out[key] = it[key]
 	return out

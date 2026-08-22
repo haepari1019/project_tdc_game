@@ -192,6 +192,12 @@ func _ready() -> void:
 	var bp_node: Node = get_node_or_null("/root/Backpack")
 	if bp_node != null:
 		bp_node.apply_to_party(_party)               # 장착 기어+서브 영속 적용 (런이 실제로 장착 기어 사용)
+	# 🐞 **참 오오라를 여기서 한 번 적재한다.** 위의 `charms_changed` 연결만 있던 동안, 참은 런 시작
+	# 시점에 **아무에게도 밀어 넣어지지 않았다** — 시그널을 쏘는 곳이 `InventoryUI._close()` 하나뿐이라
+	# 「인벤을 한 번 열었다 닫아야 참이 켜지는」 상태였다. 칸은 먹는데 효과는 0. 실측으로 확인:
+	# 스타터 참 2종을 들고 들어가도 4명 전부 중립값(1.000)이었다.
+	# 순서 주의 — `apply_to_party` **뒤**여야 한다(멤버가 gear 바인딩으로 갈릴 수 있으므로).
+	_combat.refresh_charms()
 	var rl: Node = get_node_or_null("/root/RunLoadout")
 	if rl != null:
 		for f in rl.formation:                       # hub formation editor → slot offsets (F-003)

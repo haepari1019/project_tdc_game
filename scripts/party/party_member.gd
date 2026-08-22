@@ -94,6 +94,8 @@ var sub_cooldown_s: float = 0.0
 ## Sub skillbook slots Q/E/R (F-009 §3.1 / DEC-20260611-002). Each = null or an instance:
 ## {base_ability_id, display_name, params, cooldown_s, equip_classes, color}.
 var skillbook_slots: Array = [null, null, null]
+## `_bind_gear`가 신을 슬롯을 잠시 담아 두는 곳 — 장착은 `class_id`가 잡힌 **뒤에** 해야 한다.
+var _pending_slots: Array = []
 ## Damage-absorbing shield (consumed before HP). IDA-020 Shield Policy.
 var shield: float = 0.0
 var shield_timer_s: float = 0.0
@@ -278,15 +280,20 @@ func setup(gear: Dictionary, index: int, color: Color, collision_radius: float =
 ## base_gear_id -> bundled_identity_skill_id -> identities.json row -> stats/skills.
 ## reset_hp=true on spawn; false on mid-run swap (keep current HP, clamp to new max).
 func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
-	# **D2 소멸 (M4-6)** — gear가 바뀌면 이전 gear에 끼워져 있던 Q/E/R은 사라진다(`F-008` §3.10).
-	# 슬롯 AB는 **gear 인스턴스 소유**(`D-019` §3)이므로 gear를 벗는 순간 같이 벗겨지는 게 정본이다.
-	# 영속 쪽 소멸은 `Backpack.set_member_gear`가 담당하고(확인 모달 뒤), 여기는 **런타임 정합**이다 —
-	# 둘 중 하나만 있으면 "화면엔 남아 있는데 세이브엔 없는" 유령 슬롯이 생긴다.
+	# **슬롯은 건을 따라온다** — gear가 바뀌면 그 건에 새겨진 Q/E/R을 신는다(`D-019` §3
+	# `equippedSlotAbilities`가 **인스턴스 필드**인 이유). 예전엔 여기서 비웠는데, 그러면 갈아입을
+	# 때마다 빌드가 증발해 「건은 남는데 빌드만 사라진다」가 됐다.
 	var _prev_gear := String(base_gear_id)
 	equipped_gear = gear
 	base_gear_id = String(gear.get("base_gear_id", ""))
-	if _prev_gear != "" and _prev_gear != base_gear_id:
+	if _prev_gear != base_gear_id:
 		skillbook_slots = [null, null, null]
+		var incoming = gear.get("slot_abilities", null)
+		if typeof(incoming) == TYPE_ARRAY:
+			for j in mini(3, (incoming as Array).size()):
+				var sd = incoming[j]
+				if typeof(sd) == TYPE_DICTIONARY and String(sd.get("base_ability_id", "")) != "":
+					_pending_slots.append([j, String(sd["base_ability_id"])])
 	gear_kind = String(gear.get("gear_kind", ""))
 	basic_attack_profile_id = String(gear.get("basic_attack_profile_id", ""))
 	_apply_basic_behavior()   # F-008 §3.7 ba 아키타입 평타 특수거동(cleave/knockback)
@@ -326,6 +333,10 @@ func _bind_gear(gear: Dictionary, reset_hp: bool) -> void:
 	# Gear binds BOTH channels → equipping resets both on (sandbox may split them again after).
 	basic_enabled = true
 	identity_enabled = true
+	# 슬롯 장착은 **여기서** — `equip_skillbook_by_id`가 `class_id`를 보는데 그건 위에서 방금 잡혔다.
+	for pair in _pending_slots:
+		equip_skillbook_by_id(int(pair[0]), String(pair[1]))
+	_pending_slots.clear()
 
 
 ## Role gate (F-008 §3.4, strict): a member may only equip gear for its own class.
