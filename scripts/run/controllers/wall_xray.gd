@@ -6,12 +6,14 @@ extends Node
 ## Core of the see-through-walls system (outline/blur + camera-room fog = follow-up polish).
 ## ref: F-012 camera.
 
+const MeshMaterials := preload("res://scripts/core/mesh_materials.gd")
+
 const WALL_LAYER := 1            # walls/obstacles collision layer (also used for LOS)
 const XRAY_ALPHA := 0.16         # faded wall opacity (see through, still faintly present)
 const MAX_OCCLUDERS := 5         # successive walls to fade along the line
 
 var _party: Node = null
-var _faded: Dictionary = {}      # MeshInstance3D -> StandardMaterial3D currently faded
+var _faded: Dictionary = {}      # MeshInstance3D -> Array[BaseMaterial3D] currently faded
 var _fog_mat: ShaderMaterial = null  # F-011 fog next_pass — stripped off walls while xray-faded
 
 
@@ -46,9 +48,13 @@ func _process(_delta: float) -> void:
 			if hit.is_empty():
 				break
 			exclude.append(hit.collider.get_rid())
-			var mi := _mesh_of(hit.collider)
-			if mi != null and mi.material_override is StandardMaterial3D:
-				occluders[mi] = mi.material_override
+			# 콜라이더 → 메시는 계층이 구현마다 뒤집힌다(절차 = body 부모 / 임포트 = mesh 부모).
+			# 머티리얼도 override 또는 surface 오버라이드 — 둘 다 MeshMaterials가 흡수한다.
+			var mi := MeshMaterials.mesh_of_collider(hit.collider)
+			if mi != null:
+				var mats: Array = MeshMaterials.editable_materials(mi)
+				if not mats.is_empty():
+					occluders[mi] = mats
 	# Fade newly-occluding segments.
 	for mi in occluders:
 		if not _faded.has(mi):
@@ -62,26 +68,21 @@ func _process(_delta: float) -> void:
 			_faded.erase(mi)
 
 
-func _mesh_of(collider: Object) -> MeshInstance3D:
-	if collider == null or not (collider is Node):
-		return null
-	for c in (collider as Node).get_children():
-		if c is MeshInstance3D:
-			return c
-	return null
-
-
-func _set_fade(mat: StandardMaterial3D, on: bool) -> void:
-	if on:
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.albedo_color.a = XRAY_ALPHA
-		if _fog_mat != null:
-			mat.next_pass = null          # see-through: don't let the fog paint this wall dark
-	else:
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
-		mat.albedo_color.a = 1.0
-		if _fog_mat != null:
-			mat.next_pass = _fog_mat      # restore the fog pass once it's a normal wall again
+func _set_fade(mats: Array, on: bool) -> void:
+	for m in mats:
+		if not is_instance_valid(m):
+			continue
+		var mat := m as BaseMaterial3D
+		if on:
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.albedo_color.a = XRAY_ALPHA
+			if _fog_mat != null:
+				mat.next_pass = null          # see-through: don't let the fog paint this wall dark
+		else:
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+			mat.albedo_color.a = 1.0
+			if _fog_mat != null:
+				mat.next_pass = _fog_mat      # restore the fog pass once it's a normal wall again
 
 
 func _restore_all() -> void:

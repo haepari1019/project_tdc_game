@@ -15,6 +15,8 @@ extends SceneTree
 ##
 ## Run: GODOT --headless --path . --script res://tools/map_smoke.gd
 
+const MeshMaterials := preload("res://scripts/core/mesh_materials.gd")
+
 const LOS_EYE_Y := 1.0        # 적 시야 레이가 지나는 높이대 — 이 높이를 가리는 콜라이더만 오클루더다
 const ADJ_EPS := 0.06         # 공유벽 판정 허용오차(WALL_DEDUP_EPS 0.04보다 크게)
 const ADJ_MIN_OVERLAP := 0.5  # 모서리만 스치는 건 인접이 아니다
@@ -56,6 +58,7 @@ func _init() -> void:
 	_check_ids(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
+	await _check_import_parity(scn, map)
 
 	_finish(scn)
 
@@ -264,6 +267,26 @@ func _footprint_of(cs: CollisionShape3D) -> Dictionary:
 		if (o.y - cyl.height * 0.5) > LOS_EYE_Y or (o.y + cyl.height * 0.5) < LOS_EYE_Y:
 			return {}
 		return {"center": Vector2(o.x, o.z), "radius": cyl.radius}
+	if shape is ConvexPolygonShape3D:
+		var pts: PackedVector3Array = (shape as ConvexPolygonShape3D).points
+		if pts.is_empty():
+			return {}
+		var flat := PackedVector2Array()
+		var ymn := INF
+		var ymx := -INF
+		var acc := Vector2.ZERO
+		for v in pts:
+			var w: Vector3 = xf * v
+			flat.append(Vector2(w.x, w.z))
+			acc += Vector2(w.x, w.z)
+			ymn = minf(ymn, w.y)
+			ymx = maxf(ymx, w.y)
+		if ymn > LOS_EYE_Y or ymx < LOS_EYE_Y:
+			return {}
+		var hull := Geometry2D.convex_hull(flat)
+		if hull.size() < 3:
+			return {}
+		return {"center": acc / float(pts.size()), "poly": hull}
 	return {}
 
 
@@ -271,10 +294,19 @@ func _same_footprint(a: Dictionary, b: Dictionary) -> bool:
 	const EPS := 0.01
 	if (a["center"] as Vector2).distance_to(b["center"] as Vector2) > EPS:
 		return false
-	if a.has("radius") != b.has("radius"):
+	if a.has("radius") != b.has("radius") or a.has("poly") != b.has("poly"):
 		return false
 	if a.has("radius"):
 		return absf(float(a["radius"]) - float(b["radius"])) < EPS
+	if a.has("poly"):
+		var pa := a["poly"] as PackedVector2Array
+		var pb := b["poly"] as PackedVector2Array
+		if pa.size() != pb.size():
+			return false
+		for i in pa.size():
+			if pa[i].distance_to(pb[i]) > EPS:
+				return false
+		return true
 	return ((a["half"] as Vector2) - (b["half"] as Vector2)).length() < EPS
 
 
@@ -328,6 +360,90 @@ func _check_extraction(sd, map: Node) -> void:
 	var s: Vector2 = _rects[ext_ref]["s"]
 	var inside: bool = absf(p.x - c.x) <= s.x * 0.5 and absf(p.z - c.y) <= s.y * 0.5
 	_expect(inside, "[계약] 추출 지점이 %s 안에 있음" % ext_ref)
+
+
+## **authored(Blender 임포트) 계층 파리티** — 「절차 맵과 authored 씬이 같은 계약을 만족한다」를
+## 실제로 시험한다. 임포트 씬이 없으므로 그 계층을 **흉내 낸 더미**를 맵에 잠깐 붙인다:
+##   MeshInstance3D(부모) → StaticBody3D(자식, layer 1) · 머티리얼은 mesh surface에만.
+## 절차 생성물과 계층도 머티리얼 자리도 정반대라, 셋 다 이 모양에서 조용히 깨졌던 것들이다.
+func _check_import_parity(scn: Node, map: Node) -> void:
+	var root: Node3D = map.geometry_root()
+	var before: int = map.get_occluder_footprints().size()
+
+	var bm := BoxMesh.new()
+	bm.size = Vector3(4.0, 3.5, 0.4)
+	bm.material = StandardMaterial3D.new()          # surface에만 — material_override는 비운다
+	var mi := MeshInstance3D.new()
+	mi.name = "GEO_import_parity_probe"
+	mi.mesh = bm
+	var body := StaticBody3D.new()                  # Godot `-col` 임포트가 만드는 계층(메시가 부모)
+	body.collision_layer = 1
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = bm.size
+	cs.shape = bs
+	body.add_child(cs)
+	mi.add_child(body)
+	mi.position = Vector3(0.0, 1.75, -300.0)        # 실제 방에서 멀리 떨어뜨린다
+	root.add_child(mi)
+	await process_frame
+
+	# ① 오클루더 유도가 **뒤집힌 계층**에서도 잡는가 (F-011 같은 출처).
+	map.derive_occluders()
+	var found := false
+	for occ in map.get_occluder_footprints():
+		if (occ["center"] as Vector2).distance_to(Vector2(0.0, -300.0)) < 0.01:
+			found = true
+	_expect(found and map.get_occluder_footprints().size() == before + 1,
+		"[계약/authored] 임포트 계층 오클루더 유도 (%d → %d)" % [before, map.get_occluder_footprints().size()])
+
+	# ② 콜라이더 → 메시 되짚기(X-ray). 절차는 body가 부모, 임포트는 mesh가 부모다.
+	_expect(MeshMaterials.mesh_of_collider(body) == mi, "[계약/authored] 콜라이더→메시 계층 반전 대응")
+
+	# ③ 안개가 surface 머티리얼 메시를 잡는가. 예전 조건(material_override)은 여기서 **조용히 스킵**했다.
+	_expect(mi.material_override == null, "[계약/authored] 더미가 material_override 없이 구성됨")
+	var fog: Node = null
+	for c in scn.get_children():
+		if c.has_method("fog_object") and c.has_method("toggle_world_fog"):
+			fog = c
+	if fog == null:
+		_expect(false, "[계약/authored] VisionFog 노드 발견")
+	else:
+		fog.call("fog_object", mi)
+		var sm: Material = mi.get_surface_override_material(0)
+		_expect(sm is BaseMaterial3D and (sm as BaseMaterial3D).next_pass != null,
+			"[계약/authored] 안개 next_pass가 surface 머티리얼에 적재됨")
+		_expect(sm is BaseMaterial3D and sm != bm.material,
+			"[계약/authored] 공유 surface 리소스가 아니라 인스턴스 복제본")
+
+	# ④ **볼록 프록시(사선 벽)** — 축정렬 사각형에 갇히지 않는다는 것을 여기서 시험한다.
+	#    box/cyl은 편의 표기이고, 안개가 원래 그리는 것은 폴리곤이다.
+	var conv := ConvexPolygonShape3D.new()
+	var cp := PackedVector3Array()
+	for sy in [-1.75, 1.75]:
+		cp.append(Vector3(-3.0, sy, -0.2)); cp.append(Vector3(3.0, sy, -0.2))
+		cp.append(Vector3(2.0, sy, 0.2));   cp.append(Vector3(-3.0, sy, 0.2))
+	conv.points = cp
+	var cs2 := CollisionShape3D.new()
+	cs2.shape = conv
+	var body2 := StaticBody3D.new()
+	body2.collision_layer = 1
+	body2.rotation_degrees = Vector3(0, 30, 0)      # 사선으로 돌려 둔다
+	body2.position = Vector3(0.0, 1.75, -340.0)
+	body2.add_child(cs2)
+	root.add_child(body2)
+	await process_frame
+	map.derive_occluders()
+	var poly_ok := false
+	for occ in map.get_occluder_footprints():
+		if occ.has("poly") and (occ["poly"] as PackedVector2Array).size() >= 3:
+			poly_ok = true
+	_expect(poly_ok, "[계약/authored] 볼록(사선) 콜라이더 → poly 오클루더 유도")
+	body2.free()
+
+	mi.free()
+	map.derive_occluders()                          # 기준선 복원
+	_expect(map.get_occluder_footprints().size() == before, "[계약/authored] 프로브 제거 후 복원 (%d)" % before)
 
 
 # ============================================================================

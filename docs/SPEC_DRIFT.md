@@ -2079,3 +2079,18 @@
 - **영향 파일:** **신규** `scripts/world/map_source.gd` · `scripts/world/map_demo_layout.gd`(−141줄) · `tools/map_smoke.gd`(오클루더 검사를 개수 → 기하 대조로 격상, 장애물 총개수 리포트 추가).
 - **게이트:** `ci_smoke.sh` **15/15 PASS** + `map_shot` 평면 스냅샷 시각 회귀 없음(벽·개구부·장애물 동일; 차이는 런 시드가 다른 절차 상자·유닛뿐).
 - **상태:** ✅ 완료 · 전파 불요. 다음: 안개/X-ray 임포트 대응(`material_override` → `surface_override_material` 폴백, `$Rooms` → 그룹) → poly 오클루더 → 계약 y → 앵커 데이터화.
+
+### DRIFT-164 — 임포트 메시 대응(안개·X-ray) + poly 오클루더 + 계약이 y를 나른다 🔷 Phase 0 산출물 3~5 · 전파 불요
+- **근거:** 맵 고도화 Phase 0 산출물 3·4·5번(`docs/design/map_upgrade_plan.html` §Phase 0 「조용히 깨지는 4곳」). 게임 소유 계약의 내부 — 스펙 규칙 변경 없음.
+- **① 안개가 임포트 메시를 통째로 건너뛰고 있었다.** `_collect_and_fog`가 `material_override is StandardMaterial3D`인 메시에만 `next_pass`를 붙였다. 절차 메시는 코드가 override에 직접 꽂으니 늘 맞았지만, glTF/.blend 임포트 메시는 **그 자리가 비어 있고** 머티리얼이 mesh surface에 (그리고 인스턴스 간 **공유**로) 붙는다 → 경고 한 줄 없이 스킵. 벽 X-ray도 같은 조건을 써서 같은 방식으로 죽었다.
+  - → **신규 `scripts/core/mesh_materials.gd`**: `editable_materials(mi)`가 override 또는 **surface 오버라이드(공유 리소스를 `duplicate()`해 인스턴스 전용으로)**를 돌려준다. 복제가 핵심이다 — 공유 리소스를 그대로 건드리면 같은 머티리얼을 쓰는 **다른 벽까지 같이 투명해진다**.
+  - `mesh_of_collider(c)`: 계층이 구현마다 뒤집힌다(절차 = StaticBody 부모→메시 자식 / Godot `-col` 임포트 = **메시 부모→StaticBody 자식**). 둘 다 보지 않으면 X-ray가 임포트 맵에서 영구히 아무것도 안 한다.
+- **🔴 ② 파리티 테스트가 같은 계열 두 번째 버그를 잡았다.** `_collect_and_fog`는 넘겨받은 노드의 **자식만** 돌았다. 절차 경로에선 루트가 항상 평범한 Node3D(`Rooms`·상자·배럴)라 티가 안 났는데, **임포트 계층은 루트가 곧 `MeshInstance3D`**라 그 메시가 통째로 안개를 못 받는다. → 자기 자신부터 검사(`_fog_mesh`).
+- **③ 지오메트리 루트를 노드 이름으로 찾고 있었다.** `_map.get_node_or_null("Rooms")` → 그룹 `map_geometry`(없으면 예전 이름, 그것도 없으면 맵 노드). authored 씬의 루트 이름은 우리가 정하지 않는다.
+- **④ poly 오클루더(일반형).** 안개는 원래 `OccluderPolygon2D`를 그린다 — box/cyl은 **편의 표기일 뿐**이었다. `ConvexPolygonShape3D` → XZ 볼록껍질 `{center, poly}`를 추가하고 소비처 2곳(`vision_fog`·`enemy_vision_overlay`)에 분기를 열었다(+ 모르는 종류는 크래시 대신 skip). 인셋은 `Geometry2D.offset_polygon`, 사라지면 원본 사용. **사선 벽·곡면 프록시가 가능해진다 — 아트가 직교 사각형에 갇히지 않는다.**
+  - **Concave(trimesh)는 일부러 제외한다.** `-col`이 방 벽 전체를 콜라이더 하나로 만드는 경우가 흔한데 그 볼록껍질은 **방 안쪽 전체**가 되어 안개가 거짓말을 한다. authored 맵은 `OCC_*-colonly` 프록시를 따로 두는 규약(플랜 §Blender 저작 규약). 최초 1회 `push_warning`.
+- **⑤ 계약이 y를 나른다.** `get_obstacle_positions`가 `y=0.0` 하드코딩 → 방 바닥 높이(`spawn.y`), `_extraction_point`가 y를 버리던 것 → `center` 그대로. Phase 5(단차) 때 계약 시그니처를 다시 안 건드리게 지금 통과시켜 둔다. navmesh `agent_max_climb = 0.25`가 그때의 상한이라는 것도 base에 주석으로 남겼다.
+- **게이트 — 「authored 더미 씬」 파리티(플랜 §게이트의 그 줄).** 임포트 씬이 아직 없으므로 `map_smoke`가 그 계층을 **흉내 낸 프로브**를 맵에 잠깐 붙여 6항목을 시험한다: 뒤집힌 계층 오클루더 유도(97→98) · 콜라이더→메시 되짚기 · `material_override` 없이 구성됨 · **안개 `next_pass`가 surface 머티리얼에 적재** · **공유 리소스가 아니라 인스턴스 복제본** · **볼록(사선) → poly 유도** · 제거 후 97 복원. ②는 이 프로브가 없었으면 Blender 맵을 실제로 꽂는 날 발견됐을 것이다.
+- **영향 파일:** **신규** `scripts/core/mesh_materials.gd` · `scripts/run/controllers/vision_fog.gd` · `scripts/run/controllers/wall_xray.gd` · `scripts/run/controllers/enemy_vision_overlay.gd` · `scripts/world/map_source.gd` · `scripts/world/map_demo_layout.gd` · `tools/map_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS**(파리티 6항목 포함) · `fogged_meshes=197`·`occluders=97` 절차 경로 불변 · `map_shot` 시각 회귀 없음.
+- **상태:** ✅ 완료 · 전파 불요. 남은 Phase 0: `EditorScenePostImport` 규약 스크립트 · 좌표 리터럴 10 → 0(앵커 데이터화) · `OBSTACLE_SPECS`/`LOOT_CHEST_ROOMS` 소멸 · 킷 4종 · `@tool` 프리뷰 · `map_contract.md`.

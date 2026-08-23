@@ -109,7 +109,12 @@ func _build_occluders() -> void:
 				var a := float(i) * TAU / 12.0
 				pts.append(_to_fog(c + Vector2(cos(a), sin(a)) * rad))
 			poly.polygon = pts
-		else:
+		elif occ.has("poly"):
+			var pp := PackedVector2Array()      # 임의 볼록 형상 — 안개와 같은 집합을 그린다
+			for v in (occ["poly"] as PackedVector2Array):
+				pp.append(_to_fog(v))
+			poly.polygon = pp
+		elif occ.has("half"):
 			var h: Vector2 = occ["half"]
 			poly.polygon = PackedVector2Array([
 				_to_fog(c + Vector2(-h.x, -h.y)),
@@ -117,6 +122,8 @@ func _build_occluders() -> void:
 				_to_fog(c + Vector2(h.x, h.y)),
 				_to_fog(c + Vector2(-h.x, h.y)),
 			])
+		else:
+			continue
 		lo.occluder = poly
 		_root2d.add_child(lo)
 

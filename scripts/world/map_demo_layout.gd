@@ -228,7 +228,7 @@ func _resolve_room_points() -> void:
 			"size": spec.get("size", Vector3(8, 0, 8)),
 		}
 		if spec.get("extraction", false):
-			_extraction_point = Vector3(center.x, 0.0, center.z)
+			_extraction_point = center   # 계약이 y를 나른다 — 바닥 높이가 다른 맵(Phase 5 단차)에 대비
 
 
 func _compute_openings() -> void:

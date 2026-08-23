@@ -39,6 +39,7 @@ var _extraction_point: Vector3 = Vector3.ZERO
 ## {center: Vector2, half: Vector2}(box) 또는 {center: Vector2, radius: float}(cyl).
 var _occluders: Array = []
 var _nav_region: NavigationRegion3D
+var _warned_concave := false
 
 
 # ============================================================================
@@ -90,7 +91,7 @@ func get_obstacle_positions(room_ref: String) -> Array:
 	for occ in _occluders:
 		var o: Vector2 = occ["center"]
 		if absf(o.x - c.x) < hx and absf(o.y - c.z) < hz:
-			out.append(Vector3(o.x, 0.0, o.y))
+			out.append(Vector3(o.x, c.y, o.y))   # 방 바닥 높이를 따라간다(계약이 y를 나른다)
 	return out
 
 
@@ -185,7 +186,34 @@ func _footprint(cs: CollisionShape3D) -> Dictionary:
 		if (o.y - cyl.height * 0.5) > LOS_EYE_Y or (o.y + cyl.height * 0.5) < LOS_EYE_Y:
 			return {}
 		return {"center": Vector2(o.x, o.z), "radius": cyl.radius}
-	# 그 외(Convex/Concave 등)는 후속 — authored 맵 도입 시 XZ 볼록껍질로 확장한다.
+	if shape is ConvexPolygonShape3D:
+		# 임의 형상(사선 벽·기울어진 기둥)의 XZ 볼록껍질. 안개는 이미 폴리곤을 그리므로
+		# box/cyl은 편의 표기일 뿐이고 **이쪽이 일반형**이다.
+		var pts: PackedVector3Array = (shape as ConvexPolygonShape3D).points
+		if pts.is_empty():
+			return {}
+		var flat := PackedVector2Array()
+		var ymn := INF
+		var ymx := -INF
+		var acc := Vector2.ZERO
+		for v in pts:
+			var w: Vector3 = xf * v
+			flat.append(Vector2(w.x, w.z))
+			acc += Vector2(w.x, w.z)
+			ymn = minf(ymn, w.y)
+			ymx = maxf(ymx, w.y)
+		if ymn > LOS_EYE_Y or ymx < LOS_EYE_Y:
+			return {}
+		var hull := Geometry2D.convex_hull(flat)
+		if hull.size() < 3:
+			return {}
+		return {"center": acc / float(pts.size()), "poly": hull}
+	# **Concave(trimesh)는 일부러 건너뛴다.** Godot `-col` 임포트가 방 벽 전체를 콜라이더 하나로
+	# 만드는 경우가 흔한데, 그 볼록껍질은 **방 안쪽 전체**가 되어 안개가 거짓말을 하게 된다.
+	# authored 맵은 `OCC_*-colonly` 프록시(박스/볼록)를 따로 두는 규약이다. ref: 플랜 §Blender 저작 규약.
+	if shape is ConcavePolygonShape3D and not _warned_concave:
+		_warned_concave = true
+		push_warning("[MAP] Concave(trimesh) 콜라이더는 오클루더로 쓰지 않는다 — OCC_* 프록시를 두라")
 	return {}
 
 

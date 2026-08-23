@@ -16,6 +16,11 @@ extends Node
 ## lights can't reveal what we can't see"). This file's Step-1 job is just to PRODUCE a
 ## correct, on-screen-verifiable fog texture before any 3D wiring. ref: F-011.
 
+const MeshMaterials := preload("res://scripts/core/mesh_materials.gd")
+## 지오메트리 루트를 노드 **이름**이 아니라 그룹으로 찾는다 — authored 씬의 루트 이름은
+## 우리가 정하지 않는다(map_source.GEOMETRY_GROUP과 같은 값).
+const GEOMETRY_GROUP := "map_geometry"
+
 const PX_PER_M := 12.0         # fog texture resolution (px per world metre) — high (crisp mask) on Forward+
 const SIGHT_RADIUS_M := 64.0   # party sight reach — large so visibility is occlusion-, not distance-, driven
 const PADDING_M := 8.0         # border around the level bounds
@@ -37,6 +42,9 @@ var _bounds_size := Vector2.ONE   # world (x,z) span
 # 3D application (Step 2): a shared next_pass material on world geometry.
 var _fog_mat: ShaderMaterial
 var _fogged_meshes: Array[MeshInstance3D] = []
+## 안개 패스를 실제로 꽂은 머티리얼들. 절차 메시는 material_override 1개, 임포트 메시는
+## surface별 인스턴스 오버라이드 — 토글은 **이 목록**을 돈다(메시에서 매번 되찾지 않는다).
+var _fogged_materials: Array[BaseMaterial3D] = []
 var _world_fog_on := true
 
 # Debug overlay (V toggles): shows the current-LOS + explored fog textures for verification.
@@ -146,7 +154,11 @@ func _build_occluders() -> void:
 				var a := float(i) * TAU / 10.0
 				pts.append(_to_fog(c + Vector2(cos(a), sin(a)) * rad))
 			poly.polygon = pts
-		else:
+		elif occ.has("poly"):
+			# 임의 볼록 형상(사선 벽·기울어진 프록시). box/cyl은 편의 표기이고 **이쪽이 일반형**이다 —
+			# 안개는 원래 폴리곤을 그리므로 아트가 직교 사각형에 갇힐 이유가 없다.
+			poly.polygon = _to_fog_poly(_inset_poly(occ["poly"] as PackedVector2Array))
+		elif occ.has("half"):
 			# Inset ONLY the thin (thickness) axis so the wall's party-facing face stays out of its
 			# own shadow — WITHOUT shortening the length. (Shortening the length opened gaps where
 			# wall segments meet at corners → light leaked through as thin streaks that crept into
@@ -163,8 +175,30 @@ func _build_occluders() -> void:
 				_to_fog(c + Vector2(h.x, h.y)),
 				_to_fog(c + Vector2(-h.x, h.y)),
 			])
+		else:
+			continue                      # 모르는 종류는 조용히 건너뛴다(크래시 대신)
 		lo.occluder = poly
 		_root2d.add_child(lo)
+
+
+## 폴리곤을 안쪽으로 인셋 — 박스의 「두꺼운 축만 줄이기」에 대응하는 일반형.
+## 인셋으로 도형이 사라지면(얇은 프록시) 원본을 쓴다.
+func _inset_poly(world_poly: PackedVector2Array) -> PackedVector2Array:
+	var rings := Geometry2D.offset_polygon(world_poly, -OCCLUDER_INSET_M)
+	var best := world_poly
+	var best_n := 0
+	for r in rings:
+		if (r as PackedVector2Array).size() > best_n:
+			best_n = (r as PackedVector2Array).size()
+			best = r
+	return best
+
+
+func _to_fog_poly(world_poly: PackedVector2Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for v in world_poly:
+		out.append(_to_fog(v))
+	return out
 
 
 ## F2: register a dynamic box occluder (e.g. a closed door) at runtime. Returns the LightOccluder2D
@@ -240,11 +274,23 @@ func _build_fog_material() -> void:
 ## $Rooms). Non-invasive — keeps each StandardMaterial3D; the extra pass greys what's occluded.
 ## Party/enemies/markers live elsewhere and are untouched (enemies have their own fade).
 func _apply_fog_to_world() -> void:
-	var rooms := _map.get_node_or_null("Rooms")
+	var rooms: Node = _geometry_root()
 	if rooms == null:
-		push_warning("[FOG] no $Rooms under map — world fog not applied")
+		push_warning("[FOG] 지오메트리 루트를 못 찾음(그룹 %s / $Rooms) — 월드 안개 미적용" % GEOMETRY_GROUP)
 		return
 	_collect_and_fog(rooms)
+
+
+## 그룹 `map_geometry` 우선, 없으면 예전 이름 `Rooms`, 그것도 없으면 맵 노드 전체.
+## 이름 하드코딩이 임포트 씬에서 월드 안개를 통째로 날리던 자리다(경고 한 줄로 끝났다).
+func _geometry_root() -> Node:
+	if _map == null:
+		return null
+	for n in (_map as Node).get_tree().get_nodes_in_group(GEOMETRY_GROUP):
+		if n == _map or (_map as Node).is_ancestor_of(n):
+			return n
+	var named: Node = (_map as Node).get_node_or_null("Rooms")
+	return named if named != null else _map
 
 
 ## Fog a world object spawned AFTER setup. door/trap/chest/barrel/torch live under dungeon_run
@@ -256,22 +302,35 @@ func fog_object(n: Node) -> void:
 	_collect_and_fog(n)
 
 
+## 넘겨받은 노드 **자신**부터 본다. 예전엔 자식만 돌았는데, 절차 경로에선 루트가 항상
+## 평범한 Node3D(`Rooms`·상자·배럴)라 티가 안 났다. 임포트 계층은 **루트가 곧 MeshInstance3D**
+## (`-col` 힌트가 그 아래에 StaticBody3D를 단다)라, 자식만 돌면 그 메시가 통째로 안개를 안 받는다.
 func _collect_and_fog(n: Node) -> void:
+	if n is MeshInstance3D:
+		_fog_mesh(n as MeshInstance3D)
 	for c in n.get_children():
-		if c is MeshInstance3D:
-			var mi := c as MeshInstance3D
-			if mi.material_override is StandardMaterial3D:
-				(mi.material_override as StandardMaterial3D).next_pass = _fog_mat
-				_fogged_meshes.append(mi)
 		_collect_and_fog(c)
+
+
+func _fog_mesh(mi: MeshInstance3D) -> void:
+	# 절차 메시(material_override)와 임포트 메시(surface 머티리얼) 양쪽 — 임포트 쪽은
+	# 인스턴스 전용으로 복제된 뒤 돌아온다. 예전엔 override만 봐서 **임포트 메시를
+	# 통째로 건너뛰었다**(경고도 없이). ref: MeshMaterials.
+	var mats: Array = MeshMaterials.editable_materials(mi)
+	if mats.is_empty():
+		return
+	for m in mats:
+		(m as BaseMaterial3D).next_pass = _fog_mat
+		_fogged_materials.append(m as BaseMaterial3D)
+	_fogged_meshes.append(mi)
 
 
 ## A/B toggle (B key) — flip the 3D fog on/off to compare against the raw scene.
 func toggle_world_fog() -> void:
 	_world_fog_on = not _world_fog_on
-	for mi in _fogged_meshes:
-		if is_instance_valid(mi) and mi.material_override is StandardMaterial3D:
-			(mi.material_override as StandardMaterial3D).next_pass = _fog_mat if _world_fog_on else null
+	for m in _fogged_materials:
+		if is_instance_valid(m):
+			m.next_pass = _fog_mat if _world_fog_on else null
 	print("[FOG] world fog on=%s" % _world_fog_on)
 
 
