@@ -157,5 +157,18 @@ if [ "$nccode" -ne 0 ] || ! grep -qF "NC BASELINE PASSED" "$ncblog"; then
   echo "  FAIL: nc baseline (exit=$nccode) —"; grep -nE "FAIL|$ERRPAT" "$ncblog" | head -8; fail=1
 else echo "  PASS"; fi
 
+# 맵 계약 게이트 (맵 고도화 Phase 0) — 맵 계약 getter 8종 + 「구조가 데이터와 일치하는가」.
+# 선언된 connects가 실제로 벽을 공유하는가 · 그 개구부로 navmesh가 통하는가 · pool_slot이 ENC로
+# 풀리는가 · **오클루더 집합 = LOS 높이대 레이어1 콜라이더**(F-011 「같은 출처」 불변식).
+# 구현이 아니라 **계약**을 시험하므로 Blender authored 맵으로 갈아끼워도 이 스위트가 그대로 돈다.
+# [설계] 줄은 목표치 추적(사이클·안개 예산·상자 EV)이며 실패시키지 않는다 — 현 맵이 기준선이다.
+echo "== map contract smoke (맵 고도화 Phase 0) =="
+maplog="/tmp/ci_map_smoke.log"
+"$GODOT" --headless --path "$PROJ" --script res://tools/map_smoke.gd >"$maplog" 2>&1
+mapcode=$?
+if [ "$mapcode" -ne 0 ] || ! grep -qF "MAP SMOKE PASSED" "$maplog"; then
+  echo "  FAIL: map smoke (exit=$mapcode) —"; grep -nE "FAIL|$ERRPAT" "$maplog" | head -8; fail=1
+else echo "  PASS"; grep -F "  [설계]" "$maplog"; fi
+
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi

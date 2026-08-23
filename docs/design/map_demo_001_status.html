@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MAP-DEMO-001 현황 — 맵 기획 인계</title>
+<meta name="description" content="MAP-DEMO-001의 평면·스폰·오브젝트·조명 현황과 사문화 목록을 코드·데이터에서 실측해 정리한 맵 기획 인계 문서.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+
+<style>
+/* ─────────────────────────────────────────────────────────────
+   MAP-DEMO-001 현황 — 맵 기획 인계 문서 (자립형 HTML)
+   생성: 2026-08-22 · 실측 기준 game main@3e6dee6 · spec staging@a9e67bd
+   폰트는 Google Fonts(온라인)이며, 오프라인이면 시스템 폰트로 폴백한다.
+   ───────────────────────────────────────────────────────────── */
+
+:root{
+  --paper:#e4e7ea; --sheet:#f3f5f6; --sunk:#dadee2;
+  --ink:#171a1f; --ink-2:#4b535e; --ink-3:#727d8a;
+  --rule:#b6bec7; --rule-soft:#ccd3da;
+  --torch:#a75c17; --torch-bg:#f0e0cd;
+  --rust:#9c3830; --rust-bg:#f2dcd9;
+  --verd:#33705e; --verd-bg:#d8e8e2;
+  --grid:rgba(23,26,31,.055);
+  --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Consolas,"D2Coding",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121419; --sheet:#191c22; --sunk:#0e1014;
+    --ink:#dee2e8; --ink-2:#9aa4b1; --ink-3:#6d7885;
+    --rule:#333b46; --rule-soft:#262d36;
+    --torch:#dd9247; --torch-bg:#2f2317;
+    --rust:#d9736a; --rust-bg:#301a19;
+    --verd:#6fb59b; --verd-bg:#15271f;
+    --grid:rgba(222,226,232,.045);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121419; --sheet:#191c22; --sunk:#0e1014;
+  --ink:#dee2e8; --ink-2:#9aa4b1; --ink-3:#6d7885;
+  --rule:#333b46; --rule-soft:#262d36;
+  --torch:#dd9247; --torch-bg:#2f2317;
+  --rust:#d9736a; --rust-bg:#301a19;
+  --verd:#6fb59b; --verd-bg:#15271f;
+  --grid:rgba(222,226,232,.045);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.72;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+img,svg{max-width:100%}
+:focus-visible{outline:2px solid var(--torch); outline-offset:2px}
+.wrap{max-width:1080px; margin:0 auto; padding:0 22px 90px}
+
+/* ── 도면 표제란 ───────────────────────────────── */
+.titleblock{
+  border-bottom:2px solid var(--ink);
+  margin:34px 0 0; padding-bottom:14px;
+  display:grid; grid-template-columns:1fr auto; gap:18px 30px; align-items:end;
+}
+@media (max-width:640px){ .titleblock{grid-template-columns:1fr} .stamp{text-align:left} }
+.titleblock h1{
+  font-size:clamp(28px,4.6vw,44px); font-weight:700; letter-spacing:-.02em;
+  margin:0; line-height:1.12; text-wrap:balance;
+}
+.titleblock .sub{color:var(--ink-2); margin:6px 0 0; font-size:15px; max-width:56ch}
+.stamp{
+  font-family:var(--mono); font-size:11.5px; line-height:1.85;
+  color:var(--ink-2); text-align:right; white-space:nowrap;
+}
+.stamp b{color:var(--ink); font-weight:600}
+
+/* ── 요약 타일 ─────────────────────────────────── */
+.tiles{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
+  gap:1px; background:var(--rule-soft); border:1px solid var(--rule-soft);
+  margin:26px 0 0;
+}
+.tile{background:var(--sheet); padding:14px 16px 15px}
+.tile .k{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--ink-3);
+}
+.tile .v{
+  font-family:var(--mono); font-size:25px; font-weight:600;
+  letter-spacing:-.01em; font-variant-numeric:tabular-nums; margin-top:3px;
+}
+.tile .n{font-size:12.5px; color:var(--ink-2); line-height:1.5; margin-top:2px}
+.tile.warn .v{color:var(--rust)}
+
+/* ── 섹션 ─────────────────────────────────────── */
+section{margin-top:54px}
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--torch); font-weight:500;
+}
+h2{
+  font-size:24px; font-weight:600; letter-spacing:-.015em; margin:4px 0 0;
+  padding-bottom:9px; border-bottom:1px solid var(--rule); text-wrap:balance;
+}
+h3{font-size:16.5px; font-weight:600; margin:32px 0 8px; letter-spacing:-.005em}
+p{margin:12px 0; max-width:74ch}
+ul{margin:12px 0; padding-left:20px; max-width:74ch}
+li{margin:5px 0}
+code{
+  font-family:var(--mono); font-size:.885em;
+  background:var(--sunk); padding:.1em .38em; border-radius:2px;
+}
+strong{font-weight:600}
+em{font-style:normal; color:var(--ink-2)}
+
+/* ── 도면 플레이트 ─────────────────────────────── */
+.plate{
+  margin:20px 0; border:1px solid var(--rule); background:var(--sheet);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:18px 18px;
+  overflow-x:auto;
+}
+.plate pre{
+  margin:0; padding:20px 22px;
+  font-family:var(--mono); font-size:12.5px; line-height:1.34;
+  color:var(--ink); white-space:pre;
+}
+.plate .cap{
+  border-top:1px solid var(--rule-soft); padding:9px 22px;
+  font-family:var(--mono); font-size:11px; color:var(--ink-3);
+  letter-spacing:.03em; background:var(--sheet);
+}
+.legend{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:4px 24px; margin:14px 0 0; font-size:13px; color:var(--ink-2);
+}
+.legend b{font-family:var(--mono); color:var(--torch); font-weight:600; margin-right:7px}
+
+/* ── 표 ───────────────────────────────────────── */
+.tw{overflow-x:auto; margin:16px 0; border:1px solid var(--rule-soft)}
+table{border-collapse:collapse; width:100%; font-size:13px; min-width:660px}
+th,td{
+  text-align:left; padding:7px 12px; border-bottom:1px solid var(--rule-soft);
+  vertical-align:top;
+}
+th{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:500;
+  background:var(--sunk); white-space:nowrap; position:sticky; top:0;
+}
+tbody tr:last-child td{border-bottom:none}
+td.m,th.m{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+td.dim{color:var(--ink-3)}
+tbody tr:hover{background:var(--sunk)}
+
+/* ── 칩 ───────────────────────────────────────── */
+.chip{
+  display:inline-block; font-family:var(--mono); font-size:10.5px;
+  font-weight:500; letter-spacing:.04em; padding:1px 7px; border-radius:2px;
+  white-space:nowrap;
+}
+.chip.ok{background:var(--verd-bg); color:var(--verd)}
+.chip.warn{background:var(--torch-bg); color:var(--torch)}
+.chip.dead{background:var(--rust-bg); color:var(--rust)}
+
+/* ── 콜아웃 ───────────────────────────────────── */
+.call{border-left:3px solid var(--torch); background:var(--sheet); padding:14px 18px; margin:20px 0}
+.call.dead{border-left-color:var(--rust)}
+.call p{margin:0; max-width:70ch}
+.call p + p{margin-top:9px}
+.call .h{font-weight:600; display:block; margin-bottom:4px}
+
+/* ── 파이프라인 ───────────────────────────────── */
+.pipe{display:grid; gap:1px; background:var(--rule-soft); border:1px solid var(--rule-soft); margin:18px 0}
+.step{background:var(--sheet); padding:15px 18px; display:grid; grid-template-columns:auto 1fr; gap:16px}
+.step .num{
+  font-family:var(--mono); font-size:22px; font-weight:600;
+  color:var(--torch); line-height:1.2; font-variant-numeric:tabular-nums;
+}
+.step .b{min-width:0}
+.step .t{font-weight:600; margin-bottom:2px}
+.step .d{font-size:13.5px; color:var(--ink-2); line-height:1.62}
+.step .d code{font-size:.9em}
+
+footer{
+  margin-top:64px; padding-top:16px; border-top:1px solid var(--rule);
+  font-family:var(--mono); font-size:11.5px; color:var(--ink-3);
+  display:flex; flex-wrap:wrap; gap:6px 26px;
+}
+
+/* ── 인쇄(기획 회의용 출력) ─────────────────────── */
+@media print{
+  :root{
+    --paper:#fff; --sheet:#fff; --sunk:#f2f2f2;
+    --ink:#000; --ink-2:#333; --ink-3:#555;
+    --rule:#888; --rule-soft:#c8c8c8; --grid:transparent;
+  }
+  body{font-size:10.5pt}
+  .wrap{max-width:none; padding:0}
+  section{break-inside:avoid-page; margin-top:26px}
+  .plate,.tw,.call,.pipe{break-inside:avoid}
+  th{position:static}
+  tbody tr:hover{background:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="titleblock">
+  <div>
+    <h1>MAP-DEMO-001 현황</h1>
+    <p class="sub">맵 고도화 착수 전 인계 문서. 지금 무엇이 지어져 있고, 무엇이 데이터로 열려 있으며,
+    어디가 비어 있는지를 코드·데이터에서 실측했다.</p>
+  </div>
+  <div class="stamp">
+    blueprint &nbsp;<b>DBP-DEMO-001</b><br>
+    zone &nbsp;<b>ZONE-DEMO-UPPER</b><br>
+    spec pin &nbsp;<b>staging@a9e67bd</b><br>
+    geometry &nbsp;<b>map_demo_layout.gd</b><br>
+    date &nbsp;<b>2026-08-22</b>
+  </div>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">방</div><div class="v">16</div><div class="n">Upper 13 · Mid 2 · Deep 1</div></div>
+  <div class="tile"><div class="k">바닥 면적</div><div class="v">10,116</div><div class="n">m² · 외곽 154.5 × 213 m</div></div>
+  <div class="tile warn"><div class="k">연결</div><div class="v">15</div><div class="n">방 16개 = <strong>사이클 0</strong>, 완전한 트리</div></div>
+  <div class="tile"><div class="k">런당 전투</div><div class="v">4–5</div><div class="n">pool 방 14개 중 가중 추첨</div></div>
+  <div class="tile warn"><div class="k">도달 가능 ENC</div><div class="v">12<span style="color:var(--ink-3);font-size:.6em"> / 24</span></div><div class="n">Hard 12종 + 3세력 1종 사문화</div></div>
+  <div class="tile"><div class="k">상자</div><div class="v">~20</div><div class="n">고정 2 + 절차적 ~18 (희귀 ~3)</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">평면</div>
+  <h2>구조</h2>
+
+  <p>Z+ = 북(위), X+ = 동(오른쪽). 방은 <strong>복도 없이 벽을 공유</strong>하고 그 벽에 아치 개구부만 뚫는다
+  (임계 경로 6·8 m, 추출 통로 6 m). 전부 <strong>단층</strong>이며 높이차·계단·엄폐 지형은 없다.</p>
+
+  <div class="plate">
+<pre>                            +-----+
+                            | EXT |
+                            +-+D+-+
+                              |R|
+                              +-+-+---------+-------+
+        +-------+-------------+   |         |       |
+        |   K   |     t       |A02|   MID   | DEEP  |
+        |  OBJ  |   b  C  bt  |   |         |       |
+        +-------+    t  tb    +---+---------+-------+
+                |   ADV-01    |   |  BOSS   |
++--------+------+-+--------+--+   |         |
+|  A05   |  A04   | ENTRY  |      +---------+
+|        |        |        |
++--------+--------+--------+
+                  |  A03   |
+                  |        |
+                  +--------+
+                  |  A06   |
+                  |        |
+                  +--------+
+                  |  A07   |
+                  |        |
+                  +--------+
+                  |  A08   |
+                  |        |
+                  +--------+
+                  |  A09   |
+                  |        |
+                  +--------+</pre>
+    <div class="cap">축척 — 가로 1칸 = 3 m · 세로 1행 = 7.5 m · 북쪽이 위</div>
+  </div>
+
+  <div class="legend">
+    <div><b>K</b>열쇠 유물함 (OBJ-01)</div>
+    <div><b>C</b>아군 유물함 (ADV-01)</div>
+    <div><b>D</b>열쇠문 · <b>R</b>추출 통로</div>
+    <div><b>b</b>기름통 ×3 · <b>t</b>횃불 ×4</div>
+    <div><b>A02…A09</b>RM-ADV-02…09</div>
+    <div>절차적 상자 ~18개는 런마다 달라 미표시</div>
+  </div>
+
+  <h3>추출 통로 상세 <span class="chip warn">비축척</span></h3>
+  <p>맵에서 유일한 기믹 밀집 구간이자, 유일하게 <strong>파티를 물리적으로 갈라놓는</strong> 장치가 있는 곳이다.
+  조작 중인 멤버가 압력판을 밟으면 <em>뒤쪽</em>에 치명 존이 생겨 따라오던 3명이 끊긴다.</p>
+
+  <div class="plate">
+<pre>              x=18                x=27                x=36
+   z=89.25    +--------------------------------------------+
+              |                RM-EXT-01                   |
+              |                 18 x 12                    |
+              |                    [X]  POINT-DEMO-01      |
+   z=77.25    +--------------+===[D]===+-------------------+
+                             |         |   D  열쇠문 6.4 x 0.9
+                             |     [L] |   L  레버  x=29.2 (동벽)
+   z=71.00                   |   [T]   |   T  압력판 r=2.4
+                             |         |
+                             |RM-ROUTE |   RM-ROUTE-01  6 x 18
+   z=64.00                   | (( Z )) |   Z  치명 존 r=4.0 · 90 DPS
+                             |         |      판 남쪽 7 m에 생성
+   z=59.25    +--------------+---------+-------------------+
+              |                RM-ADV-02   12 x 27         |</pre>
+    <div class="cap">텔레그래프 0.8 s → 존 지속 · 레버로 해제 후 재장전</div>
+  </div>
+
+  <h3>연결 위상</h3>
+  <div class="plate">
+<pre>                                    EXT
+                                     |  (열쇠문 D)
+                                   ROUTE ── 함정/레버
+                                     |
+   OBJ(열쇠) ── ADV-01 ── ADV-02 ────┴──── MID ──┬── DEEP
+      ▲(막다름)   |                              └── BOSS
+                  |                                  (막다름 x2)
+               ENTRY ── ADV-04 ── ADV-05 (막다름)
+                  |
+               ADV-03 ── ADV-06 ── ADV-07 ── ADV-08 ── ADV-09 (막다름)</pre>
+    <div class="cap">임계 경로 = ENTRY → ADV-01 → OBJ(열쇠) → 되돌아 → ADV-02 → ROUTE → 문 → EXT</div>
+  </div>
+
+  <div class="call dead">
+    <span class="h">사이클이 하나도 없다</span>
+    <p>방 16 · 연결 15 → 그래프 이론상 <strong>정확히 트리</strong>다. 우회로도, 지름길도, 되돌아 나오지 않는 순환도 없다.
+    모든 분기(서쪽 A04→A05 / 남쪽 A03→A06→07→08→09 / 동쪽 MID→DEEP·BOSS)는 <strong>왕복해야 하는 막다른 길</strong>이고,
+    임계 경로의 열쇠방 OBJ-01마저 <code>connects: []</code>인 dead end다.</p>
+    <p>남쪽 사슬은 5개 방 · 약 <strong>135 m</strong> 길이인데 끝에 아무것도 없다 —
+    보상방도, 보스도, 단축로도 없이 A09가 그냥 마지막 방이다. 그런데 이 사슬이 전체 전투 가중치의
+    <strong>35 %</strong>(5.1 / 14.4)를 갖고 있어, 런의 3분의 1이 임계 경로가 지나지도 않는 복도에서 벌어진다.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">rooms.json + map_demo_layout.gd</div>
+  <h2>방 명세</h2>
+  <p>좌표·크기는 <code>map_demo_layout.ROOM_SPECS</code>(게임), 레이어·조명·pool·phase는
+  <code>rooms.json</code>(데이터)이 소유한다. <strong>두 파일이 같은 방을 나눠 갖고 있다</strong>는 점에 주의.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr>
+      <th>room_ref</th><th class="m">중심 (x, z)</th><th class="m">크기</th><th class="m">면적</th>
+      <th>레이어</th><th>조명</th><th>pool_slot</th><th class="m">weight</th><th>phase 진입</th>
+    </tr></thead>
+    <tbody>
+      <tr><td class="m">RM-EXT-01</td><td class="m">27, 83.3</td><td class="m">18×12</td><td class="m">216</td><td>Upper</td><td>lit</td><td class="dim">—</td><td class="m dim">—</td><td>Extraction</td></tr>
+      <tr><td class="m">RM-ROUTE-01</td><td class="m">27, 68.3</td><td class="m">6×18</td><td class="m">108</td><td>Upper</td><td>standard</td><td class="m">P-EXT-ROUTE-01</td><td class="m">0.3</td><td>AdvanceExtraction</td></tr>
+      <tr><td class="m">RM-ADV-02</td><td class="m">27, 45.8</td><td class="m">12×27</td><td class="m">324</td><td>Upper</td><td>standard</td><td class="m">P-ADV-02</td><td class="m">1.0</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-MID-01</td><td class="m">48, 45.8</td><td class="m">30×27</td><td class="m">810</td><td>Mid</td><td>dim</td><td class="m">P-MID-01</td><td class="m">1.5</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-DEEP-01</td><td class="m">75, 45.8</td><td class="m">24×27</td><td class="m">648</td><td>Deep</td><td>dim</td><td class="m">P-DEEP-01</td><td class="m">1.3</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-OBJ-01</td><td class="m">−33, 41.3</td><td class="m">24×24</td><td class="m">576</td><td>Upper</td><td>dim</td><td class="dim">—</td><td class="m dim">0</td><td>Objective</td></tr>
+      <tr><td class="m">RM-ADV-01</td><td class="m">0, 32.3</td><td class="m">42×42</td><td class="m">1764</td><td>Upper</td><td>lit</td><td class="m">P-ADV-01</td><td class="m">1.8</td><td>Advance</td></tr>
+      <tr><td class="m">RM-BOSS-01</td><td class="m">48, 18.8</td><td class="m">30×27</td><td class="m">810</td><td>Mid</td><td>dim</td><td class="m">P-BOSS-01</td><td class="m">1.0</td><td>Objective</td></tr>
+      <tr><td class="m">RM-ENTRY-01</td><td class="m">0, 0</td><td class="m">27×22.5</td><td class="m">608</td><td>Upper</td><td>lit</td><td class="m">P-ENTRY-01</td><td class="m">0.4</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-ADV-04</td><td class="m">−27, 0</td><td class="m">27×22.5</td><td class="m">608</td><td>Upper</td><td>standard</td><td class="m">P-ADV-04</td><td class="m">0.8</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-ADV-05</td><td class="m">−54, 0</td><td class="m">27×22.5</td><td class="m">608</td><td>Upper</td><td>standard</td><td class="m">P-ADV-05</td><td class="m">1.2</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-ADV-03</td><td class="m">0, −22.5</td><td class="m">27×22.5</td><td class="m">608</td><td>Upper</td><td>standard</td><td class="m">P-ADV-03</td><td class="m">1.0</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-ADV-06</td><td class="m">0, −45</td><td class="m">27×22.5</td><td class="m">608</td><td>Upper</td><td>standard</td><td class="m">P-ADV-06</td><td class="m">0.9</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-ADV-07</td><td class="m">0, −67.5</td><td class="m">27×22.5</td><td class="m">608</td><td>Upper</td><td>standard</td><td class="m">P-ADV-07</td><td class="m">1.1</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-ADV-08</td><td class="m">0, −90</td><td class="m">27×22.5</td><td class="m">608</td><td>Upper</td><td>standard</td><td class="m">P-ADV-08</td><td class="m">0.7</td><td class="dim">—</td></tr>
+      <tr><td class="m">RM-ADV-09</td><td class="m">0, −112.5</td><td class="m">27×22.5</td><td class="m">608</td><td>Upper</td><td>standard</td><td class="m">P-ADV-09</td><td class="m">1.4</td><td class="dim">—</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><strong>같은 크기 방이 8개</strong>(27×22.5)다. Upper 13방 중 8방이 치수·조명·형태가 완전히 동일하고,
+  그중 남쪽 사슬 5방은 배치까지 일렬이라 <strong>서로 구분되지 않는다</strong>.</p>
+
+  <div class="call">
+    <span class="h">RM-BOSS-01의 phase 진입이 Objective다</span>
+    <p>보스방에 들어가면 열쇠를 얻지 않았어도 런 페이즈가 <code>Objective</code>로 오른다
+    (<code>run_phase_on_enter</code>는 단조 진행이라 되돌아가지 않는다). 실제 목표 완료 플래그
+    <code>objective_complete</code>는 열쇠문만 세우므로 추출은 여전히 막히지만, <strong>표시되는 페이즈가 어긋난다</strong>.
+    OBJ-01과 BOSS-01이 같은 페이즈 이름을 쓰는 것이 원인이다.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">spawn_table.json → combat_controller</div>
+  <h2>적 스폰</h2>
+
+  <p>적은 <strong>런 시작 시 전부 한 번에</strong> 배치된다(<code>prespawn_encounters</code>). 방에 들어갈 때 소환되는 게 아니라,
+  각 방 깊숙한 곳에 잠든 채 대기하고 안개가 가려 준다. 배치는 3단을 거친다.</p>
+
+  <div class="pipe">
+    <div class="step"><div class="num">1</div><div class="b">
+      <div class="t">방 → pool_slot → ENC 프레임</div>
+      <div class="d"><code>(pool_slot, 난이도, world_layer)</code>로 후보 행을 모아 <code>weight</code> 가중 추첨.
+      <code>force_overrides</code>가 있으면 그것이 이긴다 — 현재 <code>P-ADV-01 → ENC-NORM-001</code>(Normal),
+      <code>P-BOSS-01 → ENC-BOSS-001</code>(난이도 무관 고정).</div>
+    </div></div>
+    <div class="step"><div class="num">2</div><div class="b">
+      <div class="t">런 전체 전투 예산 4~5개</div>
+      <div class="d">pool 방 14개에 <strong>전부 배치하지 않는다.</strong> <code>spawn_weight</code>로 4~5개 방만 비복원 추첨하고
+      나머지는 <strong>빈 방</strong>이 된다. 같은 ENC가 런 안에서 반복되지 않도록 최대 4회 재롤한다.</div>
+    </div></div>
+    <div class="step"><div class="num">3</div><div class="b">
+      <div class="t">조합 제너레이터가 편성을 덮어쓴다</div>
+      <div class="d"><code>EncounterGenerator.generate(난이도, seed)</code>가 Elite ≤1 + Specialist(고유 축) + Fodder 2~4를
+      뽑아 <strong>ENC json의 <code>units</code>를 대체</strong>한다. 보스·3세력만 authored 편성을 유지한다.
+      즉 ENC 파일이 실제로 공급하는 것은 <code>placement_behavior</code> · <code>wake_policy</code> ·
+      <code>reinforcement</code> · 재료 드롭 키뿐이다.</div>
+    </div></div>
+  </div>
+
+  <h3>배치 거동 3종</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th>placement</th><th>거동</th><th class="m">수치</th><th>쓰는 ENC</th></tr></thead>
+    <tbody>
+      <tr><td class="m">Fixed</td><td>스폰 지점에서 대기. 시야 원뿔 + 근접으로 각성</td><td class="m">산포 4.5 m · 벽 여유 5 m</td><td class="dim">기본값 (18종)</td></tr>
+      <tr><td class="m">Patrol</td><td>스폰 홈 주변을 루프 도보</td><td class="m">반경 6 m</td><td class="m">ENC-PAT-001/002/003</td></tr>
+      <tr><td class="m">AmbushHold</td><td>숨어 대기 → <strong>근접만으로</strong> 발동(시야 원뿔 무시). 2개 앵커로 갈라 순차 노출</td><td class="m">발동 8 m · 앵커 간격 14 m</td><td class="m">ENC-AMB-001/002</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>방별 전투 발생 확률</h3>
+  <p>가중치와 예산(4~5)으로 20만 회 시뮬레이션한 값이다. 시작 방이 뽑히면 ADV-01로 이전되므로
+  ENTRY의 몫이 ADV-01에 합산돼 있다.</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th>방</th><th class="m">weight</th><th class="m">전투 발생률</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td class="m">RM-ADV-01</td><td class="m">1.8</td><td class="m">58.7 %</td><td>+ ENTRY 이전분 흡수</td></tr>
+      <tr><td class="m">RM-MID-01</td><td class="m">1.5</td><td class="m">44.6 %</td><td class="dim"></td></tr>
+      <tr><td class="m">RM-ADV-09</td><td class="m">1.4</td><td class="m">42.2 %</td><td>남쪽 사슬 끝 · 임계 경로 밖</td></tr>
+      <tr><td class="m">RM-DEEP-01</td><td class="m">1.3</td><td class="m">39.8 %</td><td>대장간 T3 게이트</td></tr>
+      <tr><td class="m">RM-ADV-05</td><td class="m">1.2</td><td class="m">37.4 %</td><td class="dim"></td></tr>
+      <tr><td class="m">RM-ADV-07</td><td class="m">1.1</td><td class="m">34.7 %</td><td class="dim"></td></tr>
+      <tr><td class="m">RM-ADV-02</td><td class="m">1.0</td><td class="m">32.2 %</td><td>임계 경로</td></tr>
+      <tr><td class="m">RM-BOSS-01</td><td class="m">1.0</td><td class="m">32.1 %</td><td>무기고 T1 게이트</td></tr>
+      <tr><td class="m">RM-ADV-03</td><td class="m">1.0</td><td class="m">32.0 %</td><td class="dim"></td></tr>
+      <tr><td class="m">RM-ADV-06</td><td class="m">0.9</td><td class="m">29.4 %</td><td class="dim"></td></tr>
+      <tr><td class="m">RM-ADV-04</td><td class="m">0.8</td><td class="m">26.4 %</td><td class="dim"></td></tr>
+      <tr><td class="m">RM-ADV-08</td><td class="m">0.7</td><td class="m">23.6 %</td><td class="dim"></td></tr>
+      <tr><td class="m">RM-ROUTE-01</td><td class="m">0.3</td><td class="m">10.7 %</td><td>추출 통로</td></tr>
+      <tr><td class="m">RM-ENTRY-01</td><td class="m">0.4</td><td class="m">0 %</td><td>뽑히면 ADV-01로 이전</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call dead">
+    <span class="h">허브 진행 게이트 2개가 확률에 걸려 있다</span>
+    <p>무기고 T1은 <code>ENC-BOSS-001</code> 처치, 대장간 T3는 <code>ENC-DEEP-001</code> 처치가 조건인데
+    두 방 모두 <strong>런당 32 % · 40 %</strong>로만 뽑힌다. 게다가 그 방에 도달하려면 임계 경로를 벗어나
+    동쪽 날개까지 왕복해야 한다. 고정 보스방이라는 설계 의도(난이도 토글 폐기 후 「어려운 관문은 맵의 방이 소유한다」)와
+    <strong>확률 추첨이 서로를 갉아먹고 있다</strong>.</p>
+  </div>
+
+  <h3>제3세력 (F-028)</h3>
+  <p>스폰 테이블과 별개 경로다. 런당 <strong>60 % 확률로 1개 분대</strong>가, 이미 전투가 배치된 방 중 하나에
+  <em>교전 상태로</em> 주입된다 → 몬스터와 실시간으로 싸우고 있고, 플레이어는 그 결과(교전 중 / 약화 / 정리됨)를 만난다.
+  편성은 코드 상수 <code>THIRD_FACTION_PACK</code>(추적자 · 포획꾼 · 학살자)이며
+  <code>ENC-3RD-001.json</code>은 이 경로에서 읽히지 않는다.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">dungeon_run.gd</div>
+  <h2>상자 · 오브젝트</h2>
+
+  <h3>고정 배치 (하드코딩 좌표)</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th>오브젝트</th><th class="m">좌표</th><th>내용 · 역할</th></tr></thead>
+    <tbody>
+      <tr><td>열쇠 유물함</td><td class="m">OBJ-01 중심 +(3, 0)</td><td>Key 1개 — 열쇠문의 유일한 해</td></tr>
+      <tr><td>아군 유물함</td><td class="m">ADV-01 중심 +(2, 2)</td><td>해금 재료 2종</td></tr>
+      <tr><td>열쇠문</td><td class="m">(27, 77.25)</td><td>6.4×0.9 · 열면 <code>objective_complete</code> + 시야 차단 해제</td></tr>
+      <tr><td>함정 압력판</td><td class="m">(27, 71.0)</td><td>r 2.4 · 조작 멤버가 밟으면 남쪽 7 m에 존 생성</td></tr>
+      <tr><td>치명 존</td><td class="m">(27, 64.0)</td><td>r 4.0 · 90 DPS · 텔레그래프 0.8 s</td></tr>
+      <tr><td>해제 레버</td><td class="m">(29.2, 74.0)</td><td>존 제거 + 함정 재장전</td></tr>
+      <tr><td>기름통 ×3</td><td class="m">ADV-01 내부</td><td>AoE로 파괴 → 기름 웅덩이 (RX-OIL-FIRE)</td></tr>
+      <tr><td>횃불 ×4</td><td class="m">ADV-01 내부</td><td>운반·투척 가능 (ENT-TORCH)</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>기믹은 전부 두 방에 몰려 있다</strong> — ADV-01(기름통 + 횃불)과 ROUTE-01(함정 3종). 나머지 14방에는 상호작용 오브젝트가 없다.</p>
+
+  <h3>절차적 루트 상자</h3>
+  <p>런 시드로 결정되며 <strong>14방</strong>(ROUTE·EXT 제외)에 뿌려진다. 방 면적 520 m²당 1개 기대,
+  방당 최대 3개, 희귀 18 %. 배치는 55 % 확률로 장애물 옆, 나머지는 벽·모서리 쪽이다.</p>
+  <div class="tw">
+  <table>
+    <thead><tr><th>방</th><th class="m">면적</th><th class="m">기대 상자</th><th>방</th><th class="m">면적</th><th class="m">기대 상자</th></tr></thead>
+    <tbody>
+      <tr><td class="m">ADV-01</td><td class="m">1764</td><td class="m">3.00</td><td class="m">ADV-03~09 (각)</td><td class="m">608</td><td class="m">1.17</td></tr>
+      <tr><td class="m">MID-01</td><td class="m">810</td><td class="m">1.56</td><td class="m">ENTRY</td><td class="m">608</td><td class="m">1.17</td></tr>
+      <tr><td class="m">BOSS-01</td><td class="m">810</td><td class="m">1.56</td><td class="m">OBJ-01</td><td class="m">576</td><td class="m">1.11</td></tr>
+      <tr><td class="m">DEEP-01</td><td class="m">648</td><td class="m">1.25</td><td class="m">ADV-02</td><td class="m">324</td><td class="m">0.62</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call dead">
+    <span class="h">상자 18개 · 전투 4~5회</span>
+    <p>런당 기대 상자가 <strong>약 18개</strong>인데 전투는 4~5회다. 상자 대부분이 <strong>싸우지 않고 열린다</strong>는 뜻이고,
+    전투가 배치되지 않은 9~10개 방은 사실상 <em>무저항 상자 창고</em>가 된다.
+    상자 밀도는 <strong>면적</strong>에, 전투는 <strong>가중치 추첨</strong>에 걸려 있어 둘이 서로를 전혀 모른다.</p>
+  </div>
+
+  <h3>엄폐 · 장애물</h3>
+  <p><code>OBSTACLE_SPECS</code>에 정의된 방은 <strong>16개 중 2개</strong>다 — ADV-01(기둥 2 · 상자 2 · 배리어 1)과 OBJ-01(상자 1 · 기둥 1).
+  나머지 <strong>14방은 완전히 빈 사각형</strong>이라 시야 차단도, 엄폐도, 상자 배치의 앵커도 없다.
+  이 장애물은 LOS 차단 + 내비메시 구멍 + F-011 안개 오클루더를 <strong>동시에</strong> 담당하므로,
+  없다는 것은 그 방에서 전술 지형이 통째로 없다는 뜻이다.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">F-011 · 조명</div>
+  <h2>시야 · 조명</h2>
+  <ul>
+    <li><strong>안개(F-011)</strong> — 파티 4명 각각의 시야를 2D SubViewport에 그려 합집합 LOS 폴리곤을 만든다.
+      해상도 12 px/m, 시야 반경 64 m. <strong>거리가 아니라 가림</strong>이 보이고 안 보이고를 결정한다.</li>
+    <li><strong>오클루더 일치</strong> — 안개가 쓰는 도형과 적 시야 레이캐스트가 쓰는 콜라이더는
+      <code>get_occluder_footprints()</code>로 <strong>같은 출처</strong>다. 둘이 어긋나지 않는 것이 설계 전제다.</li>
+    <li><strong>조명 프로파일</strong> — <code>lit</code> / <code>standard</code> / <code>dim</code> / <code>unlit</code>.
+      방마다 20 m 격자로 랜턴이 깔린다(전체 <strong>21개</strong>). 현재 <code>unlit</code> 방은 <strong>0개</strong>다.</li>
+    <li><strong>열쇠문</strong>은 닫혀 있는 동안 안개와 적 시야 원뿔 양쪽에 그림자를 드리우고, 열면 두 오클루더가 함께 해제된다.</li>
+    <li>벽 X-ray — 카메라와 조작 캐릭터 사이 벽은 페이드되며, 이 벽은 안개 처리에서 제외된다.</li>
+  </ul>
+  <p>조명은 <code>lit</code> 5방 · <code>standard</code> 8방 · <code>dim</code> 3방으로 갈리지만,
+  <strong>dim은 전부 임계 경로 밖</strong>(OBJ-01 제외)이고 남쪽 사슬 5방은 전부 동일한 <code>standard</code>다.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">HUB-COR-000 · F-029</div>
+  <h2>재료 드롭</h2>
+  <p>재료는 <strong>ENC(분대) 클리어</strong> 시 <code>haul_drops.json</code>의 행마다 1회 독립 롤로 떨어진다.
+  단, 분대 클리어 드롭은 <code>×0.2</code> 배율이 곱해져 <strong>상자가 주 공급원</strong>이 되도록 눌려 있다.</p>
+  <ul>
+    <li>일반 상자 — 재료 1~3 · 공유 파편 40 % · 소모품 25 % · <strong>기어 4 %</strong></li>
+    <li>희귀 상자 — 재료 1 · 재구현 핵 90 % · 소모품 40 % · <strong>기어 15 %</strong></li>
+    <li>기어는 <strong>빌드째로</strong> 나온다(슬롯 스킬이 새겨진 채) — 그래서 드롭률이 극도로 낮다</li>
+    <li>재료 11종은 모두 소비처가 있다 — 시설 승급 9종 + 스킬 트리 해금 2종</li>
+  </ul>
+  <p>맵 쪽에서 볼 지점: <code>haul_forge_coal</code>(단조 연료)은 <strong>Deep 분기 전용</strong>,
+  <code>haul_deep_core</code>도 Deep에서만 나온다. 즉 <strong>대장간 사다리 전체가 동쪽 날개 하나에 묶여 있고</strong>,
+  그 날개는 임계 경로에서 벗어난 왕복 dead end다.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">정리 대상</div>
+  <h2>사문화된 것 · 두 벌인 것</h2>
+  <p>맵을 다시 짤 때 <strong>이어받지 말아야 할 것</strong>들이다. 전부 실제 코드 경로를 따라가 확인했다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>항목</th><th>상태</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="m">Hard 난이도 전체</td>
+        <td><span class="chip dead">사문화</span></td>
+        <td><code>spawn_table</code> 행 <strong>20개</strong> + <code>ENC-HARD-*</code> 파일 <strong>12개</strong>가 도달 불가.
+        허브 난이도 선택 UI가 M6에서 폐기돼 <code>RunLoadout.difficulty</code>가 항상 빈 문자열 →
+        manifest 기본값 <code>Normal</code>로 고정된다. 유일한 예외가 <code>P-BOSS-01</code>의 문자열 override(난이도 무관).</td>
+      </tr>
+      <tr>
+        <td class="m">P-3RD-01</td>
+        <td><span class="chip dead">고아</span></td>
+        <td>스폰 테이블에 행이 있으나 <strong>이 pool을 가진 방이 없다</strong>. <code>ENC-3RD-001.json</code>도
+        실행 경로에서 안 읽히고 스모크 테스트만 참조한다. 실제 3세력은 코드 상수로 편성되며
+        <strong>Mender(EN-3RD-04)는 편성에서 빠져 있다</strong>.</td>
+      </tr>
+      <tr>
+        <td class="m">ENC json의 units</td>
+        <td><span class="chip warn">대부분 무시</span></td>
+        <td>보스·3세력을 제외한 <strong>21종의 authored 편성이 전부 조합 제너레이터로 덮어써진다.</strong>
+        실제로 authored 편성이 살아 있는 ENC는 <code>ENC-BOSS-001</code> 하나뿐이다.
+        나머지 파일은 배치 거동 · 증원 · 재료 키를 담는 껍데기다.</td>
+      </tr>
+      <tr>
+        <td class="m">rooms.json <code>connects</code></td>
+        <td><span class="chip warn">두 벌</span></td>
+        <td>실제 지오메트리 연결은 <code>map_demo_layout.CONNECTIONS</code>가 소유한다.
+        데이터 쪽 <code>connects</code>는 「시작 방이 뽑혔을 때 이웃 방으로 이전」 한 군데에서만 읽힌다.
+        <strong>두 목록이 어긋나도 아무도 알려주지 않는다.</strong></td>
+      </tr>
+      <tr>
+        <td class="m">manifest.encounters</td>
+        <td><span class="chip dead">레거시</span></td>
+        <td><code>P-ENTRY-01</code>/<code>P-ADV-01</code>/<code>P-ADV-02</code> 3개 핀이 남아 있으나
+        실사용 경로는 <code>spawn_table</code>이다. <code>get_pool_encounter()</code>는 back-compat 폴백으로만 존재.</td>
+      </tr>
+      <tr>
+        <td class="m">ENC-HARD-007</td>
+        <td><span class="chip dead">결번</span></td>
+        <td>001~006, 008~012만 존재. 참조도 없으므로 무해하지만 번호 체계에 구멍이 있다.</td>
+      </tr>
+      <tr>
+        <td class="m">OBSTACLE_SPECS</td>
+        <td><span class="chip warn">2 / 16</span></td>
+        <td>ADV-01과 OBJ-01에만 있다. 나머지 14방은 엄폐 · LOS 차단 · 내비 우회가 전무.</td>
+      </tr>
+      <tr>
+        <td class="m">난이도 축 자체</td>
+        <td><span class="chip warn">미배치</span></td>
+        <td>「지역 · 입장 조건이 난이도 축을 가져간다」가 M6 판정이었고, 그 자리가 <strong>비어 있는 채로 남아 있다</strong>.
+        맵 고도화가 이 축을 어디에 둘지 정하는 작업이다.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">교체 계약</div>
+  <h2>새 맵이 만족해야 하는 것</h2>
+  <p>지오메트리는 이미 <strong>인터페이스로 분리돼 있다.</strong> <code>map_demo_layout.gd</code>는 절차적 placeholder이고,
+  Blender로 지은 맵이든 뭐든 아래를 만족하면 <strong>호출부를 하나도 고치지 않고</strong> 갈아끼울 수 있다.</p>
+
+  <h3>씬 쪽 요구</h3>
+  <ul>
+    <li>벽 · 장애물은 <strong>콜리전 레이어 1</strong> — 적 시야 레이캐스트가 이걸 쏜다</li>
+    <li>베이크된 <code>NavigationRegion3D</code>, 노드는 <code>navmap</code> 그룹에 (치명 존이 내비를 깎을 때 재베이크한다)</li>
+    <li>방마다 <code>Area3D</code> 트리거 → <code>room_entered(room_ref)</code> 시그널</li>
+  </ul>
+
+  <h3>제공해야 하는 조회</h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th>함수</th><th>반환</th><th>쓰는 곳</th></tr></thead>
+    <tbody>
+      <tr><td class="m">get_spawn_position(room_ref)</td><td class="m">Vector3</td><td>파티 스폰 · 분대 중심 · 고정 오브젝트 기준점</td></tr>
+      <tr><td class="m">get_room_size(room_ref)</td><td class="m">Vector3 (XZ)</td><td>상자 산포 개수 · 스폰 클램프</td></tr>
+      <tr><td class="m">get_deep_spawn_position(room, from)</td><td class="m">Vector3</td><td>적을 방 안쪽 먼 곳에 — 입구 시선에서 빼기</td></tr>
+      <tr><td class="m">get_obstacle_positions(room_ref)</td><td class="m">Array&lt;Vector3&gt;</td><td>상자를 기둥 옆에 붙이는 앵커</td></tr>
+      <tr><td class="m">get_occluder_footprints()</td><td class="m">Array&lt;box|cyl&gt;</td><td><strong>F-011 안개</strong> — 적 시야와 같은 도형이어야 한다</td></tr>
+      <tr><td class="m">get_room_rects()</td><td class="m">Array&lt;rect&gt;</td><td>미니맵</td></tr>
+      <tr><td class="m">get_room_profile(room_ref)</td><td class="m">String</td><td>조명 프로파일 (SSOT는 rooms.json)</td></tr>
+      <tr><td class="m">get_extraction_position()</td><td class="m">Vector3</td><td>추출 판정 (반경 3 m · 비전투 5 s / 전투 30 s)</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call">
+    <span class="h">데이터로 이미 열려 있는 축</span>
+    <p>새 맵을 짤 때 <strong>코드를 안 고치고</strong> 바꿀 수 있는 것: 방 목록 · 레이어(Upper/Mid/Deep) · 조명 프로파일 ·
+    <code>pool_slot</code> 바인딩 · <code>spawn_weight</code> · <code>run_phase_on_enter</code> · 기믹/추출 포인트 참조
+    (전부 <code>rooms.json</code>), 그리고 인카운터 후보 · 가중치 · 강제 핀(<code>spawn_table.json</code>),
+    ENC 편성 프레임과 재료 드롭표.</p>
+    <p><strong>코드를 고쳐야 하는 것:</strong> 고정 오브젝트 좌표(열쇠 상자 · 문 · 함정 · 레버 · 기름통 · 횃불)와
+    <code>OBSTACLE_SPECS</code>, <code>LOOT_CHEST_ROOMS</code>, 전투 예산 4~5. 지금은 전부
+    <code>dungeon_run.gd</code>와 <code>map_demo_layout.gd</code>에 하드코딩돼 있다 — <strong>맵 고도화에서 데이터로 내릴 첫 후보</strong>다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>MAP-DEMO-001 · DBP-DEMO-001</span>
+  <span>spec staging@a9e67bd</span>
+  <span>실측 기준 game main@3e6dee6</span>
+  <span>ci_smoke 14/14</span>
+  <span>docs/design/map_demo_001_status.html</span>
+</footer>
+
+</div>
+</body>
+</html>

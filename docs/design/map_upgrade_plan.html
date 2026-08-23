@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>맵 고도화 플랜 — Phase 0-5</title>
+<meta name="description" content="MAP-DEMO-001 실측을 근거로 한 맵 고도화 실행 계획. 맵 계약(Blender 확장성) → 루프 위상 → Spatial Grammar → 전투·루팅 결합 → 지역 정체성 → 단차.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+
+<style>
+/* ─────────────────────────────────────────────────────────────
+   맵 고도화 플랜 — Phase 0–5 실행 계획서 (자립형 HTML)
+   생성: 2026-08-23 · 실측 기준 game main@3e6dee6 · spec staging@a9e67bd
+   선행 문서: map_demo_001_status.html 와 같은 도면 계열(CSS 동일)
+   폰트는 Google Fonts(온라인)이며, 오프라인이면 시스템 폰트로 폴백한다.
+   ───────────────────────────────────────────────────────────── */
+
+:root{
+  --paper:#e4e7ea; --sheet:#f3f5f6; --sunk:#dadee2;
+  --ink:#171a1f; --ink-2:#4b535e; --ink-3:#727d8a;
+  --rule:#b6bec7; --rule-soft:#ccd3da;
+  --torch:#a75c17; --torch-bg:#f0e0cd;
+  --rust:#9c3830; --rust-bg:#f2dcd9;
+  --verd:#33705e; --verd-bg:#d8e8e2;
+  --grid:rgba(23,26,31,.055);
+  --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Consolas,"D2Coding",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121419; --sheet:#191c22; --sunk:#0e1014;
+    --ink:#dee2e8; --ink-2:#9aa4b1; --ink-3:#6d7885;
+    --rule:#333b46; --rule-soft:#262d36;
+    --torch:#dd9247; --torch-bg:#2f2317;
+    --rust:#d9736a; --rust-bg:#301a19;
+    --verd:#6fb59b; --verd-bg:#15271f;
+    --grid:rgba(222,226,232,.045);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121419; --sheet:#191c22; --sunk:#0e1014;
+  --ink:#dee2e8; --ink-2:#9aa4b1; --ink-3:#6d7885;
+  --rule:#333b46; --rule-soft:#262d36;
+  --torch:#dd9247; --torch-bg:#2f2317;
+  --rust:#d9736a; --rust-bg:#301a19;
+  --verd:#6fb59b; --verd-bg:#15271f;
+  --grid:rgba(222,226,232,.045);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.72;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+img,svg{max-width:100%}
+:focus-visible{outline:2px solid var(--torch); outline-offset:2px}
+.wrap{max-width:1080px; margin:0 auto; padding:0 22px 90px}
+
+/* ── 도면 표제란 ───────────────────────────────── */
+.titleblock{
+  border-bottom:2px solid var(--ink);
+  margin:34px 0 0; padding-bottom:14px;
+  display:grid; grid-template-columns:1fr auto; gap:18px 30px; align-items:end;
+}
+@media (max-width:640px){ .titleblock{grid-template-columns:1fr} .stamp{text-align:left} }
+.titleblock h1{
+  font-size:clamp(28px,4.6vw,44px); font-weight:700; letter-spacing:-.02em;
+  margin:0; line-height:1.12; text-wrap:balance;
+}
+.titleblock .sub{color:var(--ink-2); margin:6px 0 0; font-size:15px; max-width:56ch}
+.stamp{
+  font-family:var(--mono); font-size:11.5px; line-height:1.85;
+  color:var(--ink-2); text-align:right; white-space:nowrap;
+}
+.stamp b{color:var(--ink); font-weight:600}
+
+/* ── 요약 타일 ─────────────────────────────────── */
+.tiles{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
+  gap:1px; background:var(--rule-soft); border:1px solid var(--rule-soft);
+  margin:26px 0 0;
+}
+.tile{background:var(--sheet); padding:14px 16px 15px}
+.tile .k{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--ink-3);
+}
+.tile .v{
+  font-family:var(--mono); font-size:25px; font-weight:600;
+  letter-spacing:-.01em; font-variant-numeric:tabular-nums; margin-top:3px;
+}
+.tile .n{font-size:12.5px; color:var(--ink-2); line-height:1.5; margin-top:2px}
+.tile.warn .v{color:var(--rust)}
+
+/* ── 섹션 ─────────────────────────────────────── */
+section{margin-top:54px}
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--torch); font-weight:500;
+}
+h2{
+  font-size:24px; font-weight:600; letter-spacing:-.015em; margin:4px 0 0;
+  padding-bottom:9px; border-bottom:1px solid var(--rule); text-wrap:balance;
+}
+h3{font-size:16.5px; font-weight:600; margin:32px 0 8px; letter-spacing:-.005em}
+p{margin:12px 0; max-width:74ch}
+ul{margin:12px 0; padding-left:20px; max-width:74ch}
+li{margin:5px 0}
+code{
+  font-family:var(--mono); font-size:.885em;
+  background:var(--sunk); padding:.1em .38em; border-radius:2px;
+}
+strong{font-weight:600}
+em{font-style:normal; color:var(--ink-2)}
+
+/* ── 도면 플레이트 ─────────────────────────────── */
+.plate{
+  margin:20px 0; border:1px solid var(--rule); background:var(--sheet);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:18px 18px;
+  overflow-x:auto;
+}
+.plate pre{
+  margin:0; padding:20px 22px;
+  font-family:var(--mono); font-size:12.5px; line-height:1.34;
+  color:var(--ink); white-space:pre;
+}
+.plate .cap{
+  border-top:1px solid var(--rule-soft); padding:9px 22px;
+  font-family:var(--mono); font-size:11px; color:var(--ink-3);
+  letter-spacing:.03em; background:var(--sheet);
+}
+.legend{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:4px 24px; margin:14px 0 0; font-size:13px; color:var(--ink-2);
+}
+.legend b{font-family:var(--mono); color:var(--torch); font-weight:600; margin-right:7px}
+
+/* ── 표 ───────────────────────────────────────── */
+.tw{overflow-x:auto; margin:16px 0; border:1px solid var(--rule-soft)}
+table{border-collapse:collapse; width:100%; font-size:13px; min-width:660px}
+th,td{
+  text-align:left; padding:7px 12px; border-bottom:1px solid var(--rule-soft);
+  vertical-align:top;
+}
+th{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:500;
+  background:var(--sunk); white-space:nowrap; position:sticky; top:0;
+}
+tbody tr:last-child td{border-bottom:none}
+td.m,th.m{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+td.dim{color:var(--ink-3)}
+tbody tr:hover{background:var(--sunk)}
+
+/* ── 칩 ───────────────────────────────────────── */
+.chip{
+  display:inline-block; font-family:var(--mono); font-size:10.5px;
+  font-weight:500; letter-spacing:.04em; padding:1px 7px; border-radius:2px;
+  white-space:nowrap;
+}
+.chip.ok{background:var(--verd-bg); color:var(--verd)}
+.chip.warn{background:var(--torch-bg); color:var(--torch)}
+.chip.dead{background:var(--rust-bg); color:var(--rust)}
+
+/* ── 콜아웃 ───────────────────────────────────── */
+.call{border-left:3px solid var(--torch); background:var(--sheet); padding:14px 18px; margin:20px 0}
+.call.dead{border-left-color:var(--rust)}
+.call p{margin:0; max-width:70ch}
+.call p + p{margin-top:9px}
+.call .h{font-weight:600; display:block; margin-bottom:4px}
+
+/* ── 파이프라인 ───────────────────────────────── */
+.pipe{display:grid; gap:1px; background:var(--rule-soft); border:1px solid var(--rule-soft); margin:18px 0}
+.step{background:var(--sheet); padding:15px 18px; display:grid; grid-template-columns:auto 1fr; gap:16px}
+.step .num{
+  font-family:var(--mono); font-size:22px; font-weight:600;
+  color:var(--torch); line-height:1.2; font-variant-numeric:tabular-nums;
+}
+.step .b{min-width:0}
+.step .t{font-weight:600; margin-bottom:2px}
+.step .d{font-size:13.5px; color:var(--ink-2); line-height:1.62}
+.step .d code{font-size:.9em}
+
+footer{
+  margin-top:64px; padding-top:16px; border-top:1px solid var(--rule);
+  font-family:var(--mono); font-size:11.5px; color:var(--ink-3);
+  display:flex; flex-wrap:wrap; gap:6px 26px;
+}
+
+/* ── 인쇄(기획 회의용 출력) ─────────────────────── */
+@media print{
+  :root{
+    --paper:#fff; --sheet:#fff; --sunk:#f2f2f2;
+    --ink:#000; --ink-2:#333; --ink-3:#555;
+    --rule:#888; --rule-soft:#c8c8c8; --grid:transparent;
+  }
+  body{font-size:10.5pt}
+  .wrap{max-width:none; padding:0}
+  section{break-inside:avoid-page; margin-top:26px}
+  .plate,.tw,.call,.pipe{break-inside:avoid}
+  th{position:static}
+  tbody tr:hover{background:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="titleblock">
+  <div>
+    <h1>맵 고도화 플랜</h1>
+    <p class="sub">평탄한 방들의 집합을 <strong>의사결정이 발생하는 공간 구조</strong>로 교체하는 실행 계획.
+    기획 판단(위상 → 문법 → 전투·루팅 결합 → 지역 → 단차)에 <strong>Blender/Godot 직접 저작 확장성</strong>을 전제로 얹었다.</p>
+  </div>
+  <div class="stamp">
+    선행 문서 &nbsp;<b>map_demo_001_status</b><br>
+    대상 &nbsp;<b>MAP-DEMO-001 → 신규 그레이박스</b><br>
+    spec pin &nbsp;<b>staging@a9e67bd</b><br>
+    실측 기준 &nbsp;<b>game main@3e6dee6</b><br>
+    Phase 0 착수 &nbsp;<b>map_smoke · map_shot</b><br>
+    date &nbsp;<b>2026-08-23</b>
+  </div>
+</header>
+
+<div class="tiles">
+  <div class="tile"><div class="k">단계</div><div class="v">0–5</div><div class="n">Phase 0 = 맵 계약(전제)</div></div>
+  <div class="tile warn"><div class="k">사이클</div><div class="v">0 → 2+</div><div class="n">트리 → 루프 있는 네트워크</div></div>
+  <div class="tile"><div class="k">도달 ENC</div><div class="v">12 → 24</div><div class="n">신규 콘텐츠 0개 · 난이도 축 재배치만</div></div>
+  <div class="tile warn"><div class="k">임계경로 전투</div><div class="v">1.02</div><div class="n">런 4.5회 중 · 나머지는 우회로</div></div>
+  <div class="tile warn"><div class="k">상자 : 전투</div><div class="v">4.1 : 1</div><div class="n">18.5개 vs 4.5회</div></div>
+  <div class="tile warn"><div class="k">안개 낭비</div><div class="v">69 %</div><div class="n">바운딩 32,908 m² 중 바닥 10,116 m²</div></div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">판정</div>
+  <h2>이 작업이 무엇인가</h2>
+
+  <p>「16개 사각 방에 장애물을 좀 넣자」가 아니다. <strong>맵을 구조적으로 다시 짜는 작업</strong>이고,
+  그 결과물은 예쁜 던전이 아니라 <strong>TDC용 맵 문법의 확정</strong>이다. 다음 작업 단위는 Upper 전체가 아니라
+  <strong>ENTRY 포함 8~9방짜리 새 그레이박스 한 덩어리</strong> — 데모 맵에서 실제 맵으로 뛰는 게 아니라
+  「두 번째 프로토타입」이다.</p>
+
+  <p>기획 판단의 순서(위상 → 공간 문법 → 전투·루팅 결합 → 지역 정체성 → 높낮이)는 그대로 간다.
+  코드·데이터 실측 결과 <strong>세 군데만 보정</strong>했다.</p>
+
+  <div class="pipe">
+    <div class="step">
+      <div class="num">①</div>
+      <div class="b">
+        <div class="t">「그 전에 데이터화」는 선택이 아니라 Phase 0이다</div>
+        <div class="d">지금은 <strong>위상 자체가 코드</strong>다 — <code>ROOM_SPECS</code>·<code>CONNECTIONS</code>·<code>OBSTACLE_SPECS</code>·<code>LOOT_CHEST_ROOMS</code>가 전부 GDScript 상수다.
+        사이클 하나를 추가하려 해도 코드를 고쳐야 하고, <code>rooms.json</code>의 <code>connects</code>와 어긋나도 아무도 알려주지 않는다.
+        <strong>Phase 1을 하려면 Phase 0이 끝나 있어야 한다.</strong></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">②</div>
+      <div class="b">
+        <div class="t">새 그레이박스는 MAP-DEMO-001을 뜯지 않고 병행한다</div>
+        <div class="d">현 맵에 <code>QA-031</code> 플레이어블 계약 · <code>ci_smoke</code> 14/14 · 열쇠문 회귀 ·
+        <strong>허브 사다리 2개</strong>(무기고 T1 = <code>ENC-BOSS-001</code>, 대장간 T3 = <code>ENC-DEEP-001</code> + <code>haul_forge_coal</code>)가 물려 있다.
+        제자리에서 갈아엎으면 게이트가 통째로 빨개진 채 몇 주를 간다. Phase 0이 끝나면 맵 교체는 <strong>데이터 교체</strong>가 되므로 병행 비용이 거의 0이다.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">③</div>
+      <div class="b">
+        <div class="t">난이도 축은 Phase 4(지역)가 아니라 Phase 1(위상)에서 확정된다</div>
+        <div class="d">스펙 <code>F-006</code> §3.10.1이 이미 <strong>탈출로 아키타입</strong>을 갖고 있다 — <code>route_early</code> 교전 1~2 /
+        <code>route_mid</code> 3~4 / <code>route_deep</code> 4~5. 현재 전역 예산 <code>RUN_ENCOUNTER 4~5</code>는 이 축이 <strong>경로별</strong>이라는 걸 모른 채 눌러 놓은 상태다.
+        경로가 생기면 <code>difficulty</code> 키를 <code>RunLoadout</code>(항상 <code>""</code>)이 아니라 <strong>route × world_layer</strong>가 공급하게 되고,
+        사문화된 Hard 12종 + spawn_table 20행이 <strong>신규 콘텐츠 0개로</strong> 되살아난다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="call">
+    <p><span class="h">첫 고도화 목표를 한 줄로</span>
+    <strong>루프가 있는 greybox 네트워크 + 5종의 Spatial Grammar + 위험과 루팅이 연결된 Encounter Anchor</strong> —
+    그리고 그것이 <strong>Blender 맵으로 갈아끼워져도 그대로 작동하는 계약</strong>.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">근거</div>
+  <h2>실측 수치</h2>
+
+  <p>전부 코드·데이터를 따라가 확인한 값이다. 플랜의 각 단계는 이 중 하나를 목표로 움직인다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>항목</th><th class="m">실측</th><th>출처</th><th>이 플랜에서</th></tr></thead>
+    <tbody>
+      <tr><td>사이클</td><td class="m">0 <span class="chip dead">트리</span></td><td class="dim">map_demo_layout.CONNECTIONS 15행 / 방 16</td><td>Phase 1</td></tr>
+      <tr><td>임계 경로 기대 전투</td><td class="m">1.02 회</td><td class="dim">58.7 + 32.2 + 10.7 % (ADV-01·02·ROUTE)</td><td>Phase 1 · 3</td></tr>
+      <tr><td>남쪽 사슬 전투 가중치</td><td class="m">35 %</td><td class="dim">5.1 / 14.4 · 끝에 보상 0</td><td>Phase 1</td></tr>
+      <tr><td>기대 상자</td><td class="m">18.5 개</td><td class="dim">Σ(면적 / 520) · dungeon_run._place_loot_chests</td><td>Phase 3</td></tr>
+      <tr><td>장애물 보유 방</td><td class="m">2 / 16</td><td class="dim">OBSTACLE_SPECS — ADV-01(5) · OBJ-01(2)</td><td>Phase 2</td></tr>
+      <tr><td>동일 규격 방</td><td class="m">8 개</td><td class="dim">27 × 22.5 m · Upper 13방 중</td><td>Phase 2 · 4</td></tr>
+      <tr><td>진행 게이트 스폰률</td><td class="m">32 % / 40 %</td><td class="dim">BOSS / DEEP — 허브 T1 · T3 조건</td><td>Phase 3</td></tr>
+      <tr><td><code>connects</code> 리더</td><td class="m">1 곳</td><td class="dim">combat_controller._first_connected</td><td>Phase 0</td></tr>
+      <tr><td>Patrol 반경</td><td class="m">6 m <span class="chip dead">제자리</span></td><td class="dim">PATROL_RADIUS_M · patrolGraphRef 미구현</td><td>Phase 1</td></tr>
+      <tr><td><code>aggro_wake_buffer_m</code></td><td class="m">없음</td><td class="dim">F-006 §3.2.3 4.0 m · grep 0건</td><td>Phase 2</td></tr>
+      <tr><td>unlit 방</td><td class="m">0 개</td><td class="dim">스펙 zoneAmbientTier는 5티어</td><td>Phase 4</td></tr>
+      <tr><td>안개 샘플링</td><td class="m">월드 XZ</td><td class="dim">vision_fog — 깊이 없음</td><td>Phase 5 제약</td></tr>
+      <tr><td>재료 공급원</td><td class="m">상자 위주</td><td class="dim">SQUAD_HAUL_MULT = 0.2</td><td>Phase 3 제약</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">Phase 0 — 전제</div>
+  <h2>맵 계약 (Blender 확장성)</h2>
+
+  <p>목적은 툴을 만드는 게 아니라 <strong>맵을 자유롭게 뜯어고칠 수 있게 만드는 최소 투자</strong>다.
+  그리고 그 「자유롭게」에는 <strong>나중에 Blender/Godot에서 아트·구조를 직접 편집하는 것</strong>이 포함된다.</p>
+
+  <h3>소유권을 파일이 아니라 종류로 가른다</h3>
+
+  <p>기하를 <code>rooms.json</code>으로 내리면 authored 맵이 오는 순간 <strong>두 벌이 다시 생긴다</strong> —
+  지금 고치려는 병을 그대로 재발시킨다. 그래서 이렇게 가른다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>층</th><th>내용</th><th>소유자</th><th class="m">맵 교체 시</th></tr></thead>
+    <tbody>
+      <tr><td><strong>의미</strong></td><td><code>room_ref</code> · <code>connects</code> · <code>world_layer</code> · <code>route_class</code> · grammar 태그 · encounter anchor category · loot tier · phase hint</td><td><code>rooms.json</code> (SSOT)</td><td class="m">유지</td></tr>
+      <tr><td><strong>공간</strong></td><td>기하 · 앵커 좌표 · 오클루더 · navmesh · 조명 배치</td><td><strong>MapSource</strong> (씬)</td><td class="m">교체</td></tr>
+      <tr><td>다리</td><td colspan="2"><code>room_ref</code> 문자열 + 노드 이름 규약</td><td class="m">—</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>구현은 둘, 계약은 하나다. <code>geometry</code>·<code>anchors</code> 블록은 <strong>절차 그레이박스 전용 폴백</strong>으로 명시하고 authored 맵은 생략한다.</p>
+
+  <ul>
+    <li><code>ProceduralMapSource</code> — 현 <code>map_demo_layout.gd</code>. JSON에서 박스 생성. <strong>위상·문법 반복용</strong></li>
+    <li><code>AuthoredMapSource</code> — Blender glTF/.blend → Godot 씬 + 마커. <strong>아트·구조 손편집용</strong></li>
+  </ul>
+
+  <h3>지금 갈아끼우면 조용히 깨지는 4곳 <span class="chip dead">실측</span></h3>
+
+  <p>계약은 코드 주석에만 존재한다. 실제로는 아래가 <strong>에러 없이</strong> 무너진다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th class="m">#</th><th>증상</th><th>원인</th><th class="m">비용</th></tr></thead>
+    <tbody>
+      <tr><td class="m">1</td><td>안개가 임포트 메시를 통째로 건너뜀</td><td class="dim"><code>_collect_and_fog</code>가 <code>material_override is StandardMaterial3D</code>인 메시에만 <code>next_pass</code>를 붙인다. glTF 메시는 <code>surface_override_material</code>을 쓴다 — <strong>경고 한 줄도 없음</strong></td><td class="m">중</td></tr>
+      <tr><td class="m">2</td><td>월드 안개 전무</td><td class="dim"><code>_apply_fog_to_world</code>이 <code>get_node_or_null("Rooms")</code> — 노드 이름 하드코딩</td><td class="m">소</td></tr>
+      <tr><td class="m">3</td><td>벽 X-ray 영구 미작동</td><td class="dim"><code>_mesh_of()</code>는 collider의 <strong>자식</strong>에서 메시를 찾는다. Godot <code>-col</code> 임포트는 계층이 정반대(MeshInstance3D 부모 → StaticBody3D 자식)</td><td class="m">소</td></tr>
+      <tr><td class="m">4</td><td><strong>F-011의 「같은 출처」 전제가 깨짐</strong></td><td class="dim"><code>get_occluder_footprints()</code>가 절차 생성 <em>도중</em> 기록된다. 임포트 맵에선 아무도 안 채운다 → 적 시야 레이캐스트는 벽을 알고 안개는 모른다</td><td class="m">대</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call dead">
+    <p><span class="h">4번이 핵심 — 오클루더를 콜라이더에서 유도한다</span>
+    레이어 1 <code>CollisionShape3D</code>를 순회해 XZ로 투영한다(Box→box · Cylinder→cyl · Convex/Concave→XZ 볼록껍질).
+    그러면 「안개와 적 시야가 같은 도형을 본다」가 <strong>규약이 아니라 구조로</strong> 보장된다 —
+    절차 맵이든 Blender 맵이든 레이캐스트가 맞는 것만 안개도 안다. 이 게임에서 둘이 어긋나는 건 제일 나쁜 종류의 버그다.</p>
+  </div>
+
+  <h3>이미 열려 있는 것 <span class="chip ok">좋은 소식</span></h3>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>항목</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td>navmesh</td><td><code>PARSED_GEOMETRY_STATIC_COLLIDERS</code> + <code>parse_source_geometry_data(root)</code> — <strong>임포트 콜라이더도 동일하게 파싱된다.</strong> 치명존 carve 후 런타임 재bake도 그대로</td></tr>
+      <tr><td>안개 도형</td><td><code>_build_occluders</code>가 box/cyl을 결국 <code>OccluderPolygon2D</code>로 만든다. <code>{"poly": [...]}</code> 세 번째 종류 추가는 ~10줄(인셋은 <code>Geometry2D.offset_polygon</code>) → <strong>곡선 벽·사선 벽·비직교 방 자유</strong>. 지금 축정렬 사각형만 되는 건 절차 생성기의 한계지 안개의 한계가 아니다</td></tr>
+      <tr><td>물리 레이어</td><td><code>project.godot</code>의 <code>3d_physics/layer_1="world"</code>. Godot <code>-col</code> 임포트가 만드는 StaticBody3D 기본 레이어가 1 → <strong>적 시야 레이캐스트가 바로 맞는다</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Blender 저작 규약 (초안)</h3>
+
+  <div class="plate">
+<pre>RM-HALL-01/                    &lt;- Empty, 방 루트 (이름 = room_ref)
+  GEO_walls-col                &lt;- 아트 메시 + trimesh 콜리전 (layer 1)
+  GEO_floor-col
+  OCC_pillar_a-colonly         &lt;- LOS 프록시 (아트와 분리: 곡면 기둥도 프록시는 단순)
+  TRIG_room                    &lt;- Empty/cube -&gt; 후처리로 Area3D + room_entered
+  MK_spawn                     &lt;- 파티/분대 기준점
+  MK_enc_1 / MK_enc_2          &lt;- 인카운터 앵커 (AmbushHold 2앵커 = 2개)
+  MK_loot_1..n                 &lt;- 루팅 앵커
+  MK_int_DOOR-DEMO-01          &lt;- 상호작용 오브젝트 (id로 데이터와 결속)
+  MK_haz_TRAP-01               &lt;- 해저드 앵커</pre>
+    <div class="cap">노드 이름이 계약이다 — 좌표는 Blender, 의미는 rooms.json</div>
+  </div>
+
+  <p>Godot은 Area3D·Marker3D를 glTF에서 직접 만들지 못한다 → <strong><code>EditorScenePostImport</code> 임포트 스크립트</strong>가
+  이름 규약을 런타임 노드로 변환하고, <strong>계약 위반이면 임포트 시점에 에러를 낸다</strong>(런타임까지 끌고 가지 않는다).
+  아티스트는 Blender에서 자유롭게 짓고, 계약은 자동으로 검사된다.</p>
+
+  <h3>크기 예산 — 진짜 상한은 안개다</h3>
+
+  <p>안개 SubViewport = <strong>바운딩 박스 × 12 px/m</strong>, 그것도 <strong>2장</strong>(현재 LOS + 탐색 누적) 전부 <code>UPDATE_ALWAYS</code>.</p>
+
+  <div class="plate">
+<pre>현재 맵   바운딩 154.5 x 213 m = 32,908 m²
+          실제 바닥              10,116 m²   -&gt; 사용률 31 %
+
+          약 5.6M px 텍스처 x 2장 / 프레임
+          그 69 %가 빈 공간이다 (L자로 뻗은 트리 위상의 값)</pre>
+    <div class="cap">루프·콤팩트 위상은 게임플레이만이 아니라 렌더 예산도 벌어 온다</div>
+  </div>
+
+  <ul>
+    <li>현 해상도의 실용 상한 ≈ 바운딩 박스 <strong>200 × 200 m</strong> 부근</li>
+    <li>더 키우려면 <code>PX_PER_M</code>을 맵 크기에 반비례 스케일하거나 <strong>파티 주변 로컬 윈도우</strong>로 전환 — Blender 맵을 크게 짓기 <em>전에</em> 정할 수치</li>
+  </ul>
+
+  <h3>하이브리드가 실제 워크플로우</h3>
+
+  <p>계약이 같으면 <strong>방 단위로 섞을 수 있다.</strong> Blender로 간다고 절차 그레이박스를 버릴 필요가 없다.</p>
+
+  <div class="pipe">
+    <div class="step"><div class="num">1</div><div class="b"><div class="t">그레이박스로 위상·문법 확정</div><div class="d">JSON만 고치는 빠른 반복. 방 배치를 하루에 다섯 번 바꿔도 비용 0</div></div></div>
+    <div class="step"><div class="num">2</div><div class="b"><div class="t">확정된 방부터 Blender로 교체</div><div class="d">의미 데이터는 그대로, 공간만 바뀐다. 한 맵 안에 절차 방과 authored 방이 공존 가능</div></div></div>
+    <div class="step"><div class="num">3</div><div class="b"><div class="t">map_smoke가 두 경우를 같은 불변식으로 검사</div><div class="d">계약 위반은 임포트/부팅 시점에 실패한다 — 플레이 중 「왜 안개가 이상하지」로 발견되지 않는다</div></div></div>
+  </div>
+
+  <h3>소유권 규칙 — 명사 vs 좌표</h3>
+
+  <p>「Blender 오브젝트를 30 cm 옆으로」 같은 일까지 데이터 왕복으로 하면 손해가 명백하다.
+  사람이 2초에 하고 즉시 눈으로 확인하는 일을, 나는 수정 → 재생성 → 스냅샷 → 판독으로 수십 초를 쓴다.
+  그래서 경계를 <strong>단계</strong>가 아니라 <strong>대상</strong>으로 긋는다.</p>
+
+  <div class="call">
+    <p><span class="h">규칙</span><strong>에이전트는 명사와 관계를 쓰고, 에디터는 좌표를 쓴다.</strong></p>
+  </div>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>데이터 (에이전트)</th><th>씬 · 에디터 (사람)</th></tr></thead>
+    <tbody>
+      <tr><td><code>room_ref</code> · <code>connects</code>(위상) · <code>route_class</code></td><td>메시 위치 · 회전 · 스케일</td></tr>
+      <tr><td>encounter anchor <strong>category</strong> · loot <strong>tier</strong></td><td>프롭 배치 · 데코 산포</td></tr>
+      <tr><td>앵커의 <strong>존재와 개수</strong>(「이 방에 loot 앵커 3」)</td><td>앵커 <strong>마커의 실제 위치</strong></td></tr>
+      <tr><td>ID 등록 · <code>spawn_table</code> 행 · phase hint</td><td>머티리얼 · 라이트 미세조정</td></tr>
+      <tr><td class="dim">판정 기준 = <strong>불변식이 계산된다</strong></td><td class="dim">판정 기준 = <strong>보기에 맞다</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>핵심은 <strong>authored 맵의 좌표가 데이터에 없어야 한다</strong>는 것이다. 앵커는 씬의 <code>Marker3D</code>이고
+  데이터는 그걸 <strong>이름으로 참조</strong>한다. 그러면 <code>MK_loot_1</code>을 기둥 뒤로 끌어다 놓아도 데이터는 한 글자도 안 바뀐다 —
+  충돌이 성립하지 않는다. 검증은 좌표가 아니라 <strong>「마커가 3개 있고 · 방 안이고 · navmesh 위인가」</strong>를 묻는다.</p>
+
+  <h3>「에디터 = 뷰어」는 생성된 것에만 적용된다</h3>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>단계</th><th>저작 표면</th><th>메커니즘</th></tr></thead>
+    <tbody>
+      <tr><td><strong>그레이박스</strong></td><td>데이터 (에디터는 <strong>뷰어</strong>)</td><td><code>@tool</code> 빌더가 <code>owner</code>를 설정하지 않고 노드를 붙인다 → <strong>3D 뷰포트엔 보이지만 <code>.tscn</code>에 직렬화되지 않는다.</strong> 박스 크기는 취향이 아니라 설계 수치이므로 데이터가 소유</td></tr>
+      <tr><td><strong>아트 전환</strong></td><td>씬</td><td>생성기가 만들지 않으니 파괴할 일도 없다. <code>generated</code> / <code>authored</code> 분리 — 재생성은 generated 서브트리만 건드린다</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>강제는 등호가 아니라 <strong>경로</strong>로 건다 — 에이전트 도구는 <code>data/</code>와 생성 서브트리에만 쓰고,
+  <strong>authored 방 <code>.tscn</code>에는 쓰지 않는다.</strong> 사람이 한 시간 만진 방을 재생성이 날리는 사고는 규칙이 아니라 경로로 막는다.</p>
+
+  <div class="call dead">
+    <p><span class="h">그 대가로 붙는 규약 하나 — 콜리전 프록시는 반드시 메시의 자식</span>
+    오클루더를 콜라이더에서 유도하므로 <strong>끌어다 놓는 순간 다음 로드에 안개가 따라온다</strong>(손 튜닝의 자유를 데이터 부채 없이 사는 방법이 그거였다).
+    다만 프록시를 따로 두고 메시만 옮기면 <strong>보이는 벽과 막는 벽이 어긋난다.</strong> Godot <code>-col</code> 임포트가 만드는 계층이 이미 그 모양이라 기본은 안전하다.</p>
+  </div>
+
+  <h3>아트 단계에서 에이전트가 하는 일</h3>
+  <p>「하나를 옮기기」는 사람이 빠르고 <strong>「같은 걸 예순 번 옮기기」는 에이전트가 빠르다.</strong> 경계는 반복성과 판정 기준이다.</p>
+  <ul>
+    <li>벌크 변환 — "모든 방 횃불을 벽에서 0.5 m 띄워"(손 60드래그 = 스크립트 1개)</li>
+    <li>규약 검사·수정 — 이름 규약 위반 · 앵커 누락 · 프록시 없는 벽 · navmesh 밖 앵커</li>
+    <li>문법 복제 — "이 방 기둥 배치를 같은 문법의 다른 3방에"</li>
+    <li>비시각 배선 — <code>room_ref</code> 결속 · ID 등록 · <code>spawn_table</code> 행 · 루트 분류</li>
+    <li>씬 diff 리뷰 — 커밋에서 <strong>무엇이 움직였는지</strong> 텍스트로</li>
+  </ul>
+  <p>반대로 판정 기준이 「보기에 좋다」인 건 전부 사람이다. <strong>스냅샷의 해상 한계가 곧 에이전트의 작업 단위</strong>이기도 하다 —
+  방 단위 배치·개구부·동선까지가 보이고, 기둥 30 cm는 안 보인다.</p>
+
+  <h3>Phase 0 산출물</h3>
+  <ul>
+    <li><code>map_source.gd</code> 기반 클래스 — 계약 getter 8종 + 씬 요구 3종을 <strong>코드로</strong> 명시</li>
+    <li><strong>오클루더 콜라이더 유도</strong> 전환 (규약 → 구조)</li>
+    <li>안개/X-ray 임포트 대응 — <code>material_override</code> → <code>surface_override_material</code> 폴백, <code>$Rooms</code> 이름 → 그룹 <code>map_geometry</code></li>
+    <li><code>{"poly": [...]}</code> 오클루더 종류 추가</li>
+    <li><strong>계약 getter에 y 통과</strong> — 지금 전부 y ≈ 0 전제다. 여기서 넣어 두면 Phase 5(단차)가 거의 공짜가 된다</li>
+    <li><code>EditorScenePostImport</code> 규약 스크립트 + 임포트 시점 검사</li>
+    <li><code>dungeon_run.gd</code> 좌표 리터럴(열쇠상자 · 아군상자 · 문 · 압력판 · 레버 · 기름통 · 횃불) → 앵커</li>
+    <li><code>OBSTACLE_SPECS</code> · <code>LOOT_CHEST_ROOMS</code> 소멸 · <code>connects</code> 두 벌 해소 (<code>DEBT-DM3</code>)</li>
+    <li><strong>그레이박스 킷 4종</strong> — Floor / Wall+Opening / Obstacle(pillar·crates·barrier, 이미 정의됨) / Anchor 4종.
+      <strong><code>Corridor</code>와 <code>StairKit</code>은 넣지 않는다</strong> — 복도는 <em>얇은 방</em>으로 유지해야 인접 모델이 하나로 남고(<code>RM-ROUTE-01</code>이 이미 6×18 m 얇은 방이다),
+      계단은 계약의 y 가정과 <code>agent_max_climb = 0.25</code>를 건드리므로 Phase 5다</li>
+    <li><code>@tool</code> 프리뷰 빌더 — <code>owner</code> 미설정(비직렬화)</li>
+    <li>✅ <strong><code>tools/map_smoke.gd</code></strong> — 계약 12항목 + 설계 리포트 7종 (<code>ci_smoke</code> 15번째 스위트)</li>
+    <li>✅ <strong><code>tools/map_shot.gd</code></strong> — 평면 스냅샷 PNG(직교 SubViewport). <strong>시각 검증 채널</strong></li>
+    <li>아티스트가 읽는 문서 <code>docs/design/map_contract.md</code></li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">워크플로</div>
+  <h2>시뮬레이션 — 방 하나 추가</h2>
+
+  <p>계약이 선 뒤에 <strong>제련소(<code>RM-FOR-01</code>) 한 방을 추가</strong>하고 오브젝트를 놓고 조금씩 손보는 과정.
+  누가 어느 단계를 소유하는지가 이 표의 요점이다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th class="m">#</th><th>단계</th><th>주체</th><th>산출물</th><th class="m">왕복</th></tr></thead>
+    <tbody>
+      <tr><td class="m">0</td><td>ID 발급 — 유일하게 spec이 먼저</td><td>사람 승인 → spec</td><td><code>RM-FOR-01</code> · <code>P-FOR-01</code></td><td class="m">1회</td></tr>
+      <tr><td class="m">1</td><td>방 추가</td><td><strong>에이전트</strong></td><td><code>rooms.json</code> 행 1개</td><td class="m">초</td></tr>
+      <tr><td class="m">2</td><td>불변식 검사</td><td>툴</td><td><code>map_smoke</code> PASS/FAIL</td><td class="m">초</td></tr>
+      <tr><td class="m">3</td><td>눈으로 확인</td><td>툴 → 에이전트 → 사람</td><td><code>map_shot</code> PNG</td><td class="m">분</td></tr>
+      <tr><td class="m">4</td><td>문법 적용</td><td><strong>에이전트</strong></td><td><code>spatial_grammar</code> 2값</td><td class="m">초</td></tr>
+      <tr><td class="m">5</td><td>전투 감각</td><td><strong>사람</strong></td><td>샌드박스 플레이</td><td class="m">분</td></tr>
+      <tr><td class="m">6</td><td>앵커 배치 (그레이박스)</td><td><strong>에이전트</strong></td><td><code>anchors</code> 블록</td><td class="m">초</td></tr>
+      <tr><td class="m">7</td><td>아트 전환 — 소유권이 넘어간다</td><td><strong>사람</strong> (Blender)</td><td><code>RM-FOR-01.glb</code></td><td class="m">시간</td></tr>
+      <tr><td class="m">8</td><td>소소한 손보기</td><td><strong>사람</strong> (에디터)</td><td>씬만 변경</td><td class="m">2초</td></tr>
+      <tr><td class="m">9</td><td>벌크 손보기</td><td><strong>에이전트</strong></td><td>스크립트 1개</td><td class="m">분</td></tr>
+      <tr><td class="m">10</td><td>커밋 게이트</td><td>툴 + 사람 승인</td><td><code>ci_smoke</code> 15/15</td><td class="m">분</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>1단계 — 데이터 한 행이 여섯 곳에 퍼진다</h3>
+
+  <div class="plate">
+<pre>{
+  "room_ref": "RM-FOR-01",
+  "world_layer": "Upper",
+  "geometry": { "center": [39, 3.75], "size": [24, 30] },   &lt;- 그레이박스 전용 폴백
+  "connects": [{ "to": "RM-OBJ-01",  "width": 8.0 },
+               { "to": "RM-HALL-01", "width": 6.0 }],
+  "lighting_profile": "standard",
+  "route_class": ["route_mid"],
+  "spatial_grammar": ["open", "flank"],
+  "encounter_anchor": { "category": "optional_threat", "pool_slot": "P-FOR-01" },
+  "loot_anchor": { "tier": "contested" },
+  "run_phase_hint": "Advance"
+}</pre>
+    <div class="cap">벽·바닥 생성 · 개구부 계산 · navmesh 재bake · 안개 바운드 · 미니맵 rect · 상자 산포 — 전부 자동</div>
+  </div>
+
+  <p>같이 필요한 것 하나: <code>spawn_table.json</code>에 <code>P-FOR-01</code> 행.
+  없으면 앵커가 빈 값으로 풀린다 — <strong>2단계가 잡는다</strong>(「전투가 배정될 수 있는 척하는 빈 방」이 지금 남쪽 사슬이 자란 방식이다).</p>
+
+  <h3>8단계 vs 9단계 — 경계가 실제로 어디인가</h3>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>요청</th><th>주체</th><th class="m">비용</th><th>데이터 변경</th></tr></thead>
+    <tbody>
+      <tr><td>"기둥을 30 cm 왼쪽으로" · "상자를 15° 돌려"</td><td>사람 (드래그)</td><td class="m">2초</td><td class="m">0</td></tr>
+      <tr><td>"서쪽 입구를 6 m로 좁히고 기둥 하나 더"</td><td>에이전트 (데이터 2줄)</td><td class="m">분</td><td class="m">2줄</td></tr>
+      <tr><td>"모든 방 횃불을 벽에서 0.5 m 띄워"(60개)</td><td>에이전트 (스크립트)</td><td class="m">분</td><td class="m">—</td></tr>
+      <tr><td>"남쪽 dead end를 A07에 재연결해 cycle 하나"</td><td>에이전트 (<code>connects</code> 1줄)</td><td class="m">초</td><td class="m">1줄</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>사람이 손보다 불변식을 깨면</h3>
+
+  <div class="plate">
+<pre>[MAP] RM-FOR-01 ↔ RM-HALL-01: connects는 있으나 공유벽 없음   FAIL
+[MAP] 연결 12개 navmesh 통행 (막힘: RM-FOR-01→RM-HALL-01)      FAIL</pre>
+    <div class="cap">커밋 전에 잡힌다 — 그리고 고치는 건 사람이다. 데이터가 아니라 씬이 틀렸기 때문에</div>
+  </div>
+
+  <p>에이전트가 할 일은 <strong>「어느 방의 어느 변이 몇 미터 어긋났다」를 읽어 주는 것까지</strong>다.
+  소유권 규칙이 실패 처리 담당까지 그대로 정해 준다.</p>
+
+  <h3>Before / After — 방 하나 추가에 손대는 곳</h3>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th></th><th>지금</th><th>Phase 0 이후</th></tr></thead>
+    <tbody>
+      <tr><td>GDScript</td><td class="dim"><code>ROOM_SPECS</code> · <code>CONNECTIONS</code> · <code>LOOT_CHEST_ROOMS</code> (+ <code>OBSTACLE_SPECS</code>)</td><td><strong>0곳</strong></td></tr>
+      <tr><td>데이터</td><td class="dim"><code>rooms.json</code> · <code>spawn_table.json</code> · <code>id_registry.json</code></td><td>동일 3곳</td></tr>
+      <tr><td>검증</td><td class="dim">실행해서 눈으로</td><td><code>map_smoke</code> + 스냅샷</td></tr>
+      <tr><td><strong>합계</strong></td><td class="m"><strong>7곳 · 코드 3</strong></td><td class="m"><strong>3곳 · 코드 0</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call">
+    <p><span class="h">부수 효과 — 방을 멀리 놓으면 안개 텍스처가 커진다</span>
+    바운드가 방 rect에서 계산되므로(<code>_compute_bounds</code>), 빈 공간에 방을 흩뿌리면 렌더 예산을 그만큼 더 낸다.
+    「콤팩트하게 짓기」가 취향이 아니라 예산인 이유다 — <code>map_smoke</code>가 바운딩 박스도 같이 잰다.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">Phase 1</div>
+  <h2>위상 — 루프와 복수 탈출로</h2>
+
+  <p>가장 큰 구조적 문제다. 현재는 어느 쪽을 가든 왔던 길로 돌아와야 하고, 플레이어의 경로 선택이 사실상
+  <em>「여기 갔다 올까 말까」</em> 하나뿐이다. 중요한 건 루프 자체가 아니라 <strong>되돌아가는 방법을 선택할 수 있다는 것</strong>이다.</p>
+
+  <h3>초안 그레이박스 — 9방 · 사이클 3</h3>
+
+  <div class="plate">
+<pre>                     +--------+--------+
+                     | EXT-B  |        |     EXT-B  심층 탈출 (route_deep)
+                     +--------+  DEEP  |     DEEP   확정 교전 + 최고 보상
+                     |  GATE  |        |     GATE   확정 정예 · 위험 관문
+            +--------+--------+--------+
+            |  REC   |  OBJ   |        |     REC    기록원 (LOS · 정보)
+            +--------+--------+  FOR   |     OBJ    목표 — 관통방
+            | ENTRY  |  HALL  |        |     FOR    제련소 (Open + Hazard)
+            +--------+--------+--------+     HALL   중앙 분기 (Open + Flank)
+            | EXT-A  |
+            +--------+                       EXT-A  조기 탈출 (route_early)</pre>
+    <div class="cap">인접 = 벽 공유. 개구부는 아래 연결 목록에 있는 쌍만 뚫는다</div>
+  </div>
+
+  <p>연결 11개 / 방 9개 → <strong>사이클 = 11 − 9 + 1 = 3</strong>.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>사이클</th><th>경로</th><th>의미</th></tr></thead>
+    <tbody>
+      <tr><td class="m">A</td><td class="dim">REC → OBJ → HALL → ENTRY → REC</td><td>목표 왕복 강제 제거 — 다른 길로 돌아온다</td></tr>
+      <tr><td class="m">B</td><td class="dim">OBJ → FOR → HALL → OBJ</td><td>보상 우회로 — 위험을 사면 빨리 온다</td></tr>
+      <tr><td class="m">C</td><td class="dim">GATE → EXT-B → DEEP → FOR → OBJ → GATE</td><td>심층 루프 — 두 입구 모두 무거운 전투가 지킨다</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <ul>
+    <li><strong>OBJ가 관통방</strong>이다 — 연결 4개(GATE · REC · FOR · HALL). 현재 <code>connects: []</code>인 dead end 열쇠방과 정반대</li>
+    <li><strong>탈출 2점</strong> — EXT-A는 ENTRY 옆(조기), EXT-B는 GATE 또는 DEEP을 통과해야 도달</li>
+    <li><strong>위험 경로가 지름길</strong>이다 — FOR을 지나면 HALL ↔ DEEP이 짧아진다</li>
+    <li>dead end는 <strong>명확한 보상이 있을 때만</strong> — 이 초안엔 없다</li>
+  </ul>
+
+  <h3>같이 처리해야 하는 3가지</h3>
+
+  <div class="pipe">
+    <div class="step">
+      <div class="num">a</div>
+      <div class="b">
+        <div class="t">런 페이즈를 방에서 떼어낸다</div>
+        <div class="d">지금 <code>run_phase_on_enter</code>는 방에 들어가면 <strong>강제로</strong> 페이즈를 올린다. 보스방 진입만으로 <code>Objective</code>가 오르는 현재 버그가 그 증상이고,
+        루프 + 탈출로 2개에서는 훨씬 더 자주 깨진다. → <code>run_phase_hint</code> + <strong>전제조건 충족 시에만 승격</strong>(AdvanceExtraction은 <code>objective_complete</code> 이후).</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">b</div>
+      <div class="b">
+        <div class="t">Patrol이 방을 넘어야 루프가 의미를 갖는다</div>
+        <div class="d">되돌아가는 길을 고르는 이유는 <strong>위험 분포</strong>인데, 지금 위험은 방에 못 박혀 있고 Patrol은 스폰 홈 주위 6 m 원을 돈다.
+        위상만 바꾸면 루프는 <strong>「빈 지름길」</strong>이 된다. 스펙의 <code>patrolGraphRef</code>(정의 있음 · 미구현)를 여기서 최소 구현 — 앵커 2~3방을 잇는 경로 순회.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="num">c</div>
+      <div class="b">
+        <div class="t">전투 예산을 경로별로</div>
+        <div class="d">전역 4~5 → mandatory 앵커 선지급 후 <strong>경로 밴드</strong> 충족(A 1~2 / B 3~4 / C 4~5, <code>F-006</code> §3.10.1 · <code>I-006</code> §3.1).
+        <code>F-028</code>의 <code>exitConvergenceRouteRef → route_deep</code>도 이때 실배선 — 현재 3세력은 랜덤 전투방에 코드 상수로 주입되고 <code>P-3RD-01</code>은 고아다.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">Phase 2</div>
+  <h2>Spatial Grammar 5종</h2>
+
+  <p>방마다 독특한 기믹을 만들면 콘텐츠 제작비가 터진다. 대신 <strong>파라메트릭 장애물 템플릿</strong> 5~7개를 만들고,
+  방을 <code>RM-ADV-03</code>이 아니라 <strong>「Choke + LOS」 「Open + Flank」 「Split + Backline」</strong>으로 구별하기 시작한다.</p>
+
+  <div class="plate">
+<pre>  OPEN                 CHOKE                LOS-BROKEN
+  +------------+       +----+  +----+       +------------+
+  |            |       |    |  |    |       |    ##      |
+  |      E     |       |    E  E    |       |  P      E  |
+  |            |       |    |  |    |       |        ##  |
+  |  P         |       +----+  +----+       |  ##        |
+  +------------+                            +------------+
+   광역전 유리          전열(탱커) 가치↑      캐스터·저격 대응
+
+  SPLIT                FLANK                BACKLINE POCKET
+  +-----+ +-----+      +------------+       +------------+
+  |     | |     |      |      E     |       |   E    E   |
+  |  P  +-+  E  |      +---+    +---+       +------+-----+
+  |     | |     |      |   P    P   |       |  P      p  |
+  +-----+ +-----+      +------------+       +------------+
+   개별 이동 오더        주경로 + 측면        후열 안전지대</pre>
+    <div class="cap">E 적 · P 전열 · p 후열 — 방 하나에 문법 1~2개만 쓴다(겹칠수록 읽기가 어려워진다)</div>
+  </div>
+
+  <p>하나의 grammar가 <strong>LOS 차단 · navmesh 구멍 · 안개 오클루더 · 상자 앵커</strong>를 동시에 공급한다
+  (현행 <code>get_occluder_footprints</code>가 이미 그 구조다). 한 번 만들면 네 곳이 값을 받는다.</p>
+
+  <div class="call dead">
+    <p><span class="h">여기서 AI 한 가지를 같이 넣지 않으면 문법이 반쪽이 된다</span>
+    현재 원거리 적(<code>standoff</code>)은 <strong>사거리까지만 좁히고 LOS를 되찾으려는 행동이 없다.</strong>
+    LOS가 끊기면 <code>investigate</code>로 눈먼 추격을 한다. 기둥·초크를 넣으면 <strong>플레이어만 이득을 보고 적은 벽 뒤에서 멍청해 보인다.</strong>
+    「원거리 적이 LOS 회복 위치로 재배치」 한 가지는 grammar와 같은 패스에 넣는다.</p>
+    <p>같이: <code>aggro_wake_buffer_m</code>(4.0 m, <code>F-006</code> §3.2.3, 현재 미구현). 초크 뒤 즉시 어그로는 스펙이 금지한 배치인데,
+    문법을 넣는 순간 그 배치가 <em>쉬워진다</em>.</p>
+  </div>
+
+  <h3>검증 경로 — 샌드박스에 grammar 스위처</h3>
+  <p><code>sandbox_map.gd</code>는 지금 48 × 48 m <strong>완전한 빈 방</strong>이다(장애물 0). grammar 템플릿을 샌드박스에 꽂으면
+  「초크 vs 오픈 vs LOS」 전투 감각을 풀런 없이 30초에 비교할 수 있다. <strong>8방을 짓기 전에 문법을 확정하는 유일한 싼 방법</strong>이다.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">Phase 3</div>
+  <h2>전투 · 루팅 결합</h2>
+
+  <p>상자 밀도는 <strong>면적</strong>에, 전투는 <strong>가중치 추첨</strong>에 걸려 있어 둘이 서로를 전혀 모른다.
+  상자 18 → 10으로 줄이는 건 수치 조정이고 문제를 해결하지 못한다. 필요한 건 구조 변경이다.</p>
+
+  <h3>Encounter Anchor — 공간 역할이 카테고리를 정한다</h3>
+
+  <p>방이 <code>encounter_anchor.category</code>를 갖는다. <strong>카테고리가 스폰 여부를</strong>, 그 안에서 <strong><code>spawn_table</code>이 구체 편성을</strong> 뽑는다.
+  즉 「Room → 확률 → 전투 있음/없음」에서 <strong>「공간 역할 → encounter category → 적 조합 랜덤」</strong>으로 한 단계 올린다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>category</th><th class="m">스폰</th><th>초안 배치</th></tr></thead>
+    <tbody>
+      <tr><td><code>mandatory_threat</code></td><td class="m">100 %</td><td>HALL · OBJ — 임계 경로</td></tr>
+      <tr><td><code>gated_elite</code></td><td class="m">100 %</td><td><strong>GATE · DEEP</strong> — 추첨에서 제외</td></tr>
+      <tr><td><code>optional_threat</code></td><td class="m">가중</td><td>FOR — 보상 루트</td></tr>
+      <tr><td><code>ambush_candidate</code></td><td class="m">가중</td><td>REC — dim + LOS</td></tr>
+      <tr><td><code>patrol_route</code></td><td class="m">경로</td><td>HALL ↔ OBJ ↔ FOR 순회</td></tr>
+      <tr><td><code>third_faction_candidate</code></td><td class="m">60 %</td><td>EXT-B 통로 — <code>F-028</code> exit 수렴</td></tr>
+      <tr><td><code>safe</code></td><td class="m">0 %</td><td>ENTRY · EXT-A</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call">
+    <p><span class="h">진행 게이트를 확률에서 뺀다</span>
+    무기고 T1(<code>ENC-BOSS-001</code>)과 대장간 T3(<code>ENC-DEEP-001</code>)가 각각 <strong>32 % · 40 %</strong>로만 생성된다.
+    「어려운 관문은 맵의 방이 소유한다」는 M6 판정과 확률 추첨이 서로를 갉아먹고 있다.
+    <strong>「반드시 존재」이지 「반드시 싸움」이 아니다</strong> — 관문은 경로 선택으로 남고, 랜덤성은 그 전투의 <em>구체적 형태</em>에 둔다.</p>
+  </div>
+
+  <h3>루팅 — EV를 보존한 채 재분배</h3>
+
+  <p>상자 18 → 10은 재화 −45 %다. <code>SQUAD_HAUL_MULT = 0.2</code> 때문에 <strong>상자가 주 공급원</strong>이고,
+  재료 11종이 시설 9 + 스킬트리 2를 먹인다. 총 기대치는 <strong>16~20 밴드로 유지</strong>하고 티어로 옮긴다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>루트 성격</th><th class="m">기대 상자/방</th><th class="m">희귀</th><th>플레이 경험</th></tr></thead>
+    <tbody>
+      <tr><td>safe</td><td class="m">0.3</td><td class="m">0 %</td><td>이동 빠름 · 전투 적음 · 루팅 적음</td></tr>
+      <tr><td>contested</td><td class="m">1.2</td><td class="m">18 %</td><td>적 유무 불확실 · 시야 리스크 · 중간 보상</td></tr>
+      <tr><td>gated (관문 뒤)</td><td class="m">3.0</td><td class="m">1개 확정</td><td>강한 전투 · 높은 루팅 · shortcut 역할</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>그러면 처음으로 <strong>「저 상자를 먹으려면 저 공간을 통과해야 한다」</strong>가 된다.
+  지금의 <em>「빈 방 들어감 → 상자 발견 → 먹음」</em>과는 완전히 다르다.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">Phase 4</div>
+  <h2>지역 정체성</h2>
+
+  <p>순서가 중요하다. <strong>Spatial Grammar가 게임플레이 문법이고, 지역 테마는 그 문법을 표현하는 방식</strong>이다.
+  뒤집으면 <em>「병영이니까 침대 놓고 무기 rack 놓고…」</em>가 되기 쉽다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>지역</th><th>문법</th><th>표현</th><th class="m">ambient</th></tr></thead>
+    <tbody>
+      <tr><td>병영</td><td>Choke + 증원</td><td>문 · 좁은 방어선</td><td class="m">standard</td></tr>
+      <tr><td>수문</td><td>Split + 우회</td><td>수위로 이동 경로 변화</td><td class="m">dimming</td></tr>
+      <tr><td>기록원</td><td>LOS Broken</td><td>시야·정보 · 적 배치 사전 파악</td><td class="m">threshold</td></tr>
+      <tr><td>제련소</td><td>Open + Hazard</td><td>위험한 대신 보상 높은 경로</td><td class="m">standard</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>조명도 여기서 손본다 — 스펙 <code>zoneAmbientTier</code>는 5티어(bright / standard / dimming / threshold / civilized)인데
+  게임은 3프로파일만 쓰고 <strong>unlit 방이 0개</strong>다. <code>dimming</code> · <code>threshold</code> 구간이 통째로 비어 있다.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">Phase 5</div>
+  <h2>단차 + 환경 반응</h2>
+
+  <div class="call dead">
+    <p><span class="h">2층은 지금 구조로 불가능하다</span>
+    안개가 <strong>월드 XZ로만</strong> 샘플링한다 — 위층 폴리곤이 아래층을 지운다. 방 위의 방을 하려면 F-011을 다시 설계해야 한다.</p>
+  </div>
+
+  <p>1.5 m 전술 단차는 가능하지만 맵 계약의 y 가정(<code>_room_points.spawn.y = 0.02</code> · 상자 배치 · 미니맵 rect · 치명존 carve)이 전부 평면 전제다.
+  <strong>Phase 0에서 계약 getter에 y를 통과시켜 두면 여기가 거의 공짜가 된다.</strong>
+  navmesh <code>agent_max_climb = 0.25</code>이므로 계단은 램프나 0.25 m 스텝으로 콜리전 프록시를 만들어야 한다 — Blender 규약에 박아 둔다.</p>
+
+  <p>검증 대상은 6가지뿐이다: <strong>원거리 LOS · 클릭 · 포메이션 이동 · AI path · 카메라 · AoE 텔레그래프</strong>.
+  전술적 가치가 안 나오면 높이는 미관용으로 강등한다.</p>
+
+  <p>환경 반응(함정 · 기름 · 불)은 마지막에 얹는다. 다만 <strong>추출 통로의 압력판 → 치명존 → 레버는 유지</strong>한다 —
+  단순한 damage floor가 아니라 <strong>4인 파티의 이동 관계를 흔드는</strong> 공간 기믹이고, 현재 맵에서 파티를 물리적으로 갈라놓는 유일한 장치다.
+  비율은 <strong>평범한 공간 문법 70~80 % / 강한 공간 기믹 20~30 %</strong>.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">게이트</div>
+  <h2>map_smoke 불변식</h2>
+
+  <p><code>tools/map_smoke.gd</code> → <code>ci_smoke.sh</code> 15번째 스위트. <span class="chip ok">구현됨 · 15/15 PASS</span><br>
+  검사는 <strong>맵 계약 getter를 통해서만</strong> 한다(구현이 아니라 계약을 시험한다) — 그래야 Blender authored 맵으로 갈아끼워도 같은 스위트가 그대로 돈다.
+  그게 계약이 진짜 계약이라는 증거다.</p>
+
+  <div class="plate">
+<pre>ok   [계약] getter 8종 구현 (전부)
+ok   [계약] navmap 그룹 — 치명존 carve가 재bake를 부른다
+ok   [계약] rooms.json 방 16개 전부 맵에서 해석됨 (16)
+ok   [계약] 선언된 연결 15개가 전부 공유벽 (일치)
+ok   [계약] 전 방 도달 가능 (16/16)
+ok   [계약] 연결 15개 navmesh 통행 (전부)
+ok   [계약] 오클루더 = LOS 높이대 레이어1 콜라이더 (선언 97 / 유도 97)
+ok   [계약] 모든 pool_slot이 ENC로 해석됨 (전부)
+ok   [계약] room_ref/pool_slot 전부 id_registry 등록 (전부)
+ok   [계약] 추출 지점이 RM-EXT-01 안에 있음
+
+     [설계] 위상        방 16 · 연결 15 · 사이클 0            (목표 >= 2)
+     [설계] 안개 예산    바운딩 155x213=32909 m² · 바닥 10116 m² (31%) · 2046x2748 x2장
+     [설계] 상자 EV      18.4개 / 런 (배치 대상 14방)          (밴드 16~20)
+     [설계] 전투 앵커    pool 방 14 · 가중치 합 14.4 · 예산 4~5 (경로별 밴드 미적용)
+     [설계] 방 규격      최다 중복 27.0x22.5 x8 / 16방
+     [설계] 장애물 보유  2 / 16방
+     [설계] 좌표 리터럴  dungeon_run.gd 10건                   (Phase 0 목표 0)</pre>
+    <div class="cap">2026-08-23 실측 기준선 — 이 일곱 줄이 Phase 1~5가 움직이는 수치다</div>
+  </div>
+
+  <div class="call">
+    <p><span class="h">가장 중요한 한 줄 — 오클루더 선언 97 / 유도 97</span>
+    「LOS 높이대(y=1.0)를 가리는 레이어 1 콜라이더」라는 <strong>유도 규칙이 현재 손기록 집합을 정확히 재현한다.</strong>
+    즉 Phase 0에서 규약(손기록) → 구조(유도)로 갈아타도 안개가 보는 도형이 한 개도 바뀌지 않는다.
+    바닥(두께 0.3 m)이 자동으로 빠지는 것도 같은 규칙에서 나온다 — authored 맵의 임의 지오메트리에도 같은 선이 선다.</p>
+  </div>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th class="m">#</th><th>불변식</th><th>없으면 생기는 일</th></tr></thead>
+    <tbody>
+      <tr><td class="m">1</td><td>모든 방 도달 가능 · 사이클 수 <code>E − V + 1</code> ≥ 2</td><td class="dim">트리로 슬금슬금 되돌아간다</td></tr>
+      <tr><td class="m">2</td><td><code>connects</code> 대칭 + <strong>지오메트리 인접과 일치</strong></td><td class="dim">지금의 「두 벌」 재발</td></tr>
+      <tr><td class="m">3</td><td>ENTRY → 각 EXT 경로 존재 · EXT-A는 objective 없이 도달 가능</td><td class="dim">조기 탈출로가 이름만 남는다</td></tr>
+      <tr><td class="m">4</td><td>경로별 기대 교전이 스펙 밴드(1~2 / 3~4 / 4~5) 안 · mandatory는 100 %</td><td class="dim">진행 게이트가 다시 확률에 걸린다</td></tr>
+      <tr><td class="m">5</td><td>E[상자] 16~20 · safe &lt; contested &lt; gated</td><td class="dim">구조 바꾸다 재화가 조용히 반토막</td></tr>
+      <tr><td class="m">6</td><td>navmesh로 모든 연결 쌍이 실제 통행 가능</td><td class="dim">개구부가 그림이 된다</td></tr>
+      <tr><td class="m">7</td><td><code>get_occluder_footprints()</code> = 레이어 1 콜라이더 집합</td><td class="dim">안개와 적 시야가 어긋난다</td></tr>
+      <tr><td class="m">8</td><td>코드 내 맵 좌표 리터럴 0건 · 모든 ID가 <code>id_registry</code>에 등록</td><td class="dim">맵 고칠 때마다 코드 수정이 따라붙는다</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>시각 채널 — <code>tools/map_shot.gd</code> <span class="chip ok">구현됨</span></h3>
+  <p>직교 카메라 + 공유 <code>World3D</code> SubViewport로 평면 PNG를 뽑는다(안개 off · HUD 숨김 · 방 라벨 유지).
+  현재 맵 기준 1110 × 1500 px · 1 px ≈ 0.15 m.</p>
+  <div class="plate">
+<pre>GODOT --path . --script res://tools/map_shot.gd -- &lt;출력.png&gt;</pre>
+    <div class="cap">헤드리스 아님(렌더 필요) · 북(+Z) 위 · <strong>동(+X) 왼쪽</strong> — 인게임 미니맵과 같은 방향</div>
+  </div>
+  <div class="call">
+    <p><span class="h">방향 주의</span>위에서 내려다보는 카메라로는 <strong>「북 위 + 동 오른쪽」이 성립하지 않는다</strong>(반사가 필요하다).
+    렌더와 미니맵은 <em>동이 왼쪽</em>(플레이 화면의 180° 회전), 이 문서와 status 문서의 ASCII 도면은 <em>동이 오른쪽</em>이다.
+    대조할 때 X가 뒤집혀 있다는 걸 염두에 둘 것 — 어느 쪽으로 통일할지는 결정 사항으로 남긴다.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">⚠️ 절대 규칙</div>
+  <h2>전파 분류</h2>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>항목</th><th>분류</th><th>처리</th></tr></thead>
+    <tbody>
+      <tr><td><code>spatial_grammar</code> · <code>encounter_anchor.category</code> · <code>loot_anchor.tier</code> · <code>route_class</code> <strong>enum 신설</strong></td><td><span class="chip dead">규칙·필드</span></td><td>spec <code>F-026</code> / <code>LDG-001</code> §8 + <code>DBP-DEFAULT-001</code> 편집 → <code>OPS_30</code> → <code>spec_ref</code> 재핀</td></tr>
+      <tr><td>난이도 축을 route × layer가 소유 (<code>F-006</code> §3.1.2 「런 전 확정」과 충돌)</td><td><span class="chip dead">규칙</span></td><td>DecisionLog + <code>OPS_30</code>. M6 판정의 미완 부분</td></tr>
+      <tr><td>새 <code>MAP-</code> / <code>DBP-</code> / <code>RM-</code> / <code>P-</code> / <code>POINT-</code> ID</td><td><span class="chip dead">ID 계약</span></td><td><strong>spec 먼저</strong> → <code>LevelDesignMap</code> → <code>id_registry.json</code> (미등록 = load abort)</td></tr>
+      <tr><td><code>patrolGraphRef</code> · <code>aggro_wake_buffer_m</code> 구현</td><td><span class="chip ok">커버리지</span></td><td>스펙에 이미 정의됨 — 전파 불요</td></tr>
+      <tr><td>MapSource 계약 · Blender 노드 규약 · 오클루더 유도</td><td><span class="chip ok">게임 소유</span></td><td>게임 레포 구현 — 전파 불요</td></tr>
+      <tr><td>상자 EV · 장애물 좌표 · 예산 수치</td><td><span class="chip warn">튜닝</span></td><td><code>docs/SPEC_DRIFT.md</code> 로깅만</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">리스크</div>
+  <h2>반대 의견 · 걸리는 것</h2>
+
+  <div class="call dead">
+    <p><span class="h">① 루프는 공짜가 아니다</span>
+    적이 런 시작 시 전부 배치되어 방 안에서 잠들어 있는 현 모델에서는, 루프를 뚫어도 <strong>「뒤에서 나타나는 압력」</strong>이 생기지 않는다.
+    Patrol이 방을 넘지 않으면 새 길은 그냥 <strong>빈 지름길</strong>이다. Phase 1에 patrol graph가 <em>동반</em>되어야 하는 이유다.</p>
+  </div>
+
+  <div class="call dead">
+    <p><span class="h">② 상자를 줄이면 재화가 줄어든다</span>
+    상자는 장식이 아니라 <strong>시설 9종 + 트리 2종의 유일한 주 공급원</strong>이다(분대 드롭 ×0.2).
+    구조를 바꾸되 EV는 16~20 밴드로 <strong>보존</strong>하고, 경제 재조정은 별도 판단으로 분리한다.</p>
+  </div>
+
+  <div class="call dead">
+    <p><span class="h">③ 문법은 플레이어에게 유리하게 비대칭이다</span>
+    LOS 차단은 적 AI가 쓸 줄 모른다. 원거리 재배치 없이 기둥만 늘리면 <strong>난이도가 조용히 내려간다.</strong></p>
+  </div>
+
+  <div class="call dead">
+    <p><span class="h">④ 계약을 약속으로 두면 나중에 8배로 갚는다</span>
+    Phase 0을 건너뛰고 8방을 더 지으면, Blender 전환 시점에 고칠 대상이 8배가 된다.
+    지금 치는 값(오클루더 유도 + 임포트 대응 + 계약 강제)이 그때보다 싸다.</p>
+  </div>
+
+  <div class="call dead">
+    <p><span class="h">⑤ 부수 발견 — 스폰 좌표가 navmesh 동기화 전에 질의된다</span>
+    계측기를 붙이자마자 나온 것: <code>NavigationServer navigation map query failed because it was made before first map synchronization</code>
+    (<code>combat_controller.gd:1139</code> <code>map_get_closest_point</code>, prespawn 경로). 첫 프레임 스폰 스냅이 무효화된다.
+    <code>ci_smoke</code>의 <code>ERRPAT</code>에 이 부류가 없어 <strong>15/15는 초록인 채로 계속 난다.</strong>
+    헤드리스 루프가 있다고 다 잡히는 게 아니라는 실례 — <code>map_smoke</code>가 흡수할 대상.</p>
+  </div>
+
+  <div class="call">
+    <p><span class="h">⑥ 이 문서는 초안이다</span>
+    9방 그레이박스 배치 · 문법 5종의 선택 · anchor 카테고리 목록은 전부 <strong>초안</strong>이며,
+    스킬 단위 감독과 마찬가지로 <strong>채택·변경 판단은 기획이 소유</strong>한다. 여기 있는 것은 실측과 그 위에서 성립하는 선택지다.</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════ -->
+<section>
+  <div class="eyebrow">정리</div>
+  <h2>유지 · 폐기</h2>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>대상</th><th class="m">판정</th><th>사유</th></tr></thead>
+    <tbody>
+      <tr><td>추출 통로 압력판 · 치명존 · 레버</td><td class="m"><span class="chip ok">유지</span></td><td>파티를 물리적으로 가르는 유일한 장치 — 새 맵의 GATE 또는 EXT-B 통로로 이식</td></tr>
+      <tr><td>MAP-DEMO-001 전체</td><td class="m"><span class="chip ok">유지</span></td><td>회귀 게이트 · 허브 사다리. 신규 맵은 <strong>병행</strong></td></tr>
+      <tr><td>기름통 · 횃불 (RX-OIL-FIRE · ENT-TORCH)</td><td class="m"><span class="chip ok">유지</span></td><td>앵커로 내려서 임의의 방에 배치 가능하게</td></tr>
+      <tr><td><code>ROOM_SPECS</code> · <code>CONNECTIONS</code> · <code>OBSTACLE_SPECS</code></td><td class="m"><span class="chip dead">폐기</span></td><td><code>DEBT-DM3</code> 해소 — MapSource로 이관</td></tr>
+      <tr><td><code>rooms.json</code>의 <code>connects</code> 두 벌</td><td class="m"><span class="chip dead">폐기</span></td><td>단일 소유자로</td></tr>
+      <tr><td><code>manifest.encounters</code> 레거시 핀 3개</td><td class="m"><span class="chip dead">폐기</span></td><td>실사용 경로는 <code>spawn_table</code></td></tr>
+      <tr><td><code>P-3RD-01</code> · <code>ENC-3RD-001.json</code> 고아 경로</td><td class="m"><span class="chip warn">복구</span></td><td>3세력 exit 수렴으로 실배선 — 코드 상수 <code>THIRD_FACTION_PACK</code> 대체</td></tr>
+      <tr><td>Hard 난이도 20행 + <code>ENC-HARD-*</code> 12종</td><td class="m"><span class="chip warn">복구</span></td><td>route × layer가 난이도 키를 공급하면 즉시 도달 가능</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<footer>
+  <span>맵 고도화 플랜 · Phase 0–5</span>
+  <span>선행: map_demo_001_status.html</span>
+  <span>spec staging@a9e67bd</span>
+  <span>실측 기준 game main@3e6dee6</span>
+  <span>docs/design/map_upgrade_plan.html</span>
+</footer>
+
+</div>
+</body>
+</html>
