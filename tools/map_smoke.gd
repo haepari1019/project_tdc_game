@@ -201,39 +201,81 @@ func _check_navigation(scn: Node, map: Node, edges: Array) -> void:
 ## 같은 집합이어야 한다. 지금은 절차 생성 중에 손으로 기록하므로 우연히 맞을 뿐이고,
 ## Blender 맵에선 아무도 안 채운다 — Phase 0에서 **콜라이더 유도**로 바꾼다. 그때 이 줄이 증인이다.
 func _check_occluders(map: Node) -> void:
-	var declared: int = map.get_occluder_footprints().size()
-	var derived := _count_los_colliders(map)
-	_expect(declared == derived,
-		"[계약] 오클루더 = LOS 높이대 레이어1 콜라이더 (선언 %d / 유도 %d)" % [declared, derived])
+	var declared: Array = map.get_occluder_footprints()
+	var derived: Array = []
+	_collect_los_footprints(map, derived)
+	# 개수만 보면 양쪽이 같은 규칙을 쓰는 순간 무의미해진다 — **도형 하나하나를 대조**해
+	# 투영 수학(회전 박스 AABB·실린더 반경)까지 시험한다.
+	var unmatched := 0
+	var pool: Array = derived.duplicate()
+	for d in declared:
+		var hit := -1
+		for i in pool.size():
+			if _same_footprint(d, pool[i]):
+				hit = i
+				break
+		if hit < 0:
+			unmatched += 1
+		else:
+			pool.remove_at(hit)
+	_expect(declared.size() == derived.size() and unmatched == 0 and pool.is_empty(),
+		"[계약] 오클루더 = LOS 높이대 레이어1 콜라이더 (선언 %d / 유도 %d · 미일치 %d)" % [
+			declared.size(), derived.size(), unmatched + pool.size()])
 
 
 ## 레이어 1 콜라이더 중 **LOS 높이(y=1.0)를 가리는** 것의 수. 바닥(두께 0.3, y≤0)은 자동 제외된다 —
 ## 「시야를 막는가」로 판정하므로 authored 맵의 임의 지오메트리에도 같은 규칙이 선다.
-func _count_los_colliders(n: Node, acc: int = 0) -> int:
+## 맵 구현과 **독립적으로** 다시 계산한다(같은 규칙, 다른 코드) — 그래야 대조에 의미가 있다.
+func _collect_los_footprints(n: Node, out: Array) -> void:
 	for c in n.get_children():
 		if c is StaticBody3D and (int((c as StaticBody3D).collision_layer) & 1) != 0:
 			for cs in c.get_children():
-				if cs is CollisionShape3D and _spans_los((cs as CollisionShape3D)):
-					acc += 1
-		acc = _count_los_colliders(c, acc)
-	return acc
+				if cs is CollisionShape3D:
+					var fp := _footprint_of(cs as CollisionShape3D)
+					if not fp.is_empty():
+						out.append(fp)
+		_collect_los_footprints(c, out)
 
 
-func _spans_los(cs: CollisionShape3D) -> bool:
+func _footprint_of(cs: CollisionShape3D) -> Dictionary:
 	var shape: Shape3D = cs.shape
 	if shape == null:
-		return false
-	var h := 0.0
+		return {}
+	var xf := cs.global_transform
 	if shape is BoxShape3D:
-		h = (shape as BoxShape3D).size.y
-	elif shape is CylinderShape3D:
-		h = (shape as CylinderShape3D).height
-	elif shape is CapsuleShape3D:
-		h = (shape as CapsuleShape3D).height
-	else:
+		var h: Vector3 = (shape as BoxShape3D).size * 0.5
+		var mn := Vector2(INF, INF)
+		var mx := Vector2(-INF, -INF)
+		var ymn := INF
+		var ymx := -INF
+		for sx in [-1.0, 1.0]:
+			for sy in [-1.0, 1.0]:
+				for sz in [-1.0, 1.0]:
+					var w: Vector3 = xf * Vector3(h.x * sx, h.y * sy, h.z * sz)
+					mn.x = minf(mn.x, w.x); mn.y = minf(mn.y, w.z)
+					mx.x = maxf(mx.x, w.x); mx.y = maxf(mx.y, w.z)
+					ymn = minf(ymn, w.y); ymx = maxf(ymx, w.y)
+		if ymn > LOS_EYE_Y or ymx < LOS_EYE_Y:
+			return {}
+		return {"center": (mn + mx) * 0.5, "half": (mx - mn) * 0.5}
+	if shape is CylinderShape3D:
+		var cyl := shape as CylinderShape3D
+		var o: Vector3 = xf.origin
+		if (o.y - cyl.height * 0.5) > LOS_EYE_Y or (o.y + cyl.height * 0.5) < LOS_EYE_Y:
+			return {}
+		return {"center": Vector2(o.x, o.z), "radius": cyl.radius}
+	return {}
+
+
+func _same_footprint(a: Dictionary, b: Dictionary) -> bool:
+	const EPS := 0.01
+	if (a["center"] as Vector2).distance_to(b["center"] as Vector2) > EPS:
 		return false
-	var mid := cs.global_position.y
-	return (mid - h * 0.5) <= LOS_EYE_Y and (mid + h * 0.5) >= LOS_EYE_Y
+	if a.has("radius") != b.has("radius"):
+		return false
+	if a.has("radius"):
+		return absf(float(a["radius"]) - float(b["radius"])) < EPS
+	return ((a["half"] as Vector2) - (b["half"] as Vector2)).length() < EPS
 
 
 ## pool_slot이 박혀 있는데 spawn_table 행이 없으면 「전투가 배정될 수 있는 방」인 척하는 빈 방이 된다.
@@ -351,10 +393,13 @@ func _report_design(sd, map: Node, edges: Array) -> void:
 
 	# 장애물 — grammar가 들어갈 자리. 0인 방은 전술 지형이 통째로 없다.
 	var with_obs := 0
+	var obs_total := 0
 	for ref in _rects:
-		if (map.get_obstacle_positions(String(ref)) as Array).size() > 0:
+		var n: int = (map.get_obstacle_positions(String(ref)) as Array).size()
+		obs_total += n
+		if n > 0:
 			with_obs += 1
-	print("  [설계] 장애물 보유  %d / %d방" % [with_obs, v])
+	print("  [설계] 장애물 보유  %d / %d방 · 총 %d개" % [with_obs, v, obs_total])
 
 	# Phase 0 진척 — 코드에 박힌 맵 좌표. 0이 되면 「맵 고칠 때 코드 수정」이 끝난다.
 	var lits := _count_coord_literals("res://scripts/run/dungeon_run.gd")

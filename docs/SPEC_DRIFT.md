@@ -2065,3 +2065,17 @@
 - **영향 파일:** **신규** `tools/map_smoke.gd` · `tools/map_shot.gd` · `docs/design/map_upgrade_plan.html`(플랜) · `tools/ci_smoke.sh`(15번째 스위트).
 - **게이트:** `ci_smoke.sh` **15/15 PASS**(스위트 신설 — 14 → 15).
 - **상태:** ✅ 완료 · 전파 불요(게임 소유 계약·도구). 후속은 Phase 0 산출물 순서대로 — `map_source.gd` 기반 클래스 → 오클루더 콜라이더 유도 → 임포트 대응 → poly 오클루더 → 계약 y → 앵커 데이터화.
+
+### DRIFT-163 — `MapSource` 기반 클래스 + **오클루더 콜라이더 유도** (규약 → 구조) 🔷 리팩터 · 전파 불요
+- **근거:** 맵 고도화 Phase 0 산출물 1·2번(`docs/design/map_upgrade_plan.html`). 스펙 규칙 변경 없음 — 게임이 소유하는 맵 계약의 내부 구조다.
+- **① 계약이 주석으로만 있었다.** `map_demo_layout.gd` 머리에 「A real (Blender) map only needs to satisfy THIS」라고 적혀 있었지만 **검증되지 않은 약속**이었다(실측한 4곳이 조용히 깨진다 — 플랜 문서 §Phase 0). → **신규 `scripts/world/map_source.gd`**가 계약을 코드로 만든다: 계약 getter 8종 · 오클루더 유도 · navmesh 베이크/carve/재베이크 · 방 트리거 핸들러. `map_demo_layout.gd`는 이걸 `extends` 하고 **공간을 만드는 방법만** 안다(700 → 559줄).
+  - 하위 구현이 해야 하는 것은 셋뿐이다: `_room_points`/`_extraction_point` 채우기 · `geometry_root()` 아래에 **레이어 1** 지오메트리 짓기 · 방 Area3D → `_on_body_entered`.
+- **🔴 ② 오클루더를 손으로 기록하고 있었다.** `_add_wall_segment`/`_build_obstacles`가 생성 도중 `_occluders.append(...)` 했다 — 그 생성기를 안 타는 맵(Blender authored)에서는 **아무도 안 채운다.** 그러면 적 시야 레이캐스트는 벽을 아는데 안개는 모르는 상태가 되고, 이건 `F-011`의 「둘은 같은 출처」 전제를 깨는 가장 나쁜 종류의 결함이다(경고도 안 난다).
+  - → `derive_occluders()`가 **레이어 1 콜라이더 중 LOS 높이(y=1.0)를 가리는 것**에서 XZ footprint를 유도한다. 무엇을 어떻게 짓든 「레이캐스트가 맞는 것 = 안개가 아는 것」이 **구조적으로** 성립한다.
+  - 바닥(두께 0.3 m, y≤0)이 규칙에서 자동으로 빠진다 — 도형 종류가 아니라 **「시야를 막는가」**로 판정하므로 authored 맵의 임의 지오메트리에도 같은 선이 선다. 회전 박스는 8꼭짓점 XZ 투영 AABB(축정렬이면 정확히 동일값).
+- **③ `get_obstacle_positions`도 같이 유도로 바꿨다.** 예전엔 `OBSTACLE_SPECS` 목록을 읽었다(손 관리). 이제 **방 경계에서 안쪽으로 떨어진 오클루더**(`INTERIOR_MARGIN_M 1.0`)를 장애물로 본다 — 벽/장애물 구분을 도형이 아니라 **위치**로 하므로 authored 맵에도 그대로 선다. 상자를 기둥 옆에 붙이는 앵커(`CHEST_OBSTACLE_FRAC 0.55`)가 이걸 쓴다.
+- **④ 안개가 노드 이름을 하드코딩한 문제의 사전 준비:** `geometry_root()`를 그룹 `map_geometry`에 넣었다. `vision_fog`의 `get_node("Rooms")` 제거는 Phase 0 산출물 3번(다음).
+- **등가성 증인 (이 리팩터의 핵심):** `map_smoke`가 **선언 97 / 유도 97 · 미일치 0**을 도형 단위로 대조한다(개수만 보면 양쪽이 같은 규칙을 쓰는 순간 무의미해지므로, 스모크는 맵 구현과 **독립적인 코드**로 다시 계산해 center/half/radius를 EPS 0.01로 매칭한다). 장애물도 **2/16방 · 총 7개**로 `OBSTACLE_SPECS`(ADV-01 5 + OBJ-01 2)와 정확히 일치 — 손기록 → 유도 전환으로 **안개가 보는 도형이 하나도 바뀌지 않았다.**
+- **영향 파일:** **신규** `scripts/world/map_source.gd` · `scripts/world/map_demo_layout.gd`(−141줄) · `tools/map_smoke.gd`(오클루더 검사를 개수 → 기하 대조로 격상, 장애물 총개수 리포트 추가).
+- **게이트:** `ci_smoke.sh` **15/15 PASS** + `map_shot` 평면 스냅샷 시각 회귀 없음(벽·개구부·장애물 동일; 차이는 런 시드가 다른 절차 상자·유닛뿐).
+- **상태:** ✅ 완료 · 전파 불요. 다음: 안개/X-ray 임포트 대응(`material_override` → `surface_override_material` 폴백, `$Rooms` → 그룹) → poly 오클루더 → 계약 y → 앵커 데이터화.

@@ -1,8 +1,8 @@
-extends Node3D
-## MAP-DEMO-001 placeholder — 6 rooms, shared-wall connections with arch openings.
-## Layout matches 단면도.png (52m × 76m footprint). ref: WORK_ORDER §MAP scope
-
-signal room_entered(room_ref: String)
+extends "res://scripts/world/map_source.gd"
+## **MAP-DEMO-001 — 절차 그레이박스 MapSource 구현.** 방을 데이터(ROOM_SPECS/CONNECTIONS)에서
+## 박스로 생성한다. 계약 자체는 base `map_source.gd`가 소유하고, 여기는 **공간을 만드는 방법**만
+## 안다 — 같은 계약의 authored(Blender) 구현이 나란히 설 수 있는 이유다.
+## ref: docs/design/map_upgrade_plan.html §Phase 0 · 게이트 tools/map_smoke.gd
 
 ## Room centers placed so adjacent rooms share wall edges directly.
 ## Z+ = north (forward in 단면도). ×1.5 scale from 단면도 for better character-to-map ratio.
@@ -189,119 +189,30 @@ const OBSTACLE_SPECS: Dictionary = {
 @onready var _markers_root: Node3D = $Markers
 
 var _room_areas: Dictionary = {}
-## LOS occluder footprints (walls + cover obstacles; floors excluded) in world XZ —
-## recorded as the layer-1 colliders are built, so they're the SAME geometry that
-## enemy_visibility raycasts and the F-011 fog never drifts from it. Each entry:
-## {center:Vector2, half:Vector2} (box) or {center:Vector2, radius:float} (cylinder).
-var _occluders: Array = []
 ## Per-room openings: room_ref -> Array of {side, pos_along, width}
 var _room_openings: Dictionary = {}
-var _nav_region: NavigationRegion3D
-## Data-driven interface table (decouples the map *contract* from how geometry is
-## made). room_ref -> {spawn: Vector3, size: Vector3}; + the extraction point. The
-## getters below read THIS, not ROOM_SPECS — so a real (Blender) map only has to
-## populate it (override _resolve_room_points / author markers) to reuse all callers.
-var _room_points: Dictionary = {}
-var _extraction_point: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
-	add_to_group("navmap")  # fatal zones call rebake_navigation on this group when they carve
+	add_to_group(NAVMAP_GROUP)                 # 치명존 carve → rebake_navigation
+	_rooms_root.add_to_group(GEOMETRY_GROUP)   # 안개가 노드 **이름**이 아니라 그룹으로 찾는다
 	_resolve_room_points()
 	_compute_openings()
 	_build_map()
-	_bake_navigation()
+	derive_occluders()                         # 손기록이 아니라 **콜라이더에서 유도**(F-011 같은 출처)
+	bake_navigation()
 
 
 # ============================================================================
-# Map contract (interface) — read by combat/run/party. A real (Blender) map only
-# needs to satisfy THIS + collision layer 1 (walls, for LOS) + a baked
-# NavigationRegion3D + room Area3D triggers emitting `room_entered`. ref: ARCHITECTURE.
-# Geometry source is decoupled: getters read `_room_points` / rooms.json, not the
-# procedural ROOM_SPECS — so swapping the placeholder geometry touches no callers.
+# MapSource 구현부 — 계약 getter는 전부 base(map_source.gd)에 있다.
+# 여기가 채우는 것은 셋뿐: `_room_points`/`_extraction_point` · 레이어 1 지오메트리 ·
+# 방 트리거. 그래서 Blender authored 맵으로 갈아끼울 때 **호출부는 하나도 안 고친다**.
 # ============================================================================
 
-## lighting_profile of a room (lit/standard/dim/unlit). SSOT = `rooms.json`
-## (`Slice01Data`); ROOM_SPECS.profile is a build-time fallback only. F-011 §3.1.
-func get_room_profile(room_ref: String) -> String:
-	return _room_profile(room_ref)
+## 지오메트리 루트 — navmesh 파싱과 오클루더 유도가 여기서 시작한다.
+func geometry_root() -> Node3D:
+	return _rooms_root
 
-
-func get_spawn_position(room_ref: String = "RM-ENTRY-01") -> Vector3:
-	# Floor top is y=0; units use a feet-on-origin convention (tiny y epsilon baked in).
-	var p: Dictionary = _room_points.get(room_ref, {})
-	return p.get("spawn", Vector3(0, 0.02, 0))
-
-
-## 방 footprint 크기(XZ; y=0). 절차적 상자 산포 등 방 안쪽 배치에 사용. ref: _room_points 인터페이스.
-func get_room_size(room_ref: String) -> Vector3:
-	var p: Dictionary = _room_points.get(room_ref, {})
-	return p.get("size", Vector3(8, 0, 8))
-
-
-## 방 내 장애물(기둥/상자/배리어) 월드 위치들. 절차적 상자를 장애물/기둥에 붙여 배치하는 데 사용.
-func get_obstacle_positions(room_ref: String) -> Array:
-	var out: Array = []
-	var center: Vector3 = get_spawn_position(room_ref)
-	for obs in OBSTACLE_SPECS.get(room_ref, []):
-		var p: Vector2 = obs.get("pos", Vector2.ZERO)
-		out.append(Vector3(center.x + p.x, 0.0, center.z + p.y))
-	return out
-
-
-## A spawn point pushed toward the room's FAR interior, away from `away_from` (the
-## party's approach). Keeps enemies out of the start sightline/combat range until
-## the party advances in. Clamped inside the room with margin for spawn scatter.
-func get_deep_spawn_position(room_ref: String, away_from: Vector3) -> Vector3:
-	const MARGIN := 11.0  # reserve room for the spawn scatter ring + unit/wall size
-	var p: Dictionary = _room_points.get(room_ref, {})
-	var center: Vector3 = p.get("spawn", Vector3.ZERO)
-	var size: Vector3 = p.get("size", Vector3(8, 0, 8))
-	var dir := center - away_from
-	dir.y = 0.0
-	if dir.length() < 0.01:
-		return center
-	dir = dir.normalized()
-	var avail_x := maxf(0.0, size.x * 0.5 - MARGIN)
-	var avail_z := maxf(0.0, size.z * 0.5 - MARGIN)
-	var tx: float = avail_x / absf(dir.x) if absf(dir.x) > 0.001 else INF
-	var tz: float = avail_z / absf(dir.z) if absf(dir.z) > 0.001 else INF
-	var t := minf(tx, tz)
-	return center + dir * t
-
-
-## POINT-DEMO-01 extraction point (ground).
-func get_extraction_position() -> Vector3:
-	return _extraction_point
-
-
-## LOS occluder footprints (walls + cover obstacles; floors excluded) in world XZ —
-## the SAME geometry as the layer-1 colliders enemy_visibility raycasts, so the F-011
-## fog and enemy occlusion never disagree. {center:Vector2, half:Vector2} (box) or
-## {center:Vector2, radius:float} (cylinder). ref: F-011 consistency guardrail.
-func get_occluder_footprints() -> Array:
-	return _occluders
-
-
-## Each room's footprint for the minimap: [{center: Vector3, size: Vector3}] (XZ used).
-## Reads the decoupled _room_points interface, so a Blender map reuses it unchanged.
-func get_room_rects() -> Array:
-	var out: Array = []
-	for ref in _room_points:
-		var p: Dictionary = _room_points[ref]
-		out.append({"center": p["spawn"], "size": p["size"]})
-	return out
-
-
-# --- Interface backing (placeholder = ROOM_SPECS; a Blender map overrides) -------
-
-## Room lighting profile — `rooms.json` (SSOT) first, ROOM_SPECS fallback. De-dups
-## the previous double-ownership (ARCHITECTURE DEBT-DM3).
-func _room_profile(room_ref: String) -> String:
-	var row: Dictionary = Slice01Data.get_room_row(room_ref)
-	if not row.is_empty() and row.has("lighting_profile"):
-		return String(row.get("lighting_profile", "standard"))
-	return String((ROOM_SPECS.get(room_ref, {}) as Dictionary).get("profile", "standard"))
 
 
 ## Populate the runtime room-points table + extraction point. Placeholder derives
@@ -376,7 +287,7 @@ func _build_room(room_ref: String) -> void:
 	var spec: Dictionary = ROOM_SPECS[room_ref]
 	var center: Vector3 = spec["center"]
 	var size: Vector3 = spec["size"]
-	var profile: String = _room_profile(room_ref)  # SSOT = rooms.json
+	var profile: String = get_room_profile(room_ref)  # SSOT = rooms.json
 
 	var room_node := Node3D.new()
 	room_node.name = room_ref
@@ -594,8 +505,6 @@ func _add_wall_segment(parent: Node3D, pos: Vector3, size: Vector3, color: Color
 	body.add_child(mesh)
 
 	parent.add_child(body)
-	# Record the footprint for the F-011 fog (same source as this layer-1 collider).
-	_occluders.append({"center": Vector2(pos.x, pos.z), "half": Vector2(size.x * 0.5, size.z * 0.5)})
 
 
 func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void:
@@ -620,7 +529,6 @@ func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void
 			cshape.radius = r
 			cshape.height = height
 			shape = cshape
-			_occluders.append({"center": Vector2(ground.x, ground.z), "radius": r})
 		else:
 			var size: Vector3 = t["size"]
 			height = size.y
@@ -630,7 +538,6 @@ func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void
 			var bshape := BoxShape3D.new()
 			bshape.size = size
 			shape = bshape
-			_occluders.append({"center": Vector2(ground.x, ground.z), "half": Vector2(size.x * 0.5, size.z * 0.5)})
 		_add_obstacle_body(parent, ground + Vector3(0, height * 0.5, 0), mesh, shape, t["color"])
 
 
@@ -650,51 +557,3 @@ func _add_obstacle_body(parent: Node3D, pos: Vector3, mesh: Mesh, shape: Shape3D
 	mi.material_override = mat
 	body.add_child(mi)
 	parent.add_child(body)
-
-
-func _bake_navigation() -> void:
-	if _nav_region == null:
-		_nav_region = NavigationRegion3D.new()
-		_nav_region.name = "NavRegion"
-		add_child(_nav_region)
-	var navmesh := NavigationMesh.new()
-	navmesh.agent_radius = 0.5      # 2× cell_size — matches the baker's ceil (no precision warning)
-	navmesh.agent_height = 1.25     # 5× cell_height — matches the baker's ceil
-	navmesh.cell_size = 0.25
-	navmesh.cell_height = 0.25      # match the navigation map cell_height (no rasterization mismatch)
-	navmesh.agent_max_climb = 0.25  # 1× cell_height — matches the baker's floor
-	navmesh.agent_max_slope = 45.0
-	navmesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
-	navmesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
-	# Parse geometry from the Rooms subtree directly via NavigationServer3D
-	var source_geo := NavigationMeshSourceGeometryData3D.new()
-	NavigationServer3D.parse_source_geometry_data(navmesh, source_geo, _rooms_root)
-	# Carve active fatal zones so navigation routes AROUND them (impassable, like walls).
-	for z in get_tree().get_nodes_in_group("fatal_zone"):
-		if z.is_active():
-			_carve_zone(source_geo, z.global_position, float(z.radius))
-	NavigationServer3D.bake_from_source_geometry_data(navmesh, source_geo)
-	_nav_region.navigation_mesh = navmesh
-	print("[MAP] NavMesh baked: %d polygons" % navmesh.get_polygon_count())
-
-
-## Re-bake the navmesh (e.g. when a fatal zone spawns/clears) so pathing reflects it.
-func rebake_navigation() -> void:
-	_bake_navigation()
-
-
-## Carve a circular impassable column into the nav source geometry (fatal zone = wall),
-## so map_get_path routes around it (or finds no path when it severs a corridor).
-func _carve_zone(geo: NavigationMeshSourceGeometryData3D, center: Vector3, radius: float) -> void:
-	var verts := PackedVector3Array()
-	var segs := 14
-	for i in segs:
-		var a := float(i) * TAU / float(segs)
-		verts.append(Vector3(center.x + cos(a) * radius, 0.0, center.z + sin(a) * radius))
-	geo.add_projected_obstruction(verts, -1.0, 4.0, true)  # elevation, height, carve=true
-
-
-func _on_body_entered(body: Node3D, room_ref: String) -> void:
-	if not body.is_in_group("player"):
-		return
-	room_entered.emit(room_ref)
