@@ -492,24 +492,36 @@ footer{
   <p>반대로 판정 기준이 「보기에 좋다」인 건 전부 사람이다. <strong>스냅샷의 해상 한계가 곧 에이전트의 작업 단위</strong>이기도 하다 —
   방 단위 배치·개구부·동선까지가 보이고, 기둥 30 cm는 안 보인다.</p>
 
-  <h3>Phase 0 산출물</h3>
-  <ul>
-    <li><code>map_source.gd</code> 기반 클래스 — 계약 getter 8종 + 씬 요구 3종을 <strong>코드로</strong> 명시</li>
-    <li><strong>오클루더 콜라이더 유도</strong> 전환 (규약 → 구조)</li>
-    <li>안개/X-ray 임포트 대응 — <code>material_override</code> → <code>surface_override_material</code> 폴백, <code>$Rooms</code> 이름 → 그룹 <code>map_geometry</code></li>
-    <li><code>{"poly": [...]}</code> 오클루더 종류 추가</li>
-    <li><strong>계약 getter에 y 통과</strong> — 지금 전부 y ≈ 0 전제다. 여기서 넣어 두면 Phase 5(단차)가 거의 공짜가 된다</li>
-    <li><code>EditorScenePostImport</code> 규약 스크립트 + 임포트 시점 검사</li>
-    <li><code>dungeon_run.gd</code> 좌표 리터럴(열쇠상자 · 아군상자 · 문 · 압력판 · 레버 · 기름통 · 횃불) → 앵커</li>
-    <li><code>OBSTACLE_SPECS</code> · <code>LOOT_CHEST_ROOMS</code> 소멸 · <code>connects</code> 두 벌 해소 (<code>DEBT-DM3</code>)</li>
-    <li><strong>그레이박스 킷 4종</strong> — Floor / Wall+Opening / Obstacle(pillar·crates·barrier, 이미 정의됨) / Anchor 4종.
-      <strong><code>Corridor</code>와 <code>StairKit</code>은 넣지 않는다</strong> — 복도는 <em>얇은 방</em>으로 유지해야 인접 모델이 하나로 남고(<code>RM-ROUTE-01</code>이 이미 6×18 m 얇은 방이다),
-      계단은 계약의 y 가정과 <code>agent_max_climb = 0.25</code>를 건드리므로 Phase 5다</li>
-    <li><code>@tool</code> 프리뷰 빌더 — <code>owner</code> 미설정(비직렬화)</li>
-    <li>✅ <strong><code>tools/map_smoke.gd</code></strong> — 계약 12항목 + 설계 리포트 7종 (<code>ci_smoke</code> 15번째 스위트)</li>
-    <li>✅ <strong><code>tools/map_shot.gd</code></strong> — 평면 스냅샷 PNG(직교 SubViewport). <strong>시각 검증 채널</strong></li>
-    <li>아티스트가 읽는 문서 <code>docs/design/map_contract.md</code></li>
-  </ul>
+  <h3>Phase 0 산출물 <span class="chip ok">전부 완료 · 2026-08-24</span></h3>
+  <div class="tw">
+  <table>
+    <thead><tr><th class="m">#</th><th>산출물</th><th>커밋</th></tr></thead>
+    <tbody>
+      <tr><td class="m">1</td><td><code>map_source.gd</code> 기반 클래스 — 계약 getter 8종 + 씬 요구 3종을 <strong>코드로</strong></td><td class="m">DRIFT-163</td></tr>
+      <tr><td class="m">2</td><td><strong>오클루더 콜라이더 유도</strong>(규약 → 구조) · <code>get_obstacle_positions</code>도 유도</td><td class="m">DRIFT-163</td></tr>
+      <tr><td class="m">3</td><td>안개/X-ray 임포트 대응 — <code>surface_override_material</code> 폴백 · 그룹 <code>map_geometry</code> · <strong>루트 노드 자신도 검사</strong></td><td class="m">DRIFT-164</td></tr>
+      <tr><td class="m">4</td><td><code>{"poly": …}</code> 오클루더(사선·곡면 프록시) · Concave는 의도적 제외</td><td class="m">DRIFT-164</td></tr>
+      <tr><td class="m">5</td><td><strong>계약이 y를 나른다</strong> — Phase 5(단차) 선불</td><td class="m">DRIFT-164</td></tr>
+      <tr><td class="m">6</td><td><code>map_convention.gd</code> + <code>tools/import_post.gd</code> — 이름 규약 · Empty → Area3D/Marker3D · 임포트 시점 검증</td><td class="m">DRIFT-166</td></tr>
+      <tr><td class="m">7</td><td><code>dungeon_run.gd</code> 좌표 리터럴 <strong>10 → 0</strong>(앵커)</td><td class="m">DRIFT-165</td></tr>
+      <tr><td class="m">8</td><td><code>OBSTACLE_SPECS</code> · <code>LOOT_CHEST_ROOMS</code> · <code>CONNECTIONS</code> 소멸 (<code>DEBT-DM3</code> 해소)</td><td class="m">DRIFT-165</td></tr>
+      <tr><td class="m">9</td><td>킷 — Floor / Wall+Opening / Obstacle 3종 / Anchor. <strong><code>Corridor</code>·<code>StairKit</code>은 넣지 않았다</strong>(복도 = 얇은 방, 계단은 Phase 5)</td><td class="m">—</td></tr>
+      <tr><td class="m">10</td><td><code>@tool</code> 프리뷰(옵트인) — <code>owner</code> 미설정 = 비직렬화. <code>PackedScene.pack()</code>으로 못 박음</td><td class="m">DRIFT-166</td></tr>
+      <tr><td class="m">11</td><td><strong><code>authored_map_source.gd</code> — 계약의 두 번째 구현</strong>(계획에 없던 추가). 계약이 진짜인지는 구현이 둘일 때만 증명된다</td><td class="m">DRIFT-166</td></tr>
+      <tr><td class="m">12</td><td><code>tools/map_smoke.gd</code> — 계약 하드 + authored 파리티 + 설계 리포트 (<code>ci_smoke</code> 15번째)</td><td class="m">DRIFT-162</td></tr>
+      <tr><td class="m">13</td><td><code>tools/map_shot.gd</code> — 평면 스냅샷 PNG. <strong>시각 검증 채널</strong></td><td class="m">DRIFT-162</td></tr>
+      <tr><td class="m">14</td><td><a href="map_contract.md">docs/design/map_contract.md</a> — 아티스트가 읽는 저작 규약</td><td class="m">DRIFT-166</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call">
+    <p><span class="h">게이트가 세워지자마자 잡은 것 3건</span>
+    ① <strong>안개가 임포트 계층의 루트 메시를 건너뛴다</strong>(자식만 돌았다) — Blender 맵을 실제로 꽂는 날 발견됐을 결함.
+    ② <strong>role 구분자 <code>@</code>가 Godot 노드 이름에서 잘린다</strong> — 문자열 파서는 통과하고 실제 씬에서만 깨진다. <code>__</code>로 교체 + 정화 불변식 추가.
+    ③ <strong>런타임 에러로 섹션이 건너뛰어져도 <code>PASSED</code>가 찍히던 게이트 구멍</strong> — 섹션 완주 플래그로 차단.
+    「고스트 코드로 두지 말고 게이트가 돌리게 하자」의 실증이다.</p>
+  </div>
 </section>
 
 <!-- ══════════════════════════════════════════════ -->

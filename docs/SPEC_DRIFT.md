@@ -2119,4 +2119,4 @@
 - **검증 범위(정직하게):** 합성 authored 씬까지다 — 계약 getter(방 크기/기준점) · 앵커 4종 · 오클루더 유도(바닥 자동 제외) · navmesh 베이크(2 polys) · 규약 검증기(정상/위반) · 임포트 변환(Empty→노드, 위치·크기 보존, 위반 검출) · 직렬화 규칙. **실제 `.glb`는 아직 없다.**
 - **영향 파일:** **신규** `scripts/world/map_convention.gd` · `scripts/world/authored_map_source.gd` · `tools/import_post.gd` · `scripts/world/map_source.gd`(에디터 폴백) · `scripts/world/map_demo_layout.gd`(`@tool` 옵트인) · `tools/map_smoke.gd`(+21항목).
 - **게이트:** `ci_smoke.sh` **15/15 PASS** · `map_smoke` **39 ok** · NavMesh 284 polys·상자 EV 18.4 등 절차 경로 전부 불변 · `map_shot` 시각 회귀 없음.
-- **상태:** ✅ 완료 · 전파 불요. **Phase 0 코드 작업 종료** — 남은 것은 `docs/design/map_contract.md`(아티스트용 저작 규약 본문) 하나. 그다음이 Phase 1(루프 있는 새 그레이박스).
+- **상태:** ✅ 완료 · 전파 불요. **Phase 0 종료**(산출물 14/14) — 저작 규약 본문 `docs/design/map_contract.md` 작성 완료, 플랜 문서에 완료 표 반영. 다음은 **Phase 1(루프 있는 새 그레이박스)**이며, 여기서부터 스펙 전파가 붙는다(`spatial_grammar`·`encounter_anchor.category`·`loot_anchor.tier`·`route_class` enum + 난이도 축 = `OPS_30`).
