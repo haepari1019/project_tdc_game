@@ -16,6 +16,7 @@ extends SceneTree
 ## Run: GODOT --headless --path . --script res://tools/map_smoke.gd
 
 const MeshMaterials := preload("res://scripts/core/mesh_materials.gd")
+const MapConvention := preload("res://scripts/world/map_convention.gd")
 
 const LOS_EYE_Y := 1.0        # 적 시야 레이가 지나는 높이대 — 이 높이를 가리는 콜라이더만 오클루더다
 const ADJ_EPS := 0.06         # 공유벽 판정 허용오차(WALL_DEDUP_EPS 0.04보다 크게)
@@ -24,6 +25,7 @@ const CHEST_AREA_PER := 520.0 # dungeon_run.CHEST_AREA_PER 미러(설계 리포�
 const CHEST_MAX_PER_ROOM := 3
 
 var _ok := true
+var _sections: Dictionary = {}   # 섹션 완주 플래그 — 중간에 죽은 스모크를 초록으로 넘기지 않는다
 var _sd: Node = null          # /root/Slice01Data — --script 실행에선 전역 식별자가 안 잡힌다
 var _rects: Dictionary = {}   # room_ref -> {c: Vector2, s: Vector2}
 
@@ -60,6 +62,7 @@ func _init() -> void:
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
+	await _check_authored_impl()
 
 	_finish(scn)
 
@@ -397,6 +400,209 @@ func _check_extraction(sd, map: Node) -> void:
 	_expect(inside, "[계약] 추출 지점이 %s 안에 있음" % ext_ref)
 
 
+## **두 번째 MapSource 구현을 실제로 돌린다.** 플랜의 「절차 맵과 authored 씬 둘 다 같은 불변식」이
+## 이 절이다 — 계약이 진짜 계약인지는 **구현이 둘일 때만** 증명된다.
+## 실제 `.glb`가 없으므로 규약대로 지은 **합성 씬**을 만들어 `AuthoredMapSource`에 물린다.
+## 여기서 통과하지 못하는 것은 실제 임포트에서도 통과하지 못한다(반대는 성립하지 않는다 —
+## 임포트 고유의 차이는 `tools/import_post.gd` 머리의 미검증 목록 참조).
+func _check_authored_impl() -> void:
+	# ① 이름 규약 파서 — 임포트 후처리와 런타임이 **같은 파서**를 쓰므로 여기가 규약의 정본이다.
+	var cases := [
+		["MK_spawn", "spawn", "", ""],
+		["MK_enc_2", "encounters", "", ""],
+		["MK_int_CHEST-DEMO-01", "interactions", "CHEST-DEMO-01", ""],
+		["MK_int__ally_cache", "interactions", "", "ally_cache"],
+		["MK_haz_trap_split_lever__plate", "hazards", "trap_split_lever", "plate"],
+		["MK_obs_pillar", "obstacles", "pillar", ""],
+		["MK_prop_ENT-TORCH-001.001", "props", "ENT-TORCH-001", ""],   # Blender 사본 접미사
+	]
+	# 🔴 문자열 파서만 시험하면 **실제 노드에서만 깨지는** 결함을 놓친다 — Godot은 노드 이름에서
+	#    `. : @ / " %` 를 조용히 지운다. 규약 구분자가 그 정화를 견디는지 여기서 못 박는다.
+	var probe := Marker3D.new()
+	probe.name = "MK_haz_trap_split_lever" + MapConvention.ROLE_SEP + "plate"
+	_expect(String(probe.name) == "MK_haz_trap_split_lever" + MapConvention.ROLE_SEP + "plate",
+		"[계약/authored] role 구분자가 Godot 노드 이름 정화를 견딘다 (`%s`)" % MapConvention.ROLE_SEP)
+	probe.free()
+
+	var bad: Array = []
+	for c in cases:
+		var m: Dictionary = MapConvention.parse_marker(String(c[0]))
+		if String(m.get("kind", "")) != String(c[1]) or String(m.get("ref", "")) != String(c[2]) 				or String(m.get("role", "")) != String(c[3]):
+			bad.append(String(c[0]))
+	_expect(bad.is_empty() and MapConvention.parse_marker("Cube.003").is_empty(),
+		"[계약/authored] 마커 이름 규약 파서 (%s)" % ("전부" if bad.is_empty() else "실패: " + ", ".join(bad)))
+
+	# ② 규약대로 지은 합성 씬 → AuthoredMapSource. 좌표의 소유자가 **씬**이라는 점이 절차와 정반대다.
+	const REF := "RM-ADV-05"                       # 실재하는 room_ref(오타 방어가 걸린다)
+	var origin := Vector3(500.0, 0.0, 0.0)         # 실제 맵에서 멀리
+	var src := Node3D.new()
+	src.set_script(load("res://scripts/world/authored_map_source.gd"))
+	var scene_root := Node3D.new()
+	scene_root.name = "AuthoredRoot"
+	src.add_child(scene_root)
+	var room := Node3D.new()
+	room.name = REF
+	room.position = origin
+	scene_root.add_child(room)
+
+	var trig := Area3D.new()                        # TRIG_room — 방 중심 + 크기
+	trig.name = MapConvention.TRIGGER_NAME
+	var tshape := CollisionShape3D.new()
+	var tbox := BoxShape3D.new()
+	tbox.size = Vector3(27.0, 4.0, 22.5)
+	tshape.shape = tbox
+	trig.add_child(tshape)
+	room.add_child(trig)
+
+	for spec in [["MK_spawn", Vector3(0, 0, 0)], ["MK_int__ally_cache", Vector3(2, 0, 2)],
+			["MK_haz_trap_split_lever__plate", Vector3(0, 0, 5)], ["MK_obs_pillar", Vector3(-6, 0, 3)],
+			["MK_loot_1", Vector3(4, 0, -4)]]:
+		var mk := Marker3D.new()
+		mk.name = String(spec[0])
+		mk.position = spec[1]
+		room.add_child(mk)
+
+	var floor_mi := MeshInstance3D.new()            # GEO_floor — navmesh가 설 바닥
+	floor_mi.name = "GEO_floor-col"
+	var fm := BoxMesh.new()
+	fm.size = Vector3(27.0, 0.3, 22.5)
+	floor_mi.mesh = fm
+	floor_mi.position = Vector3(0, -0.15, 0)
+	var fbody := StaticBody3D.new()
+	fbody.collision_layer = 1
+	var fcs := CollisionShape3D.new()
+	var fbs := BoxShape3D.new()
+	fbs.size = fm.size
+	fcs.shape = fbs
+	fbody.add_child(fcs)
+	floor_mi.add_child(fbody)
+	room.add_child(floor_mi)
+
+	var wall := MeshInstance3D.new()                # GEO_* — 임포트 계층(메시가 부모)
+	wall.name = "GEO_wall-col"
+	var wm := BoxMesh.new()
+	wm.size = Vector3(27.0, 3.5, 0.4)
+	wall.mesh = wm
+	wall.position = Vector3(0, 1.75, 11.25)
+	var wbody := StaticBody3D.new()
+	wbody.collision_layer = 1
+	var wcs := CollisionShape3D.new()
+	var wbs := BoxShape3D.new()
+	wbs.size = wm.size
+	wcs.shape = wbs
+	wbody.add_child(wcs)
+	wall.add_child(wbody)
+	room.add_child(wall)
+
+	root.add_child(src)                             # 여기서 _ready → build_from_scene + 유도 + 베이크
+	for _i in 6:
+		await process_frame
+
+	# ③ 계약 getter가 **같은 방식으로** 답하는가.
+	_expect(src.get_room_rects().size() == 1, "[계약/authored] 방 해석 (%d)" % src.get_room_rects().size())
+	var sz: Vector3 = src.get_room_size(REF)
+	_expect(absf(sz.x - 27.0) < 0.01 and absf(sz.z - 22.5) < 0.01,
+		"[계약/authored] TRIG_room → 방 크기 (%.1f × %.1f)" % [sz.x, sz.z])
+	_expect(src.get_spawn_position(REF).distance_to(origin) < 0.01, "[계약/authored] MK_spawn → 방 기준점")
+
+	var ints: Array = src.get_anchors(REF, "interactions")
+	var hazs: Array = src.get_anchors(REF, "hazards")
+	var obss: Array = src.get_anchors(REF, "obstacles")
+	var loots: Array = src.get_anchors(REF, "loot")
+	_expect(ints.size() == 1 and String((ints[0] as Dictionary).get("role", "")) == "ally_cache",
+		"[계약/authored] MK_int__role → interactions 앵커")
+	_expect(hazs.size() == 1 and String((hazs[0] as Dictionary).get("ref", "")) == "trap_split_lever"
+		and String((hazs[0] as Dictionary).get("role", "")) == "plate",
+		"[계약/authored] MK_haz_ref__role → hazards 앵커")
+	_expect(obss.size() == 1 and String((obss[0] as Dictionary).get("type", "")) == "pillar",
+		"[계약/authored] MK_obs_type → obstacles 앵커(킷 타입)")
+	_expect(loots.size() == 1 and (loots[0] as Dictionary)["pos"].distance_to(origin + Vector3(4, 0, -4)) < 0.01,
+		"[계약/authored] 앵커 좌표가 **씬**에서 온다(월드 변환)")
+
+	# ④ 오클루더 유도 · navmesh — 절차와 같은 코드 경로다.
+	_expect(src.get_occluder_footprints().size() == 1,
+		"[계약/authored] 벽 1 + 바닥 1 → 오클루더 1개(바닥은 LOS 규칙에서 자동 제외) (%d)" % src.get_occluder_footprints().size())
+	var nav: NavigationRegion3D = null
+	for c in src.get_children():
+		if c is NavigationRegion3D:
+			nav = c as NavigationRegion3D
+	_expect(nav != null and nav.navigation_mesh != null and nav.navigation_mesh.get_polygon_count() > 0,
+		"[계약/authored] navmesh 베이크 (%d polys)" % (nav.navigation_mesh.get_polygon_count() if nav != null and nav.navigation_mesh != null else 0))
+
+	# ⑤ 규약 검증기 — 임포트 시점에 「트리거 없는 방」을 잡는다(런타임까지 끌고 가지 않는다).
+	_expect(MapConvention.validate_room(room).is_empty(), "[계약/authored] 규약 검증 통과(정상 방)")
+	trig.name = "TRIG_room_typo"
+	var probs: Array = MapConvention.validate_room(room)
+	_expect(probs.size() == 1 and String(probs[0]).contains("TRIG_room"),
+		"[계약/authored] 규약 위반 검출(트리거 오타)")
+
+	src.free()
+
+	# ⑥ **임포트 후처리의 변환 로직** — glTF에는 Area3D·Marker3D가 없다. Blender Empty는 Node3D로
+	#    들어오고, 규약대로 런타임 노드로 바꾸는 것이 `import_post.convert_tree`다. 실제 `.glb`는
+	#    아직 없지만 **변환 로직 자체는 여기서 매 커밋 돌린다**(고스트 코드로 두지 않는다).
+	var ImportPost = load("res://tools/import_post.gd")
+	var imported := Node3D.new()
+	imported.name = "ImportedMap"
+	var iroom := Node3D.new()
+	iroom.name = "RM-ADV-05"
+	imported.add_child(iroom)
+	var raw_trig := Node3D.new()            # Blender Empty — 아직 Area3D가 아니다
+	raw_trig.name = MapConvention.TRIGGER_NAME
+	raw_trig.scale = Vector3(13.5, 1.0, 11.25)
+	iroom.add_child(raw_trig)
+	var raw_mk := Node3D.new()
+	raw_mk.name = "MK_spawn"
+	raw_mk.position = Vector3(1, 0, 2)
+	iroom.add_child(raw_mk)
+	var raw_int := Node3D.new()
+	raw_int.name = "MK_int_CHEST-DEMO-01"
+	iroom.add_child(raw_int)
+	root.add_child(imported)
+	var probs2: Array = ImportPost.convert_tree(imported)
+	_expect(probs2.is_empty(), "[계약/authored] 임포트 변환 — 규약 통과 (%s)" % (
+		"문제 없음" if probs2.is_empty() else ", ".join(probs2)))
+	var conv_trig: Node = iroom.get_node_or_null(MapConvention.TRIGGER_NAME)
+	var conv_mk: Node = iroom.get_node_or_null("MK_spawn")
+	_expect(conv_trig is Area3D and conv_mk is Marker3D,
+		"[계약/authored] Empty → Area3D / Marker3D 변환")
+	_expect(conv_mk != null and (conv_mk as Node3D).position.is_equal_approx(Vector3(1, 0, 2)),
+		"[계약/authored] 변환이 위치를 보존")
+	var tsz := Vector3.ZERO
+	if conv_trig is Area3D:
+		for cc in conv_trig.get_children():
+			if cc is CollisionShape3D and (cc as CollisionShape3D).shape is BoxShape3D:
+				tsz = ((cc as CollisionShape3D).shape as BoxShape3D).size
+	_expect(absf(tsz.x - 27.0) < 0.01 and absf(tsz.z - 22.5) < 0.01,
+		"[계약/authored] Empty 스케일 → 트리거 크기 (%.1f × %.1f)" % [tsz.x, tsz.z])
+	# 규약 위반은 임포트 시점에 선다(런타임까지 안 끌고 간다).
+	iroom.get_node("MK_spawn").name = "MK_spwan"      # 오타
+	var probs3: Array = ImportPost.convert_tree(imported)
+	_expect(probs3.size() >= 1, "[계약/authored] 임포트 변환 — 규약 위반 검출 (%d건)" % probs3.size())
+	imported.free()
+
+	# ⑦ **`@tool` 프리뷰의 전제** — 생성 노드에 `owner`를 설정하지 않으면 `.tscn`에 저장되지 않는다.
+	#    이게 「에디터 = 뷰어」가 성립하는 이유이고, 사람이 프리뷰를 손으로 옮겨도 데이터와 두 벌이
+	#    되지 않는 근거다. Godot 동작에 기대는 규칙이므로 **여기서 못 박아 둔다**(버전이 바뀌면 운다).
+	var host := Node3D.new()
+	var kept := Node3D.new()
+	kept.name = "Authored"
+	host.add_child(kept)
+	kept.owner = host                       # 저작된 노드 = 저장된다
+	var gen := Node3D.new()
+	gen.name = "GeneratedPreview"
+	host.add_child(gen)                     # owner 미설정 = 저장되지 않는다
+	var ps := PackedScene.new()
+	ps.pack(host)
+	var inst: Node = ps.instantiate()
+	_expect(inst.get_node_or_null("Authored") != null and inst.get_node_or_null("GeneratedPreview") == null,
+		"[계약/authored] owner 미설정 생성 노드는 .tscn에 직렬화되지 않는다(@tool 프리뷰 전제)")
+	inst.free()
+	host.free()
+
+	_sections["authored_impl"] = true
+
+
 ## **authored(Blender 임포트) 계층 파리티** — 「절차 맵과 authored 씬이 같은 계약을 만족한다」를
 ## 실제로 시험한다. 임포트 씬이 없으므로 그 계층을 **흉내 낸 더미**를 맵에 잠깐 붙인다:
 ##   MeshInstance3D(부모) → StaticBody3D(자식, layer 1) · 머티리얼은 mesh surface에만.
@@ -476,6 +682,7 @@ func _check_import_parity(scn: Node, map: Node) -> void:
 	_expect(poly_ok, "[계약/authored] 볼록(사선) 콜라이더 → poly 오클루더 유도")
 	body2.free()
 
+	_sections["import_parity"] = true
 	mi.free()
 	map.derive_occluders()                          # 기준선 복원
 	_expect(map.get_occluder_footprints().size() == before, "[계약/authored] 프로브 제거 후 복원 (%d)" % before)
@@ -583,6 +790,11 @@ func _find_map(scn: Node) -> Node:
 
 func _finish(scn: Node) -> void:
 	scn.queue_free()
+	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
+	for sec in ["import_parity", "authored_impl"]:
+		if not _sections.has(sec):
+			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
+			_ok = false
 	if _ok:
 		print("MAP SMOKE PASSED")
 		quit(0)

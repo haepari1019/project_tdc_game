@@ -1,3 +1,4 @@
+@tool
 extends "res://scripts/world/map_source.gd"
 ## **MAP-DEMO-001 — 절차 그레이박스 MapSource 구현.** 방을 데이터(ROOM_SPECS 기하 + rooms.json `connects`)에서
 ## 박스로 생성한다. 계약 자체는 base `map_source.gd`가 소유하고, 여기는 **공간을 만드는 방법**만
@@ -157,7 +158,16 @@ var _room_areas: Dictionary = {}
 var _room_openings: Dictionary = {}
 
 
+## 에디터 프리뷰(**옵트인**) — 켜면 3D 뷰포트에 그레이박스가 뜬다. 생성 노드는 `owner`를 설정하지
+## 않으므로 **`.tscn`에 직렬화되지 않는다** — 데이터가 SSOT로 남고, 손으로 옮긴 벽이 저장돼
+## 데이터와 두 벌이 되는 사고가 원천적으로 안 생긴다(플랜 §「에디터 = 뷰어」).
+## 기본값 false: 씬을 열 때마다 16방을 짓지 않는다. 켜기 전엔 `tools/map_shot.gd`가 더 싸다.
+@export var preview_in_editor := false
+
+
 func _ready() -> void:
+	if Engine.is_editor_hint() and not preview_in_editor:
+		return
 	add_to_group(NAVMAP_GROUP)                 # 치명존 carve → rebake_navigation
 	_rooms_root.add_to_group(GEOMETRY_GROUP)   # 안개가 노드 **이름**이 아니라 그룹으로 찾는다
 	_resolve_room_points()
@@ -165,6 +175,8 @@ func _ready() -> void:
 	_compute_openings()
 	_build_map()
 	derive_occluders()                         # 손기록이 아니라 **콜라이더에서 유도**(F-011 같은 출처)
+	if Engine.is_editor_hint():
+		return                                 # 프리뷰는 형태만 본다 — navmesh 베이크는 런타임에서만
 	bake_navigation()
 
 

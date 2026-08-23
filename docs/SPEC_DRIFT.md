@@ -2107,3 +2107,16 @@
 - **영향 파일:** `data/slice01/rooms.json`(anchors·loot_anchor·connects 폭) · `scripts/world/map_source.gd`(`get_anchors`/`get_all_anchors`/`resolve_anchors_from_data`/`room_connections`) · `scripts/world/map_demo_layout.gd`(상수 2개 제거) · `scripts/run/dungeon_run.gd`(리터럴 → 앵커) · `scripts/combat/combat_controller.gd` · `tools/map_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS** · **좌표 리터럴 10 → 0** · 연결 15 · 장애물 2/16방 총 7개 · 상자 EV 18.4(대상 14방) — 전부 이전과 동일. `map_shot` 시각 회귀 없음(개구부·장애물 배치 동일).
 - **상태:** ✅ 완료 · 전파 불요. 남은 Phase 0: `EditorScenePostImport` 규약 스크립트(임포트할 `.glb`가 생길 때) · 킷 4종 정리 · `@tool` 프리뷰 · `docs/design/map_contract.md`.
+
+### DRIFT-166 — authored 맵 3종 세트: 저작 규약 · AuthoredMapSource · 임포트 후처리 (+ `@tool` 프리뷰) 🔷 Phase 0 산출물 6·9·10 · 전파 불요
+- **근거:** 맵 고도화 Phase 0 잔여(`docs/design/map_upgrade_plan.html`). 사용자 판단: *「고스트 코드라도 남겨 두는 게 나중에 실제로 입힐 때 참고가 된다」*. **받되 조건을 붙였다 — 셋 다 게이트가 실제로 실행한다.** 이 레포는 「코드는 다 있는데 아무도 부르지 않는」 실패를 이미 겪었다([[DRIFT-160]] 참 오오라).
+- **① `scripts/world/map_convention.gd` — 노드 이름이 계약이다.** glTF에는 Area3D·Marker3D가 담기지 않으므로 「무엇이 방이고 무엇이 앵커인가」를 이름 규약으로 정한다. 임포트 후처리와 런타임이 **같은 파서**를 쓴다(규약이 두 벌이 되면 그 순간 다시 어긋난다). `ref`(스펙 ID 있는 것)와 `role`(없는 것)을 나눠 **새 ID를 발명하지 않는다**.
+- **② `scripts/world/authored_map_source.gd` — 계약의 두 번째 구현.** `TRIG_room`→방 크기·중심, `MK_*`→앵커, 좌표의 소유자가 **씬**이 된다(절차와 정반대). 계약이 진짜인지는 **구현이 둘일 때만** 증명되고, 그걸 이번에 실제로 돌렸다.
+- **③ `tools/import_post.gd` — `EditorScenePostImport`.** Empty→Area3D/Marker3D 변환 + 규약 검증. **검증 가능한 부분(`convert_tree`)을 static으로 분리**해 스모크가 합성 트리로 매 커밋 돌린다. `_post_import` 훅(5줄)만 미검증으로 남고, 실제 `.glb`에서 처음 만날 차이 4가지(Empty 임포트 형태·`-col` 접미사 시점·`.001` 사본·단위/스케일)를 파일 머리에 **명시**했다.
+- **④ `@tool` 프리뷰(옵트인, 기본 false).** `owner`를 설정하지 않은 생성 노드는 `.tscn`에 직렬화되지 않는다 — 「에디터 = 뷰어」가 성립하는 근거이고, 사람이 프리뷰를 손으로 옮겨도 데이터와 두 벌이 안 되는 이유다. Godot 동작에 기대는 규칙이라 **스모크가 `PackedScene.pack()`으로 못 박았다**(버전이 바뀌면 운다). 에디터에는 autoload가 없으므로 `map_source._rooms_doc()`가 **디스크 폴백**을 갖는다(없으면 프리뷰가 첫 줄에서 죽는다).
+- **🔴 게이트를 세우자마자 규약 설계 결함 하나가 잡혔다.** role 구분자를 `@`로 잡았는데 **Godot 노드 이름은 `. : @ / " %` 를 못 쓴다** — 노드 생성 시 조용히 잘린다. 문자열 파서 테스트는 통과하고 **실제 씬에서만** 깨지는, 제일 나쁜 종류다. → 구분자를 `__`로 바꾸고 **「구분자가 Godot 노드 이름 정화를 견딘다」**를 불변식으로 추가(다음에 규약을 바꿔도 같은 방식으로 잡힌다).
+- **🔴 게이트 구멍도 같이 막았다.** 런타임 에러로 섹션이 통째로 건너뛰어졌는데 `MAP SMOKE PASSED`가 찍혔다(`_expect`가 안 불렸으니 `_ok`가 참인 채). → 섹션 완주 플래그(`_sections`)를 두고 미완주면 FAIL. `ci_smoke`의 `ERRPAT`이 별개로 잡아 주긴 하지만, **스모크가 자기 자신에 대해 거짓말하면 안 된다**.
+- **검증 범위(정직하게):** 합성 authored 씬까지다 — 계약 getter(방 크기/기준점) · 앵커 4종 · 오클루더 유도(바닥 자동 제외) · navmesh 베이크(2 polys) · 규약 검증기(정상/위반) · 임포트 변환(Empty→노드, 위치·크기 보존, 위반 검출) · 직렬화 규칙. **실제 `.glb`는 아직 없다.**
+- **영향 파일:** **신규** `scripts/world/map_convention.gd` · `scripts/world/authored_map_source.gd` · `tools/import_post.gd` · `scripts/world/map_source.gd`(에디터 폴백) · `scripts/world/map_demo_layout.gd`(`@tool` 옵트인) · `tools/map_smoke.gd`(+21항목).
+- **게이트:** `ci_smoke.sh` **15/15 PASS** · `map_smoke` **39 ok** · NavMesh 284 polys·상자 EV 18.4 등 절차 경로 전부 불변 · `map_shot` 시각 회귀 없음.
+- **상태:** ✅ 완료 · 전파 불요. **Phase 0 코드 작업 종료** — 남은 것은 `docs/design/map_contract.md`(아티스트용 저작 규약 본문) 하나. 그다음이 Phase 1(루프 있는 새 그레이박스).

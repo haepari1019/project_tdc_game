@@ -44,6 +44,8 @@ var _warned_concave := false
 ## 그레이박스는 `resolve_anchors_from_data()`가 rooms.json의 **로컬 XZ**에서 채우고, authored 맵은
 ## 씬의 `MK_*` 마커에서 채운다 — 그때 데이터에는 종류·개수·ref만 남고 좌표는 씬이 소유한다.
 var _anchors: Dictionary = {}
+## 에디터 폴백용 rooms.json 캐시(autoload가 없을 때만 채워진다).
+var _rooms_disk: Dictionary = {}
 
 
 # ============================================================================
@@ -60,9 +62,29 @@ func geometry_root() -> Node3D:
 # 맵 계약 (interface) — 런/전투/파티가 읽는 것. 구현 무관.
 # ============================================================================
 
+## 방 데이터(rooms.json). **런타임은 autoload, 에디터(@tool 프리뷰)는 디스크에서 직접** 읽는다 —
+## 에디터에는 autoload가 없어서, 이 폴백이 없으면 프리뷰가 첫 줄에서 죽는다.
+func _rooms_doc() -> Dictionary:
+	var sd := get_node_or_null("/root/Slice01Data")
+	if sd != null and sd.has_method("get_rooms_document"):
+		return sd.get_rooms_document()
+	if _rooms_disk.is_empty():
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string("res://data/slice01/rooms.json"))
+		if typeof(parsed) == TYPE_DICTIONARY:
+			_rooms_disk = parsed
+	return _rooms_disk
+
+
+func _room_row(room_ref: String) -> Dictionary:
+	for row in _rooms_doc().get("rooms", []):
+		if typeof(row) == TYPE_DICTIONARY and String((row as Dictionary).get("room_ref", "")) == room_ref:
+			return row
+	return {}
+
+
 ## 방 조명 프로파일(lit/standard/dim/unlit). SSOT = `rooms.json`. F-011 §3.1.
 func get_room_profile(room_ref: String) -> String:
-	var row: Dictionary = Slice01Data.get_room_row(room_ref)
+	var row: Dictionary = _room_row(room_ref)
 	if not row.is_empty() and row.has("lighting_profile"):
 		return String(row.get("lighting_profile", "standard"))
 	return "standard"
@@ -143,7 +165,7 @@ func get_room_rects() -> Array:
 func room_connections() -> Array:
 	var out: Array = []
 	var seen: Dictionary = {}
-	for row in Slice01Data.get_rooms_document().get("rooms", []):
+	for row in _rooms_doc().get("rooms", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		var a := String((row as Dictionary).get("room_ref", ""))
@@ -186,7 +208,7 @@ func get_all_anchors(kind: String) -> Array:
 ## y는 방 바닥 높이를 따라간다(계약이 y를 나른다 — Phase 5 단차 대비).
 func resolve_anchors_from_data() -> void:
 	_anchors.clear()
-	for row in Slice01Data.get_rooms_document().get("rooms", []):
+	for row in _rooms_doc().get("rooms", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		var ref := String((row as Dictionary).get("room_ref", ""))
