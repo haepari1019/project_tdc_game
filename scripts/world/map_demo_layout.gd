@@ -1,5 +1,5 @@
 extends "res://scripts/world/map_source.gd"
-## **MAP-DEMO-001 — 절차 그레이박스 MapSource 구현.** 방을 데이터(ROOM_SPECS/CONNECTIONS)에서
+## **MAP-DEMO-001 — 절차 그레이박스 MapSource 구현.** 방을 데이터(ROOM_SPECS 기하 + rooms.json `connects`)에서
 ## 박스로 생성한다. 계약 자체는 base `map_source.gd`가 소유하고, 여기는 **공간을 만드는 방법**만
 ## 안다 — 같은 계약의 authored(Blender) 구현이 나란히 설 수 있는 이유다.
 ## ref: docs/design/map_upgrade_plan.html §Phase 0 · 게이트 tools/map_smoke.gd
@@ -112,27 +112,6 @@ const ROOM_SPECS: Dictionary = {
 	},
 }
 
-## Connections: rooms share wall edges — only arch openings needed, no corridors.
-## [room_a, room_b, opening_width]
-const CONNECTIONS: Array = [
-	["RM-ENTRY-01", "RM-ADV-01", 8.0],
-	["RM-ADV-01", "RM-OBJ-01", 8.0],
-	["RM-ADV-01", "RM-ADV-02", 8.0],
-	["RM-ADV-02", "RM-ROUTE-01", 6.0],
-	["RM-ROUTE-01", "RM-EXT-01", 6.0],
-	# P2-S1 expansion connections (shared edges → navmesh stays connected).
-	["RM-ENTRY-01", "RM-ADV-03", 8.0],
-	["RM-ENTRY-01", "RM-ADV-04", 8.0],
-	["RM-ADV-04", "RM-ADV-05", 6.0],
-	["RM-ADV-02", "RM-MID-01", 8.0],
-	["RM-MID-01", "RM-DEEP-01", 8.0],
-	["RM-MID-01", "RM-BOSS-01", 8.0],
-	# P2-S2-fin: Upper Hard-branch chain (south off ADV-03).
-	["RM-ADV-03", "RM-ADV-06", 8.0],
-	["RM-ADV-06", "RM-ADV-07", 8.0],
-	["RM-ADV-07", "RM-ADV-08", 8.0],
-	["RM-ADV-08", "RM-ADV-09", 8.0],
-]
 
 const PROFILE_COLORS: Dictionary = {
 	"lit": Color(0.45, 0.42, 0.38),
@@ -169,21 +148,6 @@ const OBSTACLE_TYPES: Dictionary = {
 	"crates":  {"shape": "box", "size": Vector3(5.0, 2.4, 5.0), "color": Color(0.42, 0.32, 0.18)},
 	"barrier": {"shape": "box", "size": Vector3(8.0, 2.4, 1.6), "color": Color(0.34, 0.30, 0.27)},
 }
-## Per-room placement: pos = Vector2(local_x, local_z) from room center (ground).
-## Kept off openings / spawn cluster / PASS lane. Tunable.
-const OBSTACLE_SPECS: Dictionary = {
-	"RM-ADV-01": [
-		{"type": "pillar",  "pos": Vector2(-9, 2)},
-		{"type": "crates",  "pos": Vector2(10, -5)},
-		{"type": "barrier", "pos": Vector2(-2, 12)},
-		{"type": "pillar",  "pos": Vector2(-7, -11)},
-		{"type": "crates",  "pos": Vector2(8, 9)},
-	],
-	"RM-OBJ-01": [
-		{"type": "crates",  "pos": Vector2(-4, 2)},
-		{"type": "pillar",  "pos": Vector2(6, -4)},
-	],
-}
 
 @onready var _rooms_root: Node3D = $Rooms
 @onready var _markers_root: Node3D = $Markers
@@ -197,6 +161,7 @@ func _ready() -> void:
 	add_to_group(NAVMAP_GROUP)                 # 치명존 carve → rebake_navigation
 	_rooms_root.add_to_group(GEOMETRY_GROUP)   # 안개가 노드 **이름**이 아니라 그룹으로 찾는다
 	_resolve_room_points()
+	resolve_anchors_from_data()        # 코드 상수가 아니라 rooms.json이 「무엇이 어디에」를 소유한다
 	_compute_openings()
 	_build_map()
 	derive_occluders()                         # 손기록이 아니라 **콜라이더에서 유도**(F-011 같은 출처)
@@ -235,7 +200,7 @@ func _compute_openings() -> void:
 	for room_ref in ROOM_SPECS.keys():
 		_room_openings[room_ref] = []
 
-	for conn in CONNECTIONS:
+	for conn in room_connections():   # SSOT = rooms.json `connects`(개구부 폭 포함)
 		var ref_a: String = conn[0]
 		var ref_b: String = conn[1]
 		var width: float = conn[2]
@@ -507,13 +472,15 @@ func _add_wall_segment(parent: Node3D, pos: Vector3, size: Vector3, color: Color
 	parent.add_child(body)
 
 
+## 장애물 배치 = rooms.json `anchors.obstacles`(구 OBSTACLE_SPECS). 치수는 킷(OBSTACLE_TYPES)이,
+## **어디에 놓을지는 데이터**가 소유한다 — 방을 고칠 때 코드를 안 고치기 위한 분리.
 func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void:
-	for obs in OBSTACLE_SPECS.get(room_ref, []):
+	for obs in get_anchors(room_ref, "obstacles"):
 		var t: Dictionary = OBSTACLE_TYPES.get(obs.get("type", ""), {})
 		if t.is_empty():
 			continue
-		var p: Vector2 = obs["pos"]
-		var ground := center + Vector3(p.x, 0.0, p.y)
+		var ap: Vector3 = obs["pos"]
+		var ground := Vector3(ap.x, center.y, ap.z)
 		var mesh: Mesh
 		var shape: Shape3D
 		var height: float

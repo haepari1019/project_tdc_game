@@ -56,6 +56,7 @@ func _init() -> void:
 	_check_occluders(map)
 	_check_pools(sd)
 	_check_ids(sd)
+	_check_anchors(sd, map)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -120,7 +121,7 @@ func _check_graph(sd, map: Node) -> Array:
 	for row in rooms:
 		var a := String((row as Dictionary).get("room_ref", ""))
 		for b_v in (row as Dictionary).get("connects", []):
-			var b := String(b_v)
+			var b := String((b_v as Dictionary).get("to", "")) if typeof(b_v) == TYPE_DICTIONARY else String(b_v)
 			var key: String = ("%s|%s" % [a, b]) if a < b else ("%s|%s" % [b, a])
 			if seen.has(key):
 				continue
@@ -347,6 +348,40 @@ func _check_ids(sd) -> void:
 		"전부" if missing.is_empty() else "미등록: " + ", ".join(missing)))
 
 
+## 앵커가 **방 안에** 있는가 + 코드가 찾는 role/ref가 실재하는가.
+## 하드코딩을 데이터로 내리면 오타 하나가 조용히 「원점에 놓인 열쇠 상자」가 된다.
+func _check_anchors(sd, map: Node) -> void:
+	var kinds := ["obstacles", "interactions", "hazards", "transitions", "props"]
+	var outside: Array = []
+	var total := 0
+	for ref in _rects:
+		var c: Vector2 = _rects[ref]["c"]
+		var s2: Vector2 = _rects[ref]["s"]
+		for k in kinds:
+			for a in map.get_anchors(String(ref), k):
+				total += 1
+				var p: Vector3 = (a as Dictionary)["pos"]
+				if absf(p.x - c.x) > s2.x * 0.5 + 0.01 or absf(p.z - c.y) > s2.y * 0.5 + 0.01:
+					outside.append("%s/%s" % [ref, k])
+	_expect(total > 0 and outside.is_empty(), "[계약] 앵커 %d개가 전부 방 안 (%s)" % [
+		total, "전부" if outside.is_empty() else "벗어남: " + ", ".join(outside)])
+
+	# dungeon_run이 이름으로 찾는 앵커들 — 하나라도 없으면 그 오브젝트가 시작 방에 떨어진다.
+	var need := [["interactions", "role", "key_chest"], ["interactions", "role", "ally_cache"],
+		["transitions", "role", "key_gate"], ["hazards", "role", "plate"], ["hazards", "role", "lever"],
+		["props", "ref", "ENT-BARREL-001"], ["props", "ref", "ENT-TORCH-001"]]
+	var missing: Array = []
+	for n in need:
+		var found := false
+		for a in map.get_all_anchors(String(n[0])):
+			if String((a as Dictionary).get(String(n[1]), "")) == String(n[2]):
+				found = true
+		if not found:
+			missing.append("%s=%s" % [n[1], n[2]])
+	_expect(missing.is_empty(), "[계약] 런이 찾는 앵커 7종 존재 (%s)" % (
+		"전부" if missing.is_empty() else "없음: " + ", ".join(missing)))
+
+
 func _check_extraction(sd, map: Node) -> void:
 	var ext_ref := ""
 	for row in sd.get_rooms_document().get("rooms", []):
@@ -461,12 +496,12 @@ func _report_design(sd, map: Node, edges: Array) -> void:
 	var floor_area := 0.0
 	var chest_ev := 0.0
 	var sizes: Dictionary = {}
-	# 상자 EV는 **실제 배치 대상 방**만 센다 — 지금은 dungeon_run의 상수를 그대로 읽는다.
-	# Phase 0에서 이 상수가 사라지고 rooms.json `loot_anchor`로 내려가면 이 줄이 먼저 운다(의도).
+	# 상자 EV는 **실제 배치 대상 방**만 센다 — 대상은 rooms.json `loot_anchor`가 소유한다
+	# (Phase 0에서 dungeon_run.LOOT_CHEST_ROOMS 상수를 대체했다).
 	var loot_rooms: Array = []
-	var dr = load("res://scripts/run/dungeon_run.gd")
-	if dr != null and "LOOT_CHEST_ROOMS" in dr:
-		loot_rooms = dr.LOOT_CHEST_ROOMS
+	for row in sd.get_rooms_document().get("rooms", []):
+		if typeof(row) == TYPE_DICTIONARY and (row as Dictionary).has("loot_anchor"):
+			loot_rooms.append(String((row as Dictionary).get("room_ref", "")))
 	for ref in _rects:
 		var c: Vector2 = _rects[ref]["c"]
 		var s: Vector2 = _rects[ref]["s"]

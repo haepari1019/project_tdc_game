@@ -7,36 +7,165 @@
       "room_ref": "RM-ENTRY-01",
       "world_layer": "Upper",
       "connects": [
-        "RM-ADV-01",
-        "RM-ADV-03",
-        "RM-ADV-04"
+        {
+          "to": "RM-ADV-01",
+          "width": 8.0
+        },
+        {
+          "to": "RM-ADV-03",
+          "width": 8.0
+        },
+        {
+          "to": "RM-ADV-04",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "lit",
       "pool_slot": "P-ENTRY-01",
-      "spawn_weight": 0.4
+      "spawn_weight": 0.4,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-ADV-01",
       "world_layer": "Upper",
       "connects": [
-        "RM-ADV-02",
-        "RM-OBJ-01"
+        {
+          "to": "RM-ADV-02",
+          "width": 8.0
+        },
+        {
+          "to": "RM-OBJ-01",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "lit",
       "pool_slot": "P-ADV-01",
       "run_phase_on_enter": "Advance",
-      "spawn_weight": 1.8
+      "spawn_weight": 1.8,
+      "loot_anchor": {
+        "tier": "contested"
+      },
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "pillar",
+            "pos": [
+              -9,
+              2
+            ]
+          },
+          {
+            "type": "crates",
+            "pos": [
+              10,
+              -5
+            ]
+          },
+          {
+            "type": "barrier",
+            "pos": [
+              -2,
+              12
+            ]
+          },
+          {
+            "type": "pillar",
+            "pos": [
+              -7,
+              -11
+            ]
+          },
+          {
+            "type": "crates",
+            "pos": [
+              8,
+              9
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "role": "ally_cache",
+            "pos": [
+              2,
+              2
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-BARREL-001",
+            "pos": [
+              7,
+              -4.25
+            ]
+          },
+          {
+            "ref": "ENT-BARREL-001",
+            "pos": [
+              -8,
+              1.75
+            ]
+          },
+          {
+            "ref": "ENT-BARREL-001",
+            "pos": [
+              10,
+              7.75
+            ]
+          },
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              4,
+              -3.25
+            ]
+          },
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              13,
+              5.75
+            ]
+          },
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              -5,
+              0.75
+            ]
+          },
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              0,
+              10.75
+            ]
+          }
+        ]
+      }
     },
     {
       "room_ref": "RM-ADV-02",
       "world_layer": "Upper",
       "connects": [
-        "RM-ROUTE-01",
-        "RM-MID-01"
+        {
+          "to": "RM-ROUTE-01",
+          "width": 6.0
+        },
+        {
+          "to": "RM-MID-01",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-02",
-      "spawn_weight": 1.0
+      "spawn_weight": 1.0,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-OBJ-01",
@@ -45,18 +174,83 @@
       "lighting_profile": "dim",
       "gimmick_ref": "GIMMICK-DEMO-01",
       "run_phase_on_enter": "Objective",
-      "spawn_weight": 0.0
+      "spawn_weight": 0.0,
+      "loot_anchor": {
+        "tier": "contested"
+      },
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "crates",
+            "pos": [
+              -4,
+              2
+            ]
+          },
+          {
+            "type": "pillar",
+            "pos": [
+              6,
+              -4
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "ref": "CHEST-DEMO-01",
+            "role": "key_chest",
+            "pos": [
+              3,
+              0
+            ]
+          }
+        ]
+      }
     },
     {
       "room_ref": "RM-ROUTE-01",
       "world_layer": "Upper",
       "connects": [
-        "RM-EXT-01"
+        {
+          "to": "RM-EXT-01",
+          "width": 6.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-EXT-ROUTE-01",
       "run_phase_on_enter": "AdvanceExtraction",
-      "spawn_weight": 0.3
+      "spawn_weight": 0.3,
+      "anchors": {
+        "hazards": [
+          {
+            "ref": "trap_split_lever",
+            "role": "plate",
+            "pos": [
+              0,
+              2.75
+            ]
+          },
+          {
+            "ref": "trap_split_lever",
+            "role": "lever",
+            "pos": [
+              2.2,
+              5.75
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "ref": "DOOR-DEMO-01",
+            "role": "key_gate",
+            "pos": [
+              0,
+              9.0
+            ],
+            "to": "RM-EXT-01"
+          }
+        ]
+      }
     },
     {
       "room_ref": "RM-EXT-01",
@@ -71,109 +265,192 @@
       "room_ref": "RM-ADV-03",
       "world_layer": "Upper",
       "connects": [
-        "RM-ENTRY-01",
-        "RM-ADV-06"
+        {
+          "to": "RM-ENTRY-01",
+          "width": 8.0
+        },
+        {
+          "to": "RM-ADV-06",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-03",
-      "spawn_weight": 1.0
+      "spawn_weight": 1.0,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-ADV-04",
       "world_layer": "Upper",
       "connects": [
-        "RM-ENTRY-01",
-        "RM-ADV-05"
+        {
+          "to": "RM-ENTRY-01",
+          "width": 8.0
+        },
+        {
+          "to": "RM-ADV-05",
+          "width": 6.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-04",
-      "spawn_weight": 0.8
+      "spawn_weight": 0.8,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-ADV-05",
       "world_layer": "Upper",
       "connects": [
-        "RM-ADV-04"
+        {
+          "to": "RM-ADV-04",
+          "width": 6.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-05",
-      "spawn_weight": 1.2
+      "spawn_weight": 1.2,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-MID-01",
       "world_layer": "Mid",
       "connects": [
-        "RM-ADV-02",
-        "RM-DEEP-01",
-        "RM-BOSS-01"
+        {
+          "to": "RM-ADV-02",
+          "width": 8.0
+        },
+        {
+          "to": "RM-DEEP-01",
+          "width": 8.0
+        },
+        {
+          "to": "RM-BOSS-01",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "dim",
       "pool_slot": "P-MID-01",
-      "spawn_weight": 1.5
+      "spawn_weight": 1.5,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-BOSS-01",
       "world_layer": "Mid",
       "connects": [
-        "RM-MID-01"
+        {
+          "to": "RM-MID-01",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "dim",
       "pool_slot": "P-BOSS-01",
       "run_phase_on_enter": "Objective",
-      "spawn_weight": 1.0
+      "spawn_weight": 1.0,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-DEEP-01",
       "world_layer": "Deep",
       "connects": [
-        "RM-MID-01"
+        {
+          "to": "RM-MID-01",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "dim",
       "pool_slot": "P-DEEP-01",
-      "spawn_weight": 1.3
+      "spawn_weight": 1.3,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-ADV-06",
       "world_layer": "Upper",
       "connects": [
-        "RM-ADV-03",
-        "RM-ADV-07"
+        {
+          "to": "RM-ADV-03",
+          "width": 8.0
+        },
+        {
+          "to": "RM-ADV-07",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-06",
-      "spawn_weight": 0.9
+      "spawn_weight": 0.9,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-ADV-07",
       "world_layer": "Upper",
       "connects": [
-        "RM-ADV-06",
-        "RM-ADV-08"
+        {
+          "to": "RM-ADV-06",
+          "width": 8.0
+        },
+        {
+          "to": "RM-ADV-08",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-07",
-      "spawn_weight": 1.1
+      "spawn_weight": 1.1,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-ADV-08",
       "world_layer": "Upper",
       "connects": [
-        "RM-ADV-07",
-        "RM-ADV-09"
+        {
+          "to": "RM-ADV-07",
+          "width": 8.0
+        },
+        {
+          "to": "RM-ADV-09",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-08",
-      "spawn_weight": 0.7
+      "spawn_weight": 0.7,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     },
     {
       "room_ref": "RM-ADV-09",
       "world_layer": "Upper",
       "connects": [
-        "RM-ADV-08"
+        {
+          "to": "RM-ADV-08",
+          "width": 8.0
+        }
       ],
       "lighting_profile": "standard",
       "pool_slot": "P-ADV-09",
-      "spawn_weight": 1.4
+      "spawn_weight": 1.4,
+      "loot_anchor": {
+        "tier": "contested"
+      }
     }
-  ]
+  ],
+  "_note_anchors": "앵커는 방 **중심 기준 로컬 XZ**(m). 코드에 박혀 있던 좌표를 여기로 내렸다 — 맵을 고칠 때 코드를 안 고치기 위한 최소 투자(맵 고도화 Phase 0). authored(Blender) 맵은 이 블록 대신 씬의 MK_* 마커가 좌표를 소유하고, 데이터는 종류·개수·ref만 남긴다. ref는 전부 **기존 스펙 ID**다(CHEST-DEMO-01·DOOR-DEMO-01·ENT-BARREL-001·ENT-TORCH-001·trap_split_lever) — 새 ID를 만들지 않았다. loot_anchor = 절차 상자 배치 대상(구 dungeon_run.LOOT_CHEST_ROOMS). tier 세분화는 Phase 3.",
+  "_note_connects": "`connects`가 **개구부 폭까지 소유한다**(구 map_demo_layout.CONNECTIONS 상수). 지오메트리와 데이터가 같은 연결을 두 벌 갖고 있던 것을 해소 — 어긋나도 아무도 안 알려주던 자리다(ARCHITECTURE DEBT-DM3). 무향 그래프이며 양쪽에 적어도 되고 한쪽만 적어도 된다(합집합으로 읽는다). 게이트: tools/map_smoke.gd 「선언된 연결이 전부 공유벽」+「navmesh 통행」."
 }

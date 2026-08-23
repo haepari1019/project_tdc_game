@@ -40,6 +40,10 @@ var _extraction_point: Vector3 = Vector3.ZERO
 var _occluders: Array = []
 var _nav_region: NavigationRegion3D
 var _warned_concave := false
+## 앵커 — 방 안의 「무엇이 어디에」. room_ref -> kind -> Array[{ref?, role?, type?, pos: Vector3(월드), ...}].
+## 그레이박스는 `resolve_anchors_from_data()`가 rooms.json의 **로컬 XZ**에서 채우고, authored 맵은
+## 씬의 `MK_*` 마커에서 채운다 — 그때 데이터에는 종류·개수·ref만 남고 좌표는 씬이 소유한다.
+var _anchors: Dictionary = {}
 
 
 # ============================================================================
@@ -131,6 +135,75 @@ func get_room_rects() -> Array:
 		var p: Dictionary = _room_points[ref]
 		out.append({"center": p["spawn"], "size": p["size"]})
 	return out
+
+
+## 방 연결(무향, 중복 제거) — `[[room_a, room_b, opening_width], ...]`.
+## **`rooms.json` `connects`가 단일 소유자다.** 예전에는 지오메트리 상수(`CONNECTIONS`)와
+## 데이터가 같은 연결을 두 벌 갖고 있었고, 어긋나도 아무도 알려주지 않았다(DEBT-DM3).
+func room_connections() -> Array:
+	var out: Array = []
+	var seen: Dictionary = {}
+	for row in Slice01Data.get_rooms_document().get("rooms", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var a := String((row as Dictionary).get("room_ref", ""))
+		for c in (row as Dictionary).get("connects", []):
+			var b := ""
+			var width := 8.0
+			if typeof(c) == TYPE_DICTIONARY:
+				b = String((c as Dictionary).get("to", ""))
+				width = float((c as Dictionary).get("width", 8.0))
+			else:
+				b = String(c)          # 하위호환: 폭 없는 문자열 항목
+			if b.is_empty():
+				continue
+			var key: String = ("%s|%s" % [a, b]) if a < b else ("%s|%s" % [b, a])
+			if seen.has(key):
+				continue
+			seen[key] = true
+			out.append([a, b, width])
+	return out
+
+
+## 방 안 앵커(월드 좌표). kind = obstacles | interactions | hazards | transitions | props.
+func get_anchors(room_ref: String, kind: String) -> Array:
+	return (_anchors.get(room_ref, {}) as Dictionary).get(kind, [])
+
+
+## 맵 전체 앵커. 각 항목에 `room_ref`가 실려 온다.
+func get_all_anchors(kind: String) -> Array:
+	var out: Array = []
+	for ref in _anchors:
+		for a in (_anchors[ref] as Dictionary).get(kind, []):
+			var e: Dictionary = (a as Dictionary).duplicate()
+			e["room_ref"] = ref
+			out.append(e)
+	return out
+
+
+## rooms.json `anchors`(방 중심 기준 로컬 XZ) → 월드. **그레이박스 전용 폴백**이다 —
+## authored 구현은 이걸 부르지 않고 마커에서 `_anchors`를 채운다(좌표의 소유자가 씬이 된다).
+## y는 방 바닥 높이를 따라간다(계약이 y를 나른다 — Phase 5 단차 대비).
+func resolve_anchors_from_data() -> void:
+	_anchors.clear()
+	for row in Slice01Data.get_rooms_document().get("rooms", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var ref := String((row as Dictionary).get("room_ref", ""))
+		var block: Dictionary = (row as Dictionary).get("anchors", {})
+		if block.is_empty() or not _room_points.has(ref):
+			continue
+		var origin: Vector3 = _room_points[ref]["spawn"]
+		var by_kind: Dictionary = {}
+		for kind in block:
+			var list: Array = []
+			for a in block[kind]:
+				var e: Dictionary = (a as Dictionary).duplicate()
+				var lp: Array = e.get("pos", [0, 0])
+				e["pos"] = Vector3(origin.x + float(lp[0]), origin.y, origin.z + float(lp[1]))
+				list.append(e)
+			by_kind[String(kind)] = list
+		_anchors[ref] = by_kind
 
 
 # ============================================================================

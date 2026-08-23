@@ -2094,3 +2094,16 @@
 - **영향 파일:** **신규** `scripts/core/mesh_materials.gd` · `scripts/run/controllers/vision_fog.gd` · `scripts/run/controllers/wall_xray.gd` · `scripts/run/controllers/enemy_vision_overlay.gd` · `scripts/world/map_source.gd` · `scripts/world/map_demo_layout.gd` · `tools/map_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS**(파리티 6항목 포함) · `fogged_meshes=197`·`occluders=97` 절차 경로 불변 · `map_shot` 시각 회귀 없음.
 - **상태:** ✅ 완료 · 전파 불요. 남은 Phase 0: `EditorScenePostImport` 규약 스크립트 · 좌표 리터럴 10 → 0(앵커 데이터화) · `OBSTACLE_SPECS`/`LOOT_CHEST_ROOMS` 소멸 · 킷 4종 · `@tool` 프리뷰 · `map_contract.md`.
+
+### DRIFT-165 — 앵커 데이터화: 좌표 리터럴 10 → 0 · `OBSTACLE_SPECS`/`LOOT_CHEST_ROOMS`/`CONNECTIONS` 소멸 🔷 Phase 0 산출물 7·8 · 전파 불요
+- **근거:** 맵 고도화 Phase 0(`docs/design/map_upgrade_plan.html` §Phase 0 산출물). 「맵을 고칠 때 코드 수정이 따라붙는」 상태를 끝내는 작업. 스펙 규칙 변경 없음 — **새 ID도 만들지 않았다**(아래).
+- **① 고정 오브젝트 좌표가 코드에 박혀 있었다.** 열쇠 상자·아군 유물함·열쇠문·압력판·레버·기름통 ×3·횃불 ×4가 `dungeon_run.gd`의 `Vector3` 리터럴이었다. → `rooms.json` `anchors`(방 중심 기준 **로컬 XZ**)로 이관하고, 런은 **이름으로 찾는다**(`_anchor_pos("hazards", "role", "plate")`).
+  - `ref`는 전부 **기존 스펙 ID**를 쓴다 — `CHEST-DEMO-01` · `DOOR-DEMO-01` · `ENT-BARREL-001` · `ENT-TORCH-001` · `trap_split_lever`. 스펙에 없는 것(아군 유물함·레버)은 ID를 **발명하지 않고** `role`만 둔다(ID 계약: 미등록 ID → abort).
+  - 앵커를 못 찾으면 경고 + 시작 방으로 폴백한다. **조용히 (0,0,0)에 놓지 않는다** — 맵을 갈아끼웠는데 열쇠 상자가 원점에 떨어져 있으면 그건 런이 아니라 수수께끼다.
+- **② `OBSTACLE_SPECS` 소멸.** 장애물 **치수**는 킷(`OBSTACLE_TYPES`: pillar/crates/barrier)이, **어디에 놓을지**는 `anchors.obstacles`가 소유한다. 방 하나에 기둥을 더 넣는 데 GDScript를 안 고친다.
+- **③ `LOOT_CHEST_ROOMS` 소멸 → `loot_anchor`.** 상자 배치 대상이 데이터가 됐다(추출·좁은 복도는 애초에 키가 없다). tier 세분화(safe/contested/gated)는 Phase 3 — 지금은 전부 `contested`로 **EV를 그대로 유지**한다(18.4, 밴드 16~20).
+- **④ `CONNECTIONS` 소멸 — 두 벌 해소(DEBT-DM3).** 지오메트리 상수와 `rooms.json` `connects`가 같은 연결을 **두 벌** 갖고 있었고 어긋나도 아무도 안 알려줬다. 이제 `connects`가 **개구부 폭까지** 소유하고(`{to, width}`), `map_source.room_connections()`가 무향 합집합으로 읽는다(구 문자열 항목도 허용). `combat_controller._first_connected`도 새 모양 대응.
+- **게이트 강화:** `map_smoke`에 앵커 불변식 2종 추가 — **「앵커 19개가 전부 방 안」**(오타 하나가 조용히 벽 속 상자가 되는 걸 막는다) + **「런이 찾는 앵커 7종 존재」**(role/ref 오타 = 그 오브젝트가 시작 방에 떨어진다). 상자 EV도 `loot_anchor` 기준으로 옮겼다 — 상수를 지운 순간 이 줄이 먼저 울었다(설계대로).
+- **영향 파일:** `data/slice01/rooms.json`(anchors·loot_anchor·connects 폭) · `scripts/world/map_source.gd`(`get_anchors`/`get_all_anchors`/`resolve_anchors_from_data`/`room_connections`) · `scripts/world/map_demo_layout.gd`(상수 2개 제거) · `scripts/run/dungeon_run.gd`(리터럴 → 앵커) · `scripts/combat/combat_controller.gd` · `tools/map_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS** · **좌표 리터럴 10 → 0** · 연결 15 · 장애물 2/16방 총 7개 · 상자 EV 18.4(대상 14방) — 전부 이전과 동일. `map_shot` 시각 회귀 없음(개구부·장애물 배치 동일).
+- **상태:** ✅ 완료 · 전파 불요. 남은 Phase 0: `EditorScenePostImport` 규약 스크립트(임포트할 `.glb`가 생길 때) · 킷 4종 정리 · `@tool` 프리뷰 · `docs/design/map_contract.md`.

@@ -24,11 +24,8 @@ const ALLY_CACHE_POOL := [
 ]
 const InteractionController := preload("res://scripts/run/controllers/interaction_controller.gd")
 
-## 절차적 루트 상자 — 배치 가능 방(EXT 추출·ROUTE 좁은 복도 제외). 면적 비례 개수, 희귀는 소수.
-const LOOT_CHEST_ROOMS := [
-	"RM-ENTRY-01", "RM-ADV-01", "RM-OBJ-01", "RM-ADV-02", "RM-ADV-03", "RM-ADV-04", "RM-ADV-05",
-	"RM-MID-01", "RM-BOSS-01", "RM-DEEP-01", "RM-ADV-06", "RM-ADV-07", "RM-ADV-08", "RM-ADV-09",
-]
+## 절차적 루트 상자 — 배치 대상은 **rooms.json `loot_anchor`**가 소유한다(구 LOOT_CHEST_ROOMS 상수).
+## 면적 비례 개수, 희귀는 소수. tier 세분화(safe/contested/gated)는 Phase 3.
 const CHEST_AREA_PER := 520.0    # m²당 상자 ~1개 기대(+ rng 0~1 가산)
 const CHEST_MAX_PER_ROOM := 3
 const RARE_CHEST_FRAC := 0.18    # 좋은(희귀) 상자 비율 — 덜 배치
@@ -229,23 +226,24 @@ func _ready() -> void:
 	_run_end.set_loot_service(_loot)   # 추출 성공 시 run_scrap(At-Risk 킬 재화) 지급
 	_run_end.party_alert.connect(_on_party_alert)
 	# World loop — chest (holding the extraction key) in the objective room.
+	# 좌표는 전부 **맵 앵커**에서 온다(구 하드코딩). 맵을 갈아끼워도 이 블록은 그대로다.
 	var chest := Chest.new()
 	chest.title = "유물함"
 	chest.items = [{"id": "Key", "w": 1, "h": 1, "col": 0, "row": 0, "color": Color(0.95, 0.82, 0.22)}]
 	chest.setup(_inventory_ui)
-	chest.position = _map.get_spawn_position("RM-OBJ-01") + Vector3(3.0, 0.0, 0.0)
+	chest.position = _anchor_pos("interactions", "role", "key_chest")
 	add_child(chest)
 	# 아군 유물함 — M5 이후 **해금 재료** 상자(구 아군 전용 스킬북 캐시). At-Risk like any loot.
 	var ally_cache := Chest.new()
 	ally_cache.title = "아군 유물함"
 	ally_cache.items = _build_ally_cache_items(2)
 	ally_cache.setup(_inventory_ui)
-	ally_cache.position = _map.get_spawn_position("RM-ADV-01") + Vector3(2.0, 0.0, 2.0)
+	ally_cache.position = _anchor_pos("interactions", "role", "ally_cache")
 	add_child(ally_cache)
 	# Keyed door blocking the route→extraction opening (RM-ROUTE-01 → RM-EXT-01 @ z=77.25).
 	var door := Door.new()
 	door.setup(_inventory_ui, _run)
-	door.position = Vector3(27.0, 0.0, 77.25)
+	door.position = _anchor_pos("transitions", "role", "key_gate")
 	add_child(door)
 	# F2: the closed door casts a vision shadow (fog + enemy cones); opening frees these occluders.
 	var _door_half := Vector2(Door.SIZE.x * 0.5, Door.SIZE.z * 0.5)
@@ -257,11 +255,11 @@ func _ready() -> void:
 	# Corridor trap (RM-ROUTE-01 chokepoint, 6m wide): the controlled member crossing the
 	# plate spawns a fatal zone behind them → followers cut off (split). Far lever clears it.
 	var trap := Trap.new()
-	trap.position = Vector3(27.0, 0.0, 71.0)    # plate north; zone spawns 7m south (z≈64)
+	trap.position = _anchor_pos("hazards", "role", "plate")   # 존은 판 남쪽 7 m에 생성된다
 	add_child(trap)
 	var lever := Lever.new()
 	lever.setup(trap)
-	lever.position = Vector3(29.2, 0.0, 74.0)   # front side (north of zone), against the east wall
+	lever.position = _anchor_pos("hazards", "role", "lever")  # 존 북쪽(앞면) 동벽 쪽
 	add_child(lever)
 	# These live under dungeon_run (not $Rooms) + spawn AFTER VisionFog.setup, so the initial
 	# fog sweep missed them → fog them explicitly (else visible at full brightness in unseen rooms).
@@ -269,7 +267,7 @@ func _ready() -> void:
 		_vision_fog.fog_object(o)
 	# Breakable oil barrels (ENT-BARREL) in the combat court — AoE breaks them → oil pool.
 	_place_loot_chests()   # 절차적 루트 상자 산포(퀘스트/아군 상자는 위에서 고정)
-	for bpos in [Vector3(7.0, 0.0, 28.0), Vector3(-8.0, 0.0, 34.0), Vector3(10.0, 0.0, 40.0)]:
+	for bpos in _anchor_list("props", "ref", "ENT-BARREL-001"):
 		var barrel := Barrel.new()
 		barrel.position = bpos
 		add_child(barrel)
@@ -277,7 +275,7 @@ func _ready() -> void:
 	# A few carriable torches (ENT-TORCH) near the oil — the carry/throw + RX-OIL-FIRE gameplay
 	# spot. Rooms are lit by fixed lanterns (map), so an enemy can't dark out a room by throwing
 	# every light. Wire each torch to combat (ignite_at) + the carry/throw handlers. ref: F-021.
-	for tpos in [Vector3(4.0, 0.0, 29.0), Vector3(13.0, 0.0, 38.0), Vector3(-5.0, 0.0, 33.0), Vector3(0.0, 0.0, 43.0)]:
+	for tpos in _anchor_list("props", "ref", "ENT-TORCH-001"):
 		var torch := Torch.new()
 		torch.position = tpos
 		add_child(torch)
@@ -586,6 +584,25 @@ func _build_ally_cache_items(count: int) -> Array:
 
 ## 절차적 루트 상자 산포 — 런 시드로 시드(런마다 위치 변동·재현 가능). 퀘스트(Key)·아군 상자는 고정(별도).
 ## 방 면적 비례 개수, 희귀(좋은) 상자는 소수(RARE_CHEST_FRAC). 스폰/벽 피해 방 안쪽에 배치 + fog.
+## 맵 앵커 하나의 월드 위치. 없으면 경고 + 시작 방 — **조용히 (0,0,0)에 놓지 않는다**
+## (맵을 갈아끼웠는데 열쇠 상자가 원점에 떨어져 있으면 그건 런이 아니라 수수께끼다).
+func _anchor_pos(kind: String, key: String, value: String) -> Vector3:
+	for a in _map.get_all_anchors(kind):
+		if String((a as Dictionary).get(key, "")) == value:
+			return (a as Dictionary)["pos"]
+	push_warning("[MAP] 앵커 없음 — %s/%s=%s (rooms.json anchors 확인)" % [kind, key, value])
+	return _map.get_spawn_position()
+
+
+## 같은 종류 앵커 전부(배럴·횃불처럼 여러 개).
+func _anchor_list(kind: String, key: String, value: String) -> Array:
+	var out: Array = []
+	for a in _map.get_all_anchors(kind):
+		if String((a as Dictionary).get(key, "")) == value:
+			out.append((a as Dictionary)["pos"])
+	return out
+
+
 func _place_loot_chests() -> void:
 	if _loot == null or _map == null:
 		return
@@ -596,7 +613,7 @@ func _place_loot_chests() -> void:
 		seed_v = int(rl.run_seed)
 	rng.seed = hash("loot_chests:%d" % seed_v)
 	var placed := 0
-	for room_ref in LOOT_CHEST_ROOMS:
+	for room_ref in _loot_chest_rooms():
 		var center: Vector3 = _map.get_spawn_position(room_ref)
 		var size: Vector3 = _map.get_room_size(room_ref) if _map.has_method("get_room_size") else Vector3(16, 0, 16)
 		var obstacles: Array = _map.get_obstacle_positions(room_ref) if _map.has_method("get_obstacle_positions") else []
@@ -629,7 +646,17 @@ func _place_loot_chests() -> void:
 			add_child(c)
 			_vision_fog.fog_object(c)
 			placed += 1
-	print("[LOOT] 절차적 상자 %d개 배치 (seed %d)" % [placed, seed_v])
+	print("[LOOT] 절차적 상자 %d개 배치 (seed %d · 대상 %d방)" % [placed, seed_v, _loot_chest_rooms().size()])
+
+
+## 상자 배치 대상 = rooms.json `loot_anchor`를 가진 방. 구 LOOT_CHEST_ROOMS 상수를 대체한다 —
+## 방을 추가할 때 코드를 안 고치기 위해서다(추출·좁은 복도는 애초에 이 키가 없다).
+func _loot_chest_rooms() -> Array:
+	var out: Array = []
+	for row in Slice01Data.get_rooms_document().get("rooms", []):
+		if typeof(row) == TYPE_DICTIONARY and (row as Dictionary).has("loot_anchor"):
+			out.append(String((row as Dictionary).get("room_ref", "")))
+	return out
 
 
 ## Floating interaction label (name + key) positioned ABOVE the hovered object by

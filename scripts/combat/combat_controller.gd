@@ -959,7 +959,10 @@ func _comp_to_units(enemy_ids: Array) -> Array:
 ## First room the given room opens onto (used to relocate the start-room encounter).
 func _first_connected(room_ref: String) -> String:
 	var conns: Array = Slice01Data.get_room_row(room_ref).get("connects", [])
-	return String(conns[0]) if not conns.is_empty() else ""
+	if conns.is_empty():
+		return ""
+	var c = conns[0]                      # `connects`는 {to,width} 항목(구 문자열도 허용)
+	return String(c.get("to", "")) if typeof(c) == TYPE_DICTIONARY else String(c)
 
 
 func _spawn_at(units: Array, center: Vector3, squad_id: int, engaged: bool, placement: String = "Fixed", anchor_count: int = 1, wake_policy: String = "all", faction: String = "Dungeon") -> void:
