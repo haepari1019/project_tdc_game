@@ -2270,3 +2270,16 @@
 - **영향 파일:** `scripts/world/map_source.gd` · `scripts/ui/minimap.gd` · `tools/map_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS**.
 - **상태:** ✅ 완료 · 전파 불요. 남은 C: **3세력 층간 이동**(C-8) — 그러면 레이어 시스템 8항목이 끝난다.
+
+### DRIFT-177 — `DBP-UPPER-001` 신설 + ID 발급 (D-1) 🔷 Phase 1 · spec 선행
+- **근거:** spec `feb90e9` — **맵 문법 확정 그레이박스**의 청사진. 미등록 ID는 **로드 abort**이므로 spec·레지스트리가 데이터보다 **먼저** 간다.
+- **① 위상이 본론이다.** `DBP-DEMO-001`은 방 16·연결 15 = **사이클 0**(완전한 트리)이고 목표 방마저 `connects: []`였다. 신규는 layer 0에 **방 9 · 연결 11 → 사이클 3**, 목표 방이 **관통방**(연결 4개), 탈출 Point 2개인데 **경로는 3개**(Point마다 활성 조건이 다르다 — `F-006` §3.10).
+- **🔴 ② `connects`와 계단을 섞지 않는다.** `connects`는 「**공유벽 + 개구부** = 걸어서 갈 수 있다」이고 계단은 **워프**다. 층 간 이동을 `connects`에 적으면 게임의 「선언된 연결이 전부 공유벽」 불변식이 즉시 운다 — 그게 **옳은 동작**이다. 층 간은 `transitions` 앵커(`role: stairs`).
+  - ⚠ **게임 측 후속 필수:** `map_smoke`의 **도달성 BFS가 `connects`만 본다** — layer 1 방(`RM-UPPER-10/11`)은 계단으로만 닿으므로 지금 로직이면 「고립」으로 잡힌다. 방을 저작하기 **전에** BFS를 `connects + stairs`로 넓혀야 한다.
+- **③ 백레이어 1개.** `RM-UPPER-10/11`(layer 1)이 지상 발자국에 겹친다. 아래층을 통과하면 **관문(06)에서 목표(04) 반대편으로 나온다** → 수직 우회가 **XZ를 안 늘리고** 사이클을 만든다(안개 바운딩 불변).
+- **④ 필드 배정.** `LDG-001` §9 전부 — `routeClass`·`spatialGrammar`·`encounterAnchor.category`·`lootAnchor.tier`·`entryRequirement`·`difficultyProfile` override·`layer`. **`gated_elite`는 2개만**(예산 밖 상시 스폰이라 늘리면 분대 수가 뛴다). `KEY-UPPER-01` 산출처를 `RM-UPPER-03`에 둬 **잠긴 방 안에 열쇠를 두지 않는다**.
+- **⑤ 지역 테마는 이 청사진이 정하지 않는다.** ID는 안정 축(`RM-UPPER-##`), 정체성은 표시명·테마 축(`DEC-20260824-001` §F). 테마를 먼저 박으면 「병영이니까 침대」로 흐른다(`F-026` §3).
+- **⑥ 데모 맵은 유지된다.** 회귀 게이트·허브 사다리(무기고 T1·대장간 T3)가 거기 물려 있어 **병행**한다. `id_registry.room_refs`가 평면 전역 목록이라 이름 충돌이 없어야 하는데, `UPPER` 접두사가 그것도 해소한다.
+- **게임 측:** 재핀 `8dc2169` → `feb90e9` · `id_registry`에 map 1·blueprint 1·contract 1·**room 11**·**pool 9**·point 2 등록(room_refs 16 → 27, pool_slots 16 → 25). **데이터는 아직 없다** — ID만 먼저다.
+- **게이트:** `ci_smoke.sh` **15/15 PASS**(등록만 늘었으므로 동작 불변).
+- **상태:** ✅ 완료 · spec 전파 완료. 다음: **`map_smoke` 도달성 BFS를 계단까지 확장**(위 ②) → `rooms.json`에 9+2방 저작 + `design_targets` 엄격값(`min_cycles 2` · `bbox 200×200`) → 계단 앵커 클릭 입력(C-6 잔여) → 3세력 층간(C-8).

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "spec_commit_short": "8dc2169",
+  "spec_commit_short": "feb90e9",
   "encounter_ids": [
     "ENC-NORM-001",
     "ENC-NORM-002",
@@ -358,13 +358,16 @@
   ],
   "_note_tree": "F-020 §3.10 스킬 트리(Phase 4b) — 분석 N=3 해금을 **트리 노드 클릭**으로 교체. 노드 4종(Unlock/Upgrade/Slot/Doctrine); `Passive` 노드는 CS-1에서 폐기. 루트 노드 없음 — 진입 게이트 = `chapel` T1. `Slot` 사다리는 `smithy` T2/T3에 `facility_req`로 묶인다(`F-008` §3.10). 카탈로그 = skill_tree.json.",
   "blueprint_ids": [
-    "DBP-DEMO-001"
+    "DBP-DEMO-001",
+    "DBP-UPPER-001"
   ],
   "map_ids": [
-    "MAP-DEMO-001"
+    "MAP-DEMO-001",
+    "MAP-UPPER-001"
   ],
   "contract_ids": [
-    "CONTRACT-DEMO-001"
+    "CONTRACT-DEMO-001",
+    "CONTRACT-UPPER-001"
   ],
   "pool_slots": [
     "P-ENTRY-01",
@@ -382,7 +385,16 @@
     "P-ADV-07",
     "P-ADV-08",
     "P-ADV-09",
-    "P-3RD-01"
+    "P-3RD-01",
+    "P-UPPER-01",
+    "P-UPPER-02",
+    "P-UPPER-03",
+    "P-UPPER-04",
+    "P-UPPER-05",
+    "P-UPPER-06",
+    "P-UPPER-07",
+    "P-UPPER-08",
+    "P-UPPER-09"
   ],
   "room_refs": [
     "RM-ENTRY-01",
@@ -400,10 +412,23 @@
     "RM-ADV-06",
     "RM-ADV-07",
     "RM-ADV-08",
-    "RM-ADV-09"
+    "RM-ADV-09",
+    "RM-UPPER-01",
+    "RM-UPPER-02",
+    "RM-UPPER-03",
+    "RM-UPPER-04",
+    "RM-UPPER-05",
+    "RM-UPPER-06",
+    "RM-UPPER-07",
+    "RM-UPPER-08",
+    "RM-UPPER-09",
+    "RM-UPPER-10",
+    "RM-UPPER-11"
   ],
   "extraction_point_ids": [
-    "POINT-DEMO-01"
+    "POINT-DEMO-01",
+    "POINT-UPPER-01",
+    "POINT-UPPER-02"
   ],
   "facility_ids": [
     "barracks",
@@ -493,5 +518,6 @@
     "AB-097"
   ],
   "_note_ability_ids_pending": "**미구현 백로그** — 스펙(`docs/combat/abilities/AB-###_*.md`)에 정의돼 있으나 게임이 아직 등록·구현하지 않은 AB. **결번이 아니다**(`ability_id_gaps`와 구분). 번호가 비어 보이는 이유가 「폐기」인지 「미구현」인지 헷갈리던 것을 나눠 적는다(DRIFT-134). Phase 2 전수 커버리지 대상 — 구현 시 `ability_ids`로 옮긴다.",
-  "_note_haul_shared": "`haul_shared_shard`/`haul_shared_core` = per-kill 스킬북 드롭의 대체재(`F-009` §3.9.2 — 스펙은 `shared_shard_*` 로만 적고 정예 재료엔 id를 주지 않았다). 게임이 두 id를 확정했다 → **PENDING-PROP**, `DRIFT-149`."
+  "_note_haul_shared": "`haul_shared_shard`/`haul_shared_core` = per-kill 스킬북 드롭의 대체재(`F-009` §3.9.2 — 스펙은 `shared_shard_*` 로만 적고 정예 재료엔 id를 주지 않았다). 게임이 두 id를 확정했다 → **PENDING-PROP**, `DRIFT-149`.",
+  "_note_upper_ids": "`DBP-UPPER-001`(spec feb90e9) — 맵 문법 확정 그레이박스. **아직 데이터가 없다**: ID만 먼저 등록해 둔다(미등록 ID = 로드 abort이므로 spec·레지스트리가 데이터보다 앞선다). `MAP-DEMO-001`은 유지되고 병행한다 — 회귀 게이트·허브 사다리(무기고 T1·대장간 T3)가 데모 맵에 물려 있다. `RM-UPPER-10/11`은 **layer 1**(백레이어). 지역 테마는 미확정이며 표시명 축이 소유한다(ID는 안정 축)."
 }
