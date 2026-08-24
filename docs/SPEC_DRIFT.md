@@ -2333,3 +2333,19 @@
 - **게이트:** `ci_smoke.sh` **15/15 PASS**. 신규 [계약/문서] 항목 **17종 × 맵 2개**.
 - **상태:** ✅ 완료 · 전파 불요(스펙이 이미 소유한 값의 구현). **미결 1건 = ⑦** 데모 맵 `gated_elite` 진입 조건.
 - **활성화 전 후속:** ① `spawn_table.json` `P-UPPER-*` 행 ② `KEY-UPPER-01`/`CHEST-UPPER-01` 표시명 ③ `entry_requirement.rule: onObjectiveComplete`(방 진입 조건) 런타임 — 현재는 `requiresItem` 문만 실물 문으로 선다 ④ 계단 앵커 클릭 입력(D-4) ⑤ 3세력 층간 이동(D-5).
+
+### DRIFT-181 — 계단을 **누를 수 있게** 했다 + 지면 평면이 층을 따라간다 (D-4) 🔷 Phase 1 · 전파 불요
+- **근거:** `LayerTransition`은 서 있었는데(**DRIFT-176**) **부르는 손가락이 없었다** — 계단 앵커가 실물이 되지 않아 플레이어가 층을 옮길 방법이 없었다.
+- **① 계단 = 입력 경로만 소유한다.** 전이 자체는 `LayerTransition`이 한 트랜잭션으로 한다(안개·nav·카메라). `stairs.gd`에는 그 이야기가 없다 — 상자·문과 같은 덕타이핑 계약(`interact_prompt`/`interact_anchor`/`interact` + 그룹 `interactable`)만 있다. 배치는 `dungeon_run._place_stairs()`가 맵 문서 `transitions` 앵커에서 한다.
+- **🔴 ② 역할을 반드시 본다.** `transitions` 배열엔 **문(`key_gate`)도 들어 있다.** 필터를 빼면 문이 계단이 되어 「우클릭하면 층이 바뀌는 문」이 선다. 게이트가 `stairs` 1개 + `key_gate` 1개를 주입하고 **실물이 1개만** 서는지 본다.
+- **🔴 ③ 계단은 벽이 아니다.** 실물 계단은 INTERACT 비트만 켠다 — world 비트를 켜면 오클루더 유도(`derive_occluders`)가 이걸 벽으로 세어 그 자리에 **안개 구멍**이 생긴다.
+  - **게이트가 처음엔 이걸 못 잡았다.** `set_active_layer()`가 `collision_layer`를 상수(`INTERACT_BIT`)로 **덮어써서**, `_build()`가 world 비트를 켜도 토글이 지워 버렸다 — 불변식이 **빌더의 성질이 아니라 토글의 부작용**으로 성립하고 있었다. 반증 확인에서 「고쳤는데 안 빨개진다」로 드러났다. → `_build()`가 정한 마스크(`_mask`)를 토글이 **켰다 껐다 할 뿐**으로 바꾸니 게이트가 문다.
+- **🔴 ④ 남의 층 계단은 콜리전도 끈다.** `visible = false`만으로는 **레이캐스트가 계속 맞는다** — 바닥 너머의 계단이 마우스에 걸리면 층 구분이 무너진다.
+- **⑤ 거절을 누르기 전에 보여준다.** 결집이 안 되면 프롬프트가 **빠진 멤버 이름**을 말한다. 눌렀는데 아무 일도 안 일어나면 고장으로 읽히고, 「파티를 찢지 않는다」는 규칙은 거절 화면이 있어야 규칙으로 읽힌다.
+- **🔴 ⑥ 클릭-이동이 `y = 0` 평면을 쓰고 있었다.** 지상만 있을 땐 맞지만 백레이어(바닥 −8 m)에서는 **클릭한 곳이 8 m 어긋난다**. 층 간격은 맵마다 다르므로 상수로 둘 수 없다 → `ground_plane_y()` = 맵 문서 `layer_floor_y[활성 층]`. 데모 맵은 층이 하나라 실맵으로 차이를 못 만들므로, 게이트는 **단차가 있는 가짜 맵**을 세워 「어느 평면을 쓰는가」만 묻는다(상수로 돌아가면 즉시 빨개진다).
+- **⑦ 층마다 바닥 높이가 달라야 한다**(정적 문서 검사 추가). 같으면 겹친 지오메트리가 서로 안에 박히고 지면 평면도 층을 못 가른다. 층 간격은 코드 상수가 아니라 `layer_floor_y`가 소유한다.
+- **샌드박스 패리티:** `combat_sandbox`에는 interactable도 레이어도 없어 미러링 대상이 아니다(`_ground_under_mouse`의 `y=0`은 단층 아레나에서 정답). [[sandbox-input-parity]] 확인 완료.
+- **반증 확인(5종 전부):** 지면 평면을 상수로 되돌리면 FAIL · `role` 필터를 빼면 실물 +2로 FAIL · world 비트를 켜면 FAIL(③ 수정 후) · 층 토글에서 콜리전을 안 끄면 FAIL · 하층 바닥을 지상과 같게 하면 FAIL.
+- **영향 파일:** `scripts/world/objects/stairs.gd`(신규) · `dungeon_run.gd`(`_place_stairs`) · `interaction_controller.gd`(`ground_plane_y`/`ground_at`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`(레이어 저작 규약 6줄 추가).
+- **게이트:** `ci_smoke.sh` **15/15 PASS**.
+- **상태:** ✅ 완료 · 전파 불요. 남은 것: 3세력 층간 이동(D-5, `F-028` §3.2.2a).

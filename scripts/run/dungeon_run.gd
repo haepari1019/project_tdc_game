@@ -35,6 +35,7 @@ const CHEST_OBSTACLE_FRAC := 0.55  # 장애물 보유 방에서 기둥/장애물
 const CHEST_OBSTACLE_GAP := 3.2  # 장애물 중심에서 떨어진 거리(옆에 붙음)
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
 const LayerTransition := preload("res://scripts/run/controllers/layer_transition.gd")
+const Stairs := preload("res://scripts/world/objects/stairs.gd")
 const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
 const EnemyVisionOverlay := preload("res://scripts/run/controllers/enemy_vision_overlay.gd")
 const MovePathOverlay := preload("res://scripts/run/controllers/move_path_overlay.gd")
@@ -305,7 +306,7 @@ func _ready() -> void:
 	$HUD.add_child(_interact_prompt)
 	_interaction = InteractionController.new()
 	add_child(_interaction)
-	_interaction.setup(_party, _interact_prompt, _inventory_ui)
+	_interaction.setup(_party, _interact_prompt, _inventory_ui, _map)
 	# 레이어 전이(계단) — 포털이 런 경계라면 계단은 **런 안에서** 층을 옮긴다. 결집 조건부이고
 	# down/MIA는 두고 간다. 페이드 오버레이는 HUD 최상단에 깔되 평소엔 숨긴다. ref: LDG-001 §9.2.
 	var fade := ColorRect.new()
@@ -319,6 +320,8 @@ func _ready() -> void:
 	_layer_tx = LayerTransition.new()
 	add_child(_layer_tx)
 	_layer_tx.setup(_party, _map, _vision_fog, $CameraRig if has_node("CameraRig") else null, fade)
+
+	_place_stairs()              # 계단 = 층을 옮기는 **입력 경로**(전이 자체는 LayerTransition)
 
 	_wall_xray = WallXray.new()  # fade walls between camera and the controlled char (see-through)
 	add_child(_wall_xray)
@@ -621,6 +624,32 @@ func _anchor_pos(kind: String, key: String, value: String) -> Vector3:
 			return (a as Dictionary)["pos"]
 	push_warning("[MAP] 앵커 없음 — %s/%s=%s (맵 문서 anchors 확인)" % [kind, key, value])
 	return _map.get_spawn_position()
+
+
+## 맵 문서의 `transitions` 앵커 중 **`role: stairs`**를 실물 계단으로 세운다.
+## 문(`key_gate`)과 같은 배열에 있으므로 **역할을 반드시 본다** — 안 보면 문이 계단이 된다([[DRIFT-178]]).
+## 목적지 레이어는 **목적지 방이 소유**하고(`layer`), 놓인 층은 **자기 방이 소유**한다.
+func _place_stairs() -> void:
+	if _map == null or _layer_tx == null:
+		return
+	var n := 0
+	for ref in _map.data_room_refs():
+		var room := String(ref)
+		for a in _map.get_anchors(room, "transitions"):
+			var d := a as Dictionary
+			if String(d.get("role", "")) != "stairs":
+				continue
+			var to := String(d.get("to", ""))
+			if to.is_empty():
+				continue
+			var st = Stairs.new()
+			st.setup(_layer_tx, to, _map.get_room_layer(to), _map.get_room_layer(room))
+			st.position = d["pos"]
+			add_child(st)
+			st.set_active_layer(_map.get_active_layer())   # 남의 층 계단은 처음부터 안 잡힌다
+			n += 1
+	if n > 0:
+		print("[MAP] 계단 %d개 배치" % n)
 
 
 ## 잠긴 문이 요구하는 열쇠 id — `transitions[key_gate].gates` → 그 방의 `entry_requirement.ref`.

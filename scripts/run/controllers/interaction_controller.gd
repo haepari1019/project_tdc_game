@@ -18,12 +18,15 @@ const MOVE_ARRIVE_DIST := 0.4   # click-to-move stop tolerance at the clicked gr
 var _party: Node3D = null
 var _label: Label = null
 var _inv: Node = null
+## 지면 평면의 높이를 아는 유일한 통로 — **활성 층의 바닥**이다(레이어마다 다르다).
+var _map: Node = null
 
 
-func setup(party: Node3D, label: Label, inv: Node) -> void:
+func setup(party: Node3D, label: Label, inv: Node, map: Node = null) -> void:
 	_party = party
 	_label = label
 	_inv = inv
+	_map = map
 
 
 func _process(_delta: float) -> void:
@@ -66,17 +69,30 @@ func try_interact() -> void:
 			pc.order_move_to(gp, Callable(), MOVE_ARRIVE_DIST)
 
 
-## Ground point under the cursor via the floor plane (y≈0). null if the ray is ~parallel.
+## Ground point under the cursor via the floor plane. null if the ray is ~parallel.
 func _ground_under_mouse():
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
 		return null
 	var mouse := get_viewport().get_mouse_position()
-	var from := cam.project_ray_origin(mouse)
-	var dir := cam.project_ray_normal(mouse)
+	return ground_at(cam.project_ray_origin(mouse), cam.project_ray_normal(mouse))
+
+
+## **지면 평면의 높이 = 활성 층의 바닥.** 예전에는 `y = 0` 고정이었다 — 지상만 있을 땐 맞지만
+## 백레이어(바닥 −8 m)에서는 클릭한 곳이 **8 m 어긋난다**. 층마다 단차가 다르므로 상수로 둘 수 없고,
+## 맵 문서 `layer_floor_y`가 소유한다.
+func ground_plane_y() -> float:
+	if _map != null and _map.has_method("layer_floor_y") and _map.has_method("get_active_layer"):
+		return _map.layer_floor_y(_map.get_active_layer())
+	return 0.0
+
+
+## 광선 ↔ 지면 평면 교점. 평행이거나 뒤쪽이면 null. (테스트가 부를 수 있게 분리했다 —
+## 마우스 좌표가 없어도 「어느 평면을 쓰는가」를 물을 수 있어야 한다.)
+func ground_at(from: Vector3, dir: Vector3):
 	if absf(dir.y) < 0.0001:
 		return null
-	var t := -from.y / dir.y       # intersect the y=0 floor plane
+	var t := (ground_plane_y() - from.y) / dir.y
 	if t <= 0.0:
 		return null
 	return from + dir * t

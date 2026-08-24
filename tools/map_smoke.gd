@@ -67,6 +67,8 @@ func _init() -> void:
 	await _check_layer_transition(scn, map)
 	_check_minimap_layer(scn, map)
 	_check_stair_links(map)
+	await _check_stairs_input(scn, map)
+	_check_ground_plane()
 	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
@@ -1354,7 +1356,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl", "map_documents"]:
+	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane"]:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -1552,6 +1554,26 @@ func _check_one_document(fname: String, doc: Dictionary, reg: Dictionary, pool_r
 				cross += 1
 	_expect(ov_bad.is_empty(), "[계약/문서] %s **같은** 층 XZ 중첩 없음 (%s · 층 간 중첩 %d쌍)" % [tag,
 		"전부" if ov_bad.is_empty() else "겹침: " + ", ".join(ov_bad), cross])
+
+	# ── 층마다 바닥 높이가 선언돼 있고 서로 다른가 ─────────────────────────
+	# 층은 XZ를 **겹치라고** 있는 것이므로 두 층이 같은 Y면 지오메트리가 서로 안에 박힌다.
+	# 층 간격은 코드 상수가 아니라 맵 문서 `layer_floor_y`가 소유한다(맵마다 단차가 다르다).
+	var layers_seen: Dictionary = {}
+	for ref in order:
+		layers_seen[int((rects[ref] as Dictionary)["layer"])] = true
+	var fy: Array = doc.get("layer_floor_y", [])
+	var fy_bad: Array = []
+	var used_y: Dictionary = {}
+	for l in layers_seen:
+		if int(l) >= fy.size():
+			fy_bad.append("layer %d: 바닥 높이 선언 없음" % int(l))
+			continue
+		var y := float(fy[int(l)])
+		if used_y.has(y):
+			fy_bad.append("layer %d: 바닥 y=%.1f 가 layer %d와 같다" % [int(l), y, int(used_y[y])])
+		used_y[y] = int(l)
+	_expect(fy_bad.is_empty(), "[계약/문서] %s 층 %d개가 각자 바닥 높이를 갖는다 (%s)" % [tag,
+		layers_seen.size(), "전부" if fy_bad.is_empty() else ", ".join(fy_bad)])
 
 	# ── 계단: 다른 층을 가리킨다 / 문: 잠긴 방을 가리킨다 ──────────────────
 	var stairs: Array = []
@@ -1782,3 +1804,143 @@ func _components(nodes: Array, adj: Dictionary) -> int:
 				if not seen.has(m):
 					stack.append(m)
 	return n
+
+
+## **계단 입력 경로** — 앵커에서 실물 계단이 서고, 눌렀을 때 전이가 일어나는가.
+## 전이 **역학**은 `_check_layer_transition`이 이미 본다. 여기는 **손가락**을 본다:
+## 배치 · 역할 구분 · 결집 프롬프트 · 클릭 → 전이 · 남의 층 계단이 안 잡히는 것.
+## 데모 맵엔 계단 앵커가 없으므로(그게 정상이다) **주입해서** 실제 배치 경로를 태운다 —
+## 오브젝트만 따로 만들어 보면 `dungeon_run`의 배선은 검사되지 않는다.
+func _check_stairs_input(scn: Node, map: Node) -> void:
+	if not scn.has_method("_place_stairs"):
+		_expect(false, "[계약/계단] dungeon_run._place_stairs 접근")
+		return
+	var party: Node = _find_party(root)
+	if party == null:
+		_expect(false, "[계약/계단] PartyController 접근")
+		return
+	# 활성 층을 0으로 되돌린다 — 앞선 전이 테스트가 1로 두고 갔다.
+	map.set_active_layer(0)
+
+	var home := "RM-ENTRY-01"
+	var dest := "RM-ADV-05"
+	var anchors: Dictionary = map.get("_anchors")
+	var before: Array = (anchors.get(home, {}) as Dictionary).get("transitions", []).duplicate()
+	var at: Vector3 = map.get_spawn_position(home)
+	var injected: Array = before.duplicate()
+	injected.append({"role": "stairs", "to": dest, "pos": at})
+	# 문(key_gate)이 섞인 상태로 주입한다 — 역할을 안 보면 문까지 계단이 된다.
+	injected.append({"role": "key_gate", "gates": dest, "pos": at})
+	if not anchors.has(home):
+		anchors[home] = {}
+	(anchors[home] as Dictionary)["transitions"] = injected
+
+	var n_before := _count_stairs(scn)
+	scn._place_stairs()
+	var built: Array = []
+	for c in scn.get_children():
+		if "on_layer" in c and "to_room" in c:
+			built.append(c)
+	_expect(built.size() == n_before + 1,
+		"🔴 [계약/계단] 앵커 1+1개 중 **계단만** 실물이 된다 (+%d)" % (built.size() - n_before))
+	if built.is_empty():
+		(anchors[home] as Dictionary)["transitions"] = before
+		return
+	var st: Node = built[built.size() - 1]
+	_expect(st.is_in_group("interactable") and String(st.get("to_room")) == dest,
+		"[계약/계단] 상호작용 계약 + 목적지 (%s)" % st.get("to_room"))
+	# 계단은 통행/시야를 막지 않는다 — world 비트를 켜면 오클루더 유도가 이걸 벽으로 센다.
+	var body: Node = null
+	for c in st.get_children():
+		if c is StaticBody3D:
+			body = c
+	_expect(body != null and (int(body.get("collision_layer")) & 1) == 0,
+		"🔴 [계약/계단] world 비트를 안 켠다 — 계단이 벽이 되면 안개에 구멍이 뚫린다")
+
+	# ① 결집 안 된 상태의 프롬프트 — **누르기 전에** 거절 이유가 보여야 한다.
+	var members: Array = party.get_members()
+	var stray: Node3D = members[3] as Node3D
+	var keep := stray.global_position
+	for m in members:
+		(m as Node3D).global_position = at
+	(st as Node3D).global_position = at
+	stray.global_position = at + Vector3(60, 0, 0)
+	var p_bad := String(st.interact_prompt())
+	_expect(p_bad.contains("결집") and p_bad.contains(String(stray.name)),
+		"🔴 [계약/계단] 결집 안 되면 **프롬프트가 먼저 말한다** — 눌러도 아무 일 없으면 고장으로 읽힌다")
+
+	# ② 결집하면 안내가 바뀐다.
+	stray.global_position = at + Vector3(2, 0, 0)
+	var p_ok := String(st.interact_prompt())
+	_expect(p_ok.contains(dest) and not p_ok.contains("결집"),
+		"[계약/계단] 결집되면 목적지를 안내한다")
+
+	# ③ 클릭 → 실제로 전이가 일어난다(입력 경로가 LayerTransition에 닿는가).
+	var tx: Node = null
+	for c in scn.get_children():
+		if c.has_method("transition") and c.has_method("can_transition"):
+			tx = c
+	if tx != null:
+		tx.set("_fade", null)      # 한 프레임 안에 끝나게(페이드 await가 판정을 타이밍에 건다)
+	st.interact()
+	await root.get_tree().process_frame
+	var dpos: Vector3 = map.get_spawn_position(dest)
+	var moved := 0
+	for m in members:
+		if (m as Node3D).global_position.distance_to(dpos) < 6.0:
+			moved += 1
+	_expect(moved >= 3, "🔴 [계약/계단] 계단을 누르면 파티가 옮겨진다 (%d명)" % moved)
+
+	# ④ 남의 층 계단은 **잡히지 않는다.** `visible = false`만으로는 레이캐스트가 계속 맞는다 —
+	#    바닥 너머의 계단이 마우스에 걸리면 층 구분이 무너진다.
+	st.set_active_layer(int(st.get("on_layer")) + 1)
+	_expect(not bool(st.get("visible")) and int(body.get("collision_layer")) == 0,
+		"🔴 [계약/계단] 남의 층 계단은 숨고 **콜리전도 꺼진다**")
+	st.set_active_layer(int(st.get("on_layer")))
+	_expect(bool(st.get("visible")) and int(body.get("collision_layer")) != 0,
+		"[계약/계단] 자기 층으로 돌아오면 복원")
+
+	# 정리 — 주입 제거 + 실물 제거 + 파티 복귀.
+	(anchors[home] as Dictionary)["transitions"] = before
+	st.queue_free()
+	map.set_active_layer(0)
+	stray.global_position = keep
+	_sections["stairs_input"] = true
+
+
+func _count_stairs(scn: Node) -> int:
+	var n := 0
+	for c in scn.get_children():
+		if "on_layer" in c and "to_room" in c:
+			n += 1
+	return n
+
+
+## **클릭-이동의 지면 평면이 활성 층을 따라가는가.** 예전엔 `y = 0` 고정이었다 —
+## 지상만 있을 땐 맞지만 백레이어(바닥 −8 m)에서는 클릭한 곳이 **8 m 어긋난다**.
+## 데모 맵은 층이 하나라 실맵으로는 이 차이를 못 만든다. 그래서 **단차가 있는 가짜 맵**을 세워
+## 「어느 평면을 쓰는가」만 묻는다(상수로 돌아가면 즉시 빨개진다).
+func _check_ground_plane() -> void:
+	var stub := Node.new()
+	var src := GDScript.new()
+	src.source_code = "extends Node\nvar l := 0\nfunc get_active_layer() -> int:\n\treturn l\n" \
+		+ "func layer_floor_y(layer: int) -> float:\n\treturn -8.0 if layer == 1 else 0.0\n"
+	src.reload()
+	stub.set_script(src)
+	var ic = load("res://scripts/run/controllers/interaction_controller.gd").new()
+	root.add_child(ic)
+	ic.setup(null, null, null, stub)
+
+	var from := Vector3(3, 20, 5)
+	var dir := Vector3(0, -1, 0)
+	var g0 = ic.ground_at(from, dir)
+	_expect(g0 != null and absf((g0 as Vector3).y) < 0.001,
+		"[계약/지면] layer 0 → 평면 y=0 (%.2f)" % (0.0 if g0 == null else (g0 as Vector3).y))
+	stub.set("l", 1)
+	var g1 = ic.ground_at(from, dir)
+	_expect(g1 != null and absf((g1 as Vector3).y + 8.0) < 0.001,
+		"🔴 [계약/지면] layer 1 → 평면 y=−8 — 클릭-이동이 **활성 층 바닥**을 쓴다 (%.2f)" % (
+			0.0 if g1 == null else (g1 as Vector3).y))
+	ic.queue_free()
+	stub.queue_free()
+	_sections["ground_plane"] = true
