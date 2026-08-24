@@ -28,6 +28,7 @@ const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
 const Spatial := preload("res://scripts/core/spatial.gd")
 const EnemyAI := preload("res://scripts/combat/enemy_ai.gd")
+const EnemyUnit := preload("res://scripts/combat/enemy_unit.gd")
 const AbilityDispatch := preload("res://scripts/combat/abilities/ability_dispatch.gd")
 const ReactionSystem := preload("res://scripts/combat/abilities/reaction_system.gd")
 const CastContext := preload("res://scripts/combat/abilities/cast_context.gd")   # PILOT — enemy 통합 캐스트 ctx
@@ -60,7 +61,10 @@ const SPAWN_WALL_MARGIN := 5.0   # 산포 후 벽에서 안쪽 클램프(유닛/
 const RUN_ENCOUNTER_MIN := 4     # 런 전체 전투 수 하한(사용자: 한 런에 4~5 전투)
 const RUN_ENCOUNTER_MAX := 5     # 런 전체 전투 수 상한 — 방마다 무조건 X, 가중 추첨한 방에만 1분대
 const THIRD_FACTION_CHANCE := 0.6   # F-028 제3세력 창발: 런당 0~1 squad(이 확률로 1) — 난장판 방지
-const THIRD_FACTION_NAME := "Third"   # 제3세력 combat faction(ENC-3RD-001과 동일) — 몬스터("Dungeon")·파티에 적대
+const THIRD_FACTION_NAME := EnemyUnit.THIRD_FACTION   # 제3세력 combat faction(ENC-3RD-001과 동일) — 몬스터("Dungeon")·파티에 적대.
+## 문자열의 **소유자는 유닛**이다 — 「층을 넘을 수 있는가」가 이 값 하나에 달려 있어 두 벌이 되면 안 된다.
+## 계단 접근 판정 거리(m). 튜닝 수치.
+const THIRD_STAIRS_REACH_M := 3.0
 const THIRD_FACTION_PACK: Array = [   # Stalker Pack(EN-3RD-01 추적자 + 02 포획꾼 + 03 학살자)
 	{"enemy_id": "EN-3RD-01", "count": 1}, {"enemy_id": "EN-3RD-02", "count": 1}, {"enemy_id": "EN-3RD-03", "count": 1},
 ]
@@ -311,6 +315,7 @@ func _physics_process(delta: float) -> void:
 	# Per-squad reinforcement ticks while that squad has any engaged member.
 	for squad in _squads:
 		_tick_reinforcement(squad, delta)
+	_tick_third_layer_roam(delta, party)   # F-028 §3.2.2a — 제3세력만 층을 넘는다
 	# partyInCombat = any enemy engaged (derived); drives HUD + follower re-form.
 	_refresh_party_in_combat()
 
@@ -1203,3 +1208,96 @@ func _on_enemy_died(unit: CharacterBody3D) -> void:
 					if not eid.is_empty():
 						squad_cleared.emit(eid, unit.global_position)
 					break
+
+
+## **F-028 §3.2.2a — 제3세력만 층을 넘는다.**
+##
+## 넘는 조건은 **자기 층에 적대가 아무도 안 남았을 때** 하나뿐이다. 이 하나가 두 가지를 동시에 만족한다:
+##   - **성격**(§3.1.1 유동 위협): 사냥감이 떨어지면 사냥감을 찾아 층을 옮긴다 →
+##     「파티가 **볼 수 없는 층에서 벌어진 일이 위로 올라온다**」(§3.5 causality LOD).
+##   - **anti-pattern 가드**(§3.1.2): 파티가 자기 층에 있으면 **안 넘는다.** 층 이동을 「필수 추격」으로
+##     쓰지 않는다 — 플레이어가 못 따라가는 곳으로 도망쳐 목표를 무효화하면 안 된다.
+##
+## 비용 가드는 스폰 쪽이 이미 갖고 있다(`maxConcurrent` = 1분대) — 층을 아는 유닛은 런당 그 분대뿐이다.
+## 계단은 **플레이어가 쓰는 그 실물**을 쓴다(그룹 `interactable` + `on_layer`) — 3세력만의 통로를
+## 따로 두면 데이터에 없는 길이 생긴다.
+func _tick_third_layer_roam(delta: float, party: Array) -> void:
+	if _map == null:
+		return
+	# **층별로 가른다.** 「3세력 유닛 전부 = 한 분대」로 보면 첫 유닛의 층을 「그 층」으로 삼게 되는데,
+	# 창발 주입이 겹쳐 분대가 둘이 되는 순간 그 가정이 깨진다(게이트가 실제로 그렇게 드러냈다).
+	# `maxConcurrent` 상한은 스폰 쪽의 규칙이지 **여기가 기대도 되는 전제가 아니다**.
+	var by_layer: Dictionary = {}
+	for e in _enemies:
+		if not (is_instance_valid(e) and e.is_alive() and e.has_method("can_cross_layers") and e.can_cross_layers()):
+			continue
+		e.layer_hop_cd = maxf(0.0, float(e.layer_hop_cd) - delta)
+		var l := int(e.nav_layer)
+		if not by_layer.has(l):
+			by_layer[l] = []
+		(by_layer[l] as Array).append(e)
+	for l in by_layer:
+		_roam_third_crew(int(l), by_layer[l] as Array, party)
+
+
+## 한 층에 있는 제3세력 분대 하나를 굴린다.
+func _roam_third_crew(here: int, crew: Array, party: Array) -> void:
+	if crew.is_empty() or float(crew[0].layer_hop_cd) > 0.0:
+		return
+
+	# ① 파티가 이 층에 있으면 안 넘는다 — 도망이 아니다.
+	var party_layer: int = int(_map.get_active_layer()) if _map.has_method("get_active_layer") else 0
+	for m in party:
+		if is_instance_valid(m) and m.is_alive() and party_layer == here:
+			return
+	# ② 사냥할 몬스터가 이 층에 남아 있으면 안 넘는다 — 여기 일이 안 끝났다.
+	for e in _enemies:
+		if not is_instance_valid(e) or not e.is_alive():
+			continue
+		if String(e.faction) == THIRD_FACTION_NAME:
+			continue
+		if int(e.nav_layer) == here:
+			return
+
+	# ③ 이 층에서 갈 수 있는 계단. 없으면 넘을 길이 없다(단층 맵이면 여기서 끝난다).
+	var st: Node3D = _nearest_stairs(crew[0].global_position, here)
+	if st == null:
+		return
+
+	# ④ 계단까지 걸어간다. 도착 전에는 아무 일도 안 일어난다 — 계단을 **쓰는** 것이지 순간이동이 아니다.
+	var reach2 := THIRD_STAIRS_REACH_M * THIRD_STAIRS_REACH_M
+	var lead: CharacterBody3D = crew[0]
+	if Spatial.h_dist2(lead.global_position, st.global_position) > reach2:
+		for e in crew:
+			if e.engaged:
+				continue                     # 교전 중인 유닛은 AI가 몰고 있다 — 뺏지 않는다
+			e.velocity = _enemy_ai._nav_move(e, st.global_position, e.current_move_speed())
+		return
+
+	# ⑤ 도착 — **분대 전체가 함께** 넘는다. 하나씩 새면 「1 분대」 상한이 무의미해진다.
+	var to_room := String(st.get("to_room"))
+	var to_layer := int(st.get("to_layer"))
+	var dest: Vector3 = _map.get_spawn_position(to_room)
+	var rid: RID = _map.get_nav_map(to_layer) if _map.has_method("get_nav_map") else RID()
+	var i := 0
+	for e in crew:
+		var ang := float(i) * TAU / float(maxi(crew.size(), 1))
+		e.cross_to_layer(dest + Vector3(cos(ang), 0.0, sin(ang)) * 2.0, to_layer, rid)
+		i += 1
+	print("[TDC] 제3세력 층 이동: layer %d → %d (%s · %d기)" % [here, to_layer, to_room, crew.size()])
+
+
+## 이 층에 놓인 실물 계단 중 가장 가까운 것. 계단은 자기가 놓인 층(`on_layer`)을 안다.
+func _nearest_stairs(from: Vector3, layer: int) -> Node3D:
+	var best: Node3D = null
+	var bd := INF
+	for n in get_tree().get_nodes_in_group("interactable"):
+		if not (n is Node3D) or not ("on_layer" in n) or not ("to_room" in n):
+			continue
+		if int(n.get("on_layer")) != layer:
+			continue
+		var d: float = Spatial.h_dist2((n as Node3D).global_position, from)
+		if d < bd:
+			bd = d
+			best = n as Node3D
+	return best

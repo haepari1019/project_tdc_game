@@ -69,6 +69,7 @@ func _init() -> void:
 	_check_stair_links(map)
 	await _check_stairs_input(scn, map)
 	_check_ground_plane()
+	_check_third_layer(scn, map)
 	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
@@ -1356,7 +1357,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane"]:
+	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer"]:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -1944,3 +1945,141 @@ func _check_ground_plane() -> void:
 	ic.queue_free()
 	stub.queue_free()
 	_sections["ground_plane"] = true
+
+
+## **제3세력만 층을 넘는다**(`F-028` §3.2.2a) — 그리고 **다른 층은 서로 없는 것이다**(`F-006` §3.2.4).
+## 데모 맵은 층이 하나라 실맵으로는 이 규칙을 못 만든다. 그래서 **가짜 층(2)** 위에 분대를 세워
+## 「누가 넘을 수 있는가 · 언제 안 넘는가 · 넘을 때 무엇이 함께 바뀌는가」를 묻는다.
+func _check_third_layer(scn: Node, map: Node) -> void:
+	var combat: Node = null
+	for c in scn.get_children():
+		if c.has_method("prespawn_encounters") and c.has_method("_spawn_third_squad"):
+			combat = c
+	var party: Node = _find_party(root)
+	if combat == null or party == null:
+		_expect(false, "[계약/3세력] CombatController · PartyController 접근")
+		return
+	map.set_active_layer(0)
+
+	# ① 층을 넘을 자격 — 진영 하나로 갈린다.
+	var before: int = combat._enemies.size()
+	combat._spawn_third_squad("RM-ENTRY-01")
+	var crew: Array = []
+	for i in range(before, combat._enemies.size()):
+		crew.append(combat._enemies[i])
+	var dungeon: Node = null
+	for e in combat._enemies:
+		if is_instance_valid(e) and String(e.faction) != "Third":
+			dungeon = e
+			break
+	if crew.is_empty() or dungeon == null:
+		_expect(false, "[계약/3세력] 제3세력 분대 · 몬스터 확보 (%d기)" % crew.size())
+		return
+	_expect(crew[0].can_cross_layers() and not dungeon.can_cross_layers(),
+		"🔴 [계약/3세력] **제3세력만** 층을 넘을 수 있다 — 표준 몬스터는 레이어 고정 (%d기)" % crew.size())
+
+	# ② 다른 층은 서로 없는 것이다 — 층을 안 보면 적이 바닥을 뚫고 파티를 인지한다.
+	var members: Array = party.get_members()
+	var m0: Node = members[0]
+	var ai: Node = combat._enemy_ai
+	var keep_layer := int(dungeon.nav_layer)
+	_expect(ai._is_hostile(dungeon, m0), "[계약/3세력] 같은 층 파티는 적대다(과잉 차단 아님)")
+	dungeon.nav_layer = 2
+	_expect(not ai._is_hostile(dungeon, m0),
+		"🔴 [계약/3세력] **남의 층 파티는 적대가 아니다** — 안 그러면 바닥을 뚫고 인지해 못 닿는 곳으로 몰려간다")
+	dungeon.nav_layer = keep_layer
+
+	# 계단 하나를 가짜 층 2 위에 세운다(플레이어가 쓰는 그 실물을 3세력도 쓴다).
+	var home := "RM-ENTRY-01"
+	var dest_room := "RM-ADV-05"
+	var anchors: Dictionary = map.get("_anchors")
+	var before_tr: Array = (anchors.get(home, {}) as Dictionary).get("transitions", []).duplicate()
+	var at: Vector3 = map.get_spawn_position(home)
+	var inj: Array = before_tr.duplicate()
+	inj.append({"role": "stairs", "to": dest_room, "pos": at})
+	(anchors[home] as Dictionary)["transitions"] = inj
+	scn._place_stairs()
+	var st: Node3D = null
+	for c in scn.get_children():
+		if "on_layer" in c and "to_room" in c:
+			st = c as Node3D
+	(anchors[home] as Dictionary)["transitions"] = before_tr
+	if st == null:
+		_expect(false, "[계약/3세력] 계단 확보")
+		return
+	st.set("on_layer", 2)
+	st.set("to_layer", 0)
+	for e in crew:
+		e.nav_layer = 2
+		e.engaged = false
+		e.global_position = at
+		e.layer_hop_cd = 0.0
+
+	# ③ 파티가 이 층에 있으면 **안 넘는다** — 층 이동은 필수 추격이 아니다(§3.1.2).
+	map.set_active_layer(2)
+	combat._tick_third_layer_roam(0.016, members)
+	_expect(int(crew[0].nav_layer) == 2,
+		"🔴 [계약/3세력] 파티가 같은 층이면 **안 넘는다** — 못 따라오는 곳으로 도망치지 않는다")
+
+	# ④ 사냥할 몬스터가 이 층에 남아 있으면 안 넘는다 — 여기 일이 안 끝났다.
+	map.set_active_layer(0)
+	dungeon.nav_layer = 2
+	combat._tick_third_layer_roam(0.016, members)
+	_expect(int(crew[0].nav_layer) == 2, "🔴 [계약/3세력] 자기 층에 사냥감이 남으면 안 넘는다")
+	dungeon.nav_layer = keep_layer
+
+	# ⑤ 계단에서 멀면 **걸어간다** — 계단을 「쓰는」 것이지 순간이동이 아니다.
+	for e in crew:
+		e.global_position = at + Vector3(30, 0, 0)
+		e.velocity = Vector3.ZERO
+	combat._tick_third_layer_roam(0.016, members)
+	var toward := 0
+	for e in crew:
+		if (e.velocity as Vector3).length() > 0.01 and (e.velocity as Vector3).x < 0.0:
+			toward += 1
+	_expect(int(crew[0].nav_layer) == 2 and toward == crew.size(),
+		"🔴 [계약/3세력] 계단이 멀면 **걸어간다**(안 넘는다) — %d/%d기가 계단 쪽으로" % [toward, crew.size()])
+
+	# ⑥ 도착 — **분대 전체**가 함께 넘고, 위치만이 아니라 nav 바인딩·리시 기준까지 따라간다.
+	# nav rid를 **무효로 비워 두고** 시작한다 — 안 그러면 분대가 스폰 때부터 layer 0에 묶여 있어서
+	# 「새 층으로 바인딩됐는가」가 공허하게 통과한다(반증 확인에서 그렇게 드러났다).
+	for e in crew:
+		e.global_position = at
+		e.nav_map_rid = RID()
+	combat._tick_third_layer_roam(0.016, members)
+	var want: RID = map.get_nav_map(0)
+	_expect(want.is_valid(), "[계약/3세력] 목적지 층의 nav 맵이 실재한다")
+	var moved := 0
+	var bound := 0
+	var homed := 0
+	var dpos: Vector3 = map.get_spawn_position(dest_room)
+	for e in crew:
+		if int(e.nav_layer) == 0:
+			moved += 1
+		if (e.nav_map_rid as RID) == want:
+			bound += 1
+		if (e.home_pos as Vector3).distance_to(dpos) < 6.0:
+			homed += 1
+	_expect(moved == crew.size(), "🔴 [계약/3세력] **분대 전체**가 함께 넘는다 (%d/%d)" % [moved, crew.size()])
+	_expect(bound == crew.size(),
+		"🔴 [계약/3세력] 넘으면 **nav 맵도 새 층**으로 (%d/%d) — 위치만 옮기면 남의 층 navmesh를 걷는다" % [
+			bound, crew.size()])
+	_expect(homed == crew.size(),
+		"[계약/3세력] 리시(leash) 기준도 새 층으로 (%d/%d) — 안 그러면 즉시 「끌려왔다」" % [homed, crew.size()])
+
+	# ⑦ 쿨다운 — 사냥감이 없다고 매 프레임 오르내리지 않는다.
+	st.set("on_layer", 0)
+	st.set("to_room", home)
+	for e in crew:
+		e.global_position = map.get_spawn_position(home)
+	combat._tick_third_layer_roam(0.016, members)
+	_expect(int(crew[0].nav_layer) == 0, "[계약/3세력] 쿨다운 중엔 다시 안 넘는다 (%.0fs)" % crew[0].layer_hop_cd)
+
+	# 정리 — 주입 계단 제거 + 분대 제거.
+	st.queue_free()
+	for e in crew:
+		if is_instance_valid(e):
+			combat._enemies.erase(e)
+			e.queue_free()
+	map.set_active_layer(0)
+	_sections["third_layer"] = true

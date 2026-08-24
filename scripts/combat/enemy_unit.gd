@@ -99,6 +99,13 @@ var object_cast_s: float = 0.0                # opportunistic: 배럴 앞 부수
 # F-028 교전 진영 — 다른 진영끼리 적대(3세력 ↔ 일반 몬스터 ↔ 파티 실시간 교전). 기본 Dungeon.
 # loot는 누가 죽이든 드롭(F-028 clearsRoomLoot:false — 3세력이 정리해도 플레이어 파밍 비차단).
 var faction: String = "Dungeon"
+## 제3세력 진영 이름. **문자열의 소유자는 유닛**이다 — CombatController가 이걸 참조한다.
+## 「층을 넘을 수 있는가」가 이 값 하나에 달려 있어서 두 벌이 되면 안 된다.
+const THIRD_FACTION := "Third"
+## 층을 넘은 직후 재이동 금지 시간(s) — 튜닝 수치(SPEC_DRIFT).
+const LAYER_HOP_COOLDOWN_S := 18.0
+## 층 이동 쿨다운(s). 사냥감을 다 잡을 때마다 즉시 오르내리면 핑퐁이 된다.
+var layer_hop_cd: float = 0.0
 
 ## Squad (분대) = encounter group. Engagement is per-enemy but propagates only to
 ## squad-mates within cohesion range, so a strayed member fighting alone doesn't
@@ -624,6 +631,24 @@ func apply_poison_stack(dur: float, add_dps: float, cap_dps: float, unit_dps: fl
 		popup_status("중독", Color(0.5, 0.9, 0.4))
 	_outcome.apply_stack("Poison", dur, add_dps, cap_dps, unit_dps)
 	_update_status_badges()   # 즉시 갱신(중독 스택 배지)
+
+
+## **층을 넘을 수 있는가 — 제3세력만**(`F-028` §3.2.2a). 표준 몬스터(`faction: Dungeon`)는
+## 레이어에 고정된다(`F-006` §3.2.4). 이유: 제3세력은 §3.1.1의 **유동 위협**이고 이미 표준 배치
+## 규칙과 분리돼 있다 — 층 이동은 그 성격의 연장이다.
+func can_cross_layers() -> bool:
+	return faction == THIRD_FACTION
+
+
+## 층 이동 — **위치 · nav 레이어 · nav 맵 · 기존 경로 폐기**를 한 곳에서 한다.
+## 넷 중 하나라도 빠지면 유닛이 **남의 층 navmesh를 걷는다**(구 `get_maps()[0]` 지뢰와 같은 병).
+func cross_to_layer(dest: Vector3, layer: int, map_rid: RID) -> void:
+	global_position = dest
+	nav_layer = layer
+	nav_map_rid = map_rid
+	nav_clear()          # 옛 층의 경로를 들고 가지 않는다
+	home_pos = dest      # 리시(leash) 기준도 새 층으로 — 안 그러면 즉시 「끌려왔다」 판정
+	layer_hop_cd = LAYER_HOP_COOLDOWN_S
 
 
 ## Public outcome query (Third-faction targeting reads Scented/Rooted/etc.). ref: DEC-20260621-001.

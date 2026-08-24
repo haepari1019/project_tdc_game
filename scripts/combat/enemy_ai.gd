@@ -325,6 +325,12 @@ func _hostiles(enemy: CharacterBody3D, combatants: Array) -> Array:
 func _is_hostile(enemy: CharacterBody3D, cand) -> bool:
 	if cand == enemy or not is_instance_valid(cand):
 		return false
+	# **다른 층은 서로 없는 것이다**(`F-006` §3.2.4 · `LDG-001` §9.2). 층은 XZ를 공유하는 병렬
+	# 공간이라 여기서 안 걸러 주는 사람이 없다 — LOS는 **자기 층 비트**를 쓰므로 남의 층 벽이
+	# 광선을 안 막고(그게 정상이다), 그래서 층을 안 보면 적이 **바닥을 뚫고 파티를 인지**해
+	# 영원히 못 닿는 곳으로 몰려간다. 층을 넘는 것은 제3세력의 `cross_to_layer`뿐이다(§3.2.2a).
+	if int(cand.get("nav_layer")) != int(enemy.get("nav_layer")):
+		return false
 	if cand.is_in_group("party_member"):
 		# Veiled (Smoke Veil AB-062): brief stealth — no enemy treats this member as a target
 		# for the window, so targeting/hunting/splash all drop it. ref: F-009 · STATUS Veiled.
