@@ -310,7 +310,7 @@ footer{
       <tr><td>Patrol 반경</td><td class="m">6 m <span class="chip dead">제자리</span></td><td class="dim">PATROL_RADIUS_M · patrolGraphRef 미구현</td><td>Phase 1</td></tr>
       <tr><td><code>aggro_wake_buffer_m</code></td><td class="m">없음</td><td class="dim">F-006 §3.2.3 4.0 m · grep 0건</td><td>Phase 2</td></tr>
       <tr><td>unlit 방</td><td class="m">0 개</td><td class="dim">스펙 zoneAmbientTier는 5티어</td><td>Phase 4</td></tr>
-      <tr><td>안개 샘플링</td><td class="m">월드 XZ</td><td class="dim">vision_fog — 깊이 없음</td><td>Phase 5 제약</td></tr>
+      <tr><td>안개 샘플링</td><td class="m">월드 XZ</td><td class="dim">vision_fog — 깊이 없음. LOS 기준 높이는 <strong>방 바닥 상대</strong>로 전환(DRIFT-167)</td><td>Phase 1 · 5 (레이어)</td></tr>
       <tr><td>재료 공급원</td><td class="m">상자 위주</td><td class="dim">SQUAD_HAUL_MULT = 0.2</td><td>Phase 3 제약</td></tr>
     </tbody>
   </table>
@@ -664,6 +664,45 @@ footer{
     <li>dead end는 <strong>명확한 보상이 있을 때만</strong> — 이 초안엔 없다</li>
   </ul>
 
+  <h3>레이어 축 — 위상이 평면이 아니다 <span class="chip warn">2026-08-24 편입</span></h3>
+
+  <p><strong>백레이어를 Phase 1에 넣는다.</strong> 레이어는 「구획이 하나 더」가 아니라 <strong>위상 축이 하나 더</strong>라,
+  나중에 얹으면 우리가 지금 피하려는 그 실수(구조를 다 짜고 나서 축을 추가)를 반복한다.</p>
+
+  <div class="plate">
+<pre>지상 (layer 0)                     아래 (layer 1) — **같은 XZ 발자국에 겹침**
+  RM-UPPER-06  위험 관문  ──계단──▶  RM-UPPER-10  침수 통로
+        |                                  |
+  RM-UPPER-07  심부                        +─ RM-UPPER-11  보상실 (gated)
+        |                             ◀계단─┘
+  RM-UPPER-04  목표(관통)  ◀──────────── 반대편으로 복귀</pre>
+    <div class="cap">스펠렁키식 — 옆으로 치우지 않고 겹친다. 한 번에 한 레이어만 활성</div>
+  </div>
+
+  <p><strong>겹치면 예산이 뒤집힌다.</strong> 옆으로 치우면 안개 바운딩이 커지는데(현재 이미 69 %가 빈 공간),
+  겹치면 구획을 몇 개 쌓아도 XZ 발자국이 그대로다. <strong>「사이클 ≥ 2」도 XZ를 안 늘리고 달성된다</strong> —
+  아래층이 지상 A→B의 평행 간선이 된다.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>규칙</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td>포털</td><td><strong>런 경계</strong> — 진입/탈출. 기존 Extraction Point</td></tr>
+      <tr><td>계단</td><td><strong>같은 런 · 같은 맵 안의 워프.</strong> 클릭 → 페이드 → 전원 이동</td></tr>
+      <tr><td><strong>파티는 찢지 않는다</strong></td><td>전이는 <strong>전 파티 결집</strong> 조건. 다운/MIA여도 이동은 가능하고, <strong>MIA는 <code>down</code>으로 전환</strong>되어 함께 옮겨진다(공짜 구출 방지)</td></tr>
+      <tr><td>층을 넘는 것</td><td>일반 몬스터는 <strong>레이어 고정</strong>. <strong><code>F-028</code> 3세력만</strong> 계단을 쓴다 → 파티가 못 보는 아래층의 사건이 위로 올라온다</td></tr>
+      <tr><td>비율</td><td>백레이어도 <strong>강한 기믹 20~30 %</strong> 규칙 안에서 쓴다. Phase 1 그레이박스엔 <strong>1개만</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="call dead">
+    <p><span class="h">인지 부하가 진짜 위험이다</span>
+    <strong>스펠렁키가 잘한 이유의 절반은 back layer가 작고 명확했기 때문</strong>이다 — 전체가 back layer로 미로가 되지 않는다.
+    「지금 내가 어느 층인지」를 잃으면 그건 재미가 아니라 혼란이고 <code>F-024</code> 인지 예산 위반이다.
+    <strong>미니맵 층 표시 + 계단 마커는 선택이 아니라 필수</strong>다.</p>
+  </div>
+
   <h3>같이 처리해야 하는 3가지</h3>
 
   <div class="pipe">
@@ -821,23 +860,62 @@ footer{
 <!-- ══════════════════════════════════════════════ -->
 <section>
   <div class="eyebrow">Phase 5</div>
-  <h2>단차 + 환경 반응</h2>
+  <h2>수직·다층 구조 + 환경 반응</h2>
 
-  <div class="call dead">
-    <p><span class="h">2층은 지금 구조로 불가능하다</span>
-    안개가 <strong>월드 XZ로만</strong> 샘플링한다 — 위층 폴리곤이 아래층을 지운다. 방 위의 방을 하려면 F-011을 다시 설계해야 한다.</p>
+  <div class="call">
+    <p><span class="h">방향 전환 (2026-08-24)</span>
+    원안은 「1.5 m 전술 단차 실험」이었고 「2층은 불가능」이라고 적었다. <strong>그 판정은 과했다</strong> —
+    막혀 있던 건 높이가 아니라 <strong>XZ 중첩</strong>이었고, <strong>한 번에 한 레이어만 활성</strong>이면 중첩이 문제되지 않는다.
+    스펠렁키식 백레이어를 채택하고, <strong>위상 축이므로 Phase 1에 편입</strong>했다. 여기 남는 것은 <strong>시스템 구축</strong>이다.</p>
   </div>
 
-  <p>1.5 m 전술 단차는 가능하지만 맵 계약의 y 가정(<code>_room_points.spawn.y = 0.02</code> · 상자 배치 · 미니맵 rect · 치명존 carve)이 전부 평면 전제다.
-  <strong>Phase 0에서 계약 getter에 y를 통과시켜 두면 여기가 거의 공짜가 된다.</strong>
-  navmesh <code>agent_max_climb = 0.25</code>이므로 계단은 램프나 0.25 m 스텝으로 콜리전 프록시를 만들어야 한다 — Blender 규약에 박아 둔다.</p>
+  <h3>선행 완료 — 절대 Y 걷어내기 <span class="chip ok">DRIFT-167</span></h3>
 
-  <p>검증 대상은 6가지뿐이다: <strong>원거리 LOS · 클릭 · 포메이션 이동 · AI path · 카메라 · AoE 텔레그래프</strong>.
-  전술적 가치가 안 나오면 높이는 미관용으로 강등한다.</p>
+  <p><code>LOS_EYE_Y = 1.0</code>이 <strong>월드 절대 좌표</strong>였다. 바닥이 −6 m인 방의 벽은 y ∈ [−6, −2.5]라
+  그 높이를 안 가려 <strong>오클루더에서 통째로 빠진다</strong> — 안개 없는 방이 조용히 생긴다.
+  그리고 <strong>게이트가 못 잡았다</strong>: 맵과 스모크가 같은 절대 규칙을 써서 양쪽이 사이좋게 0을 반환해 「미일치 0」으로 통과했다.</p>
 
-  <p>환경 반응(함정 · 기름 · 불)은 마지막에 얹는다. 다만 <strong>추출 통로의 압력판 → 치명존 → 레버는 유지</strong>한다 —
+  <div class="plate">
+<pre>반증 확인 — eye를 절대값으로 되돌리면:
+  FAIL  바닥 y=-6 방의 벽이 오클루더로 잡힌다 (절대 Y였으면 0개)
+  FAIL  지상 1 + 지하 1 = 오클루더 2개 (1)</pre>
+    <div class="cap">합성 authored 씬에 바닥 y=−6 방을 세워 건 회귀 테스트</div>
+  </div>
+
+  <p>같이 들어간 불변식 2종: <strong>같은 레이어 방 XZ 중첩 없음</strong>(레이어 축이 들어오면 <em>레이어별</em>로 갈린다 —
+  다른 레이어끼리는 겹쳐도 되고 그게 요점이다) · <strong>방마다 오클루더 ≥ 1</strong>(총량 대조가 0 = 0으로 통과하던 구멍).</p>
+
+  <h3>남은 시스템 작업</h3>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th class="m">#</th><th>항목</th><th>성격</th></tr></thead>
+    <tbody>
+      <tr><td class="m">1</td><td><code>layer</code> 축을 맵 계약 + <code>rooms.json</code>에 — 콜리전 비트·nav map·안개 텍스처의 <strong>공통 키</strong></td><td>기반 · <strong>패킷 §G 전파</strong></td></tr>
+      <tr><td class="m">2</td><td>안개 <strong>레이어별 탐색 누적</strong> + 비활성 레이어 미렌더</td><td>F-011</td></tr>
+      <tr><td class="m">3</td><td>world 콜리전 <strong>비트 분리</strong>(32개 중 배정) — LOS 마스크 · wall xray</td><td>전투</td></tr>
+      <tr><td class="m">4</td><td>레이어별 <code>NavigationRegion3D</code> — 활성만 <code>enabled</code>, 콜리전 마스크로 파싱 분리</td><td>이동</td></tr>
+      <tr><td class="m">5</td><td><strong>유닛의 <code>layer</code> 속성</strong> — LOS 마스크 · nav map 바인딩(적·파티 공통)</td><td><strong>부피 큼</strong></td></tr>
+      <tr><td class="m">6</td><td>계단 = <code>transitions</code> 앵커 <code>role: stairs</code> + 페이드 워프 + <strong>결집 판정</strong>(MIA → down)</td><td>전환</td></tr>
+      <tr><td class="m">7</td><td>미니맵 <strong>층 표시 + 계단 마커</strong></td><td>UI(필수)</td></tr>
+      <tr><td class="m">8</td><td>3세력 <strong>층간 이동</strong>(런당 1분대만)</td><td>F-028</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><strong>5번이 진짜 부피다</strong> — 「레이어」가 유닛 속성이 되면 AI·경로·시야가 전부 그 축을 탄다.
+  「전 레이어가 동시에 실시간」이 결정이므로 <strong>분대 수와 AI 틱이 레이어 수만큼 늘어난다</strong> —
+  <code>F-028</code> <code>offscreen.roomEventBudgetPerTick</code>(현 6)이 그 예산의 자리이고 실측 후 튜닝한다.</p>
+
+  <h3>계단 단차·경사</h3>
+  <p>navmesh <code>agent_max_climb = 0.25</code>이므로 계단은 <strong>한 단 ≤ 0.25 m 또는 램프</strong>(≤ 45°)로 콜리전 프록시를 만든다.
+  <a href="map_contract.md">map_contract.md</a>에 이미 규약으로 있다. 계약이 y를 나르는 작업(DRIFT-164)도 끝나 있다.</p>
+
+  <h3>환경 반응</h3>
+  <p>함정 · 기름 · 불은 마지막에 얹는다. 다만 <strong>추출 통로의 압력판 → 치명존 → 레버는 유지</strong>한다 —
   단순한 damage floor가 아니라 <strong>4인 파티의 이동 관계를 흔드는</strong> 공간 기믹이고, 현재 맵에서 파티를 물리적으로 갈라놓는 유일한 장치다.
-  비율은 <strong>평범한 공간 문법 70~80 % / 강한 공간 기믹 20~30 %</strong>.</p>
+  <strong>레이어 전이가 파티를 가르지 않기로 한 만큼</strong>(전원 이동), 레이어 <em>안</em>에서 가르는 이 장치의 값어치는 오히려 올라간다.
+  비율은 <strong>평범한 공간 문법 70~80 % / 강한 공간 기믹 20~30 %</strong> — 백레이어도 이 예산 안에서 쓴다.</p>
 </section>
 
 <!-- ══════════════════════════════════════════════ -->
