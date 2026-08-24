@@ -18,7 +18,7 @@ extends SceneTree
 const MeshMaterials := preload("res://scripts/core/mesh_materials.gd")
 const MapConvention := preload("res://scripts/world/map_convention.gd")
 
-const LOS_EYE_Y := 1.0        # 적 시야 레이가 지나는 높이대 — 이 높이를 가리는 콜라이더만 오클루더다
+const LOS_EYE_H := 1.0        # **방 바닥 기준 상대** 시야 높이(map_source.LOS_EYE_H 미러)
 const ADJ_EPS := 0.06         # 공유벽 판정 허용오차(WALL_DEDUP_EPS 0.04보다 크게)
 const ADJ_MIN_OVERLAP := 0.5  # 모서리만 스치는 건 인접이 아니다
 const CHEST_AREA_PER := 520.0 # dungeon_run.CHEST_AREA_PER 미러(설계 리포트용)
@@ -59,6 +59,7 @@ func _init() -> void:
 	_check_pools(sd)
 	_check_ids(sd)
 	_check_anchors(sd, map)
+	_check_layers(map)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -91,7 +92,7 @@ func _collect_rects(map: Node) -> void:
 		var c: Vector3 = r["center"]
 		var s: Vector3 = r["size"]
 		# get_room_rects는 room_ref를 안 싣는다 — 계약을 넓히기 전까진 rooms.json 순회로 되짚는다.
-		_rects[_ref_at(map, c)] = {"c": Vector2(c.x, c.z), "s": Vector2(s.x, s.z)}
+		_rects[_ref_at(map, c)] = {"c": Vector2(c.x, c.z), "s": Vector2(s.x, s.z), "y": c.y}
 
 
 ## rect의 room_ref 되짚기 — get_spawn_position(ref)가 그 rect 중심과 일치하는 방을 찾는다.
@@ -249,6 +250,7 @@ func _footprint_of(cs: CollisionShape3D) -> Dictionary:
 	if shape == null:
 		return {}
 	var xf := cs.global_transform
+	var eye: float = _floor_y_at(Vector2(xf.origin.x, xf.origin.z)) + LOS_EYE_H
 	if shape is BoxShape3D:
 		var h: Vector3 = (shape as BoxShape3D).size * 0.5
 		var mn := Vector2(INF, INF)
@@ -262,13 +264,13 @@ func _footprint_of(cs: CollisionShape3D) -> Dictionary:
 					mn.x = minf(mn.x, w.x); mn.y = minf(mn.y, w.z)
 					mx.x = maxf(mx.x, w.x); mx.y = maxf(mx.y, w.z)
 					ymn = minf(ymn, w.y); ymx = maxf(ymx, w.y)
-		if ymn > LOS_EYE_Y or ymx < LOS_EYE_Y:
+		if ymn > eye or ymx < eye:
 			return {}
 		return {"center": (mn + mx) * 0.5, "half": (mx - mn) * 0.5}
 	if shape is CylinderShape3D:
 		var cyl := shape as CylinderShape3D
 		var o: Vector3 = xf.origin
-		if (o.y - cyl.height * 0.5) > LOS_EYE_Y or (o.y + cyl.height * 0.5) < LOS_EYE_Y:
+		if (o.y - cyl.height * 0.5) > eye or (o.y + cyl.height * 0.5) < eye:
 			return {}
 		return {"center": Vector2(o.x, o.z), "radius": cyl.radius}
 	if shape is ConvexPolygonShape3D:
@@ -285,13 +287,23 @@ func _footprint_of(cs: CollisionShape3D) -> Dictionary:
 			acc += Vector2(w.x, w.z)
 			ymn = minf(ymn, w.y)
 			ymx = maxf(ymx, w.y)
-		if ymn > LOS_EYE_Y or ymx < LOS_EYE_Y:
+		if ymn > eye or ymx < eye:
 			return {}
 		var hull := Geometry2D.convex_hull(flat)
 		if hull.size() < 3:
 			return {}
 		return {"center": acc / float(pts.size()), "poly": hull}
 	return {}
+
+
+## 맵 구현과 독립적으로 계산한다 — `_rects`(계약 getter 결과)만 보고 바닥 높이를 되짚는다.
+func _floor_y_at(xz: Vector2) -> float:
+	for ref in _rects:
+		var c: Vector2 = _rects[ref]["c"]
+		var sz: Vector2 = _rects[ref]["s"]
+		if absf(xz.x - c.x) <= sz.x * 0.5 + 0.5 and absf(xz.y - c.y) <= sz.y * 0.5 + 0.5:
+			return float(_rects[ref].get("y", 0.0))
+	return 0.0
 
 
 func _same_footprint(a: Dictionary, b: Dictionary) -> bool:
@@ -383,6 +395,41 @@ func _check_anchors(sd, map: Node) -> void:
 			missing.append("%s=%s" % [n[1], n[2]])
 	_expect(missing.is_empty(), "[계약] 런이 찾는 앵커 7종 존재 (%s)" % (
 		"전부" if missing.is_empty() else "없음: " + ", ".join(missing)))
+
+
+## **XZ 중첩 금지 + 방마다 오클루더 ≥ 1** — 다층(백레이어) 구조를 열기 전에 세워 두는 방어선.
+## ① 안개는 XZ 텍스처 하나다. 같은 레이어에서 방이 겹치면 위층이 아래층을 지운다.
+##    (레이어 축이 데이터에 들어오면 이 검사는 **레이어별**로 갈린다 — 다른 레이어끼리는 겹쳐도 된다.)
+## ② 벽이 있는데 오클루더가 0개면 그 방은 **안개가 없는 방**이다. 절대 Y 버그가 정확히 그 증상이었고,
+##    개수 대조만으로는 양쪽이 사이좋게 0을 반환해 통과한다 — 그래서 **방마다** 따로 센다.
+func _check_layers(map: Node) -> void:
+	var refs: Array = _rects.keys()
+	var overlaps: Array = []
+	for i in refs.size():
+		for j in range(i + 1, refs.size()):
+			var a: Dictionary = _rects[refs[i]]
+			var b: Dictionary = _rects[refs[j]]
+			var ax: float = (a["s"] as Vector2).x * 0.5 + (b["s"] as Vector2).x * 0.5
+			var az: float = (a["s"] as Vector2).y * 0.5 + (b["s"] as Vector2).y * 0.5
+			var d: Vector2 = (a["c"] as Vector2) - (b["c"] as Vector2)
+			if absf(d.x) < ax - 0.1 and absf(d.y) < az - 0.1:
+				overlaps.append("%s↔%s" % [refs[i], refs[j]])
+	_expect(overlaps.is_empty(), "[계약] 같은 레이어 방 XZ 중첩 없음 (%s)" % (
+		"전부" if overlaps.is_empty() else "겹침: " + ", ".join(overlaps)))
+
+	var bare: Array = []
+	for ref in _rects:
+		var c: Vector2 = _rects[ref]["c"]
+		var sz: Vector2 = _rects[ref]["s"]
+		var n := 0
+		for occ in map.get_occluder_footprints():
+			var o: Vector2 = occ["center"]
+			if absf(o.x - c.x) <= sz.x * 0.5 + 1.0 and absf(o.y - c.y) <= sz.y * 0.5 + 1.0:
+				n += 1
+		if n == 0:
+			bare.append(String(ref))
+	_expect(bare.is_empty(), "[계약] 방마다 오클루더 ≥ 1 — 안개 없는 방 없음 (%s)" % (
+		"전부" if bare.is_empty() else "0개: " + ", ".join(bare)))
 
 
 func _check_extraction(sd, map: Node) -> void:
@@ -528,6 +575,57 @@ func _check_authored_impl() -> void:
 			nav = c as NavigationRegion3D
 	_expect(nav != null and nav.navigation_mesh != null and nav.navigation_mesh.get_polygon_count() > 0,
 		"[계약/authored] navmesh 베이크 (%d polys)" % (nav.navigation_mesh.get_polygon_count() if nav != null and nav.navigation_mesh != null else 0))
+
+	# ⑤-b 🔴 **내려간 구획(백레이어) 회귀 테스트.** 여기가 이번 수정의 증인이다.
+	#    LOS 기준 높이를 **절대 월드 Y**로 두면 바닥 y=−6인 방의 벽(y∈[−6,−2.5])이 y=1.0을 안 가려
+	#    **오클루더에서 통째로 빠진다** — 안개 없는 방이 조용히 생긴다. 게이트도 못 잡는다(양쪽이
+	#    같은 절대 규칙이라 사이좋게 0으로 일치한다). 상대 높이로 고쳤고, 그 증명이 이 블록이다.
+	const SUNK_REF := "RM-ADV-04"
+	var sunk_origin := Vector3(500.0, -6.0, -60.0)     # 지상 방과 XZ가 안 겹치게
+	var sroom := Node3D.new()
+	sroom.name = SUNK_REF
+	sroom.position = sunk_origin
+	scene_root.add_child(sroom)
+	var strig := Area3D.new()
+	strig.name = MapConvention.TRIGGER_NAME
+	var stshape := CollisionShape3D.new()
+	var stbox := BoxShape3D.new()
+	stbox.size = Vector3(27.0, 4.0, 22.5)
+	stshape.shape = stbox
+	strig.add_child(stshape)
+	sroom.add_child(strig)
+	var smk := Marker3D.new()
+	smk.name = "MK_spawn"
+	sroom.add_child(smk)
+	var swall := MeshInstance3D.new()                   # 바닥 기준 +1.75 → 월드 y = −4.25
+	swall.name = "GEO_wall-col"
+	var swm := BoxMesh.new()
+	swm.size = Vector3(27.0, 3.5, 0.4)
+	swall.mesh = swm
+	swall.position = Vector3(0, 1.75, 11.25)
+	var swbody := StaticBody3D.new()
+	swbody.collision_layer = 1
+	var swcs := CollisionShape3D.new()
+	var swbs := BoxShape3D.new()
+	swbs.size = swm.size
+	swcs.shape = swbs
+	swbody.add_child(swcs)
+	swall.add_child(swbody)
+	sroom.add_child(swall)
+	await process_frame
+
+	src.build_from_scene(scene_root)
+	src.derive_occluders()
+	_expect(absf(src.get_spawn_position(SUNK_REF).y - (-6.0)) < 0.01,
+		"[계약/authored] 내려간 방의 바닥 높이가 계약에 실린다 (y=%.1f)" % src.get_spawn_position(SUNK_REF).y)
+	var sunk_found := false
+	for occ in src.get_occluder_footprints():
+		if (occ["center"] as Vector2).distance_to(Vector2(sunk_origin.x, sunk_origin.z + 11.25)) < 0.5:
+			sunk_found = true
+	_expect(sunk_found,
+		"🔴 [계약/authored] **바닥 y=−6 방의 벽이 오클루더로 잡힌다**(절대 Y였으면 0개 — 안개 없는 방)")
+	_expect(src.get_occluder_footprints().size() == 2,
+		"[계약/authored] 지상 1 + 지하 1 = 오클루더 2개 (%d)" % src.get_occluder_footprints().size())
 
 	# ⑤ 규약 검증기 — 임포트 시점에 「트리거 없는 방」을 잡는다(런타임까지 끌고 가지 않는다).
 	_expect(MapConvention.validate_room(room).is_empty(), "[계약/authored] 규약 검증 통과(정상 방)")

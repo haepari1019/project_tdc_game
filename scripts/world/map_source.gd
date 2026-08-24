@@ -24,9 +24,12 @@ const GEOMETRY_GROUP := "map_geometry"
 ## 치명존이 내비를 깎을 때 재베이크를 부르는 그룹.
 const NAVMAP_GROUP := "navmap"
 
-## 적 시야 레이가 지나는 높이. **이 높이를 가리는 레이어 1 콜라이더만 오클루더다.**
-## 바닥(두께 0.3 m, y≤0)이 규칙에서 자동으로 빠지고, authored 맵의 임의 지오메트리에도 같은 선이 선다.
-const LOS_EYE_Y := 1.0
+## 적 시야 레이가 지나는 높이 — **방 바닥 기준 상대값**이다. 이 높이를 가리는 레이어 1 콜라이더만
+## 오클루더이고, 바닥(두께 0.3 m)은 규칙에서 자동으로 빠진다.
+## 🔴 **절대 월드 Y가 아니다.** 예전엔 상수 1.0을 월드 좌표로 썼는데, 그러면 바닥이 y=−6인 방
+## (계단으로 내려간 구획)의 벽이 y∈[−6,−2.5]라 **오클루더에서 통째로 빠진다** — 안개가 없는 방이
+## 조용히 생긴다. 게이트도 못 잡는다(양쪽이 같은 절대 규칙을 쓰므로 사이좋게 0개로 일치한다).
+const LOS_EYE_H := 1.0
 ## 방 경계에서 이만큼 안쪽에 있는 오클루더 = 벽이 아니라 **방 안 장애물**(상자 배치 앵커).
 const INTERIOR_MARGIN_M := 1.0
 
@@ -232,6 +235,18 @@ func resolve_anchors_from_data() -> void:
 # 오클루더 유도 — **규약이 아니라 구조로** 「같은 출처」를 보장한다
 # ============================================================================
 
+## 그 XZ 지점의 **방 바닥 높이**. 계단으로 내려간 구획(바닥 y<0)에서도 LOS 기준이 따라오게 한다.
+## 어느 방에도 안 들어가면 0(맵 밖 지오메트리).
+func floor_y_at(xz: Vector2) -> float:
+	for ref in _room_points:
+		var p: Dictionary = _room_points[ref]
+		var c: Vector3 = p["spawn"]
+		var sz: Vector3 = p["size"]
+		if absf(xz.x - c.x) <= sz.x * 0.5 + 0.5 and absf(xz.y - c.z) <= sz.z * 0.5 + 0.5:
+			return c.y
+	return 0.0
+
+
 ## 지오메트리 아래 레이어 1 콜라이더 중 **LOS 높이를 가리는 것**의 XZ footprint를 모은다.
 ## 예전에는 절차 생성 도중 `_occluders.append(...)`로 손기록했다 — 그러면 생성기를 안 타는
 ## 맵(Blender authored)에선 **아무도 안 채우고**, 안개는 벽을 모르는데 적 시야만 아는 상태가 된다.
@@ -259,6 +274,7 @@ func _footprint(cs: CollisionShape3D) -> Dictionary:
 	if shape == null:
 		return {}
 	var xf := cs.global_transform
+	var eye: float = floor_y_at(Vector2(xf.origin.x, xf.origin.z)) + LOS_EYE_H
 	if shape is BoxShape3D:
 		var h: Vector3 = (shape as BoxShape3D).size * 0.5
 		var mn := Vector2(INF, INF)
@@ -272,13 +288,13 @@ func _footprint(cs: CollisionShape3D) -> Dictionary:
 					mn.x = minf(mn.x, w.x); mn.y = minf(mn.y, w.z)
 					mx.x = maxf(mx.x, w.x); mx.y = maxf(mx.y, w.z)
 					y_mn = minf(y_mn, w.y); y_mx = maxf(y_mx, w.y)
-		if y_mn > LOS_EYE_Y or y_mx < LOS_EYE_Y:
+		if y_mn > eye or y_mx < eye:
 			return {}
 		return {"center": (mn + mx) * 0.5, "half": (mx - mn) * 0.5}
 	if shape is CylinderShape3D:
 		var cyl := shape as CylinderShape3D
 		var o: Vector3 = xf.origin
-		if (o.y - cyl.height * 0.5) > LOS_EYE_Y or (o.y + cyl.height * 0.5) < LOS_EYE_Y:
+		if (o.y - cyl.height * 0.5) > eye or (o.y + cyl.height * 0.5) < eye:
 			return {}
 		return {"center": Vector2(o.x, o.z), "radius": cyl.radius}
 	if shape is ConvexPolygonShape3D:
@@ -297,7 +313,7 @@ func _footprint(cs: CollisionShape3D) -> Dictionary:
 			acc += Vector2(w.x, w.z)
 			ymn = minf(ymn, w.y)
 			ymx = maxf(ymx, w.y)
-		if ymn > LOS_EYE_Y or ymx < LOS_EYE_Y:
+		if ymn > eye or ymx < eye:
 			return {}
 		var hull := Geometry2D.convex_hull(flat)
 		if hull.size() < 3:
@@ -352,7 +368,8 @@ func _carve_zone(geo: NavigationMeshSourceGeometryData3D, center: Vector3, radiu
 	for i in segs:
 		var a := float(i) * TAU / float(segs)
 		verts.append(Vector3(center.x + cos(a) * radius, 0.0, center.z + sin(a) * radius))
-	geo.add_projected_obstruction(verts, -1.0, 4.0, true)  # elevation, height, carve=true
+	# elevation은 **존이 놓인 바닥 기준**이다 — 절대 −1.0을 쓰면 내려간 구획에서 엉뚱한 높이를 깎는다.
+	geo.add_projected_obstruction(verts, center.y - 1.0, 4.0, true)  # elevation, height, carve=true
 
 
 # ============================================================================
