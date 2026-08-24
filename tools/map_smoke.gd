@@ -63,6 +63,7 @@ func _init() -> void:
 	_check_space_fields(sd, scn)
 	_check_design_targets(sd, map, edges)
 	_check_lock_solvable(sd, map)
+	_check_layer_switch(scn, map)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -558,6 +559,34 @@ func _check_lock_solvable(sd, map: Node) -> void:
 			ghost.append(String(y))
 	_expect(ghost.is_empty(), "[계약] 앵커 yields id가 코드에 실재 (%s)" % (
 		"전부" if ghost.is_empty() else "없음: " + ", ".join(ghost)))
+
+
+## **레이어 전환** — 계단이 부를 경로를 실제로 돌려 본다(오클루더·탐색 기억·가시성이 함께 가는가).
+## 현 맵은 layer 0 하나뿐이라 layer 1로 가면 **아무것도 없는 층**이 되는데, 그 자체가 검사가 된다:
+## 오클루더 0 · 방 전부 숨김 · 되돌아오면 원복. 「전환이 무언가를 빠뜨리는가」를 여기서 잡는다.
+func _check_layer_switch(scn: Node, map: Node) -> void:
+	var fog: Node = null
+	for c in scn.get_children():
+		if c.has_method("switch_layer") and c.has_method("toggle_world_fog"):
+			fog = c
+	if fog == null:
+		_expect(false, "[계약/레이어] VisionFog.switch_layer 존재")
+		return
+	var room: Node = map.geometry_root().get_node_or_null("RM-ADV-01")
+	var before: int = map.get_occluder_footprints().size()
+	_expect(before > 0 and int(map.get_active_layer()) == 0 and room != null and (room as Node3D).visible,
+		"[계약/레이어] 전환 전 — layer 0 · 오클루더 %d · 방 보임" % before)
+
+	fog.call("switch_layer", 1)
+	_expect(int(map.get_active_layer()) == 1 and map.get_occluder_footprints().is_empty(),
+		"🔴 [계약/레이어] layer 1로 전환 — 활성 층이 바뀌고 **그 층 오클루더만** 남는다 (%d)" % map.get_occluder_footprints().size())
+	_expect(room != null and not (room as Node3D).visible,
+		"🔴 [계약/레이어] 비활성 층 지오메트리가 **숨는다** — 층이 XZ를 공유하므로 겹쳐 그려지면 안 된다")
+
+	fog.call("switch_layer", 0)
+	_expect(int(map.get_active_layer()) == 0 and map.get_occluder_footprints().size() == before
+		and room != null and (room as Node3D).visible,
+		"[계약/레이어] 되돌아오면 원복 (오클루더 %d)" % map.get_occluder_footprints().size())
 
 
 func _check_extraction(sd, map: Node) -> void:

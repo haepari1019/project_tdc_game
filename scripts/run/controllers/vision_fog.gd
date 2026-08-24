@@ -33,7 +33,13 @@ var _party: Node = null
 var _map: Node = null
 
 var _viewport: SubViewport
-var _explored_viewport: SubViewport  # "ever seen" accumulator (CLEAR_ONCE + ADD blend) → fog memory
+var _explored_viewport: SubViewport  # 활성 레이어의 "ever seen" 누적(CLEAR_ONCE + ADD) → 안개 기억
+## **레이어별 탐색 기억.** 지상에서 본 것과 지하에서 본 것은 별개다 — 하나로 누적하면
+## 층을 내려간 순간 아래층이 「이미 탐색된」 상태로 보인다. layer -> SubViewport.
+var _explored_by_layer: Dictionary = {}
+## 정적 오클루더(레이어 전환 시 갈아끼운다). 동적(문 등)은 호출자가 소유하므로 건드리지 않는다.
+var _static_occluders: Array = []
+var _active_layer: int = 0
 var _root2d: Node2D
 var _member_lights: Array[PointLight2D] = []
 var _bounds_min := Vector2.ZERO   # world (x,z) min corner of the fog field
@@ -123,13 +129,24 @@ func _build_viewport() -> void:
 ## fog shader reads this as the "explored" mask → seen-but-not-now areas stay a faint grayscale
 ## instead of going fully dark. ref: F-011 Step 3.
 func _build_explored_viewport() -> void:
-	_explored_viewport = SubViewport.new()
-	_explored_viewport.size = _viewport.size
-	_explored_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_explored_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ONCE  # clear once, then accumulate
-	_explored_viewport.transparent_bg = true   # baseline = 0 (NOT the default gray clear → "explored everywhere")
-	_explored_viewport.disable_3d = true
-	add_child(_explored_viewport)
+	_explored_viewport = _make_explored_viewport()
+	_explored_by_layer[0] = _explored_viewport
+
+
+## 한 레이어분 탐색 누적 뷰포트. 레이어를 처음 방문할 때 만들어진다(그 전엔 미탐색).
+func _make_explored_viewport() -> SubViewport:
+	var vp := SubViewport.new()
+	vp.size = _viewport.size
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	vp.render_target_clear_mode = SubViewport.CLEAR_MODE_ONCE  # clear once, then accumulate
+	vp.transparent_bg = true   # baseline = 0 (NOT the default gray clear → "explored everywhere")
+	vp.disable_3d = true
+	add_child(vp)
+	_fill_explored(vp)
+	return vp
+
+
+func _fill_explored(_explored_viewport: SubViewport) -> void:
 
 	var acc := Sprite2D.new()
 	acc.texture = _viewport.get_texture()  # current visibility, thresholded + ADD-blended each frame
@@ -138,6 +155,34 @@ func _build_explored_viewport() -> void:
 	m.shader = load("res://assets/shaders/fog_accumulate.gdshader")
 	acc.material = m
 	_explored_viewport.add_child(acc)
+
+
+## **레이어 전환** — 계단으로 층을 옮길 때 부른다. 오클루더·탐색 기억·지오메트리 가시성이 함께 간다.
+## 한 번에 한 층만 활성이므로(파티는 찢지 않는다) 안개 텍스처는 계속 1장이면 된다.
+func switch_layer(layer: int) -> void:
+	if layer == _active_layer:
+		return
+	_active_layer = layer
+	if _map != null and _map.has_method("set_active_layer"):
+		_map.set_active_layer(layer)
+	_rebuild_static_occluders()
+	if not _explored_by_layer.has(layer):
+		_explored_by_layer[layer] = _make_explored_viewport()   # 첫 방문 = 미탐색 상태로 시작
+	_explored_viewport = _explored_by_layer[layer]
+	if _fog_mat != null:
+		_fog_mat.set_shader_parameter("exp_tex", _explored_viewport.get_texture())
+	if _map != null and _map.has_method("set_visible_layer"):
+		_map.set_visible_layer(layer)
+	print("[FOG] layer -> %d (탐색 기억 %d층 보유)" % [layer, _explored_by_layer.size()])
+
+
+## 활성 레이어의 오클루더로 갈아끼운다. **동적 오클루더(문)는 호출자 소유**라 건드리지 않는다.
+func _rebuild_static_occluders() -> void:
+	for lo in _static_occluders:
+		if is_instance_valid(lo):
+			lo.queue_free()
+	_static_occluders.clear()
+	_build_occluders()
 
 
 func _build_occluders() -> void:
@@ -179,6 +224,7 @@ func _build_occluders() -> void:
 			continue                      # 모르는 종류는 조용히 건너뛴다(크래시 대신)
 		lo.occluder = poly
 		_root2d.add_child(lo)
+		_static_occluders.append(lo)
 
 
 ## 폴리곤을 안쪽으로 인셋 — 박스의 「두꺼운 축만 줄이기」에 대응하는 일반형.

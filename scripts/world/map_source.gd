@@ -410,6 +410,20 @@ func _collect_layers(n: Node, out: Array) -> void:
 		_collect_layers(c, out)
 
 
+## **비활성 층을 숨긴다.** 층이 XZ를 공유하므로 다 보이면 겹쳐 그려진다 — 한 번에 한 층만 보인다.
+## 방 노드 이름이 `room_ref`라는 규약(절차·authored 공통)을 이용해 방 단위로 토글한다.
+func set_visible_layer(active: int) -> void:
+	var root := geometry_root()
+	if root == null:
+		return
+	for c in root.get_children():
+		var ref := String(c.name)
+		if not _room_points.has(ref):
+			continue
+		if c is Node3D:
+			(c as Node3D).visible = (get_room_layer(ref) == active)
+
+
 ## 그 XZ 지점의 레이어(방 기준). 치명존이 **자기 층만** 깎게 한다.
 func layer_at(xz: Vector2) -> int:
 	for ref in _room_points:
