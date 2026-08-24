@@ -17,6 +17,8 @@ const C_EXTRACT := Color(0.34, 0.90, 0.45)
 const C_INTERACT := Color(0.95, 0.82, 0.30)
 const C_PLAYER := Color(0.32, 0.78, 1.0)
 const C_BATTLE := Color(0.95, 0.35, 0.25)   # 제3세력 교전 흔적(F-028 §3.3 — 멀리서 정보·기회)
+const C_STAIRS := Color(0.72, 0.62, 0.98)   # 계단(레이어 전이) — 층을 옮기는 유일한 지점
+const C_LAYER_TXT := Color(0.86, 0.88, 0.94, 0.92)
 const THIRD_FACTION_TAG := "Third"          # combat_controller.THIRD_FACTION_NAME과 동일
 
 var _map: Node = null
@@ -63,6 +65,34 @@ func _compute_bounds() -> void:
 	_wmax = mx
 
 
+## **활성 층의 방만** 그린다. 층이 XZ를 공유하므로 전부 그리면 겹쳐서 「지금 어느 층인지」를
+## 잃는다 — 스펠렁키식 백레이어가 읽히는 이유의 절반은 back layer가 **작고 명확**했기 때문이다.
+## 층 정보가 없는 맵(레거시)은 전부 layer 0으로 읽혀 동작이 그대로다.
+func visible_rects() -> Array:
+	var active: int = int(_map.get_active_layer()) if _map != null and _map.has_method("get_active_layer") else 0
+	var out: Array = []
+	for r: Dictionary in _rects:
+		if int(r.get("layer", 0)) == active:
+			out.append(r)
+	return out
+
+
+## 활성 층의 계단 앵커 위치들 — 「어디로 층을 옮길 수 있나」가 미니맵에 보여야 한다.
+func stairs_positions() -> Array:
+	var out: Array = []
+	if _map == null or not _map.has_method("get_all_anchors"):
+		return out
+	var active: int = int(_map.get_active_layer()) if _map.has_method("get_active_layer") else 0
+	for a in _map.get_all_anchors("transitions"):
+		var d := a as Dictionary
+		if String(d.get("role", "")) != "stairs":
+			continue
+		if int(_map.get_room_layer(String(d.get("room_ref", "")))) != active:
+			continue
+		out.append(d["pos"])
+	return out
+
+
 ## World XZ → minimap-local px, fit-to-panel + centered. X is flipped and +Z maps to
 ## up so the minimap matches the default top-down view (was left-right mirrored).
 func _w2m(wx: float, wz: float) -> Vector2:
@@ -80,8 +110,8 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), C_BORDER, false, 1.0)
 	if _rects.is_empty():
 		return
-	# Room footprints.
-	for r: Dictionary in _rects:
+	# Room footprints — **활성 층만**.
+	for r: Dictionary in visible_rects():
 		var c: Vector3 = r["center"]
 		var s: Vector3 = r["size"]
 		var a := _w2m(c.x - s.x * 0.5, c.z + s.z * 0.5)
@@ -105,6 +135,18 @@ func _draw() -> void:
 			var bp := _w2m((n as Node3D).global_position.x, (n as Node3D).global_position.z)
 			draw_circle(bp, 4.6, Color(C_BATTLE.r, C_BATTLE.g, C_BATTLE.b, 0.32))
 			draw_circle(bp, 2.4, C_BATTLE)
+	# 계단(레이어 전이) 마커 — 활성 층에서 층을 옮길 수 있는 지점.
+	for sp in stairs_positions():
+		var s2 := _w2m((sp as Vector3).x, (sp as Vector3).z)
+		draw_rect(Rect2(s2 - Vector2(3, 3), Vector2(6, 6)), C_STAIRS, true)
+		draw_rect(Rect2(s2 - Vector2(3, 3), Vector2(6, 6)), Color(1, 1, 1, 0.6), false, 1.0)
+	# 층 표시 — **여러 층이 있는 맵에서만** 띄운다(단층 맵에 노이즈를 얹지 않는다).
+	if _map != null and _map.has_method("layers_present") and (_map.layers_present() as Array).size() > 1:
+		var active2: int = int(_map.get_active_layer())
+		var label := "지상" if active2 == 0 else "지하 %d" % active2
+		var font := get_theme_default_font()
+		if font != null:
+			draw_string(font, Vector2(PAD, PAD + 10.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, C_LAYER_TXT)
 	# Player (controlled) + facing line.
 	if _party and _party.has_method("get_controlled"):
 		var ctrl: Node3D = _party.get_controlled()

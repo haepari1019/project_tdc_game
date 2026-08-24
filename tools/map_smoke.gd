@@ -65,6 +65,7 @@ func _init() -> void:
 	_check_lock_solvable(sd, map)
 	_check_layer_switch(scn, map)
 	await _check_layer_transition(scn, map)
+	_check_minimap_layer(scn, map)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -97,19 +98,10 @@ func _collect_rects(map: Node) -> void:
 		var c: Vector3 = r["center"]
 		var s: Vector3 = r["size"]
 		# get_room_rects는 room_ref를 안 싣는다 — 계약을 넓히기 전까진 rooms.json 순회로 되짚는다.
-		var ref := _ref_at(map, c)
+		# `get_room_rects()`가 `room_ref`·`layer`를 실어 온다 — 예전엔 좌표로 방을 역추적했다(취약·O(n²)).
+		var ref := String((r as Dictionary).get("room_ref", ""))
 		_rects[ref] = {"c": Vector2(c.x, c.z), "s": Vector2(s.x, s.z), "y": c.y,
-			"layer": int(map.get_room_layer(ref))}
-
-
-## rect의 room_ref 되짚기 — get_spawn_position(ref)가 그 rect 중심과 일치하는 방을 찾는다.
-func _ref_at(map: Node, center: Vector3) -> String:
-	for row in _sd.get_rooms_document().get("rooms", []):
-		var ref := String((row as Dictionary).get("room_ref", ""))
-		var sp: Vector3 = map.get_spawn_position(ref)
-		if absf(sp.x - center.x) < 0.01 and absf(sp.z - center.z) < 0.01:
-			return ref
-	return ""
+			"layer": int((r as Dictionary).get("layer", 0))}
 
 
 ## 그래프: 선언된 연결(rooms.json connects의 무향 합집합)이 **기하학적으로 붙어 있는가**,
@@ -666,6 +658,34 @@ func _check_layer_transition(scn: Node, map: Node) -> void:
 	var _keep_unused := keep
 	await tx.transition("RM-ENTRY-01", 0, (members[0] as Node3D).global_position)
 	_expect(int(map.get_active_layer()) == 0, "[계약/전이] 되돌아오면 layer 0")
+
+
+## **미니맵이 활성 층만 그리는가** — 인지 부하 방어선(`F-024`). 층이 XZ를 공유하므로 전부 그리면
+## 겹쳐서 「지금 어느 층인지」를 잃는다. 그리기 자체는 검사할 수 없으니 **그릴 목록**을 본다.
+func _check_minimap_layer(scn: Node, map: Node) -> void:
+	var mini: Node = _find_by_method(scn, "visible_rects")
+	if mini == null:
+		_expect(false, "[계약/레이어] 미니맵 접근")
+		return
+	var n0: int = (mini.call("visible_rects") as Array).size()
+	_expect(n0 == _rects.size(), "[계약/레이어] 미니맵이 layer 0 방 %d개를 그린다 (%d)" % [_rects.size(), n0])
+	map.set_active_layer(1)
+	var n1: int = (mini.call("visible_rects") as Array).size()
+	map.set_active_layer(0)
+	_expect(n1 == 0,
+		"🔴 [계약/레이어] 활성 층을 바꾸면 미니맵이 **그 층 방만** 그린다 (layer 1 = %d개)" % n1)
+	_expect((mini.call("stairs_positions") as Array).is_empty(),
+		"[계약/레이어] 계단 마커 — 현 맵엔 계단 앵커가 없어 0개(신규 그레이박스에서 생긴다)")
+
+
+func _find_by_method(n: Node, m: String) -> Node:
+	if n.has_method(m):
+		return n
+	for c in n.get_children():
+		var r := _find_by_method(c, m)
+		if r != null:
+			return r
+	return null
 
 
 func _check_extraction(sd, map: Node) -> void:

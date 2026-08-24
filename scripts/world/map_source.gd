@@ -204,12 +204,16 @@ func get_all_occluder_footprints() -> Array:
 	return _occluders
 
 
-## 미니맵용 방 footprint: [{center: Vector3, size: Vector3}] (XZ 사용).
+## 미니맵용 방 footprint: [{center, size, room_ref, layer}] (XZ 사용).
+## `layer`가 실려 오므로 미니맵은 **활성 층만** 그릴 수 있다 — 층이 XZ를 공유하니
+## 다 그리면 겹쳐서 「지금 어느 층인지」를 잃는다(`F-024` 인지 예산).
+## 안개 바운딩은 반대로 **전 층**을 덮어야 한다(텍스처가 하나다) → 거기선 필터하지 않는다.
 func get_room_rects() -> Array:
 	var out: Array = []
 	for ref in _room_points:
 		var p: Dictionary = _room_points[ref]
-		out.append({"center": p["spawn"], "size": p["size"]})
+		out.append({"center": p["spawn"], "size": p["size"],
+			"room_ref": String(ref), "layer": get_room_layer(String(ref))})
 	return out
 
 
