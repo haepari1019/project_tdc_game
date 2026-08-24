@@ -1,7 +1,16 @@
 extends Node3D
-## Keyed door — blocks the path to the extraction room until opened. Opening requires a
-## key in the player backpack; on open it clears its collision + mesh and completes the
-## run objective (RM-OBJ-01 chest → key → this door → extraction). ref: world loop / F-007.
+## **진입 조건의 실물** — 잠긴 방으로 가는 길을 막는 문. 조건은 맵 문서가 소유한다:
+## `transitions` 앵커의 `gates`가 막을 방을 지목하고, 그 방의 `entry_requirement`가
+## **무엇이 필요한가**를 정한다(`LDG-001` §9.1). 열리면 콜리전·메시·오클루더를 치운다.
+##
+## 예전엔 **열쇠만 아는 문**이었다. 그러면 열쇠가 아닌 조건(`onObjectiveComplete` 등)은
+## 데이터에 적어도 **실물이 될 수 없어** 조용히 죽은 선언이 된다. 규칙별로 갈린다:
+##   - `requiresItem` / `onBossKey` — 백팩의 **정확한 열쇠 id**. 열면 소모된다.
+##   - `onObjectiveComplete` — 목표 완료. **스스로 열린다**(누르는 조건이 아니라 진행 조건이다).
+##   - `onFacilityTier` / `onAccess` — 어휘는 스펙에 있으나 **런타임 미구현**. 잠그지 않는다
+##     (조용히 막으면 진행 불가가 되므로, 미구현은 **열어 두는 쪽**으로 실패한다).
+##
+## ref: `LDG-001` §9.1 · `F-006` §3.10 · world loop / F-007.
 
 const SIZE := Vector3(6.4, 3.2, 0.9)  # spans the ~6-wide route→extraction opening
 
@@ -9,6 +18,12 @@ var _inv: Node = null     # InventoryUI (key check)
 ## **이 문이 요구하는 열쇠 id.** 맵 문서가 소유한다 — 문이 막는 방의 `entry_requirement.ref`다
 ## (`transitions` 앵커 `gates`가 그 방을 지목한다). 비면 구 부분 문자열 매칭으로 떨어진다.
 var key_id: String = ""
+## 진입 조건 규칙(`entry_requirement.rule`). 기본값은 구 동작(열쇠 문).
+var rule: String = "requiresItem"
+## **이 문을 열면 런 목표가 완료되는가.** 데모 맵의 봉인문이 곧 목표(GIMMICK-DEMO-01)라
+## 예전엔 **무조건** 완료시켰다 — 문이 둘 이상인 맵에서는 아무 관문이나 목표를 끝내 버린다.
+## 이제 앵커가 `completes_objective`로 명시한 문만 완료시킨다.
+var completes_objective: bool = false
 var _run: Node = null     # RunController (objective)
 var _opened := false
 var _body: StaticBody3D = null
@@ -19,6 +34,9 @@ var _occluders: Array = []   # F2: fog/cone occluders (closed door) — freed on
 func setup(inv: Node, run: Node) -> void:
 	_inv = inv
 	_run = run
+	# 진행 조건 문은 **스스로 열린다** — 목표를 끝내고 돌아와 문을 누르게 만들 이유가 없다.
+	if rule == "onObjectiveComplete" and _run != null and _run.has_signal("objective_completed"):
+		_run.objective_completed.connect(_open_now)
 
 
 ## F2: dynamic fog/cone occluders for the closed door (registered by dungeon_run). The closed door
@@ -33,9 +51,22 @@ func _ready() -> void:
 
 
 func interact_prompt() -> String:
-	if _inv != null and _inv.backpack_has_key(key_id):
+	if _unlocked():
 		return "문\n[우클릭] 열기"
+	if rule == "onObjectiveComplete":
+		return "봉쇄된 문\n🔒 목표 완료 필요"
 	return "잠긴 문\n🔒 열쇠 필요"
+
+
+## 이 문의 조건이 충족됐는가. **미구현 규칙은 잠그지 않는다** — 조용히 막으면 진행 불가가 된다.
+func _unlocked() -> bool:
+	match rule:
+		"requiresItem", "onBossKey":
+			return _inv != null and _inv.backpack_has_key(key_id)
+		"onObjectiveComplete":
+			return _run != null and bool(_run.objective_complete)
+		_:
+			return true
 
 
 func interact_anchor() -> Vector3:
@@ -43,13 +74,18 @@ func interact_anchor() -> Vector3:
 
 
 func interact() -> void:
+	if _opened or not _unlocked():
+		return  # locked — prompt already says what is needed
+	if (rule == "requiresItem" or rule == "onBossKey") and _inv != null and _inv.has_method("consume_key"):
+		_inv.consume_key(key_id)                    # 키 소모 — 문 열면 사라짐 (사용자 요청)
+	_open_now()
+
+
+## 실제로 치우는 부분. 진행 조건 문은 시그널로 여기 직행한다(누르지 않는다).
+func _open_now() -> void:
 	if _opened:
 		return
-	if _inv == null or not _inv.backpack_has_key(key_id):
-		return  # locked — prompt already says a key is needed
 	_opened = true
-	if _inv.has_method("consume_key"):
-		_inv.consume_key(key_id)                    # 키 소모 — 문 열면 사라짐 (사용자 요청)
 	remove_from_group("interactable")        # no more prompt / interaction
 	if _body:
 		_body.queue_free()                    # clear the barrier — path open
@@ -58,9 +94,11 @@ func interact() -> void:
 	for o in _occluders:                      # F2: door open → vision (fog + cones) passes through
 		if is_instance_valid(o):
 			o.queue_free()
-	if _run and _run.has_method("complete_objective"):
+	# **이 문이 목표인 맵에서만** 목표를 완료시킨다(데모 맵의 봉인문 = GIMMICK-DEMO-01).
+	# 예전엔 무조건이라, 문이 둘 이상인 맵에서 아무 관문이나 목표를 끝내 버렸다.
+	if completes_objective and _run and _run.has_method("complete_objective"):
 		_run.complete_objective()             # objective = door opened
-	print("[TDC] Door opened with key — extraction path clear")
+	print("[TDC] 문 열림 (%s%s) — 길이 열렸다" % [rule, " · 목표 완료" if completes_objective else ""])
 
 
 func _build() -> void:

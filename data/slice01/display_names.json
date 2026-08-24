@@ -90,5 +90,13 @@
     "skillbook_channeling_cloud": "조준한 자리에 독무를 피워 올린다. 집중을 유지하는 동안 구름 안의 적에게 독이 계속 쌓인다.",
     "skillbook_channeling_nova": "제자리에서 냉기 폭풍을 일으킨다. 주위의 적은 맞을수록 굼떠지고, 폭풍이 끝날 때까지 벗어나지 못한 적은 얼어붙는다.",
     "skillbook_shield_single": "지정한 아군 한 명에게 피해를 흡수하는 보호막을 두른다."
-  }
+  },
+  "item_desc": {
+    "KEY-DEMO-01": "봉인문을 여는 열쇠",
+    "Key": "봉인문을 여는 열쇠",
+    "KEY-UPPER-01": "관문을 여는 열쇠 — 쓰면 사라진다",
+    "CHEST-UPPER-01": "기록실의 유물함",
+    "CHEST-DEMO-01": "유물함"
+  },
+  "_note_item_desc": "아이템 호버 툴팁의 설명문. 예전에는 `inventory_grid.ITEM_DESC` **GDScript 상수**였다 — 맵을 추가할 때마다(신규 열쇠·상자) 코드를 고쳐야 했다. UI 라벨은 gameplay가 아니므로 검증 대상이 아니고(`_note`), 매핑이 없으면 설명문 없이 ID로 폴백한다."
 }

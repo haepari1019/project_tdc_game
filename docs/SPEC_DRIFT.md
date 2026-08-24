@@ -2365,3 +2365,21 @@
 - **영향 파일:** `enemy_unit.gd`(`can_cross_layers`·`cross_to_layer`·`THIRD_FACTION`) · `enemy_ai.gd`(`_is_hostile` 층 필터) · `combat_controller.gd`(`_tick_third_layer_roam`·`_roam_third_crew`·`_nearest_stairs`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS**. [계약/3세력] 11항목.
 - **상태:** ✅ 완료 · 전파 불요. `exitConvergenceRouteRef`(§3.2.3 심층 탈출로 수렴)는 별개 축이며 미구현.
+
+### DRIFT-183 — 난이도 축을 공간이 소유한다 + 진입 조건이 실물이 된다 (UPPER 활성화 후속) 🔷 Phase 1 · 전파 불요
+- **근거:** `MAP-UPPER-001`을 켤 수 있게 만드는 후속 4건. 그런데 착수하자 **하나가 더 있었다**: 방마다 `difficulty_profile`을 저작해 뒀는데 **읽는 사람이 없었다.**
+- **🔴 ① §B 결정의 본체가 미구현이었다.** `difficulty_profile`은 **런 단위**로만 쓰였다(`RunLoadout.get_difficulty()` → `get_encounter_for_pool`). 방 단위 오버라이드(`F-006` §3.1.2 · `LDG-001` §9 · `DEC-20260824-001` §B 「난이도 축을 **공간이 소유**」)는 데이터에만 있고 코드가 안 봤다 — **잠긴 관문 뒤가 더 어렵다**는 설계 전체가 죽은 선언이었다. → `Slice01Data.get_room_difficulty(room, run_default)` 단일 소유자, prespawn(후보마다)과 방 진입 트리거 **양쪽**이 쓴다(규칙이 갈리면 「미리 깔린 적과 들어가서 뜨는 적의 난이도가 다른」 상태가 된다).
+- **② 스폰 표 `P-UPPER-01~09`**(31행). `LDG-SPAWN-DEMO-001`의 **행 구조를 재사용**했다(청사진 §6 지시) — 신규 표 ID를 발명하지 않았다. **Normal·Hard 양쪽을 다 채웠다**: 조회 키가 `(pool, difficulty, world_layer)`이고 난이도는 런이 정하거나 방이 덮으므로, 한쪽만 채우면 그 난이도의 런에서 **방이 조용히 빈다**.
+- **🔴 ③ 그 검사가 데모 맵의 기존 구멍을 잡았다.** `P-ENTRY-01`·`P-DEEP-01`에 **Hard 행이 없어** Hard 런에서 두 방이 비어 있었다. `RM-DEEP-01`은 `gated_elite`라 「진행 게이트가 확률에 안 걸린다」는 보장이 **Hard에서만 깨져** 있었다 — 기본 난이도가 Normal이라 회귀 게이트가 못 봤다. Hard 행 2개 추가.
+- **🔴 ④ 문이 열쇠만 알았다.** 그래서 열쇠가 아닌 조건(`onObjectiveComplete`)은 데이터에 적어도 **실물이 될 수 없어** 죽은 선언이 된다(`RM-UPPER-07`이 그 상태였다). → `Door.rule`로 갈린다:
+  - `requiresItem`/`onBossKey` = 정확한 열쇠 id, 열면 소모.
+  - `onObjectiveComplete` = **스스로 열린다**(`objective_completed` 시그널) — 진행 조건이지 누르는 조건이 아니다. 목표를 끝내고 돌아와 문을 누르게 만들 이유가 없다.
+  - `onFacilityTier`/`onAccess` = 미구현. **잠그지 않는다** — 조용히 막으면 진행 불가가 되므로 미구현은 **열어 두는 쪽으로 실패**한다.
+- **🔴 ⑤ 아무 문이나 목표를 끝내고 있었다.** 데모 맵의 봉인문이 곧 목표(GIMMICK-DEMO-01)라 코드가 **무조건** `complete_objective()`를 불렀다. 문이 둘 이상인 맵에서는 관문 하나만 열어도 목표가 끝난다. → 앵커가 `completes_objective`로 **명시한 문만**.
+- **⑥ 문을 앵커마다 세운다.** 예전엔 앵커를 **하나만** 찾아 문 하나를 세웠다(`_anchor_pos`). 입구가 둘인 관문은 한쪽이 열린 채 남는다. → `_place_gates()`가 `key_gate` 앵커 전부를 돈다.
+- **🔴 ⑦ 그 검사가 내 저작의 구멍을 잡았다.** `RM-UPPER-06`은 입구가 `04`·`09` **둘**인데 `04`만 막아 뒀다 — 심층 루프 C(`04→06→09→07→05→04`)로 **뒤로 돌아 들어오면 열쇠 없이 관문에 닿는다**. 루프가 있는 위상에서 처음 생기는 종류의 사고다(트리였던 데모 맵에선 불가능했다). → `09` 쪽 문 추가 + 정적 게이트 「잠긴 방은 **모든 도보 입구**가 막혀 있다」(계단 입구는 보고 — 그 방을 통과해야 닿는 복귀로일 수 있다).
+- **⑧ 아이템 설명문을 데이터로.** `inventory_grid.ITEM_DESC` GDScript 상수 → `display_names.json` `item_desc`. 맵마다 열쇠·상자가 다르므로 코드가 가질 이유가 없다. `KEY-UPPER-01`/`CHEST-UPPER-01` 등록.
+- **반증 확인(6종 전부):** 오버라이드를 무시하면 FAIL · 진행 조건 문이 목표를 안 보면 FAIL · 목표 완료를 무조건 부르면 FAIL · `P-UPPER` Hard 행을 지우면 미해석 12로 보고 · `09` 쪽 문을 지우면 FAIL · (문을 하나만 세우는 변형은 **런타임이 못 잡는다** — 데모 맵엔 `key_gate` 앵커가 하나뿐이라 ⑦의 **정적** 검사가 그 자리를 맡는다).
+- **영향 파일:** `slice01_data.gd`(`get_room_difficulty`·`get_item_desc`) · `combat_controller.gd` · `run_controller.gd`(+`objective_completed` 시그널) · `door.gd`(규칙·`completes_objective`·자동 개방) · `dungeon_run.gd`(`_place_gates`·`_quest_key_id`) · `inventory_grid.gd` · `spawn_table.json`(+33행) · `display_names.json` · 맵 문서 2개 · `tools/map_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS**. [계약/진입] 9항목 + [계약/문서] 신규 2항목.
+- **상태:** ✅ 완료 · 전파 불요. **`MAP-UPPER-001`은 이제 활성화 가능**(`manifest.map_id` 교체만 남음) — 게이트가 「pool 해석 — 두 난이도 전부 OK (활성화 가능)」로 보고한다. 미결은 데모 맵 `gated_elite` 진입 조건(판정 필요)과 지역 테마 슬러그.

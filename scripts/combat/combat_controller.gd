@@ -713,8 +713,11 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 		if cat == "safe":
 			continue
 		var weight := float(row.get("spawn_weight", 1.0))
+		# 난이도는 **방이 소유할 수 있다**(F-006 §3.1.2). 런 기본값은 폴백이다 —
+		# 잠긴 관문 뒤가 더 어려운 것은 맵을 갈아끼워서가 아니라 **그 방이 그렇게 선언**해서다.
 		var e := {"room": String(row.get("room_ref", "")), "pool": pool,
-			"layer": String(row.get("world_layer", "Upper")), "weight": weight, "cat": cat}
+			"layer": String(row.get("world_layer", "Upper")), "weight": weight, "cat": cat,
+			"difficulty": Slice01Data.get_room_difficulty(String(row.get("room_ref", "")), difficulty)}
 		match cat:
 			"gated_elite":      gated.append(e)
 			"mandatory_threat": mandatory.append(e)
@@ -732,7 +735,7 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	for cand in chosen:
 		var enc_id := ""
 		for attempt in 4:   # 미사용 ENC를 찾도록 몇 번 재롤(풀이 단일이면 어쩔 수 없이 반복)
-			enc_id = Slice01Data.get_encounter_for_pool(String(cand["pool"]), difficulty, String(cand["layer"]), run_seed + attempt * 7919)
+			enc_id = Slice01Data.get_encounter_for_pool(String(cand["pool"]), String(cand["difficulty"]), String(cand["layer"]), run_seed + attempt * 7919)
 			if enc_id.is_empty() or not used_encs.has(enc_id):
 				break
 		if enc_id.is_empty():

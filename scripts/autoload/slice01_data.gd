@@ -132,6 +132,11 @@ func get_effect_label(kind: String) -> String:
 func get_role_label(class_id: String) -> String:
 	return String((_display.get("roles", {}) as Dictionary).get(class_id, class_id))
 
+## 아이템 설명문(툴팁). 구 `inventory_grid.ITEM_DESC` 상수를 대체한다 — 맵마다 열쇠·상자가 다르므로
+## 코드가 아니라 데이터가 갖는다. 없으면 빈 문자열(설명 없이 표시).
+func get_item_desc(item_id: String) -> String:
+	return String((_display.get("item_desc", {}) as Dictionary).get(item_id, ""))
+
 func get_skill_desc(kind: String) -> String:
 	return String((_display.get("skill_desc", {}) as Dictionary).get(kind, ""))
 
@@ -285,6 +290,18 @@ func get_pool_encounter(pool_slot: String) -> String:
 	if typeof(enc_map) != TYPE_DICTIONARY:
 		return ""
 	return String(enc_map.get(pool_slot, ""))
+
+
+## **방이 런의 난이도를 오버라이드한다** (`F-006` §3.1.2 · `LDG-001` §9 `difficultyProfile`).
+## 「난이도 축을 **공간이 소유**한다」는 결정(`DEC-20260824-001` §B)의 본체다 — 맵을 통째로
+## 갈아끼우지 않고 **한 방만** 어렵게 만드는 길이고, 메트로배니아식 진입 조건(`entry_requirement`)이
+## 여는 것이 바로 이 오버라이드다. 선언이 없으면 런 기본값(Run Contract)이 그대로 내려온다.
+##
+## 스폰 표 조회 키는 `(pool_slot, difficulty, world_layer)`이므로, 오버라이드된 방은
+## **그 방만** 다른 난이도 행을 뽑는다.
+func get_room_difficulty(room_ref: String, run_default: String) -> String:
+	var d := String(get_room_row(room_ref).get("difficulty_profile", ""))
+	return d if not d.is_empty() else run_default
 
 
 ## Resolve a pool slot's encounter via the spawn table (LDG-SPAWN-DEMO-001):

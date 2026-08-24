@@ -13,13 +13,6 @@ const C_BAD := Color(0.95, 0.25, 0.20, 0.45)
 const RichTooltip := preload("res://scripts/ui/rich_tooltip.gd")   # 색 가능한 BBCode 툴팁(affix 강조)
 const SkillText := preload("res://scripts/ui/skill_text.gd")
 
-## Optional flavor blurb per item id, for the hover tooltip (PH). Generic-loot entries removed —
-## only real items remain (Key = sealed-door key). Functional items show their own id/name.
-const ITEM_DESC := {
-	"KEY-DEMO-01": "봉인문을 여는 열쇠",
-	"Key": "봉인문을 여는 열쇠",   # 구 id — 이전 세이브 호환
-}
-
 var cols := 5
 var rows := 8
 var cell := 48
@@ -230,7 +223,8 @@ func _item_tip(item: Dictionary) -> String:
 		"consumable": lines.append("소모품 · 보유 x%d · 호버+Z/X/C 또는 드래그로 핫키 등록" % int(item.get("count", 1)))
 		"haul": lines.append_array(_haul_tip(item))
 		"charm": lines.append_array(_charm_tip(item))
-	var desc := String(ITEM_DESC.get(id, ""))
+	# 설명문 SSOT = display_names.json `item_desc` (구 ITEM_DESC 상수 — 맵마다 열쇠가 달라진다).
+	var desc := Slice01Data.get_item_desc(id)
 	if not desc.is_empty():
 		lines.append(desc)
 	lines.append("[color=#9aa4b2]크기 %d×%d[/color]" % [int(item.w), int(item.h)])

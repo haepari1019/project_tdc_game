@@ -461,6 +461,16 @@
               26
             ]
           }
+        ],
+        "transitions": [
+          {
+            "role": "key_gate",
+            "gates": "RM-UPPER-07",
+            "pos": [
+              0,
+              30
+            ]
+          }
         ]
       }
     },
@@ -717,6 +727,24 @@
               8
             ]
           }
+        ],
+        "transitions": [
+          {
+            "role": "key_gate",
+            "gates": "RM-UPPER-07",
+            "pos": [
+              14,
+              0
+            ]
+          },
+          {
+            "role": "key_gate",
+            "gates": "RM-UPPER-06",
+            "pos": [
+              -4,
+              -10
+            ]
+          }
         ]
       }
     },
@@ -864,6 +892,6 @@
     }
   ],
   "_note_anchors": "앵커는 방 **중심 기준 로컬 XZ**(m). `transitions`는 계단(`role: stairs`, `to`)과 잠긴 문(`role: key_gate`, `gates`)을 함께 담는다 — 역할을 안 보면 도달성이 문을 계단으로 세어 거짓 통과한다([[DRIFT-178]]). 열쇠는 `RM-UPPER-03`(잠긴 방 **밖**)에서 나오고 문은 `RM-UPPER-06`을 막는다 — `gates`가 지목한 방의 `entry_requirement.ref`가 곧 문이 요구하는 열쇠 id다.",
-  "_note_gating": "`gated_elite` 두 방은 **둘 다 `entry_requirement`를 동반한다**(`LDG-001` §9 LD checklist). `06` = `requiresItem KEY-UPPER-01` · `scope: run`(소모성, 다음 런에 재잠금). `07` = `onObjectiveComplete` — 열쇠가 아니라 **진행 게이트**다(같은 §9.1 어휘, 신규 어휘 아님). `difficulty_profile: Hard`는 `06`/`07`/`11` 셋인데 잠긴 건 `06` 하나다 — 잠금 없는 오버라이드는 진입 전 전조를 둔다(§9.1 SHOULD). 여기서는 셋을 전부 `dim`/`unlit`로 두어 조명이 전조를 맡는다.",
+  "_note_gating": "`gated_elite` 두 방은 **둘 다 `entry_requirement`를 동반한다**(`LDG-001` §9 LD checklist). `06` = `requiresItem KEY-UPPER-01` · `scope: run`(소모성, 다음 런에 재잠금). `07` = `onObjectiveComplete` — 열쇠가 아니라 **진행 게이트**다(같은 §9.1 어휘, 신규 어휘 아님). `difficulty_profile: Hard`는 `06`/`07`/`11` 셋인데 잠긴 건 `06` 하나다 — 잠금 없는 오버라이드는 진입 전 전조를 둔다(§9.1 SHOULD). 여기서는 셋을 전부 `dim`/`unlit`로 두어 조명이 전조를 맡는다. **`07`은 입구가 둘**(`05`·`09`)이라 `key_gate` 앵커도 둘이다 — 한쪽만 막으면 조건이 무의미해진다. `onObjectiveComplete` 문은 **스스로 열린다**(목표를 끝내고 돌아와 누르게 만들 이유가 없다). `completes_objective`는 어느 문에도 없다 — 이 맵의 목표는 문이 아니라 `RM-UPPER-04`다. **`06`도 입구가 둘**(`04`·`09`)이라 문이 둘이다 — `09` 쪽을 안 막으면 심층 루프 C로 돌아 들어와 열쇠 없이 관문에 닿는다. 계단(`10→06`)은 막지 않는다: **`06`을 통과해야만** 하층에 들어가므로 그 계단은 복귀로일 뿐이다(정적 게이트가 계단 입구를 별도로 보고한다).",
   "_note_pending": "⚠ **후속 필수(이 맵을 활성화하기 전에):** ① `spawn_table.json`에 `P-UPPER-01~09` 행이 없다 — `LDG-SPAWN-DEMO-001`의 행 구조를 재사용해 채워야 ENC가 해석된다(`DBP-UPPER-001` §6). ② `KEY-UPPER-01`/`CHEST-UPPER-01`은 표시명(`display_names.json`)이 없다. ③ `entry_requirement.rule: onObjectiveComplete`(방 진입 조건)은 런타임 미구현 — 현재는 `requiresItem` 문만 실물 문으로 세워진다. 정적 게이트가 ①을 **미해석 개수로 보고**한다(조용히 넘기지 않는다)."
 }

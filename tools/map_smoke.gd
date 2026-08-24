@@ -70,6 +70,7 @@ func _init() -> void:
 	await _check_stairs_input(scn, map)
 	_check_ground_plane()
 	_check_third_layer(scn, map)
+	await _check_entry_requirements(scn, map, sd)
 	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
@@ -1357,7 +1358,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer"]:
+	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements"]:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -1393,8 +1394,6 @@ const MAPS_DIR := "res://data/slice01/maps"
 ## 즉시 빨개지고, 그러면 임계값을 낮춰 맞추게 된다 — 그건 게이트가 아니라 장식이다.
 func _check_map_documents(sd) -> void:
 	var reg = JSON.parse_string(FileAccess.get_file_as_string("res://data/slice01/id_registry.json"))
-	var spawn = JSON.parse_string(FileAccess.get_file_as_string("res://data/slice01/spawn_table.json"))
-	var pool_rows: Array = (spawn as Dictionary).get("rows", []) if typeof(spawn) == TYPE_DICTIONARY else []
 	var active := String(sd.get_manifest().get("map_id", ""))
 
 	var files: Array = []
@@ -1411,11 +1410,11 @@ func _check_map_documents(sd) -> void:
 		if typeof(doc) != TYPE_DICTIONARY:
 			_expect(false, "[계약/문서] %s 파싱" % f)
 			continue
-		_check_one_document(f, doc as Dictionary, reg as Dictionary, pool_rows, f == active + ".json")
+		_check_one_document(sd, f, doc as Dictionary, reg as Dictionary, f == active + ".json")
 	_sections["map_documents"] = true
 
 
-func _check_one_document(fname: String, doc: Dictionary, reg: Dictionary, pool_rows: Array,
+func _check_one_document(sd, fname: String, doc: Dictionary, reg: Dictionary,
 		is_active: bool) -> void:
 	var mid := String(doc.get("map_id", ""))
 	var tag := "%s%s" % [mid, "" if is_active else "/비활성"]
@@ -1601,6 +1600,41 @@ func _check_one_document(fname: String, doc: Dictionary, reg: Dictionary, pool_r
 	_expect(tr_bad.is_empty(), "🔴 [계약/문서] %s 계단은 층을 넘고 문은 잠긴 방을 막는다 (%s)" % [tag,
 		"전부" if tr_bad.is_empty() else ", ".join(tr_bad)])
 
+	# ── 잠긴 방은 **모든 도보 입구**가 막혀 있는가 ──────────────────────────
+	# 한쪽만 막으면 조건이 무의미해진다 — 루프가 있는 위상에서는 뒤로 돌아 들어올 수 있다.
+	# `connects` 이웃은 **하드**, 계단 입구는 **보고**한다(계단은 그 방을 통과해야 닿는 복귀로일 수 있다).
+	var gates_on: Dictionary = {}          # gated_room -> {from_room: true}
+	for ref in order:
+		for a in ((rows[ref] as Dictionary).get("anchors", {}) as Dictionary).get("transitions", []):
+			var g := String((a as Dictionary).get("gates", ""))
+			if g.is_empty():
+				continue
+			if not gates_on.has(g):
+				gates_on[g] = {}
+			(gates_on[g] as Dictionary)[String(ref)] = true
+	var open_side: Array = []
+	var stair_side: Array = []
+	for ref in order:
+		if ((rows[ref] as Dictionary).get("entry_requirement", {}) as Dictionary).is_empty():
+			continue
+		var mine: Dictionary = gates_on.get(ref, {})
+		for e in edges:
+			var other := ""
+			if String(e[0]) == ref:
+				other = String(e[1])
+			elif String(e[1]) == ref:
+				other = String(e[0])
+			if not other.is_empty() and not mine.has(other):
+				open_side.append("%s←%s" % [ref, other])
+		for s2 in stairs:
+			if String(s2[1]) == ref and not mine.has(String(s2[0])):
+				stair_side.append("%s←%s(계단)" % [ref, s2[0]])
+	_expect(open_side.is_empty(), "🔴 [계약/문서] %s 잠긴 방은 **모든 도보 입구**가 막혀 있다 (%s)" % [tag,
+		"전부" if open_side.is_empty() else "열린 쪽: " + ", ".join(open_side)])
+	if not stair_side.is_empty():
+		print("  [설계] %s 잠긴 방의 계단 입구 미차단: %s (그 방을 통과해야 닿는 복귀로면 정상)" % [
+			tag, ", ".join(stair_side)])
+
 	# ── 도달성: connects + 계단 ────────────────────────────────────────────
 	var adj_conn: Dictionary = {}      # `connects`만 — 걸어서 갈 수 있는 그래프
 	var adj: Dictionary = {}           # + 계단 — 실제로 갈 수 있는 그래프
@@ -1739,22 +1773,29 @@ func _check_one_document(fname: String, doc: Dictionary, reg: Dictionary, pool_r
 	# ── pool_slot이 스폰 표로 해석되는가 ───────────────────────────────────
 	# 활성 맵은 **하드 게이트**(런이 즉시 깨진다). 비활성 맵은 아직 표가 없을 수 있어 리포트로 두되
 	# **개수를 말한다** — 조용히 넘어가면 「덮였다」로 읽힌다.
-	var have: Dictionary = {}
-	for r in pool_rows:
-		if typeof(r) == TYPE_DICTIONARY:
-			have[String((r as Dictionary).get("pool_slot", ""))] = true
+	# 「표에 행이 있나」가 아니라 **실제 리졸버가 뽑히나**를 묻는다 — 그리고 **두 난이도 모두**에서.
+	# 조회 키가 `(pool_slot, difficulty, world_layer)`이고 난이도는 **런이 정하거나 방이 덮으므로**
+	# (`F-006` §3.1.2), 한쪽만 채우면 그 난이도의 런에서 방이 **조용히 빈다**(빈 문자열 = 스폰 없음).
 	var unresolved: Array = []
 	for ref in order:
-		var ps := String((rows[ref] as Dictionary).get("pool_slot", ""))
-		if not ps.is_empty() and not have.has(ps):
-			unresolved.append(ps)
+		var row: Dictionary = rows[ref]
+		var ps := String(row.get("pool_slot", ""))
+		if ps.is_empty():
+			continue
+		var layer_name := String(row.get("world_layer", "Upper"))
+		var over := String(row.get("difficulty_profile", ""))
+		for run_diff in ["Normal", "Hard"]:
+			var eff: String = over if not over.is_empty() else String(run_diff)
+			if String(sd.get_encounter_for_pool(ps, eff, layer_name)).is_empty():
+				unresolved.append("%s/%s(런 %s)" % [ps, eff, run_diff])
 	if is_active:
-		_expect(unresolved.is_empty(), "[계약/문서] %s pool_slot 전부 스폰 표에 존재 (%s)" % [tag,
+		_expect(unresolved.is_empty(), "🔴 [계약/문서] %s 모든 pool이 **두 난이도 다** 해석됨 (%s)" % [tag,
 			"전부" if unresolved.is_empty() else "없음: " + ", ".join(unresolved)])
+	elif unresolved.is_empty():
+		print("  [설계] %s pool 해석 — 두 난이도 전부 OK (활성화 가능)" % tag)
 	else:
-		print("  [설계] %s pool_slot 미해석 %d/%d — 활성화 전 spawn_table 채우기 필요%s" % [tag,
-			unresolved.size(), order.size(),
-			("" if unresolved.is_empty() else " (" + ", ".join(unresolved) + ")")])
+		print("  [설계] %s pool 미해석 %d — 활성화 전 spawn_table 필요 (%s)" % [tag,
+			unresolved.size(), ", ".join(unresolved)])
 
 
 ## 두 방이 벽 하나를 공유하는가. 공유하면 그 벽에서의 **겹침 길이**(m), 아니면 −1.
@@ -2083,3 +2124,88 @@ func _check_third_layer(scn: Node, map: Node) -> void:
 			e.queue_free()
 	map.set_active_layer(0)
 	_sections["third_layer"] = true
+
+
+## **방이 런의 난이도를 덮는다**(`F-006` §3.1.2 · `DEC-20260824-001` §B) — 그리고 **열쇠가 아닌 진입
+## 조건도 실물이 된다**(`LDG-001` §9.1). 둘 다 데이터에 저작해 두고 **읽는 사람이 없으면** 죽은 선언이다.
+func _check_entry_requirements(scn: Node, _map: Node, sd) -> void:
+	# ① 난이도 오버라이드 — 선언이 없으면 런 기본값, 있으면 그 방만 갈린다.
+	var room := "RM-ADV-01"
+	var rows: Array = sd._rooms.get("rooms", [])
+	var row: Dictionary = {}
+	for r in rows:
+		if typeof(r) == TYPE_DICTIONARY and String((r as Dictionary).get("room_ref", "")) == room:
+			row = r
+	if row.is_empty():
+		_expect(false, "[계약/진입] 대상 방 접근")
+		return
+	_expect(sd.get_room_difficulty(room, "Normal") == "Normal",
+		"[계약/진입] 선언이 없으면 **런 기본값**이 내려온다")
+	var pool := String(row.get("pool_slot", ""))
+	var layer_name := String(row.get("world_layer", "Upper"))
+	var enc_norm := String(sd.get_encounter_for_pool(pool, "Normal", layer_name))
+	row["difficulty_profile"] = "Hard"
+	_expect(sd.get_room_difficulty(room, "Normal") == "Hard",
+		"🔴 [계약/진입] 방이 선언하면 **런이 Normal이어도 그 방은 Hard** — 난이도 축을 공간이 소유한다")
+	var enc_hard := String(sd.get_encounter_for_pool(pool, sd.get_room_difficulty(room, "Normal"), layer_name))
+	_expect(not enc_hard.is_empty() and enc_hard != enc_norm,
+		"🔴 [계약/진입] 오버라이드가 **실제로 다른 ENC**를 뽑는다 (%s → %s)" % [enc_norm, enc_hard])
+	row.erase("difficulty_profile")
+
+	# ② 문이 규칙을 안다 — 열쇠 문은 열쇠를, 진행 조건 문은 목표를 본다.
+	var doors: Array = []
+	for c in scn.get_children():
+		if "rule" in c and "completes_objective" in c:
+			doors.append(c)
+	_expect(doors.size() >= 1, "[계약/진입] 진입 조건 문 배치 (%d)" % doors.size())
+	if doors.is_empty():
+		return
+	var keyed: Node = doors[0]
+	_expect(String(keyed.get("rule")) == "requiresItem" and bool(keyed.get("completes_objective")),
+		"[계약/진입] 데모 봉인문 = `requiresItem` + **이 문이 곧 목표** (%s)" % keyed.get("rule"))
+
+	# ③ 진행 조건 문 — **누르는 조건이 아니라 진행 조건**이므로 스스로 열린다.
+	var run: Node = null
+	for c in scn.get_children():
+		if c.has_method("complete_objective") and ("objective_complete" in c):
+			run = c
+	if run == null:
+		_expect(false, "[계약/진입] RunController 접근")
+		return
+	var Door = load("res://scripts/world/objects/door.gd")
+	var prog = Door.new()
+	prog.rule = "onObjectiveComplete"
+	scn.add_child(prog)
+	prog.setup(null, run)
+	_expect(String(prog.interact_prompt()).contains("목표 완료"),
+		"🔴 [계약/진입] 목표 전엔 **막고, 이유를 말한다**")
+	prog.interact()
+	var body_alive := false
+	for c in prog.get_children():
+		if c is StaticBody3D:
+			body_alive = true
+	_expect(body_alive, "🔴 [계약/진입] 목표 전엔 눌러도 안 열린다 — 조건이 장식이 아니다")
+
+	var was := bool(run.objective_complete)
+	run.complete_objective()
+	await root.get_tree().process_frame
+	var body_gone := true
+	for c in prog.get_children():
+		if c is StaticBody3D and is_instance_valid(c) and not c.is_queued_for_deletion():
+			body_gone = false
+	_expect(body_gone,
+		"🔴 [계약/진입] 목표가 끝나면 **스스로 열린다** — 끝내고 돌아와 누르게 만들지 않는다")
+
+	# ④ `completes_objective`가 없는 문은 목표를 끝내지 않는다.
+	run.objective_complete = false
+	var plain = Door.new()
+	plain.rule = "onAccess"           # 미구현 규칙 = 잠그지 않는다(조용히 막으면 진행 불가)
+	scn.add_child(plain)
+	plain.setup(null, run)
+	plain.interact()
+	_expect(not bool(run.objective_complete),
+		"🔴 [계약/진입] 아무 문이나 목표를 끝내지 않는다 — `completes_objective`를 명시한 문만")
+	run.objective_complete = was
+	prog.queue_free()
+	plain.queue_free()
+	_sections["entry_requirements"] = true

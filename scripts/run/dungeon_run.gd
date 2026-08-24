@@ -251,22 +251,7 @@ func _ready() -> void:
 	ally_cache.setup(_inventory_ui)
 	ally_cache.position = _anchor_pos("interactions", "role", "ally_cache")
 	add_child(ally_cache)
-	# Keyed door blocking the route→extraction opening (RM-ROUTE-01 → RM-EXT-01 @ z=77.25).
-	var door := Door.new()
-	door.setup(_inventory_ui, _run)
-	# **이 문이 요구하는 열쇠는 데이터가 정한다** — 앵커 `gates`가 막는 방을 지목하고,
-	# 열쇠 id는 그 방의 `entry_requirement.ref`다. 열쇠가 둘 이상인 순간(맵마다 다르다)
-	# 「아무 열쇠나 아무 문을 여는」 부분 문자열 판정으로 돌아가지 않게 하는 고리다.
-	door.key_id = _gated_key_id()
-	door.position = _anchor_pos("transitions", "role", "key_gate")
-	add_child(door)
-	# F2: the closed door casts a vision shadow (fog + enemy cones); opening frees these occluders.
-	var _door_half := Vector2(Door.SIZE.x * 0.5, Door.SIZE.z * 0.5)
-	var _door_xz := Vector2(door.position.x, door.position.z)
-	door.set_occluders([
-		_vision_fog.add_box_occluder(_door_xz, _door_half),
-		_enemy_vision.add_box_occluder(_door_xz, _door_half),
-	])
+	_place_gates()               # 진입 조건의 실물 — 앵커 `key_gate`마다 문 하나
 	# Corridor trap (RM-ROUTE-01 chokepoint, 6m wide): the controlled member crossing the
 	# plate spawns a fatal zone behind them → followers cut off (split). Far lever clears it.
 	var trap := Trap.new()
@@ -278,7 +263,7 @@ func _ready() -> void:
 	add_child(lever)
 	# These live under dungeon_run (not $Rooms) + spawn AFTER VisionFog.setup, so the initial
 	# fog sweep missed them → fog them explicitly (else visible at full brightness in unseen rooms).
-	for o in [chest, ally_cache, door, trap, lever]:
+	for o in [chest, ally_cache, trap, lever]:
 		_vision_fog.fog_object(o)
 	# Breakable oil barrels (ENT-BARREL) in the combat court — AoE breaks them → oil pool.
 	_place_loot_chests()   # 절차적 루트 상자 산포(퀘스트/아군 상자는 위에서 고정)
@@ -331,7 +316,8 @@ func _ready() -> void:
 	_wall_xray.set_fog_material(_vision_fog.get_fog_material())
 	# Quest tracker (top-right, below the reserved minimap space).
 	var quest := QuestTracker.new()
-	quest.key_id = _gated_key_id()   # 표시 판정 = 문 판정 (어긋나면 「✓인데 안 열리는」 화면)
+	# 표시 판정 = 문 판정 (어긋나면 「✓인데 안 열리는」 화면). 열쇠를 요구하는 방의 ref를 쓴다.
+	quest.key_id = _quest_key_id()
 	$HUD.add_child(quest)
 	quest.setup(_inventory_ui, _run)
 	# Minimap (top-right, above the quest tracker).
@@ -652,16 +638,62 @@ func _place_stairs() -> void:
 		print("[MAP] 계단 %d개 배치" % n)
 
 
-## 잠긴 문이 요구하는 열쇠 id — `transitions[key_gate].gates` → 그 방의 `entry_requirement.ref`.
-## 데이터 한 곳(`entry_requirement`)이 「무엇이 필요한가」의 단일 소유자다.
-func _gated_key_id() -> String:
-	var room := _anchor_str("transitions", "role", "key_gate", "gates")
-	if room.is_empty():
-		return ""
+## 퀘스트 트래커가 「열쇠 획득 ✓」을 판정할 id — 이 맵에서 **아이템을 요구하는** 진입 조건의 ref.
+## 없으면 빈 문자열(구 부분 문자열 판정으로 폴백).
+func _quest_key_id() -> String:
 	var sd := get_node_or_null("/root/Slice01Data")
-	if sd == null:
+	if sd == null or _map == null:
 		return ""
-	return String((sd.get_room_row(room).get("entry_requirement", {}) as Dictionary).get("ref", ""))
+	for ref in _map.data_room_refs():
+		var req: Dictionary = sd.get_room_row(String(ref)).get("entry_requirement", {})
+		var rule := String(req.get("rule", ""))
+		if (rule == "requiresItem" or rule == "onBossKey") and not String(req.get("ref", "")).is_empty():
+			return String(req["ref"])
+	return ""
+
+
+## **진입 조건의 실물** — `transitions` 앵커 중 `role: key_gate`마다 문을 세운다.
+## 예전엔 앵커를 **하나만** 찾아 문 하나를 세웠다. 방 입구가 둘인 관문(`RM-UPPER-07`)은
+## 한쪽이 열린 채로 남아 조건이 무의미해진다.
+##
+## 「무엇이 필요한가」의 단일 소유자는 **막는 방의 `entry_requirement`**다(`LDG-001` §9.1) —
+## 앵커는 `gates`로 그 방을 지목만 한다. 규칙도 열쇠 id도 거기서 온다.
+func _place_gates() -> void:
+	if _map == null:
+		return
+	var sd := get_node_or_null("/root/Slice01Data")
+	var n := 0
+	for ref in _map.data_room_refs():
+		for a in _map.get_anchors(String(ref), "transitions"):
+			var d := a as Dictionary
+			if String(d.get("role", "")) != "key_gate":
+				continue
+			var gated := String(d.get("gates", ""))
+			var req: Dictionary = {}
+			if sd != null and not gated.is_empty():
+				req = sd.get_room_row(gated).get("entry_requirement", {})
+			var door := Door.new()
+			door.rule = String(req.get("rule", "requiresItem"))
+			door.key_id = String(req.get("ref", ""))
+			# 이 문을 열면 목표가 완료되는가 — **앵커가 명시할 때만**. 예전엔 무조건이라
+			# 문이 둘 이상인 맵에서 아무 관문이나 목표를 끝내 버렸다.
+			door.completes_objective = bool(d.get("completes_objective", false))
+			door.position = d["pos"]
+			door.setup(_inventory_ui, _run)
+			add_child(door)
+			# F2: 닫힌 문은 시야 그림자를 드리운다(안개 + 적 시야콘). 열리면 이 오클루더가 해제된다.
+			var half := Vector2(Door.SIZE.x * 0.5, Door.SIZE.z * 0.5)
+			var xz := Vector2(door.position.x, door.position.z)
+			door.set_occluders([
+				_vision_fog.add_box_occluder(xz, half),
+				_enemy_vision.add_box_occluder(xz, half),
+			])
+			# 이 노드는 VisionFog.setup 이후에 생기므로 최초 안개 스윕을 놓친다 —
+			# 명시적으로 안개를 입히지 않으면 못 본 방에서도 환하게 보인다.
+			_vision_fog.fog_object(door)
+			n += 1
+	if n > 0:
+		print("[MAP] 진입 조건 문 %d개 배치" % n)
 
 
 ## 앵커가 실은 **문자열 필드**(`yields` 등). 데이터가 소유한 ID를 코드가 다시 적지 않기 위한 통로다.
