@@ -34,6 +34,7 @@ const CHEST_PERIM_MARGIN := 2.5  # 주변부 배치 시 벽에서 안쪽(벽 근
 const CHEST_OBSTACLE_FRAC := 0.55  # 장애물 보유 방에서 기둥/장애물 옆 배치 비율
 const CHEST_OBSTACLE_GAP := 3.2  # 장애물 중심에서 떨어진 거리(옆에 붙음)
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
+const LayerTransition := preload("res://scripts/run/controllers/layer_transition.gd")
 const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
 const EnemyVisionOverlay := preload("res://scripts/run/controllers/enemy_vision_overlay.gd")
 const MovePathOverlay := preload("res://scripts/run/controllers/move_path_overlay.gd")
@@ -101,7 +102,8 @@ var _inventory_ui: InventoryUI
 # World interaction (E) — chest/door proximity prompts.
 var _interaction: InteractionController
 var _wall_xray: WallXray
-var _vision_fog: VisionFog  # F-011 party-LOS fog texture (step 1: debug-visible, V to toggle)
+var _vision_fog: VisionFog
+var _layer_tx: Node   # 계단 전이(LayerTransition)  # F-011 party-LOS fog texture (step 1: debug-visible, V to toggle)
 var _enemy_vision: EnemyVisionOverlay  # enemy sight cones as a unioned ground-tint overlay
 var _move_path: MovePathOverlay  # RMB 이동 오더 경로 점선 (조작캐 진하게 / 나머지 흐리게)
 var _interact_prompt: Label
@@ -295,6 +297,20 @@ func _ready() -> void:
 	_interaction = InteractionController.new()
 	add_child(_interaction)
 	_interaction.setup(_party, _interact_prompt, _inventory_ui)
+	# 레이어 전이(계단) — 포털이 런 경계라면 계단은 **런 안에서** 층을 옮긴다. 결집 조건부이고
+	# down/MIA는 두고 간다. 페이드 오버레이는 HUD 최상단에 깔되 평소엔 숨긴다. ref: LDG-001 §9.2.
+	var fade := ColorRect.new()
+	fade.name = "LayerFade"
+	fade.color = Color(0, 0, 0, 1)
+	fade.modulate.a = 0.0
+	fade.visible = false
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	$HUD.add_child(fade)
+	_layer_tx = LayerTransition.new()
+	add_child(_layer_tx)
+	_layer_tx.setup(_party, _map, _vision_fog, $CameraRig if has_node("CameraRig") else null, fade)
+
 	_wall_xray = WallXray.new()  # fade walls between camera and the controlled char (see-through)
 	add_child(_wall_xray)
 	_wall_xray.setup(_party)

@@ -64,6 +64,7 @@ func _init() -> void:
 	_check_design_targets(sd, map, edges)
 	_check_lock_solvable(sd, map)
 	_check_layer_switch(scn, map)
+	await _check_layer_transition(scn, map)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -601,6 +602,70 @@ func _check_layer_switch(scn: Node, map: Node) -> void:
 	_expect(int(map.get_active_layer()) == 0 and map.get_occluder_footprints().size() == before
 		and room != null and (room as Node3D).visible,
 		"[계약/레이어] 되돌아오면 원복 (오클루더 %d)" % map.get_occluder_footprints().size())
+
+
+## **계단 전이** — 지금까지 만든 조각이 처음으로 함께 도는 자리.
+## 묻는 것 셋: ① 결집 안 되면 거절하는가 ② down/MIA는 **조건이 아니라 두고 가는 것**인가
+## ③ 전이가 한 트랜잭션으로 도는가(활성 층·파티 위치·nav 바인딩).
+func _check_layer_transition(scn: Node, map: Node) -> void:
+	var tx: Node = null
+	for c in scn.get_children():
+		if c.has_method("transition") and c.has_method("can_transition"):
+			tx = c
+	var party: Node = _find_party(root)
+	if tx == null or party == null:
+		_expect(false, "[계약/전이] LayerTransition · PartyController 접근")
+		return
+	var members: Array = party.get_members()
+	var at: Vector3 = (members[0] as Node3D).global_position
+	# 게이트에서는 **페이드를 끈다** — 전이가 한 프레임 안에 끝나야 판정이 타이밍에 안 걸린다.
+	# (프레임이 흐르면 `mia_controller`가 결속 모드에서 인위적 MIA를 **자동 해제**해 버린다.)
+	tx.set("_fade", null)
+
+	# ① 한 명을 멀리 보내면 거절된다.
+	var stray: Node3D = members[3] as Node3D
+	var keep := stray.global_position
+	stray.global_position = at + Vector3(60, 0, 0)
+	var g1: Dictionary = tx.can_transition(at)
+	_expect(not bool(g1["ok"]) and (g1["missing"] as Array).size() == 1,
+		"🔴 [계약/전이] 결집 안 되면 거절 — 파티를 찢지 않는다 (%s)" % str(g1["missing"]))
+
+	# ② 그 멤버가 MIA면 **조건에서 빠진다** — 두고 가는 것이지 막는 것이 아니다.
+	stray.set_mia(true)
+	var g2: Dictionary = tx.can_transition(at)
+	_expect(bool(g2["ok"]),
+		"🔴 [계약/전이] MIA는 결집 조건이 아니다 — **두고 간다**(막지 않는다)")
+
+	# ③ 전이 실행 — 행동 가능한 멤버만 옮겨지고 MIA는 그 자리에 남는다.
+	var mia_pos := stray.global_position
+	var dest_room := "RM-ADV-05"
+	var ok: bool = await tx.transition(dest_room, 1, at)
+	_expect(ok, "[계약/전이] 전이 성공")
+	_expect(int(map.get_active_layer()) == 1, "[계약/전이] 활성 층이 바뀐다 (%d)" % map.get_active_layer())
+	var dest: Vector3 = map.get_spawn_position(dest_room)
+	var moved := 0
+	for m in members:
+		if m == stray:
+			continue
+		if (m as Node3D).global_position.distance_to(dest) < 6.0:
+			moved += 1
+	_expect(moved == 3, "[계약/전이] 행동 가능한 3명이 목적지로 (%d)" % moved)
+	# MIA 멤버는 **살아서 계속 시뮬레이션**되므로 조금 움직인다(앵커 복귀 시도 등).
+	# 물어야 할 것은 「안 움직였나」가 아니라 **「목적지로 순간이동되지 않았나」**다.
+	_expect(stray.global_position.distance_to(dest) > 20.0
+		and stray.global_position.distance_to(mia_pos) < 15.0,
+		"🔴 [계약/전이] **MIA 멤버는 안 따라온다** — 남은 층에 회수 부채로 남는다 (목적지까지 %.0f m)"
+			% stray.global_position.distance_to(dest))
+	_expect((members[0] as Node3D).get("nav_layer") == 1,
+		"[계약/전이] 파티 nav 바인딩이 새 층으로 (%s)" % str((members[0] as Node3D).get("nav_layer")))
+
+	# 복원 — 뒤 검사들이 layer 0을 전제한다. MIA를 풀고 **파티 옆으로** 데려온다
+	# (원래 자리로 되돌리면 결집이 안 돼 복귀 전이가 거절된다 — 픽션상으론 그게 맞는 동작이다).
+	stray.set_mia(false)
+	stray.global_position = (members[0] as Node3D).global_position + Vector3(1.5, 0, 0)
+	var _keep_unused := keep
+	await tx.transition("RM-ENTRY-01", 0, (members[0] as Node3D).global_position)
+	_expect(int(map.get_active_layer()) == 0, "[계약/전이] 되돌아오면 layer 0")
 
 
 func _check_extraction(sd, map: Node) -> void:

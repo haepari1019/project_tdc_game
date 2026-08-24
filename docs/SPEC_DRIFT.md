@@ -2241,3 +2241,18 @@
 - **영향 파일:** `scripts/combat/enemy_unit.gd` · `scripts/party/party_member.gd` · `scripts/combat/enemy_ai.gd` · `scripts/combat/combat_controller.gd` · `scripts/party/party_controller.gd` · `scripts/run/dungeon_run.gd` · `scripts/run/controllers/wall_xray.gd` · `tools/map_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS** — 전투 핫패스(LOS·경로)를 건드렸는데 회귀 없음. 층이 하나뿐이라 값은 전부 layer 0 = 비트 1로 동일하다.
 - **상태:** ✅ 완료 · 전파 불요. 남은 C: 계단 전이 + 결집 판정(C-6) → 미니맵 층 표시(C-7) → 3세력 층간 이동(C-8).
+
+### DRIFT-175 — 계단 전이 + 결집 판정 (C-6) 🔷 Phase 1 · 전파 불요
+- **근거:** spec `LDG-001` §9.2 · `DEC-20260824-001` §⑤. [[DRIFT-171]]~[[DRIFT-174]]에서 만든 조각이 **처음으로 함께 도는** 지점.
+- **① 전이는 한 트랜잭션이다.** 넷이 같이 가지 않으면 층이 어긋난다 — ① 활성 레이어 + 안개(오클루더·탐색 기억·비활성 층 숨김) ② 파티 위치 ③ 파티 nav 바인딩 ④ 카메라 **스냅**(글라이드로 두면 맵을 가로질러 날아가 전이가 아니라 사고로 보인다). **신규 `scripts/run/controllers/layer_transition.gd`**.
+- **② 결집 판정은 「행동 가능한 멤버」만 본다.** `down`/`MIA`는 **조건이 아니라 두고 가는 것**이다 — 쓰러진 동료가 전이를 막으면 「구하러 갈 수도 없고 갈 수도 없는」 교착이 된다. 형태는 `F-007` §3.6.2 `extractionCohesionRule`·`F-003` `unbound_anchor_max_m`과 같다.
+- **③ 옛 층의 경로를 들고 가지 않는다.** `nav_clear()`를 파티·적 유닛에 신설 — 전이 후 옛 층 웨이포인트로 걸어가면 벽을 향해 돌진한다.
+- **④ 페이드는 연출이지 로직이 아니다.** 오버레이가 없으면 `_fade_to()`가 즉시 반환한다 — 헤드리스·테스트에서 로직이 연출에 묶이지 않는다.
+- **게이트 8항목:** 결집 안 되면 **거절**(파티를 찢지 않는다) · **MIA는 조건이 아니다**(막지 않고 두고 간다) · 전이 성공 · 활성 층 변경 · **행동 가능한 3명만 이동** · 🔴 **MIA 멤버는 안 따라온다**(목적지까지 114 m — 회수 부채) · nav 바인딩이 새 층으로 · 복귀.
+- **⚠ 게이트 작성 중 배운 것 2건(테스트가 틀렸던 사례):**
+  - 「MIA가 그 자리에 **안 움직인다**」로 단언했다가 실패 — MIA 멤버는 **살아서 계속 시뮬레이션**되므로 조금 움직인다. 물어야 할 것은 「안 움직였나」가 아니라 **「목적지로 순간이동되지 않았나」**다.
+  - 페이드 `await` 동안 프레임이 흐르면 **결속 모드의 `mia_controller`가 인위적 MIA를 자동 해제**해 버려 멤버가 따라왔다. → 게이트에서 페이드를 끄고 **한 프레임 안에** 끝낸다(타이밍 의존도 함께 제거). 실게임에서는 실제 MIA라 해제되지 않는다.
+- **영향 파일:** **신규** `scripts/run/controllers/layer_transition.gd` · `scripts/party/party_member.gd`·`scripts/combat/enemy_unit.gd`(`nav_clear`) · `scripts/run/dungeon_run.gd`(배선 + 페이드 오버레이) · `tools/map_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS**.
+- **남은 것(이 절의 미완):** 계단 **앵커를 실제로 클릭**하는 입력 경로(`transitions` `role: stairs` → `interaction_controller`)는 아직 없다 — 현 데모 맵에 계단 앵커가 없어서 붙일 대상이 없다. 신규 그레이박스에서 붙인다. **컨트롤러는 게이트가 매 커밋 돌린다**(고스트 코드 아님).
+- **상태:** ✅ 완료 · 전파 불요. 남은 C: 미니맵 층 표시(C-7) → 3세력 층간 이동(C-8).

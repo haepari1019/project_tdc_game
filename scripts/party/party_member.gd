@@ -947,6 +947,12 @@ func nav_set_target(target: Vector3) -> void:
 	_nav_path_idx = 1  # skip path[0] which is the start position
 
 
+## 들고 있던 경로를 버린다 — **레이어 전이** 시 옛 층의 웨이포인트로 걸어가지 않게.
+func nav_clear() -> void:
+	_nav_path = PackedVector3Array()
+	_nav_path_idx = 0
+
+
 func nav_get_next_position() -> Vector3:
 	if _nav_path.size() == 0:
 		return global_position
