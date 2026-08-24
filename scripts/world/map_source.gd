@@ -33,6 +33,26 @@ const LOS_EYE_H := 1.0
 ## 방 경계에서 이만큼 안쪽에 있는 오클루더 = 벽이 아니라 **방 안 장애물**(상자 배치 앵커).
 const INTERIOR_MARGIN_M := 1.0
 
+## **레이어 → world 콜리전 비트.** 레이어가 XZ를 공유해도 서로의 시야·경로를 안 건드리게 하려면
+## 지오메트리가 **레이어별 비트**에 있어야 한다(`LDG-001` §9.2 · `DEC-20260824-001`).
+## `layer 0` = 비트 1 = 기존 `"world"` → **현 맵은 아무것도 안 바뀐다.**
+## 비트 2(party)·4(enemy)·8(AB-033 엄폐 돔)은 이미 쓰이므로 layer 1부터 **비트 16**에서 시작한다.
+const MAX_LAYERS := 4
+static func world_bit(layer: int) -> int:
+	return 1 if layer <= 0 else (1 << (3 + layer))
+## 전 레이어 world 비트 합집합 — 「이 콜라이더가 맵 지오메트리인가」 판정용.
+static func world_mask_all() -> int:
+	var m := 0
+	for i in MAX_LAYERS:
+		m |= world_bit(i)
+	return m
+## 비트 → 레이어 역변환(모르면 -1).
+static func layer_of_bit(mask: int) -> int:
+	for i in MAX_LAYERS:
+		if (mask & world_bit(i)) != 0:
+			return i
+	return -1
+
 # --- 계약 상태 (하위 구현이 채우거나, 이 클래스가 유도한다) --------------------
 ## room_ref -> {spawn: Vector3, size: Vector3}. **하위 구현이 채운다.**
 var _room_points: Dictionary = {}
@@ -49,6 +69,8 @@ var _warned_concave := false
 var _anchors: Dictionary = {}
 ## 에디터 폴백용 rooms.json 캐시(autoload가 없을 때만 채워진다).
 var _rooms_disk: Dictionary = {}
+## 현재 파티가 있는 레이어. 안개·오클루더 조회가 이 값으로 걸러진다(활성 레이어는 언제나 하나).
+var _active_layer: int = 0
 
 
 # ============================================================================
@@ -83,6 +105,20 @@ func _room_row(room_ref: String) -> Dictionary:
 		if typeof(row) == TYPE_DICTIONARY and String((row as Dictionary).get("room_ref", "")) == room_ref:
 			return row
 	return {}
+
+
+## 방이 속한 레이어(`rooms.json` `layer`; 기본 0 = 지상).
+func get_room_layer(room_ref: String) -> int:
+	return int(_room_row(room_ref).get("layer", 0))
+
+
+## 활성 레이어 — 파티가 있는 층. 전이(계단) 시 바뀐다.
+func get_active_layer() -> int:
+	return _active_layer
+
+
+func set_active_layer(layer: int) -> void:
+	_active_layer = layer
 
 
 ## 방 조명 프로파일(lit/standard/dim/unlit). SSOT = `rooms.json`. F-011 §3.1.
@@ -148,8 +184,18 @@ func get_extraction_position() -> Vector3:
 
 
 ## LOS 오클루더 footprint(월드 XZ) — **적 시야 레이캐스트가 쓰는 콜라이더와 같은 출처**.
-## `derive_occluders()`가 레이어 1 콜라이더에서 유도하므로 둘이 어긋날 수 없다. F-011 전제.
+## `derive_occluders()`가 world 콜라이더에서 유도하므로 둘이 어긋날 수 없다. F-011 전제.
+## **활성 레이어만** 돌려준다 — 안개는 XZ 텍스처 하나라 다른 층 도형이 섞이면 거짓말을 한다.
 func get_occluder_footprints() -> Array:
+	var out: Array = []
+	for occ in _occluders:
+		if int((occ as Dictionary).get("layer", 0)) == _active_layer:
+			out.append(occ)
+	return out
+
+
+## 레이어 무관 전체(게이트·디버그용).
+func get_all_occluder_footprints() -> Array:
 	return _occluders
 
 
@@ -258,11 +304,13 @@ func derive_occluders() -> void:
 
 func _collect_occluders(n: Node) -> void:
 	for c in n.get_children():
-		if c is StaticBody3D and (int((c as StaticBody3D).collision_layer) & 1) != 0:
+		if c is StaticBody3D and (int((c as StaticBody3D).collision_layer) & world_mask_all()) != 0:
+			var lyr := layer_of_bit(int((c as StaticBody3D).collision_layer))
 			for cs in c.get_children():
 				if cs is CollisionShape3D:
 					var fp := _footprint(cs as CollisionShape3D)
 					if not fp.is_empty():
+						fp["layer"] = maxi(0, lyr)   # 지오메트리의 **비트**가 곧 레이어다
 						_occluders.append(fp)
 		_collect_occluders(c)
 

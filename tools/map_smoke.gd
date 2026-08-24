@@ -95,7 +95,9 @@ func _collect_rects(map: Node) -> void:
 		var c: Vector3 = r["center"]
 		var s: Vector3 = r["size"]
 		# get_room_rects는 room_ref를 안 싣는다 — 계약을 넓히기 전까진 rooms.json 순회로 되짚는다.
-		_rects[_ref_at(map, c)] = {"c": Vector2(c.x, c.z), "s": Vector2(s.x, s.z), "y": c.y}
+		var ref := _ref_at(map, c)
+		_rects[ref] = {"c": Vector2(c.x, c.z), "s": Vector2(s.x, s.z), "y": c.y,
+			"layer": int(map.get_room_layer(ref))}
 
 
 ## rect의 room_ref 되짚기 — get_spawn_position(ref)가 그 rect 중심과 일치하는 방을 찾는다.
@@ -212,7 +214,7 @@ func _check_navigation(scn: Node, map: Node, edges: Array) -> void:
 ## 같은 집합이어야 한다. 지금은 절차 생성 중에 손으로 기록하므로 우연히 맞을 뿐이고,
 ## Blender 맵에선 아무도 안 채운다 — Phase 0에서 **콜라이더 유도**로 바꾼다. 그때 이 줄이 증인이다.
 func _check_occluders(map: Node) -> void:
-	var declared: Array = map.get_occluder_footprints()
+	var declared: Array = map.get_all_occluder_footprints()   # 「같은 출처」는 레이어 무관 전체와 대조
 	var derived: Array = []
 	_collect_los_footprints(map, derived)
 	# 개수만 보면 양쪽이 같은 규칙을 쓰는 순간 무의미해진다 — **도형 하나하나를 대조**해
@@ -412,12 +414,14 @@ func _check_layers(map: Node) -> void:
 		for j in range(i + 1, refs.size()):
 			var a: Dictionary = _rects[refs[i]]
 			var b: Dictionary = _rects[refs[j]]
+			if int(a.get("layer", 0)) != int(b.get("layer", 0)):
+				continue   # **다른 레이어끼리는 겹쳐도 된다** — 그게 백레이어의 요점이다
 			var ax: float = (a["s"] as Vector2).x * 0.5 + (b["s"] as Vector2).x * 0.5
 			var az: float = (a["s"] as Vector2).y * 0.5 + (b["s"] as Vector2).y * 0.5
 			var d: Vector2 = (a["c"] as Vector2) - (b["c"] as Vector2)
 			if absf(d.x) < ax - 0.1 and absf(d.y) < az - 0.1:
 				overlaps.append("%s↔%s" % [refs[i], refs[j]])
-	_expect(overlaps.is_empty(), "[계약] 같은 레이어 방 XZ 중첩 없음 (%s)" % (
+	_expect(overlaps.is_empty(), "[계약] **같은** 레이어 방 XZ 중첩 없음 (%s)" % (
 		"전부" if overlaps.is_empty() else "겹침: " + ", ".join(overlaps)))
 
 	var bare: Array = []
@@ -425,7 +429,9 @@ func _check_layers(map: Node) -> void:
 		var c: Vector2 = _rects[ref]["c"]
 		var sz: Vector2 = _rects[ref]["s"]
 		var n := 0
-		for occ in map.get_occluder_footprints():
+		for occ in map.get_all_occluder_footprints():
+			if int((occ as Dictionary).get("layer", 0)) != int(_rects[ref].get("layer", 0)):
+				continue
 			var o: Vector2 = occ["center"]
 			if absf(o.x - c.x) <= sz.x * 0.5 + 1.0 and absf(o.y - c.y) <= sz.y * 0.5 + 1.0:
 				n += 1
@@ -755,6 +761,46 @@ func _check_authored_impl() -> void:
 	var probs: Array = MapConvention.validate_room(room)
 	_expect(probs.size() == 1 and String(probs[0]).contains("TRIG_room"),
 		"[계약/authored] 규약 위반 검출(트리거 오타)")
+
+	# ⑤-b2 🔴 **백레이어 증명 — 같은 XZ에 두 레이어를 겹쳐 놓는다.**
+	#    이게 성립해야 「옆으로 치우지 않고 겹친다」(스펠렁키식)가 가능하고, 안개 바운딩이 안 커진다.
+	#    지오메트리의 **콜리전 비트가 곧 레이어**이므로(layer 0 = 비트 1, layer 1 = 비트 16),
+	#    유도가 비트를 읽어 층을 가르고 활성 레이어만 안개에 넘긴다.
+	var over_xz := Vector2(sunk_origin.x, sunk_origin.z + 11.25)   # 지하 벽과 **정확히 같은 XZ**
+	var l1 := StaticBody3D.new()
+	l1.collision_layer = src.world_bit(1)          # ← layer 1 비트(16)
+	l1.position = Vector3(0.0, 1.75, 11.25)        # **방 로컬** — 지하 벽과 같은 자리
+	var l1cs := CollisionShape3D.new()
+	var l1bs := BoxShape3D.new()
+	l1bs.size = Vector3(27.0, 3.5, 0.4)
+	l1cs.shape = l1bs
+	l1.add_child(l1cs)
+	sroom.add_child(l1)
+	await process_frame
+	src.derive_occluders()
+
+	var all_n: int = src.get_all_occluder_footprints().size()
+	src.set_active_layer(0)
+	var a0: Array = src.get_occluder_footprints()
+	src.set_active_layer(1)
+	var a1: Array = src.get_occluder_footprints()
+	src.set_active_layer(0)
+	_expect(all_n == a0.size() + a1.size() and a0.size() > 0 and a1.size() == 1,
+		"🔴 [계약/레이어] 같은 XZ에 두 레이어 공존 — 전체 %d = layer0 %d + layer1 %d" % [all_n, a0.size(), a1.size()])
+	# 같은 XZ에 **두 층의 벽이 각각** 있고, 조회하면 **자기 층 것만** 나온다.
+	var n0 := 0
+	for occ in a0:
+		if (occ["center"] as Vector2).distance_to(over_xz) < 0.5:
+			n0 += 1
+	var n1 := 0
+	for occ in a1:
+		if (occ["center"] as Vector2).distance_to(over_xz) < 0.5:
+			n1 += 1
+	_expect(n0 == 1 and n1 == 1,
+		"🔴 [계약/레이어] 같은 XZ의 벽이 층별로 **각각 1개씩** 잡힌다 (layer0 %d · layer1 %d)" % [n0, n1])
+	_expect(a1.size() == 1, "[계약/레이어] 활성 레이어를 1로 바꾸면 **그 층 것만** 보인다 (%d)" % a1.size())
+	l1.free()
+	src.derive_occluders()
 
 	src.free()
 

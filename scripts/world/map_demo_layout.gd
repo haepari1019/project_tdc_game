@@ -265,6 +265,8 @@ func _build_room(room_ref: String) -> void:
 	var center: Vector3 = spec["center"]
 	var size: Vector3 = spec["size"]
 	var profile: String = get_room_profile(room_ref)  # SSOT = rooms.json
+	# 이 방의 지오메트리가 놓일 **world 콜리전 비트**. layer 0 = 비트 1(기존 값) → 현 맵 불변.
+	var wbit: int = world_bit(get_room_layer(room_ref))
 
 	var room_node := Node3D.new()
 	room_node.name = room_ref
@@ -275,17 +277,17 @@ func _build_room(room_ref: String) -> void:
 		col = Color(0.25, 0.55, 0.35)
 
 	# Floor
-	_add_floor(room_node, center, size, col)
+	_add_floor(room_node, center, size, col, wbit)
 
 	# Walls with openings
 	var openings: Array = _room_openings.get(room_ref, [])
-	_add_walls_with_openings(room_node, center, size, col, openings)
+	_add_walls_with_openings(room_node, center, size, col, openings, wbit)
 
 	# Lighting option objects (per-room fixtures keyed by profile)
 	_add_room_lighting(room_node, center, size, profile)
 
 	# Cover obstacles — LOS blockers + navmesh holes (baked with the room)
-	_build_obstacles(room_node, room_ref, center)
+	_build_obstacles(room_node, room_ref, center, wbit)
 
 	# Room trigger volume
 	var area := Area3D.new()
@@ -367,11 +369,11 @@ func _add_room_lighting(parent: Node3D, center: Vector3, size: Vector3, profile:
 			lantern.configure_light(energy * 0.6, torch_range, warm)
 
 
-func _add_floor(parent: Node3D, center: Vector3, size: Vector3, color: Color) -> void:
+func _add_floor(parent: Node3D, center: Vector3, size: Vector3, color: Color, wbit: int = 1) -> void:
 	var body := StaticBody3D.new()
 	body.name = "FloorBody"
 	body.position = center + Vector3(0, -FLOOR_THICKNESS * 0.5, 0)
-	body.collision_layer = 1
+	body.collision_layer = wbit
 
 	var col_shape := CollisionShape3D.new()
 	var box_shape := BoxShape3D.new()
@@ -392,7 +394,7 @@ func _add_floor(parent: Node3D, center: Vector3, size: Vector3, color: Color) ->
 	parent.add_child(body)
 
 
-func _add_walls_with_openings(parent: Node3D, center: Vector3, size: Vector3, base_color: Color, openings: Array) -> void:
+func _add_walls_with_openings(parent: Node3D, center: Vector3, size: Vector3, base_color: Color, openings: Array, wbit: int = 1) -> void:
 	var wall_color := base_color.darkened(0.25)
 	var half_x := size.x * 0.5
 	var half_z := size.z * 0.5
@@ -407,21 +409,21 @@ func _add_walls_with_openings(parent: Node3D, center: Vector3, size: Vector3, ba
 	var hx := half_x - WALL_DEDUP_EPS
 	var hz := half_z - WALL_DEDUP_EPS
 	# North (+Z), South (-Z): wall runs along X, length = size.x
-	_build_wall_with_gaps(parent, center + Vector3(0, 0, hz), size.x, "x", wall_color, side_openings["north"])
-	_build_wall_with_gaps(parent, center + Vector3(0, 0, -hz), size.x, "x", wall_color, side_openings["south"])
+	_build_wall_with_gaps(parent, center + Vector3(0, 0, hz), size.x, "x", wall_color, side_openings["north"], wbit)
+	_build_wall_with_gaps(parent, center + Vector3(0, 0, -hz), size.x, "x", wall_color, side_openings["south"], wbit)
 	# East (+X), West (-X): wall runs along Z, length = size.z
-	_build_wall_with_gaps(parent, center + Vector3(hx, 0, 0), size.z, "z", wall_color, side_openings["east"])
-	_build_wall_with_gaps(parent, center + Vector3(-hx, 0, 0), size.z, "z", wall_color, side_openings["west"])
+	_build_wall_with_gaps(parent, center + Vector3(hx, 0, 0), size.z, "z", wall_color, side_openings["east"], wbit)
+	_build_wall_with_gaps(parent, center + Vector3(-hx, 0, 0), size.z, "z", wall_color, side_openings["west"], wbit)
 
 
-func _build_wall_with_gaps(parent: Node3D, wall_center: Vector3, wall_length: float, axis: String, color: Color, openings: Array) -> void:
+func _build_wall_with_gaps(parent: Node3D, wall_center: Vector3, wall_length: float, axis: String, color: Color, openings: Array, wbit: int = 1) -> void:
 	if openings.is_empty():
 		var seg_size: Vector3
 		if axis == "x":
 			seg_size = Vector3(wall_length, WALL_HEIGHT, WALL_THICKNESS)
 		else:
 			seg_size = Vector3(WALL_THICKNESS, WALL_HEIGHT, wall_length)
-		_add_wall_segment(parent, wall_center + Vector3(0, WALL_HEIGHT * 0.5, 0), seg_size, color)
+		_add_wall_segment(parent, wall_center + Vector3(0, WALL_HEIGHT * 0.5, 0), seg_size, color, wbit)
 		return
 
 	var sorted_openings: Array = openings.duplicate()
@@ -437,14 +439,14 @@ func _build_wall_with_gaps(parent: Node3D, wall_center: Vector3, wall_length: fl
 		var gap_end: float = gap_center + gap_half
 
 		if gap_start - cursor > 0.1:
-			_add_wall_along(parent, wall_center, cursor, gap_start, axis, color)
+			_add_wall_along(parent, wall_center, cursor, gap_start, axis, color, wbit)
 		cursor = gap_end
 
 	if half_len - cursor > 0.1:
-		_add_wall_along(parent, wall_center, cursor, half_len, axis, color)
+		_add_wall_along(parent, wall_center, cursor, half_len, axis, color, wbit)
 
 
-func _add_wall_along(parent: Node3D, wall_center: Vector3, from_along: float, to_along: float, axis: String, color: Color) -> void:
+func _add_wall_along(parent: Node3D, wall_center: Vector3, from_along: float, to_along: float, axis: String, color: Color, wbit: int = 1) -> void:
 	var seg_len: float = to_along - from_along
 	var seg_mid: float = (from_along + to_along) * 0.5
 	var pos: Vector3
@@ -457,13 +459,13 @@ func _add_wall_along(parent: Node3D, wall_center: Vector3, from_along: float, to
 		pos = wall_center + Vector3(0, WALL_HEIGHT * 0.5, seg_mid)
 		seg_size = Vector3(WALL_THICKNESS, WALL_HEIGHT, seg_len)
 
-	_add_wall_segment(parent, pos, seg_size, color)
+	_add_wall_segment(parent, pos, seg_size, color, wbit)
 
 
-func _add_wall_segment(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> void:
+func _add_wall_segment(parent: Node3D, pos: Vector3, size: Vector3, color: Color, wbit: int = 1) -> void:
 	var body := StaticBody3D.new()
 	body.position = pos
-	body.collision_layer = 1
+	body.collision_layer = wbit
 
 	var col_shape := CollisionShape3D.new()
 	var box_shape := BoxShape3D.new()
@@ -486,7 +488,7 @@ func _add_wall_segment(parent: Node3D, pos: Vector3, size: Vector3, color: Color
 
 ## 장애물 배치 = rooms.json `anchors.obstacles`(구 OBSTACLE_SPECS). 치수는 킷(OBSTACLE_TYPES)이,
 ## **어디에 놓을지는 데이터**가 소유한다 — 방을 고칠 때 코드를 안 고치기 위한 분리.
-func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void:
+func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3, wbit: int = 1) -> void:
 	for obs in get_anchors(room_ref, "obstacles"):
 		var t: Dictionary = OBSTACLE_TYPES.get(obs.get("type", ""), {})
 		if t.is_empty():
@@ -517,14 +519,14 @@ func _build_obstacles(parent: Node3D, room_ref: String, center: Vector3) -> void
 			var bshape := BoxShape3D.new()
 			bshape.size = size
 			shape = bshape
-		_add_obstacle_body(parent, ground + Vector3(0, height * 0.5, 0), mesh, shape, t["color"])
+		_add_obstacle_body(parent, ground + Vector3(0, height * 0.5, 0), mesh, shape, t["color"], wbit)
 
 
 ## StaticBody(layer 1) + mesh — LOS-blocks (raycast mask 1) and navmesh-bakes.
-func _add_obstacle_body(parent: Node3D, pos: Vector3, mesh: Mesh, shape: Shape3D, color: Color) -> void:
+func _add_obstacle_body(parent: Node3D, pos: Vector3, mesh: Mesh, shape: Shape3D, color: Color, wbit: int = 1) -> void:
 	var body := StaticBody3D.new()
 	body.position = pos
-	body.collision_layer = 1
+	body.collision_layer = wbit
 	var cs := CollisionShape3D.new()
 	cs.shape = shape
 	body.add_child(cs)
