@@ -2227,3 +2227,17 @@
 - **영향 파일:** `scripts/run/controllers/vision_fog.gd` · `scripts/world/map_source.gd` · `tools/map_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS** · `[FOG] setup … occluders=97 lights=4 fogged_meshes=197` **불변** · NavMesh 284 polygons · `map_shot` **시각 회귀 없음**.
 - **상태:** ✅ 완료 · 전파 불요. 남은 C: **유닛 `layer` 속성**(C-5 — LOS 마스크·nav 맵 바인딩, 부피) → 계단 전이+결집 판정(C-6) → 미니맵 층 표시(C-7) → 3세력 층간 이동(C-8).
+
+### DRIFT-174 — 유닛이 자기 레이어를 안다 (C-5) + 🔴 `get_maps()[0]` 지뢰 제거 🔷 Phase 1 · 전파 불요
+- **근거:** spec `LDG-001` §9.2. 지금까지(비트·nav·안개)는 **맵 쪽**만 층을 알았다. 유닛이 자기 층을 모르면 남의 층 벽에 시야가 막히고 남의 층 navmesh로 걷는다.
+- **🔴 ① 먼저 지뢰를 밟았다.** `enemy_unit`·`party_member`가 경로를 낼 때 **`NavigationServer3D.get_maps()[0]`** — 「전역 첫 번째 맵」을 집고 있었다. 맵이 하나뿐일 때만 맞는 코드였고, [[DRIFT-172]]에서 **레이어별 맵이 생기면서** 순서 보장이 없어 **전 유닛이 엉뚱한 층 navmesh로 걸을 수 있는 상태**가 됐다. 기존 코드의 잠재 결함이 레이어 도입으로 **실제 위험이 된** 사례다.
+  - → 유닛에 `nav_layer` · `nav_map_rid`. 비어 있으면 **월드 기본 맵**(= layer 0)으로 떨어진다 — `get_maps()[0]`은 코드에서 사라졌다.
+- **② 스폰이 층을 물려준다.** `_bind_nav_layer(from_index, room_ref)`가 새로 스폰된 적에게 **그 방의 레이어**와 그 층 맵을 준다(일반 분대·3세력·디버그 스폰 전부). 파티는 `bind_nav_layer(layer, map)`로 **전원 한 층**에(파티는 찢지 않는다).
+- **③ LOS 마스크가 층 비트다.** `enemy_ai.los_mask_of(n)` — `nav_layer` → `MapSource.world_bit()`. **비트 공식은 `MapSource`가 단일 소유**하고 여기서 재계산하지 않는다(재계산하면 두 벌이 되어 언젠가 어긋난다). 투사체 차단(`_shot_block_point`)도 `층 비트 | 8`(AB-033 엄폐 돔)로.
+- **④ 벽 X-ray도 층별.** 그 멤버가 선 층의 벽만 페이드한다 — 남의 층 벽을 투명하게 만들면 안 된다.
+- **게이트 2종 + 증명:**
+  - 🔴 **층 격리** — 지상 벽을 가로지르는 **같은 광선**을 `world_bit(0)`으로 쏘면 **막히고** `world_bit(1)`로 쏘면 **통과한다**. 이게 안 되면 남의 층 벽이 「보이지 않는 벽」이 된다.
+  - 🔴 **nav 바인딩** — 실제 런의 **적 29기가 전부 자기 층 nav 맵**에 묶였다(불일치 0). `get_maps()[0]` 제거의 증인.
+- **영향 파일:** `scripts/combat/enemy_unit.gd` · `scripts/party/party_member.gd` · `scripts/combat/enemy_ai.gd` · `scripts/combat/combat_controller.gd` · `scripts/party/party_controller.gd` · `scripts/run/dungeon_run.gd` · `scripts/run/controllers/wall_xray.gd` · `tools/map_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS** — 전투 핫패스(LOS·경로)를 건드렸는데 회귀 없음. 층이 하나뿐이라 값은 전부 layer 0 = 비트 1로 동일하다.
+- **상태:** ✅ 완료 · 전파 불요. 남은 C: 계단 전이 + 결집 판정(C-6) → 미니맵 층 표시(C-7) → 3세력 층간 이동(C-8).

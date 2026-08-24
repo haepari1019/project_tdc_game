@@ -10,9 +10,18 @@ extends Node3D
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 const CastBar := preload("res://scripts/combat/abilities/effects/cast_bar.gd")   # PILOT — 적 통합 캐스트바(아군 파리티)
 
-# Line-of-sight raycast (perception + attack gating). Mask = world layer (1) only —
+# Line-of-sight raycast (perception + attack gating). Mask = **그 유닛이 선 층의 world 비트**만 —
 # walls/cover block; party(2)/enemy(3,4) are ignored. ref: enemy_visibility.
-const LOS_MASK := 1
+# 층이 XZ를 공유하므로 남의 층 벽이 시야를 막으면 안 된다(`LDG-001` §9.2). 비트 공식은
+# **MapSource가 단일 소유** — 여기서 재계산하면 두 벌이 되어 언젠가 어긋난다.
+const MapSource := preload("res://scripts/world/map_source.gd")
+const LOS_MASK := 1   # (layer 0 기본값 — 실제 질의는 los_mask_of() 사용)
+
+
+## 이 유닛이 쓰는 LOS 마스크. `nav_layer`가 없는 노드(레거시)는 layer 0으로 떨어진다.
+static func los_mask_of(n: Node) -> int:
+	var l: int = int(n.get("nav_layer")) if n != null and "nav_layer" in n else 0
+	return MapSource.world_bit(l)
 const LOS_FROM_H := 1.1  # ray origin above the looker's feet
 const LOS_TO_H := 0.7    # aim at the target's center
 
@@ -151,7 +160,7 @@ func attach_vision_cone(unit: CharacterBody3D) -> void:
 func _has_los(from_node: Node3D, to_node: Node3D) -> bool:
 	var a: Vector3 = from_node.global_position + Vector3(0, LOS_FROM_H, 0)
 	var b: Vector3 = to_node.global_position + Vector3(0, LOS_TO_H, 0)
-	var q := PhysicsRayQueryParameters3D.create(a, b, LOS_MASK)
+	var q := PhysicsRayQueryParameters3D.create(a, b, los_mask_of(from_node))
 	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
 
 
@@ -1199,7 +1208,7 @@ func _shot_block_point(from: Vector3, to: Vector3, attacker):
 	var space := (attacker as Node3D).get_world_3d().direct_space_state
 	var exclude: Array[RID] = []
 	for _i in 6:
-		var q := PhysicsRayQueryParameters3D.create(a, b, 1 | 8)   # world(1)=벽+Rampart · 8=엄폐 돔(AB-033, DRIFT-107)
+		var q := PhysicsRayQueryParameters3D.create(a, b, los_mask_of(attacker) | 8)   # world(층 비트)=벽+Rampart · 8=엄폐 돔(AB-033, DRIFT-107)
 		q.exclude = exclude
 		var hit := space.intersect_ray(q)
 		if hit.is_empty():

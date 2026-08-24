@@ -792,6 +792,7 @@ func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: b
 	var center := _squad_spawn_center(room_ref, lane)
 	var before := _enemies.size()
 	_spawn_at(units, center, squad_id, engaged, "Fixed", 1, "all", faction)
+	_bind_nav_layer(before, room_ref)
 	# DEV: opportunistic 사물 상호작용(배럴 능동 부수기) 관찰용 — SINGLE UNIT은 ENC override(interacts_
 	# with_objects) 경로를 안 타므로 이번 소환분에만 직접 켠다. prespawn 실경로는 ENC override가 담당.
 	if interact_objects:
@@ -817,9 +818,11 @@ func _spawn_squad(encounter_id: String, room_ref: String, units_override: Array 
 	var lane := int(_room_squad_count.get(room_ref, 0))
 	_room_squad_count[room_ref] = lane + 1
 	var center: Vector3 = _squad_spawn_center(room_ref, lane)
+	var before_n := _enemies.size()
 	_spawn_at(units, center, squad_id, false, String(enc.get("placement_behavior", "Fixed")),
 		int(enc.get("ambush_anchor_count", 1)), String(enc.get("wake_policy", "all")),
 		String(enc.get("faction", "Dungeon")))
+	_bind_nav_layer(before_n, room_ref)
 	var reinf: Dictionary = enc.get("reinforcement", {})
 	_squads.append({
 		"id": squad_id,
@@ -838,6 +841,19 @@ func _spawn_squad(encounter_id: String, room_ref: String, units_override: Array 
 ## Far-interior spawn point for a squad — away from the party's start (_spawn_origin)
 ## so start-adjacent rooms stay out of combat range until the party advances in.
 ## `lane` shifts the spawn perpendicular so multiple squads in one room don't stack.
+## 새로 스폰된 적에게 **그 방의 레이어**와 그 층의 nav 맵을 물려준다. 층이 XZ를 공유하므로
+## 남의 층 navmesh로 걸으면 벽을 통과하거나 갈 수 없는 곳으로 간다. ref: LDG-001 §9.2.
+func _bind_nav_layer(from_index: int, room_ref: String) -> void:
+	if _map == null or not _map.has_method("get_room_layer"):
+		return
+	var layer: int = int(_map.get_room_layer(room_ref))
+	var rid: RID = _map.get_nav_map(layer) if _map.has_method("get_nav_map") else RID()
+	for i in range(from_index, _enemies.size()):
+		if is_instance_valid(_enemies[i]):
+			_enemies[i].nav_layer = layer
+			_enemies[i].nav_map_rid = rid
+
+
 func _squad_spawn_center(room_ref: String, lane: int = 0) -> Vector3:
 	if _map == null:
 		return Vector3.ZERO
@@ -946,7 +962,9 @@ func _spawn_third_squad(room_ref: String) -> void:
 	var lane := int(_room_squad_count.get(room_ref, 0))
 	_room_squad_count[room_ref] = lane + 1
 	var center := _squad_spawn_center(room_ref, lane)
+	var before_third := _enemies.size()
 	_spawn_at(THIRD_FACTION_PACK, center, squad_id, true, "Fixed", 1, "all", THIRD_FACTION_NAME)  # engaged=true → 몬스터 사냥
+	_bind_nav_layer(before_third, room_ref)
 	_squads.append({"id": squad_id, "room_ref": room_ref, "encounter_id": "ENC-3RD-emergent", "cleared": false, "reinforce": {}, "pending": false, "activated": true, "timer": 0.0, "warned": false})
 	print("[TDC] 제3세력 Squad %d (창발) %s @ %s" % [squad_id, room_ref, center])
 
@@ -1154,7 +1172,7 @@ func _nav_snap(pos: Vector3) -> Vector3:
 	var world := get_world_3d()
 	if world == null:
 		return pos
-	var map: RID = world.get_navigation_map()
+	var map: RID = world.get_navigation_map()   # (레이어별 스냅은 _bind_nav_layer 이후 유닛이 자기 맵을 쓴다)
 	if not map.is_valid():
 		return pos
 	var snapped: Vector3 = NavigationServer3D.map_get_closest_point(map, pos)

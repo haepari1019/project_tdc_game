@@ -60,7 +60,7 @@ func _init() -> void:
 	_check_ids(sd)
 	_check_anchors(sd, map)
 	_check_layers(map)
-	_check_space_fields(sd, scn)
+	_check_space_fields(sd, scn, map)
 	_check_design_targets(sd, map, edges)
 	_check_lock_solvable(sd, map)
 	_check_layer_switch(scn, map)
@@ -447,7 +447,7 @@ func _check_layers(map: Node) -> void:
 ##    진행 게이트가 다시 확률에 걸린다. 값 자체를 검사한다.
 ## ② **`gated_elite`는 실제로 스폰됐는가** — 데이터에 적어 두고 리졸버가 안 읽으면 아무 일도 안 난다.
 ##    허브 사다리(무기고 T1·대장간 T3)가 여기 걸려 있다.
-func _check_space_fields(sd, scn: Node) -> void:
+func _check_space_fields(sd, scn: Node, _map_ref: Node) -> void:
 	const CATEGORIES := ["mandatory_threat", "gated_elite", "optional_threat", "patrol_route",
 		"ambush_candidate", "third_faction_candidate", "safe"]
 	const GRAMMARS := ["open", "choke", "los_broken", "split", "flank", "backline_pocket"]
@@ -481,6 +481,20 @@ func _check_space_fields(sd, scn: Node) -> void:
 	if combat == null or not ("_squads" in combat):
 		_expect(false, "[계약] CombatController 분대 목록 접근")
 		return
+	# `get_maps()[0]` 지뢰 제거의 증인 — 적이 **자기 방 층의 nav 맵**에 묶여 있는가.
+	var bound := 0
+	var wrong := 0
+	for e in combat._enemies:
+		if not is_instance_valid(e):
+			continue
+		var want: RID = _map_ref.get_nav_map(int(e.get("nav_layer")))
+		if (e.get("nav_map_rid") as RID).is_valid():
+			bound += 1
+			if (e.get("nav_map_rid") as RID) != want:
+				wrong += 1
+	_expect(bound > 0 and wrong == 0,
+		"🔴 [계약/레이어] 적 %d기가 **자기 층 nav 맵**에 묶임 (불일치 %d) — 전역 get_maps()[0] 제거" % [bound, wrong])
+
 	var spawned: Array = []
 	for sq in combat._squads:
 		spawned.append(String((sq as Dictionary).get("room_ref", "")))
@@ -851,6 +865,21 @@ func _check_authored_impl() -> void:
 		"🔴 [계약/레이어] layer 1이 **자기 nav 맵**을 갖는다 — 층이 XZ를 공유해도 경로가 안 섞인다")
 	var poly1: int = (r1 as NavigationRegion3D).navigation_mesh.get_polygon_count() if r1 != null and (r1 as NavigationRegion3D).navigation_mesh != null else 0
 	_expect(poly1 > 0, "[계약/레이어] layer 1 navmesh 베이크 (%d polys)" % poly1)
+
+	# 🔴 **층 격리 증명 — 같은 광선을 다른 층 마스크로 쏜다.**
+	#    지상 방(layer 0)의 벽을 가로지르는 광선: layer 0 마스크로는 막히고, layer 1 마스크로는
+	#    **통과해야 한다**. 안 그러면 남의 층 벽이 시야를 막아 「보이지 않는 벽」이 생긴다.
+	var wall_world: Vector3 = wall.global_position           # 지상 방 벽(layer 0 전용)
+	var ray_a := wall_world + Vector3(0, -1.0, -4.0)
+	var ray_b := wall_world + Vector3(0, -1.0, 4.0)
+	var space := src.get_world_3d().direct_space_state
+	var q0 := PhysicsRayQueryParameters3D.create(ray_a, ray_b, src.world_bit(0))
+	var q1 := PhysicsRayQueryParameters3D.create(ray_a, ray_b, src.world_bit(1))
+	var hit0: Dictionary = space.intersect_ray(q0)
+	var hit1: Dictionary = space.intersect_ray(q1)
+	_expect(not hit0.is_empty(), "[계약/레이어] layer 0 벽이 layer 0 광선을 막는다")
+	_expect(hit1.is_empty(),
+		"🔴 [계약/레이어] layer 0 벽이 layer 1 광선을 **안 막는다** — 남의 층 벽은 보이지 않는 벽이 되면 안 된다")
 
 	l1f.free()
 	l1.free()

@@ -161,6 +161,7 @@ func _ready() -> void:
 	_run.start_run("RM-ENTRY-01")
 	var spawn: Vector3 = _map.get_spawn_position("RM-ENTRY-01")
 	_party.spawn_at(spawn)
+	_party.bind_nav_layer(_map.get_active_layer(), _map)   # 파티 전원을 활성 레이어에(LDG-001 §9.2)
 	# Pre-spawn all encounters as dormant squads, pushed to each room's far side
 	# (away from the party) so the start-adjacent room isn't in range at spawn. Roll the per-run
 	# seed first → weighted ENC resolve + spawn scatter vary each run (LDG-SPAWN-DEMO-001 §2).

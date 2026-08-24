@@ -237,6 +237,12 @@ var _hp_bar: Node3D
 var _flash_tw: Tween
 
 ## Cached navmesh path (y=0 projected, queried via NavigationServer3D)
+## 이 유닛이 걷는 **레이어와 nav 맵**. 층이 XZ를 공유하므로 남의 층 navmesh로 걸으면 안 된다.
+## 비어 있으면 월드 기본 맵(= layer 0)으로 떨어진다.
+## ⚠ 예전엔 `NavigationServer3D.get_maps()[0]`을 썼는데, **맵이 하나뿐일 때만** 맞는 코드였다 —
+## 레이어별 맵이 생기면서 순서 보장이 없어 **엉뚱한 층으로 걸을 수 있는 지뢰**가 됐다(DRIFT-174).
+var nav_layer: int = 0
+var nav_map_rid: RID = RID()
 var _nav_path: PackedVector3Array = PackedVector3Array()
 var _nav_path_idx: int = 0
 var _nav_target: Vector3 = Vector3.ZERO
@@ -930,7 +936,7 @@ func nav_set_target(target: Vector3) -> void:
 	if _nav_target.distance_squared_to(target) < 0.25:
 		return
 	_nav_target = target
-	var map_rid: RID = NavigationServer3D.get_maps()[0] if NavigationServer3D.get_maps().size() > 0 else RID()
+	var map_rid: RID = nav_map_rid if nav_map_rid.is_valid() else get_world_3d().navigation_map
 	if not map_rid.is_valid():
 		_nav_path = PackedVector3Array()
 		return

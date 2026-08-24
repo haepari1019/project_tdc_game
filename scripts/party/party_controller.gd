@@ -302,6 +302,15 @@ func _sv1_forget(member: Node) -> void:
 	_sv1_separated_timer.erase(member)
 
 
+## 파티 전원을 **한 레이어**에 묶는다(파티는 찢지 않는다 — 전원이 같은 층). 계단 전이 때 다시 부른다.
+func bind_nav_layer(layer: int, map: Node) -> void:
+	var rid: RID = map.get_nav_map(layer) if map != null and map.has_method("get_nav_map") else RID()
+	for m in _members:
+		if is_instance_valid(m):
+			m.nav_layer = layer
+			m.nav_map_rid = rid
+
+
 func spawn_at(world_pos: Vector3) -> void:
 	if _members.is_empty():
 		return

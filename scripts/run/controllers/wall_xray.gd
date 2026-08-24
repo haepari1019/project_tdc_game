@@ -8,7 +8,8 @@ extends Node
 
 const MeshMaterials := preload("res://scripts/core/mesh_materials.gd")
 
-const WALL_LAYER := 1            # walls/obstacles collision layer (also used for LOS)
+const MapSource := preload("res://scripts/world/map_source.gd")
+const WALL_LAYER := 1            # (layer 0 기본값 — 실제 질의는 멤버의 층 비트를 쓴다)
 const XRAY_ALPHA := 0.16         # faded wall opacity (see through, still faintly present)
 const MAX_OCCLUDERS := 5         # successive walls to fade along the line
 
@@ -42,7 +43,8 @@ func _process(_delta: float) -> void:
 		var to: Vector3 = (m as Node3D).global_position + Vector3(0.0, 1.0, 0.0)  # aim at torso
 		var exclude: Array = []
 		for _i in MAX_OCCLUDERS:
-			var q := PhysicsRayQueryParameters3D.create(from, to, WALL_LAYER)
+			# 그 멤버가 선 **층의 벽만** 페이드한다 — 남의 층 벽을 투명하게 만들면 안 된다.
+			var q := PhysicsRayQueryParameters3D.create(from, to, MapSource.world_bit(int(m.get("nav_layer")) if "nav_layer" in m else 0))
 			q.exclude = exclude
 			var hit := space.intersect_ray(q)
 			if hit.is_empty():
