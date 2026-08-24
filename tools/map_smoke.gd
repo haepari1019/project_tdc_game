@@ -60,6 +60,7 @@ func _init() -> void:
 	_check_ids(sd)
 	_check_anchors(sd, map)
 	_check_layers(map)
+	_check_space_fields(sd, scn)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -430,6 +431,58 @@ func _check_layers(map: Node) -> void:
 			bare.append(String(ref))
 	_expect(bare.is_empty(), "[계약] 방마다 오클루더 ≥ 1 — 안개 없는 방 없음 (%s)" % (
 		"전부" if bare.is_empty() else "0개: " + ", ".join(bare)))
+
+
+## **공간 필드 검증** (spec `LDG-001` §9 · `DEC-20260824-001`).
+## ① enum 오타는 조용히 기본값으로 떨어진다 — `category` 오타 하나면 그 방이 `optional_threat`가 되어
+##    진행 게이트가 다시 확률에 걸린다. 값 자체를 검사한다.
+## ② **`gated_elite`는 실제로 스폰됐는가** — 데이터에 적어 두고 리졸버가 안 읽으면 아무 일도 안 난다.
+##    허브 사다리(무기고 T1·대장간 T3)가 여기 걸려 있다.
+func _check_space_fields(sd, scn: Node) -> void:
+	const CATEGORIES := ["mandatory_threat", "gated_elite", "optional_threat", "patrol_route",
+		"ambush_candidate", "third_faction_candidate", "safe"]
+	const GRAMMARS := ["open", "choke", "los_broken", "split", "flank", "backline_pocket"]
+	var bad: Array = []
+	var gated_rooms: Array = []
+	var by_cat: Dictionary = {}
+	for row in sd.get_rooms_document().get("rooms", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var ref := String((row as Dictionary).get("room_ref", ""))
+		if not (row as Dictionary).has("layer"):
+			bad.append("%s: layer 없음" % ref)
+		var cat := String(((row as Dictionary).get("encounter_anchor", {}) as Dictionary).get("category", ""))
+		if not CATEGORIES.has(cat):
+			bad.append("%s: category `%s`" % [ref, cat])
+		else:
+			by_cat[cat] = int(by_cat.get(cat, 0)) + 1
+			if cat == "gated_elite":
+				gated_rooms.append(ref)
+		for g in (row as Dictionary).get("spatial_grammar", []):
+			if not GRAMMARS.has(String(g)):
+				bad.append("%s: grammar `%s`" % [ref, g])
+	_expect(bad.is_empty(), "[계약] 공간 필드 enum 유효 (%s)" % (
+		"전부" if bad.is_empty() else ", ".join(bad)))
+
+	# ② 리졸버가 실제로 읽는가 — 부팅된 런의 분대 배치를 본다.
+	var combat: Node = null
+	for c in scn.get_children():
+		if c.has_method("prespawn_encounters"):
+			combat = c
+	if combat == null or not ("_squads" in combat):
+		_expect(false, "[계약] CombatController 분대 목록 접근")
+		return
+	var spawned: Array = []
+	for sq in combat._squads:
+		spawned.append(String((sq as Dictionary).get("room_ref", "")))
+	var missing: Array = []
+	for r in gated_rooms:
+		if not spawned.has(r):
+			missing.append(String(r))
+	_expect(not gated_rooms.is_empty() and missing.is_empty(),
+		"🔴 [계약] gated_elite %d방이 전부 스폰됨 — 진행 게이트가 확률에 안 걸린다 (%s)" % [
+			gated_rooms.size(), "전부" if missing.is_empty() else "누락: " + ", ".join(missing)])
+	print("  [설계] 공간 역할    " + JSON.stringify(by_cat))
 
 
 func _check_extraction(sd, map: Node) -> void:

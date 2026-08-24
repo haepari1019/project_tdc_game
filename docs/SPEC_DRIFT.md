@@ -2137,3 +2137,21 @@
 - **영향 파일:** `scripts/world/map_source.gd` · `tools/map_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS** · 오클루더 97/97 미일치 0(현 맵은 전부 바닥 y=0이라 상대/절대가 같은 답) · NavMesh 284 polys · `map_shot` 시각 회귀 없음.
 - **상태:** ✅ 완료 · 전파 불요. 다음: `layer` 축을 맵 계약·`rooms.json`에 도입(스키마이므로 **패킷 §G**로 전파 대상) → 안개 레이어별 탐색 누적 · world 콜리전 비트 분리 · 레이어별 `NavigationRegion3D` · 유닛 `layer` 속성 · 미니맵 층 표시.
+
+### DRIFT-168 — 공간 필드 실배선: `encounter_anchor.category`가 스폰 여부를 소유 🔷 Phase 1 · spec 정합(`DEC-20260824-001`)
+- **근거:** spec `2a81e52` `LDG-001` §9 · `F-006` §3.2.5. 전파가 먼저 끝났고 이번엔 **게임이 따라간다** — 새 드리프트가 아니라 **정합 구현**이다.
+- **🔴 진행 게이트가 확률에 걸려 있었다.** 예전 리졸버는 pool을 가진 방 **전부를 한 통에 넣고** `spawn_weight`로 가중 추첨했다. 그래서 허브 사다리를 여는 두 전투가 런당 **32 % · 40 %**로만 생성됐다 — 무기고 T1(`ENC-BOSS-001`)·대장간 T3(`ENC-DEEP-001`). 「어려운 관문은 맵의 방이 소유한다」는 설계 의도와 가중 추첨이 서로를 갉아먹고 있었다.
+- **① `rooms.json`에 공간 필드 반영** — `layer`(전부 0) · `spatial_grammar` · `encounter_anchor.category` · `entry_requirement`(EXT).
+  - `spatial_grammar`는 **현 데모 맵의 실제 상태**를 적었다(14방이 빈 사각형이라 `open`이 대부분). Phase 2에서 문법을 실제로 부여하면 그때 이 값이 **설계 의도**가 된다.
+  - `route_class`는 **적지 않았다** — 데모 맵에 경로가 하나뿐이라 적으면 거짓말이 된다. 신규 그레이박스에서 도입.
+  - `entry_requirement`(`RM-EXT-01`: `requiresItem KEY-DEMO-01` · `scope: run` · 소모)는 **열쇠문이 이미 강제하는 것을 데이터로 적은 것**이다 — 선언과 구현이 일치한다.
+- **② 리졸버를 카테고리 주도로.** `gated_elite`는 **예산 밖에서 항상**, `mandatory_threat`는 **예산 안에서 항상**, `safe`는 스폰 없음, 나머지는 남은 예산만큼 가중 추첨.
+  - **gated가 예산을 먹지 않는 이유:** 임계 경로 밖의 **선택적 관문**이다. 예산을 먹이면 우회하지 않는 플레이어의 경로상 전투가 그만큼 줄어든다. 「**반드시 존재**」이지 「반드시 싸움」이 아니다(`F-006` §3.2.5).
+  - 결과: `RM-BOSS-01`·`RM-DEEP-01`가 **매 런 100 %** 생성된다. 경로상 전투 수는 예산 그대로(4~5).
+- **⚠ `RM-ENTRY-01`은 `safe`로 두지 않았다.** `ENC-NORM-002`가 `P-ENTRY-01`에**만** 있어서, `safe`로 두면 그 ENC가 **사문화**된다 — 도달 가능 ENC를 늘리려는 작업에서 줄이는 셈이다. 대신 시작 방이 뽑히면 이웃으로 **이전**하는 기존 동작이 `F-006` §3.2.3(진입 즉시 어그로 금지)을 지킨다. 정식 해법(`aggro_wake_buffer_m` 또는 전용 warmup 방)은 후속. **데이터 주석 작업에 동작 변경을 몰래 끼워 넣지 않는다.**
+- **게이트 2종 신설 + 반증 확인:**
+  - **공간 필드 enum 유효** — `category` 오타 하나면 그 방이 조용히 `optional_threat`가 되어 게이트가 **다시 확률에 걸린다**.
+  - 🔴 **`gated_elite` 방이 전부 실제로 스폰됐는가** — 데이터에 적어 두고 리졸버가 안 읽으면 아무 일도 안 난다. 부팅된 런의 분대 배치를 직접 읽는다. **반증 확인: `chosen.append_array(gated)`를 지우면 「누락: RM-BOSS-01, RM-DEEP-01」로 운다.**
+- **영향 파일:** `data/slice01/rooms.json` · `scripts/combat/combat_controller.gd` · `tools/map_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS** · 공간 역할 분포 `{mandatory 1 · gated 2 · optional 10 · ambush 1 · safe 2}`.
+- **상태:** ✅ 완료 · 전파 불요(스펙이 이미 앞서 있다). 다음: `map_smoke` 설계 리포트를 하드 게이트로 승격(사이클·경로 밴드·상자 EV·잠금 데드락) · 레이어 시스템 8항목 · `F-001` §3.6 MIA 스왑 차단.

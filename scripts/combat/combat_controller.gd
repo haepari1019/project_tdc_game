@@ -692,19 +692,36 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	var run_seed := int(RunLoadout.get_run_seed())  # weighted ENC resolve + spawn scatter (LDG-SPAWN §2)
 	# 런 전체 전투 수 = 예산(RUN_ENCOUNTER 4~5). 방마다 무조건(난장판) 대신 pool 방을 spawn_weight로
 	# 가중 추첨해 예산만큼만 1분대씩 배치. spawn_weight=선택 확률(0=제외·조밀할수록 잘 뽑힘). 향후 전투는 더 무겁게.
-	var candidates: Array = []
+	# **방의 공간 역할이 스폰 여부를 정한다** — `spawn_weight`는 optional 계열의 상대 확률일 뿐이다.
+	# spec `LDG-001` §9 · `F-006` §3.2.5 (`DEC-20260824-001`). 예전엔 전 pool 방을 한 통에 넣고
+	# 가중 추첨해서, **허브 진행 게이트(무기고 T1·대장간 T3)가 32 %·40 % 확률에 걸려 있었다.**
+	var gated: Array = []       # gated_elite — **예산 밖에서 항상**. 진행 게이트를 확률에 걸지 않는다
+	var mandatory: Array = []   # mandatory_threat — 예산 **안에서** 항상
+	var optional: Array = []    # 나머지 — 남은 예산만큼 가중 추첨
 	for row in Slice01Data.get_rooms_document().get("rooms", []):
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		var pool := String(row.get("pool_slot", ""))
 		if pool.is_empty():
 			continue   # 비전투 룸(OBJ/EXT 등)
-		var weight := float(row.get("spawn_weight", 1.0))
-		if weight <= 0.0:
+		var cat := String((row.get("encounter_anchor", {}) as Dictionary).get("category", "optional_threat"))
+		if cat == "safe":
 			continue
-		candidates.append({"room": String(row.get("room_ref", "")), "pool": pool, "layer": String(row.get("world_layer", "Upper")), "weight": weight})
+		var weight := float(row.get("spawn_weight", 1.0))
+		var e := {"room": String(row.get("room_ref", "")), "pool": pool,
+			"layer": String(row.get("world_layer", "Upper")), "weight": weight, "cat": cat}
+		match cat:
+			"gated_elite":      gated.append(e)
+			"mandatory_threat": mandatory.append(e)
+			_:
+				if weight > 0.0:
+					optional.append(e)
 	var budget: int = RUN_ENCOUNTER_MIN + abs(hash("encbudget|%d" % run_seed)) % (RUN_ENCOUNTER_MAX - RUN_ENCOUNTER_MIN + 1)
-	var chosen: Array = _weighted_pick_rooms(candidates, budget, run_seed)
+	# gated는 **임계 경로 밖의 선택적 관문**이라 예산을 먹지 않는다 — 「반드시 존재」이지 「반드시 싸움」이
+	# 아니다(`F-006` §3.2.5). 안 그러면 우회하지 않는 플레이어의 경로상 전투가 그만큼 줄어든다.
+	var chosen: Array = mandatory.duplicate()
+	chosen.append_array(_weighted_pick_rooms(optional, maxi(0, budget - mandatory.size()), run_seed))
+	chosen.append_array(gated)
 	var combat_rooms: Array = []
 	var used_encs: Dictionary = {}   # S5b P4 런 내 비복원 — 같은 ENC frame 반복 회피(시드 재롤)
 	for cand in chosen:
@@ -722,7 +739,8 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 			target_room = _first_connected(spawn_room)
 			if target_room.is_empty():
 				continue
-		print("[TDC] prespawn: room=%s w=%.1f pool=%s -> %s (예산 %d방)" % [String(cand["room"]), float(cand["weight"]), String(cand["pool"]), enc_id, chosen.size()])
+		print("[TDC] prespawn: room=%s [%s] w=%.1f pool=%s -> %s (총 %d방 · 예산 %d)" % [
+			String(cand["room"]), String(cand.get("cat", "?")), float(cand["weight"]), String(cand["pool"]), enc_id, chosen.size(), budget])
 		# S5b 하이브리드: 보스·제3세력은 authored set-piece, 그 외는 조합 제너레이터로 유닛 생성(frame 유지).
 		var units_override: Array = []
 		if _should_generate(enc_id):
