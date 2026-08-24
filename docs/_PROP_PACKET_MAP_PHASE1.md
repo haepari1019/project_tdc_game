@@ -2,7 +2,12 @@
 
 > **용도:** spec repo(`project_tdc` @`staging`)에서 `OPS_30`(impact_scan → 매퍼×4 → DecisionLog `DEC-` → TODO → SpecScopeTracker) → `OPS_20`(lint) → PR로 집행할 **역전파 목록**.
 > **이 레포는 spec md를 직접 편집하지 않는다**(AGENTS.md §Spec drift). 집행 후 [`spec_ref.json`](../spec_ref.json) 핀 bump가 이 레포의 유일한 spec-관련 쓰기.
-> 🕒 **초안 — 미집행.** **판정 접수(2026-08-24):** §B = 옵션 2 + 2단 구조(`run` 소모성 · `profile` 영구 **둘 다**) · `grantOn` = **`onExtractionSuccess` 확정** · 잠금 없는 난이도 방 **허용**(강제 안 함) · §F = 지역 컨셉 미확정 → **ID는 안정 축, 정체성은 표시명 축(임시 표기)** · `F-010` 문구 = **갱신**(삭제 아님).
+> ✅ **집행 완료 (2026-08-24)** — spec `2a81e52` · `DEC-20260824-001` · 10파일.
+> 검증: `mapper_sync_check` **0건** · `RelationGraph` 재생성 · `spec_xref_check` **BLOCKER 0**(잔여 NOTE 1건 `F-025`→폐기 `F-023`은 **승인된 역사적 언급** — 린터·`ARCHITECTURE` NOTE-DEP가 정상으로 판정).
+> **핀 bump 완료:** `a9e67bd` → `2a81e52`. 아래 본문은 **집행 기록**으로 보존한다(§5 미판정 이월은 여전히 유효).
+> 덤: `F-006` §3.1 절 번호 중복(`§3.1.5` ×2)·순서 부채도 같이 해소(`2a81e52`) — 깨지는 참조 0건.
+>
+> ~~🕒 초안 — 미집행.~~ **판정 접수(2026-08-24):** §B = 옵션 2 + 2단 구조(`run` 소모성 · `profile` 영구 **둘 다**) · `grantOn` = **`onExtractionSuccess` 확정** · 잠금 없는 난이도 방 **허용**(강제 안 함) · §F = 지역 컨셉 미확정 → **ID는 안정 축, 정체성은 표시명 축(임시 표기)** · `F-010` 문구 = **갱신**(삭제 아님).
 >
 > **패킷 작성:** 2026-08-24 · **근거:** [map_upgrade_plan.html](design/map_upgrade_plan.html) Phase 1 · [map_demo_001_status.html](design/map_demo_001_status.html) 실측 · DRIFT-162~166(Phase 0 완료)
 > **선행 상태:** Phase 0 종료 — 맵 계약·계측기·앵커 데이터화 완료. **Phase 1은 첫 단계에서 스펙이 먼저 움직여야 한다.**
