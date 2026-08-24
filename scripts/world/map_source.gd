@@ -61,7 +61,12 @@ var _extraction_point: Vector3 = Vector3.ZERO
 ## LOS 오클루더 footprint(월드 XZ). `derive_occluders()`가 콜라이더에서 유도한다 — 손으로 채우지 않는다.
 ## {center: Vector2, half: Vector2}(box) 또는 {center: Vector2, radius: float}(cyl).
 var _occluders: Array = []
-var _nav_region: NavigationRegion3D
+## 레이어별 내비 리전·맵. **`layer 0`은 월드 기본 맵에 그대로 둔다** — 기존 호출부
+## (`get_world_3d().navigation_map`)가 하나도 안 바뀐다. `layer ≥ 1`만 자기 맵을 갖는다.
+## 층마다 **별도 맵**인 이유: 활성/비활성 토글로 하면 비활성 층의 적이 경로를 못 찾는데,
+## 「전 레이어 실시간 진행」이 결정이라 **모든 층이 동시에 살아 있어야** 한다.
+var _nav_regions: Dictionary = {}   # layer -> NavigationRegion3D
+var _nav_maps: Dictionary = {}      # layer -> RID (layer 0 제외)
 var _warned_concave := false
 ## 앵커 — 방 안의 「무엇이 어디에」. room_ref -> kind -> Array[{ref?, role?, type?, pos: Vector3(월드), ...}].
 ## 그레이박스는 `resolve_anchors_from_data()`가 rooms.json의 **로컬 XZ**에서 채우고, authored 맵은
@@ -380,11 +385,63 @@ func _footprint(cs: CollisionShape3D) -> Dictionary:
 # Navigation — 두 구현이 공유한다(임포트된 콜라이더도 같은 경로로 파싱된다)
 # ============================================================================
 
+## 그 레이어의 내비 맵 RID. `layer 0` = 월드 기본 맵(기존 동작).
+func get_nav_map(layer: int) -> RID:
+	if layer <= 0 or not _nav_maps.has(layer):
+		return get_world_3d().navigation_map
+	return _nav_maps[layer]
+
+
+## 지오메트리에 **실제로 쓰인** 레이어들. 「비트가 곧 레이어」이므로 콜라이더에서 읽는다 —
+## 데이터(rooms.json)와 씬이 어긋나도 씬이 정답이다(안 그러면 리전 없는 층이 생긴다).
+func layers_present() -> Array:
+	var out: Array = [0]
+	_collect_layers(geometry_root(), out)
+	out.sort()
+	return out
+
+
+func _collect_layers(n: Node, out: Array) -> void:
+	for c in n.get_children():
+		if c is StaticBody3D:
+			var l := layer_of_bit(int((c as StaticBody3D).collision_layer))
+			if l > 0 and not out.has(l):
+				out.append(l)
+		_collect_layers(c, out)
+
+
+## 그 XZ 지점의 레이어(방 기준). 치명존이 **자기 층만** 깎게 한다.
+func layer_at(xz: Vector2) -> int:
+	for ref in _room_points:
+		var p: Dictionary = _room_points[ref]
+		var c: Vector3 = p["spawn"]
+		var sz: Vector3 = p["size"]
+		if absf(xz.x - c.x) <= sz.x * 0.5 + 0.5 and absf(xz.y - c.z) <= sz.z * 0.5 + 0.5:
+			return get_room_layer(String(ref))
+	return 0
+
+
 func bake_navigation() -> void:
-	if _nav_region == null:
-		_nav_region = NavigationRegion3D.new()
-		_nav_region.name = "NavRegion"
-		add_child(_nav_region)
+	for layer in layers_present():
+		_bake_layer(int(layer))
+
+
+func _bake_layer(layer: int) -> void:
+	var region: NavigationRegion3D = _nav_regions.get(layer)
+	if region == null:
+		region = NavigationRegion3D.new()
+		region.name = "NavRegion_L%d" % layer
+		add_child(region)
+		_nav_regions[layer] = region
+		if layer > 0:
+			# 자기 맵을 만들어 붙인다 — 셀 규격은 아래 navmesh와 맞춘다(래스터화 불일치 방지).
+			var rid := NavigationServer3D.map_create()
+			NavigationServer3D.map_set_up(rid, Vector3.UP)
+			NavigationServer3D.map_set_cell_size(rid, 0.25)
+			NavigationServer3D.map_set_cell_height(rid, 0.25)
+			NavigationServer3D.map_set_active(rid, true)
+			_nav_maps[layer] = rid
+			region.set_navigation_map(rid)
 	var navmesh := NavigationMesh.new()
 	navmesh.agent_radius = 0.5      # 2× cell_size — 베이커의 ceil과 일치(정밀도 경고 없음)
 	navmesh.agent_height = 1.25     # 5× cell_height
@@ -394,15 +451,17 @@ func bake_navigation() -> void:
 	navmesh.agent_max_slope = 45.0
 	navmesh.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	navmesh.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
+	navmesh.geometry_collision_mask = world_bit(layer)   # ← **이 층의 지오메트리만** 파싱한다
 	var source_geo := NavigationMeshSourceGeometryData3D.new()
 	NavigationServer3D.parse_source_geometry_data(navmesh, source_geo, geometry_root())
-	# 활성 치명존을 깎아 내비가 **돌아가게** 한다(벽과 같은 취급).
+	# 활성 치명존을 깎아 내비가 **돌아가게** 한다(벽과 같은 취급). **자기 층 것만** 깎는다 —
+	# 층이 XZ를 공유하므로 남의 층 장판이 이 층 바닥에 구멍을 내면 안 된다.
 	for z in get_tree().get_nodes_in_group("fatal_zone"):
-		if z.is_active():
+		if z.is_active() and layer_at(Vector2(z.global_position.x, z.global_position.z)) == layer:
 			_carve_zone(source_geo, z.global_position, float(z.radius))
 	NavigationServer3D.bake_from_source_geometry_data(navmesh, source_geo)
-	_nav_region.navigation_mesh = navmesh
-	print("[MAP] NavMesh baked: %d polygons" % navmesh.get_polygon_count())
+	(_nav_regions[layer] as NavigationRegion3D).navigation_mesh = navmesh
+	print("[MAP] NavMesh baked (layer %d): %d polygons" % [layer, navmesh.get_polygon_count()])
 
 
 ## 치명존 생성/해제 시 재베이크 — 그룹 `navmap`으로 호출된다.

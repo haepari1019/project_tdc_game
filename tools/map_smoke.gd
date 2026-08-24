@@ -799,6 +799,31 @@ func _check_authored_impl() -> void:
 	_expect(n0 == 1 and n1 == 1,
 		"🔴 [계약/레이어] 같은 XZ의 벽이 층별로 **각각 1개씩** 잡힌다 (layer0 %d · layer1 %d)" % [n0, n1])
 	_expect(a1.size() == 1, "[계약/레이어] 활성 레이어를 1로 바꾸면 **그 층 것만** 보인다 (%d)" % a1.size())
+	# layer 1에 **바닥**도 깔고 다시 구우면 그 층이 자기 리전·자기 nav 맵을 갖는다.
+	var l1f := StaticBody3D.new()
+	l1f.collision_layer = src.world_bit(1)
+	l1f.position = Vector3(0.0, -0.15, 0.0)
+	var l1fcs := CollisionShape3D.new()
+	var l1fbs := BoxShape3D.new()
+	l1fbs.size = Vector3(27.0, 0.3, 22.5)
+	l1fcs.shape = l1fbs
+	l1f.add_child(l1fcs)
+	sroom.add_child(l1f)
+	await process_frame
+	src.bake_navigation()
+	for _i in 4:
+		await process_frame
+
+	_expect(src.layers_present().has(1), "[계약/레이어] 지오메트리에서 layer 1을 발견 (%s)" % str(src.layers_present()))
+	var r1: Node = src.get_node_or_null("NavRegion_L1")
+	var r0: Node = src.get_node_or_null("NavRegion_L0")
+	_expect(r0 != null and r1 != null, "[계약/레이어] 층마다 NavigationRegion3D")
+	_expect(src.get_nav_map(1) != src.get_nav_map(0),
+		"🔴 [계약/레이어] layer 1이 **자기 nav 맵**을 갖는다 — 층이 XZ를 공유해도 경로가 안 섞인다")
+	var poly1: int = (r1 as NavigationRegion3D).navigation_mesh.get_polygon_count() if r1 != null and (r1 as NavigationRegion3D).navigation_mesh != null else 0
+	_expect(poly1 > 0, "[계약/레이어] layer 1 navmesh 베이크 (%d polys)" % poly1)
+
+	l1f.free()
 	l1.free()
 	src.derive_occluders()
 

@@ -2203,3 +2203,15 @@
 - **영향 파일:** `scripts/world/map_source.gd` · `scripts/world/map_demo_layout.gd` · `tools/map_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS** · 오클루더 97/97 미일치 0 · NavMesh 284 polys — **절차 경로 전부 불변**(layer 0 = 비트 1).
 - **상태:** ✅ 완료 · 전파 불요. 다음(C): 레이어별 `NavigationRegion3D`(C-4) → 안개 레이어별 탐색 누적(C-2) → **유닛 `layer` 속성**(C-5, 부피) → 계단 전이·미니맵·3세력(C-6~8).
+
+### DRIFT-172 — 레이어별 `NavigationRegion3D` + 층별 nav 맵 (C-4) 🔷 Phase 1 · 전파 불요
+- **근거:** spec `LDG-001` §9.2. [[DRIFT-171]]의 콜리전 비트 위에 얹는다.
+- **① 층마다 리전을 굽는다.** `bake_navigation()`이 `layers_present()`를 돌며 층별로 `NavigationRegion3D`(`NavRegion_L{n}`)를 만든다. 파싱 분리는 **`NavigationMesh.geometry_collision_mask = world_bit(layer)`** 한 줄이다 — 「비트가 곧 레이어」라 별도 필터가 필요 없다.
+- **🔴 ② 활성/비활성 토글이 아니라 층마다 별도 nav 맵이다.** 리전을 켜고 끄는 방식이면 **비활성 층의 적이 경로를 못 찾는다**. 그런데 「전 레이어 실시간 진행」이 결정이라 **모든 층이 동시에 살아 있어야** 한다 → `layer ≥ 1`은 `NavigationServer3D.map_create()`로 **자기 맵**을 갖는다. 층이 XZ를 공유해도 경로가 안 섞인다.
+  - **`layer 0`은 월드 기본 맵에 그대로 둔다** — 기존 호출부(`get_world_3d().navigation_map`)가 **하나도 안 바뀐다**. 유닛이 자기 층 맵에 붙는 것은 C-5(유닛 `layer` 속성)의 몫이고, 그때까지 현 동작이 유지된다.
+- **③ `layers_present()`는 데이터가 아니라 지오메트리에서 읽는다.** 콜라이더의 비트를 훑는다 — `rooms.json`과 씬이 어긋나도 **씬이 정답**이다(안 그러면 리전 없는 층이 생겨 그 층 전체가 경로 없는 공간이 된다).
+- **④ 치명존 carve가 자기 층만 깎는다.** 층이 XZ를 공유하므로 남의 층 장판이 이 층 바닥에 구멍을 내면 안 된다 → `layer_at(xz)`로 걸러 낸다.
+- **게이트:** 합성 씬에 layer 1 **바닥+벽**을 세우고 확인 — `layers_present()`가 `[0, 1]` · 층마다 리전 존재 · **`get_nav_map(1) != get_nav_map(0)`** · layer 1 navmesh 베이크(2 polys).
+- **영향 파일:** `scripts/world/map_source.gd` · `tools/map_smoke.gd`. (리전 이름이 `NavRegion` → `NavRegion_L0`으로 바뀌었으나 이름 참조는 샌드박스의 **별도 구현**뿐이라 무관.)
+- **게이트:** `ci_smoke.sh` **15/15 PASS** · layer 0 NavMesh **284 polygons**(불변).
+- **상태:** ✅ 완료 · 전파 불요. 다음: 안개 레이어별 탐색 누적(C-2) → **유닛 `layer` 속성**(C-5, 부피 — LOS 마스크·nav 맵 바인딩) → 계단 전이·미니맵·3세력(C-6~8).
