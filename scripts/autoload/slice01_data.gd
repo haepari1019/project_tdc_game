@@ -9,7 +9,7 @@ const REGISTRY_PATH := SLICE01_DIR + "id_registry.json"
 const IDENTITIES_PATH := SLICE01_DIR + "identities.json"
 const ENEMIES_PATH := SLICE01_DIR + "enemies.json"
 const ABILITIES_PATH := SLICE01_DIR + "abilities.json"
-const ROOMS_PATH := SLICE01_DIR + "rooms.json"
+const MAPS_DIR := SLICE01_DIR + "maps/"                          # 맵 1개 = 파일 1개 (맵 문서)
 const BLUEPRINT_PATH := SLICE01_DIR + "blueprint.json"
 const GEAR_PATH := SLICE01_DIR + "gear.json"
 const SKILLBOOKS_PATH := SLICE01_DIR + "skillbooks.json"
@@ -535,6 +535,22 @@ func get_summary() -> String:
 	]
 
 
+## **맵 문서 경로** — `manifest.map_id`가 고른다. 맵 1개 = 파일 1개다(구 단일 `rooms.json`):
+## `entry_room`·`design_targets`·`zone_id`가 이미 **맵 단위 속성**이라 맵을 추가할 때 기존 파일을
+## 건드리지 않는 쪽이 회귀 위험이 0이다. ref: docs/design/map_upgrade_plan.html §Phase 1 D-3
+static func map_doc_path(map_id: String) -> String:
+	return MAPS_DIR + map_id + ".json"
+
+
+## 활성 맵 문서를 읽는다. `map_id`가 비면 매니페스트 자체가 이미 에러를 냈으므로 여기서 한 번 더 못 박는다.
+func _read_map_document(errors: Array[String]) -> Dictionary:
+	var map_id := String(_manifest.get("map_id", ""))
+	if map_id.is_empty():
+		errors.append("manifest.map_id 없음 — 맵 문서를 고를 수 없다")
+		return {}
+	return _read_json_dict(map_doc_path(map_id), "map:" + map_id, errors)
+
+
 func _load_and_validate() -> bool:
 	var errors: Array[String] = []
 	_manifest = _read_json_dict(MANIFEST_PATH, "manifest", errors)
@@ -542,7 +558,7 @@ func _load_and_validate() -> bool:
 	var identities_doc := _read_json_dict(IDENTITIES_PATH, "identities", errors)
 	var enemies_doc := _read_json_dict(ENEMIES_PATH, "enemies", errors)
 	var abilities_doc := _read_json_dict(ABILITIES_PATH, "abilities", errors)
-	_rooms = _read_json_dict(ROOMS_PATH, "rooms", errors)
+	_rooms = _read_map_document(errors)
 	_blueprint = _read_json_dict(BLUEPRINT_PATH, "blueprint", errors)
 	var gear_doc := _read_json_dict(GEAR_PATH, "gear", errors)
 	var skillbooks_doc := _read_json_dict(SKILLBOOKS_PATH, "skillbooks", errors)
@@ -1121,11 +1137,11 @@ func _validate_encounter_units(doc: Dictionary, errors: Array[String]) -> void:
 
 func _validate_rooms(errors: Array[String]) -> void:
 	if String(_rooms.get("map_id", "")) != String(_manifest.get("map_id", "")):
-		errors.append("rooms.json map_id must match manifest map_id")
+		errors.append("맵 문서 map_id != manifest map_id (파일명도 map_id여야 한다)")
 	var allowed_rooms: Array = _registry_list("room_refs")
 	var raw: Array = _rooms.get("rooms", [])
 	if typeof(raw) != TYPE_ARRAY:
-		errors.append("rooms.json: rooms must be an array")
+		errors.append("맵 문서: rooms must be an array")
 		return
 	for row in raw:
 		if typeof(row) != TYPE_DICTIONARY:

@@ -92,17 +92,30 @@ func geometry_root() -> Node3D:
 # 맵 계약 (interface) — 런/전투/파티가 읽는 것. 구현 무관.
 # ============================================================================
 
-## 방 데이터(rooms.json). **런타임은 autoload, 에디터(@tool 프리뷰)는 디스크에서 직접** 읽는다 —
-## 에디터에는 autoload가 없어서, 이 폴백이 없으면 프리뷰가 첫 줄에서 죽는다.
+## 방 데이터(**맵 문서** `data/slice01/maps/<map_id>.json`). **런타임은 autoload, 에디터(@tool
+## 프리뷰)는 디스크에서 직접** 읽는다 — 에디터에는 autoload가 없어서, 이 폴백이 없으면 프리뷰가
+## 첫 줄에서 죽는다. 맵 1개 = 파일 1개이고 **어느 파일인지는 `manifest.map_id`가 고른다**.
 func _rooms_doc() -> Dictionary:
 	var sd := get_node_or_null("/root/Slice01Data")
 	if sd != null and sd.has_method("get_rooms_document"):
 		return sd.get_rooms_document()
 	if _rooms_disk.is_empty():
-		var parsed = JSON.parse_string(FileAccess.get_file_as_string("res://data/slice01/rooms.json"))
-		if typeof(parsed) == TYPE_DICTIONARY:
-			_rooms_disk = parsed
+		_rooms_disk = read_map_doc_from_disk()
 	return _rooms_disk
+
+
+## 에디터/툴 폴백 — 매니페스트를 읽어 활성 맵 문서를 디스크에서 직접 가져온다.
+static func read_map_doc_from_disk(map_id: String = "") -> Dictionary:
+	var mid := map_id
+	if mid.is_empty():
+		var man = JSON.parse_string(FileAccess.get_file_as_string("res://data/slice01/manifest.json"))
+		if typeof(man) != TYPE_DICTIONARY:
+			return {}
+		mid = String((man as Dictionary).get("map_id", ""))
+	if mid.is_empty():
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string("res://data/slice01/maps/%s.json" % mid))
+	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
 
 
 func _room_row(room_ref: String) -> Dictionary:
@@ -136,6 +149,43 @@ func stair_links() -> Array:
 			if not to.is_empty():
 				out.append([String(ref), to])
 	return out
+
+
+## **맵 문서 순서의 방 목록.** 배열 순서 = 생성 순서다(벽 dedup이 순서에 의존한다).
+func data_room_refs() -> Array:
+	var out: Array = []
+	for row in _rooms_doc().get("rooms", []):
+		if typeof(row) == TYPE_DICTIONARY:
+			out.append(String((row as Dictionary).get("room_ref", "")))
+	return out
+
+
+## 층별 기본 바닥 Y — 맵 문서 `layer_floor_y[layer]`. 층 간격을 코드 상수로 두지 않기 위한 축이다
+## (맵마다 단차가 다르다). 선언이 없으면 0.
+func layer_floor_y(layer: int) -> float:
+	var arr: Array = _rooms_doc().get("layer_floor_y", [])
+	return float(arr[layer]) if layer >= 0 and layer < arr.size() else 0.0
+
+
+## **방 기하 — 데이터가 좌표를 갖는다.** `{center: Vector3(x, floor_y, z), size: Vector3(w, 0, d),
+## label, extraction}`. 그레이박스 생성기가 이걸로 박스를 만들고, authored(Blender) 맵은 씬이
+## 좌표를 소유하므로 이 블록을 안 읽는다 — 같은 계약의 두 구현이 나란히 서는 지점.
+## `y`는 **계약이 나른다**: `geometry.floor_y` → 없으면 `layer_floor_y[layer]`.
+func room_geometry(room_ref: String) -> Dictionary:
+	var row := _room_row(room_ref)
+	var geo: Dictionary = row.get("geometry", {})
+	if geo.is_empty():
+		return {}
+	var c: Array = geo.get("center", [0.0, 0.0])
+	var sz: Array = geo.get("size", [8.0, 8.0])
+	var y := float(geo.get("floor_y", layer_floor_y(int(row.get("layer", 0)))))
+	return {
+		"center": Vector3(float(c[0]), y, float(c[1])),
+		"size": Vector3(float(sz[0]), 0.0, float(sz[1])),
+		"label": String(row.get("label", room_ref)),
+		# 추출 방 여부는 **별도 플래그를 두지 않는다** — `extraction_point_id`가 이미 그 사실이다.
+		"extraction": not String(row.get("extraction_point_id", "")).is_empty(),
+	}
 
 
 ## 방이 속한 레이어(`rooms.json` `layer`; 기본 0 = 지상).

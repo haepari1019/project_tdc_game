@@ -6,6 +6,9 @@ extends Node3D
 const SIZE := Vector3(6.4, 3.2, 0.9)  # spans the ~6-wide route→extraction opening
 
 var _inv: Node = null     # InventoryUI (key check)
+## **이 문이 요구하는 열쇠 id.** 맵 문서가 소유한다 — 문이 막는 방의 `entry_requirement.ref`다
+## (`transitions` 앵커 `gates`가 그 방을 지목한다). 비면 구 부분 문자열 매칭으로 떨어진다.
+var key_id: String = ""
 var _run: Node = null     # RunController (objective)
 var _opened := false
 var _body: StaticBody3D = null
@@ -30,7 +33,7 @@ func _ready() -> void:
 
 
 func interact_prompt() -> String:
-	if _inv != null and _inv.backpack_has_key():
+	if _inv != null and _inv.backpack_has_key(key_id):
 		return "문\n[우클릭] 열기"
 	return "잠긴 문\n🔒 열쇠 필요"
 
@@ -42,11 +45,11 @@ func interact_anchor() -> Vector3:
 func interact() -> void:
 	if _opened:
 		return
-	if _inv == null or not _inv.backpack_has_key():
+	if _inv == null or not _inv.backpack_has_key(key_id):
 		return  # locked — prompt already says a key is needed
 	_opened = true
 	if _inv.has_method("consume_key"):
-		_inv.consume_key()                    # 키 소모 — 문 열면 사라짐 (사용자 요청)
+		_inv.consume_key(key_id)                    # 키 소모 — 문 열면 사라짐 (사용자 요청)
 	remove_from_group("interactable")        # no more prompt / interaction
 	if _body:
 		_body.queue_free()                    # clear the barrier — path open

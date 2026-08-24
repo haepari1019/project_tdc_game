@@ -27,6 +27,11 @@ var _key_done := false       # latched once the key is obtained
 var _hub: Node = null
 
 
+## `key_id` = 이번 런의 열쇠(맵 문서 `entry_requirement.ref`). 비면 구 부분 문자열 매칭.
+## 표시용이지만 **문과 같은 판정**을 써야 한다 — 안 그러면 「열쇠 획득 ✓인데 문이 안 열리는」 화면이 된다.
+var key_id: String = ""
+
+
 func setup(inv: Node, run: Node) -> void:
 	_inv = inv
 	_run = run
@@ -101,7 +106,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(_delta: float) -> void:
 	if _rt == null:
 		return
-	if _inv != null and _inv.backpack_has_key():
+	if _inv != null and _inv.backpack_has_key(key_id):
 		_key_done = true
 	var door_done: bool = _run != null and _run.objective_complete
 	var extract_done: bool = _run != null and _run.run_over

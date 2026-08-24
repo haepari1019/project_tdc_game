@@ -15,7 +15,7 @@
 
 **당신은 명사와 형태를 만들고, 데이터는 의미를 갖는다.**
 방이 어디에 있고 기둥이 어디 서 있는지는 **씬**이 소유한다. 그 방이 무슨 역할이고 무엇이 나오는지는
-[`rooms.json`](../../data/slice01/rooms.json)이 소유한다. 둘이 만나는 지점은 **이름**뿐이다.
+[맵 문서](../../data/slice01/maps/)(`maps/<map_id>.json`, 구 `maps/<map_id>.json`)가 소유한다. 둘이 만나는 지점은 **이름**뿐이다.
 
 그래서 기둥을 30 cm 옮기는 데 데이터를 고칠 필요가 없고, 방의 전투 역할을 바꾸는 데 씬을 열 필요가 없다.
 
@@ -36,7 +36,7 @@ navmesh는 **자동으로 베이크된다** — 레이어 1 콜라이더에서 �
 ## 2. 노드 이름 규약
 
 ```
-RM-HALL-01/                        <- 방 루트. 이름 = room_ref (rooms.json에 실재해야 한다)
+RM-HALL-01/                        <- 방 루트. 이름 = room_ref (맵 문서에 실재해야 한다)
   GEO_walls-col                    <- 아트 메시 + 콜리전 (레이어 1)
   GEO_floor-col
   OCC_pillar_a-colonly             <- LOS 프록시 (아트와 분리)
@@ -169,7 +169,7 @@ Blender의 `.001` 사본 접미사는 파서가 알아서 떼어 낸다.
 
 ## 5. 데이터와의 분업
 
-| 씬(당신) | `rooms.json`(데이터) |
+| 씬(당신) | 맵 문서(데이터) |
 |---|---|
 | 메시 위치·회전·스케일 | `room_ref` · `connects`(위상) · `route_class` |
 | 프롭 배치·데코 산포 | encounter anchor **category** · loot **tier** |
@@ -177,7 +177,7 @@ Blender의 `.001` 사본 접미사는 파서가 알아서 떼어 낸다.
 | 머티리얼·라이트 미세조정 | 조명 프로파일(`lit`/`standard`/`dim`/`unlit`) · phase hint |
 | 판정 기준 = **보기에 맞다** | 판정 기준 = **불변식이 계산된다** |
 
-authored 맵에서는 `rooms.json`의 `geometry`/`anchors` 블록을 **비운다**(그레이박스 전용 폴백이다).
+authored 맵에서는 `maps/<map_id>.json`의 `geometry`/`anchors` 블록을 **비운다**(그레이박스 전용 폴백이다).
 좌표가 데이터에 남아 있으면 두 벌이 되고, 다음 재생성이 당신의 손작업을 지운다.
 
 ---
@@ -199,13 +199,13 @@ authored 맵에서는 `rooms.json`의 `geometry`/`anchors` 블록을 **비운다
 | `TRIG_room 없음` | 방 루트 아래에 그 이름의 Empty를 둔다 |
 | `MK_spawn 없음` | 방 기준점 Empty를 둔다 |
 | `규약에 없는 마커 이름` | 슬러그 오타(§2 표) 또는 `__` 대신 다른 구분자를 썼다 |
-| `RM-* 방 노드가 하나도 없다` | 방 루트 이름이 `rooms.json`의 `room_ref`와 다르다 |
+| `RM-* 방 노드가 하나도 없다` | 방 루트 이름이 `maps/<map_id>.json`의 `room_ref`와 다르다 |
 
 ---
 
 ## 7. 방 하나 완성 체크리스트
 
-- [ ] 방 루트 이름 = `rooms.json`의 `room_ref`와 **정확히** 일치
+- [ ] 방 루트 이름 = `maps/<map_id>.json`의 `room_ref`와 **정확히** 일치
 - [ ] `TRIG_room` 있음 · 크기가 방 실제 크기와 맞음
 - [ ] `MK_spawn` 있음 · 방 안쪽(벽에 붙지 않음)
 - [ ] 벽·바닥에 콜리전(레이어 1) — `-col` 접미사
@@ -227,7 +227,7 @@ authored 맵에서는 `rooms.json`의 `geometry`/`anchors` 블록을 **비운다
 | 프록시를 메시 밖에 두고 메시만 이동 | 보이는 벽과 막는 벽이 다름 | 없음 — **규약으로 지켜라** |
 | trimesh 콜라이더에 LOS를 기대 | 그 벽이 안개에 안 잡힘 | 경고 1회 + 이 문서 |
 | 마커 이름에 `@` · `.` · `:` | 이름이 잘려 앵커가 사라짐 | `map_smoke` 정화 불변식 |
-| 방 이름 오타 | 그 방이 통째로 무시됨 | `is_room_node`가 `rooms.json`과 대조 |
+| 방 이름 오타 | 그 방이 통째로 무시됨 | `is_room_node`가 `maps/<map_id>.json`과 대조 |
 | 앵커를 벽 속에 배치 | 상자가 벽에 박힘 | `map_smoke` 「앵커가 전부 방 안」 |
 | `connects`엔 있는데 벽이 안 붙음 | 갈 수 없는 연결 | `map_smoke` 「공유벽」+「navmesh 통행」 |
 | 멀리 떨어진 방 하나 추가 | 안개 텍스처가 통째로 커짐 | `map_smoke` 안개 예산 리포트 |

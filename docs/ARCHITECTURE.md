@@ -96,7 +96,7 @@ scripts/
 | [interaction_controller.gd](../scripts/run/controllers/interaction_controller.gd) | 125 | 🟢 호버 상호작용(F-010 월드루프): 마우스 아래 interactable 레이(거리무관)→떠있는 라벨 / 우클릭=조작캐 이동 후 도착 시 interact·빈땅=클릭이동 / F키=최근접 interact. 덕타이핑(interact_prompt/anchor/interact) | `try_interact` `interact_nearest` `_hovered` | party(order_move_to), inventory, group 'interactable' |
 | [revive_controller.gd](../scripts/run/controllers/revive_controller.gd) | 131 | 🟢 타게팅 부활(F-010/D-020): 시동→시체/초상화 클릭→1.5s 빛기둥→HP50%. 자체 프롬프트 | `try_start` `handle_click` `is_active` `cancel` | party/combat/inv/sheet(ref) |
 | [torch_carry_controller.gd](../scripts/run/controllers/torch_carry_controller.gd) | 145 | 🟢 횃불 carry/투척(F-021 §3.1.2): 빈슬롯 자동/선택→슬롯키 지면조준 투척. AimMarker+소모품바 사용 | `on_torch_pickup` `handle_consumable_key` `handle_click` | party/aim/bar/inv(ref) |
-| [map_demo_layout.gd](../scripts/world/map_demo_layout.gd) | 580 | 6룸 절차생성(바닥/벽/조명/트리거)·navmesh 베이크 + **fatal 장판 carve 재bake**·**데이터주도 인터페이스**(`_room_points`/profile=rooms.json) | `get_spawn_position` `rebake_navigation` `_carve_zone` `_resolve_room_points` | NavigationServer3D, Slice01Data, group 'player'/'navmap' |
+| [map_demo_layout.gd](../scripts/world/map_demo_layout.gd) | 580 | 방 절차생성(바닥/벽/조명/트리거)·navmesh 베이크 + **fatal 장판 carve 재bake**. **좌표를 안 갖는다** — 기하·조명·라벨 전부 맵 문서(`maps/<map_id>.json`)에서 읽는다(`room_geometry`) | `get_spawn_position` `rebake_navigation` `_carve_zone` `_resolve_room_points` | NavigationServer3D, Slice01Data, group 'player'/'navmap' |
 | [player_controller.gd](../scripts/run/controllers/player_controller.gd) | 34 | 조작 캐릭터 WASD→velocity (가속모델 옵션) | `_physics_process` | 부모 CharacterBody3D, InputMap |
 | [party_light.gd](../scripts/world/party_light.gd) | 115 | F-011 시야결합 조명(멤버별 omni+spot)·플리커·룸감쇠 | `_build_rigs` `_on_room_changed` | PartyController/Map/Run (노드경로) |
 | [enemy_visibility.gd](../scripts/world/enemy_visibility.gd) | 52 | 🟢 F-011 선행(occlusion-only, DRIFT-015): 파티합집합 LOS 레이캐스트(world 레이어 1)로 적 가시 판정(10Hz)→`enemy_unit.set_seen` 페이드 + last_seen 저장 | `setup` `_physics_process` | party(get_members), group 'enemy', world layer 1 |
@@ -166,7 +166,7 @@ scripts/
 
 `data/slice01/*.json` → [slice01_data.gd](../scripts/autoload/slice01_data.gd)가 로드·검증·링크:
 
-- `manifest.json` (phase/contract/pool→encounter 바인딩) · `id_registry.json` (허용 ID) · `blueprint.json` · `rooms.json` · `formation.json`
+- `manifest.json` (phase/contract/pool→encounter 바인딩 · **활성 `map_id`**) · `id_registry.json` (허용 ID) · `blueprint.json` · **`maps/<map_id>.json`** (맵 1개 = 파일 1개; 구 `rooms.json`) · `formation.json`
 - `identities.json` (역할→`ability_id`/`sub_ability_id`) · `enemies.json` (적→`abilities[].ref`) · `abilities.json` (**통합 카탈로그**, AB-### → kind/효과) · `encounters/ENC-*.json`
 - `gear.json` (**Identity Gear 마스터**: `base_gear_id` → `bundled_identity_skill_id` → identities; F-008 §3.7 · `DEC-20260611-001`) — 캐릭터 **identity는 장착 gear에서 파생**(`party_member._bind_gear`). 미장착 looted gear = run-inventory At Risk(인벤 `kind:"gear"`).
 - `skillbooks.json` (**Skillbook 마스터**: `base_ability_id`(적 lootable AB Shared) → 탄수·`equip_classes`·player-cast; F-009 · `DEC-20260611-002`) — **서브 Q/E/R = 루팅 스킬북**(`party_member.skillbook_slots`); 적 처치 **per-kill** 드랍 → run-inventory At-Risk(인벤 `kind:"skillbook"`).
@@ -214,7 +214,7 @@ scripts/
 | ID | 항목 | 위치 | risk |
 |----|------|------|------|
 | ~~DEBT-DM1~~ ✅RESOLVED(DRIFT-006) | `abilities.json` 로드 시 `require_id` 미수행 → "미등록 ID→abort"가 어빌리티만 무력화(코드 가드 버그) | slice01_data.gd | med |
-| DEBT-DM3 | 룸 **기하**(center/size)가 아직 ROOM_SPECS 상수(placeholder, Blender 실맵 대체 예정). lighting/맵 인터페이스는 rooms.json SSOT화 완료 | map_demo_layout.gd, rooms.json | med |
+| DEBT-DM3 ↘축소(DRIFT-179) | ~~룸 **기하**가 `ROOM_SPECS` GDScript 상수~~ → **맵 문서 `geometry` SSOT화 완료**(좌표 상수 0). 남은 부채는 「절차 그레이박스 박스 = placeholder, Blender 실맵 미대체」**뿐** — 계약(`room_geometry`)·저작 규약·authored 구현·임포트 후처리는 이미 서 있다 | map_demo_layout.gd, data/slice01/maps/ | low |
 | DEBT-CPL-DUCK | CombatController가 party_member 필드 다수를 가드 없이 덕타이핑 | combat_controller.gd | med |
 | DEBT-CPL-HUD | dungeon_run이 HUD 라벨 노드경로를 하드코딩·직접 set → RunInfoPanel 분리 여지 | dungeon_run.gd | med |
 | DEBT-CPL-GROUP | controlled/alive/room-trigger 상태를 문자열 그룹으로 멀티플렉싱 | party_member.gd | med |

@@ -5,6 +5,17 @@
   "rooms": [
     {
       "room_ref": "RM-ENTRY-01",
+      "geometry": {
+        "center": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          27.0,
+          22.5
+        ]
+      },
+      "label": "Ward Threshold",
       "world_layer": "Upper",
       "connects": [
         {
@@ -36,6 +47,17 @@
     },
     {
       "room_ref": "RM-ADV-01",
+      "geometry": {
+        "center": [
+          0.0,
+          32.25
+        ],
+        "size": [
+          42.0,
+          42.0
+        ]
+      },
+      "label": "Open Combat Court",
       "world_layer": "Upper",
       "connects": [
         {
@@ -163,34 +185,18 @@
       }
     },
     {
-      "room_ref": "RM-ADV-02",
-      "world_layer": "Upper",
-      "connects": [
-        {
-          "to": "RM-ROUTE-01",
-          "width": 6.0
-        },
-        {
-          "to": "RM-MID-01",
-          "width": 8.0
-        }
-      ],
-      "lighting_profile": "standard",
-      "pool_slot": "P-ADV-02",
-      "spawn_weight": 1.0,
-      "loot_anchor": {
-        "tier": "contested"
-      },
-      "layer": 0,
-      "spatial_grammar": [
-        "choke"
-      ],
-      "encounter_anchor": {
-        "category": "optional_threat"
-      }
-    },
-    {
       "room_ref": "RM-OBJ-01",
+      "geometry": {
+        "center": [
+          -33.0,
+          41.25
+        ],
+        "size": [
+          24.0,
+          24.0
+        ]
+      },
+      "label": "Dim Reliquary",
       "world_layer": "Upper",
       "connects": [],
       "lighting_profile": "dim",
@@ -238,7 +244,56 @@
       }
     },
     {
+      "room_ref": "RM-ADV-02",
+      "geometry": {
+        "center": [
+          27.0,
+          45.75
+        ],
+        "size": [
+          12.0,
+          27.0
+        ]
+      },
+      "label": "East Passage",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-ROUTE-01",
+          "width": 6.0
+        },
+        {
+          "to": "RM-MID-01",
+          "width": 8.0
+        }
+      ],
+      "lighting_profile": "standard",
+      "pool_slot": "P-ADV-02",
+      "spawn_weight": 1.0,
+      "loot_anchor": {
+        "tier": "contested"
+      },
+      "layer": 0,
+      "spatial_grammar": [
+        "choke"
+      ],
+      "encounter_anchor": {
+        "category": "optional_threat"
+      }
+    },
+    {
       "room_ref": "RM-ROUTE-01",
+      "geometry": {
+        "center": [
+          27.0,
+          68.25
+        ],
+        "size": [
+          6.0,
+          18.0
+        ]
+      },
+      "label": "North Corridor",
       "world_layer": "Upper",
       "connects": [
         {
@@ -277,7 +332,8 @@
               0,
               9.0
             ],
-            "to": "RM-EXT-01"
+            "to": "RM-EXT-01",
+            "gates": "RM-EXT-01"
           }
         ]
       },
@@ -291,6 +347,17 @@
     },
     {
       "room_ref": "RM-EXT-01",
+      "geometry": {
+        "center": [
+          27.0,
+          83.25
+        ],
+        "size": [
+          18.0,
+          12.0
+        ]
+      },
+      "label": "Extraction Landing",
       "world_layer": "Upper",
       "connects": [],
       "lighting_profile": "lit",
@@ -313,6 +380,17 @@
     },
     {
       "room_ref": "RM-ADV-03",
+      "geometry": {
+        "center": [
+          0.0,
+          -22.5
+        ],
+        "size": [
+          27.0,
+          22.5
+        ]
+      },
+      "label": "South Antechamber",
       "world_layer": "Upper",
       "connects": [
         {
@@ -340,6 +418,17 @@
     },
     {
       "room_ref": "RM-ADV-04",
+      "geometry": {
+        "center": [
+          -27.0,
+          0.0
+        ],
+        "size": [
+          27.0,
+          22.5
+        ]
+      },
+      "label": "West Gallery",
       "world_layer": "Upper",
       "connects": [
         {
@@ -367,6 +456,17 @@
     },
     {
       "room_ref": "RM-ADV-05",
+      "geometry": {
+        "center": [
+          -54.0,
+          0.0
+        ],
+        "size": [
+          27.0,
+          22.5
+        ]
+      },
+      "label": "West Vault",
       "world_layer": "Upper",
       "connects": [
         {
@@ -390,6 +490,17 @@
     },
     {
       "room_ref": "RM-MID-01",
+      "geometry": {
+        "center": [
+          48.0,
+          45.75
+        ],
+        "size": [
+          30.0,
+          27.0
+        ]
+      },
+      "label": "Mid — Slag Mire",
       "world_layer": "Mid",
       "connects": [
         {
@@ -421,6 +532,17 @@
     },
     {
       "room_ref": "RM-BOSS-01",
+      "geometry": {
+        "center": [
+          48.0,
+          18.75
+        ],
+        "size": [
+          30.0,
+          27.0
+        ]
+      },
+      "label": "Mid — Warden Gate",
       "world_layer": "Mid",
       "connects": [
         {
@@ -445,6 +567,17 @@
     },
     {
       "room_ref": "RM-DEEP-01",
+      "geometry": {
+        "center": [
+          75.0,
+          45.75
+        ],
+        "size": [
+          24.0,
+          27.0
+        ]
+      },
+      "label": "Deep — Gatefolk Corridor",
       "world_layer": "Deep",
       "connects": [
         {
@@ -468,6 +601,17 @@
     },
     {
       "room_ref": "RM-ADV-06",
+      "geometry": {
+        "center": [
+          0.0,
+          -45.0
+        ],
+        "size": [
+          27.0,
+          22.5
+        ]
+      },
+      "label": "South Crypt",
       "world_layer": "Upper",
       "connects": [
         {
@@ -495,6 +639,17 @@
     },
     {
       "room_ref": "RM-ADV-07",
+      "geometry": {
+        "center": [
+          0.0,
+          -67.5
+        ],
+        "size": [
+          27.0,
+          22.5
+        ]
+      },
+      "label": "South Ossuary",
       "world_layer": "Upper",
       "connects": [
         {
@@ -522,6 +677,17 @@
     },
     {
       "room_ref": "RM-ADV-08",
+      "geometry": {
+        "center": [
+          0.0,
+          -90.0
+        ],
+        "size": [
+          27.0,
+          22.5
+        ]
+      },
+      "label": "South Catacomb",
       "world_layer": "Upper",
       "connects": [
         {
@@ -549,6 +715,17 @@
     },
     {
       "room_ref": "RM-ADV-09",
+      "geometry": {
+        "center": [
+          0.0,
+          -112.5
+        ],
+        "size": [
+          27.0,
+          22.5
+        ]
+      },
+      "label": "South Deepvault",
       "world_layer": "Upper",
       "connects": [
         {
@@ -584,8 +761,16 @@
       160,
       220
     ],
+    "require_entry_gate_on_elite": false,
+    "_note_elite_gate": "⚠ **false = 기존 위반을 안고 있다.** `RM-BOSS-01`·`RM-DEEP-01`이 `gated_elite`인데 `entry_requirement`가 없다(`LDG-001` §9 LD checklist 위반). 조건을 넣으면 `QA-031` 임계 경로가 바뀌므로 별도 판정으로 미룬다 — 대신 게이트가 **매 런 위반 방 이름을 출력**한다(조용히 통과하지 않는다). 신규 맵은 true로 선언한다.",
     "_note": "이 맵이 스스로 선언하는 **하드 게이트 목표치**다(tools/map_smoke.gd가 강제). 값은 **현 데모 맵의 현실**이다 — 지키는 목적이 「좋아지기」가 아니라 **「나빠지지 않기」**다: min_cycles 0(트리) · bbox 160×220(현재 155×213) · 상자 EV 16~20(현재 18.4). 신규 그레이박스는 같은 자리에 **min_cycles 2 · bbox 200×200**을 들고 오면 되고, 그러면 **코드 변경 없이 게이트가 세진다**. 목표치를 코드 상수로 두지 않는 이유가 그것이다."
   },
   "entry_room": "RM-ENTRY-01",
-  "_note_entry": "파티가 진입하는 방. **코드에 박혀 있던 `\"RM-ENTRY-01\"`을 데이터로 내렸다** — 신규 맵(`MAP-UPPER-001`)은 시작 방 이름이 다르므로, 안 내리면 맵을 갈아끼울 때 코드를 고쳐야 한다. 도달성 검사의 BFS 시작점이기도 하다."
+  "_note_entry": "파티가 진입하는 방. **코드에 박혀 있던 `\"RM-ENTRY-01\"`을 데이터로 내렸다** — 신규 맵(`MAP-UPPER-001`)은 시작 방 이름이 다르므로, 안 내리면 맵을 갈아끼울 때 코드를 고쳐야 한다. 도달성 검사의 BFS 시작점이기도 하다.",
+  "layer_floor_y": [
+    0.0
+  ],
+  "_note_geometry": "방 기하(`geometry.center`/`size`, 방 중심 기준 XZ·m)와 `label`을 **데이터가 소유한다** — 예전에는 `map_demo_layout.ROOM_SPECS` GDScript 상수였다. 옮긴 이유는 두 가지다: ① `authored_map_source`가 스스로 적어둔 계약(「데이터가 좌표를 갖는다 → 코드가 박스를 만든다」)과 코드 상수가 어긋나 있었고, ② 맵을 추가할 때(`MAP-UPPER-001`) 같은 상수 블록을 코드에 또 만들어야 했다 — 그러면 맵마다 기하 규약이 달라진다. `y`는 계약이 나르므로(`floor_y`, 기본값 = `layer_floor_y[layer]`) 층별 바닥 높이가 다른 맵도 같은 필드로 표현된다. 배열 순서 = **생성 순서**이고 벽 dedup이 순서에 의존하므로, 옮길 때 구 상수의 키 순서를 그대로 보존했다(RM-OBJ-01이 RM-ADV-02보다 앞).",
+  "_note_layer_floor_y": "층별 기본 바닥 Y(m). `layer` 인덱스로 읽는다. 데모 맵은 layer 0 하나뿐이라 `[0.0]`. 코드에 층 간격 상수를 두지 않기 위한 축이다 — 맵마다 단차가 다르다.",
+  "_note_transitions": "`transitions` 앵커는 **층을 넘는 계단**(`role: stairs`, `to`)과 **잠긴 문**(`role: key_gate`, `gates`)을 함께 담는다. 역할을 안 보면 도달성 검사가 문을 계단으로 세어 거짓 통과한다([[DRIFT-178]]). `gates` = 이 문이 막는 방 — 문이 요구하는 열쇠는 **그 방의 `entry_requirement.ref`**이고, 코드는 그걸 읽어 문에 실는다(구 하드코딩 `\"KEY-DEMO-01\"` 제거)."
 }

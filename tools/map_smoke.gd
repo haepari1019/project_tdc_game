@@ -62,11 +62,12 @@ func _init() -> void:
 	_check_layers(map)
 	_check_space_fields(sd, scn, map)
 	_check_design_targets(sd, map, edges)
-	_check_lock_solvable(sd, map)
+	_check_lock_solvable(sd, map, scn)
 	_check_layer_switch(scn, map)
 	await _check_layer_transition(scn, map)
 	_check_minimap_layer(scn, map)
 	_check_stair_links(map)
+	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -519,9 +520,20 @@ func _check_design_targets(sd, map: Node, edges: Array) -> void:
 		_expect(false, "[계약] rooms.json `design_targets` 선언")
 		return
 
-	var cycles: int = edges.size() - _rects.size() + 1
+	# 사이클 = **E − V + C**. 예전엔 C를 1로 고정했는데, 층이 갈린 맵은 `connects` 그래프의
+	# 성분이 2개 이상이라 그 식이 사이클을 **과소 계산**한다(백레이어가 붙으면 1 줄어든 것처럼 보인다).
+	var adj: Dictionary = {}
+	for ref in _rects:
+		adj[String(ref)] = []
+	for e in edges:
+		if adj.has(String(e[0])) and adj.has(String(e[1])):
+			(adj[String(e[0])] as Array).append(String(e[1]))
+			(adj[String(e[1])] as Array).append(String(e[0]))
+	var comps := _components(adj.keys(), adj)
+	var cycles: int = edges.size() - _rects.size() + comps
 	var min_c: int = int(t.get("min_cycles", 0))
-	_expect(cycles >= min_c, "[계약] 사이클 %d ≥ 목표 %d" % [cycles, min_c])
+	_expect(cycles >= min_c, "[계약] 사이클 %d ≥ 목표 %d (E%d − V%d + C%d)" % [
+		cycles, min_c, edges.size(), _rects.size(), comps])
 
 	var band: Array = t.get("chest_ev_band", [0, 999])
 	var ev := _chest_ev(sd)
@@ -536,7 +548,7 @@ func _check_design_targets(sd, map: Node, edges: Array) -> void:
 
 ## **잠금 그래프 해결 가능성** — 메트로배니아 최다 사고가 「열쇠가 잠긴 방 안에」다.
 ## `entry_requirement`가 요구하는 것을 **그 방에 들어가지 않고** 얻을 수 있어야 한다.
-func _check_lock_solvable(sd, map: Node) -> void:
+func _check_lock_solvable(sd, map: Node, scn: Node) -> void:
 	var locked: Array = []      # [{room, ref}]
 	var yields_at: Dictionary = {}   # 산출물 -> room_ref
 	for row in sd.get_rooms_document().get("rooms", []):
@@ -565,15 +577,35 @@ func _check_lock_solvable(sd, map: Node) -> void:
 	_expect(bad.is_empty(), "🔴 [계약] 잠금 %d개 해결 가능 (%s)" % [
 		locked.size(), "전부" if bad.is_empty() else ", ".join(bad)])
 
-	# 데이터가 선언한 산출물 id가 **코드가 실제로 넣는 id**와 같은가. 데이터끼리만 맞으면
-	# 「선언은 KEY-DEMO-01인데 상자엔 "Key"가 들어 있는」 상태를 못 잡는다(실제로 그랬다).
-	var src := FileAccess.get_file_as_string("res://scripts/run/dungeon_run.gd")
+	# 데이터가 선언한 산출물 id가 **실제로 배치된 상자 안에 있는가.** 예전엔 dungeon_run.gd 소스를
+	# grep해 문자열 존재만 봤다 — 코드가 id를 데이터에서 읽게 되면(하드코딩 제거) 그 검사는
+	# **아무것도 검사하지 않는 상태**가 된다. 그래서 텍스트가 아니라 **부팅된 씬의 상자를 열어 본다**.
+	var in_chests: Array = []
+	for c in scn.get_children():
+		if not ("items" in c):
+			continue
+		for it in (c.get("items") as Array):
+			if typeof(it) == TYPE_DICTIONARY:
+				in_chests.append(String((it as Dictionary).get("id", "")))
 	var ghost: Array = []
 	for y in yields_at:
-		if not src.contains('"%s"' % String(y)):
+		if not in_chests.has(String(y)):
 			ghost.append(String(y))
-	_expect(ghost.is_empty(), "[계약] 앵커 yields id가 코드에 실재 (%s)" % (
+	_expect(ghost.is_empty(), "🔴 [계약] 선언된 `yields`가 **실제 상자 안에** 있다 (%s)" % (
 		"전부" if ghost.is_empty() else "없음: " + ", ".join(ghost)))
+
+	# 문이 요구하는 열쇠 = 잠긴 방이 요구하는 열쇠. 열쇠가 둘 이상이면 부분 문자열 판정이
+	# 「아무 열쇠나 아무 문을 여는」 상태가 되므로, **문에 id가 실렸는지**를 못 박는다.
+	for c in scn.get_children():
+		if not ("key_id" in c):
+			continue
+		var kid := String(c.get("key_id"))
+		var want := ""
+		for l in locked:
+			if String(l["need"]) == kid:
+				want = kid
+		_expect(not kid.is_empty() and want == kid,
+			"🔴 [계약] 잠긴 문이 **정확한 열쇠 id**를 안다 (`%s`)" % kid)
 
 
 ## **레이어 전환** — 계단이 부를 경로를 실제로 돌려 본다(오클루더·탐색 기억·가시성이 함께 가는가).
@@ -1322,7 +1354,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl"]:
+	for sec in ["import_parity", "authored_impl", "map_documents"]:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -1338,3 +1370,415 @@ func _expect(cond: bool, label: String) -> void:
 	print(("  ok   " if cond else "  FAIL ") + label)
 	if not cond:
 		_ok = false
+
+# ============================================================================
+# 맵 **문서** 정적 검사 — 부팅 없이 데이터만 본다.
+#
+# 위 검사들은 **부팅된 맵 하나**(활성 = `manifest.map_id`)를 본다. 그래서 맵을 추가하면
+# 그 맵은 활성이 될 때까지 **아무 검사도 안 받는 데이터**가 된다 — 신규 맵이 활성이 되는
+# 날에 처음 빨개지는 건 늦다. 그래서 축을 나눴다:
+#   - **부팅 검사**(위) = navmesh 통행 · 오클루더 유도 · 스폰 · 전이 — 씬이 있어야 답이 나오는 것.
+#   - **정적 검사**(여기) = 위상 · 인접 · 잠금 그래프 · enum · 문법 — **기하가 데이터에 있으니**
+#     씬 없이도 답이 나오는 것. `data/slice01/maps/*.json` **전부**에 돈다.
+# 겹치는 항목(인접·사이클)은 일부러 양쪽에 둔다 — 정적은 전 맵을, 부팅은 씬↔데이터 일치를 본다.
+# ============================================================================
+
+const MAPS_DIR := "res://data/slice01/maps"
+
+## 문법이 요구하는 「시야를 끊는 것」의 최소 개수는 **맵이 선언한다**
+## (`design_targets.grammar_min_obstacles`). 코드에 박으면 데모 맵(choke에 장애물 0개)이
+## 즉시 빨개지고, 그러면 임계값을 낮춰 맞추게 된다 — 그건 게이트가 아니라 장식이다.
+func _check_map_documents(sd) -> void:
+	var reg = JSON.parse_string(FileAccess.get_file_as_string("res://data/slice01/id_registry.json"))
+	var spawn = JSON.parse_string(FileAccess.get_file_as_string("res://data/slice01/spawn_table.json"))
+	var pool_rows: Array = (spawn as Dictionary).get("rows", []) if typeof(spawn) == TYPE_DICTIONARY else []
+	var active := String(sd.get_manifest().get("map_id", ""))
+
+	var files: Array = []
+	var dir := DirAccess.open(MAPS_DIR)
+	if dir != null:
+		for f in dir.get_files():
+			if f.ends_with(".json"):
+				files.append(f)
+	files.sort()
+	_expect(files.size() >= 2, "[계약/문서] 맵 문서 %d개 발견 (활성=%s)" % [files.size(), active])
+
+	for f in files:
+		var doc = JSON.parse_string(FileAccess.get_file_as_string(MAPS_DIR + "/" + f))
+		if typeof(doc) != TYPE_DICTIONARY:
+			_expect(false, "[계약/문서] %s 파싱" % f)
+			continue
+		_check_one_document(f, doc as Dictionary, reg as Dictionary, pool_rows, f == active + ".json")
+	_sections["map_documents"] = true
+
+
+func _check_one_document(fname: String, doc: Dictionary, reg: Dictionary, pool_rows: Array,
+		is_active: bool) -> void:
+	var mid := String(doc.get("map_id", ""))
+	var tag := "%s%s" % [mid, "" if is_active else "/비활성"]
+	# 파일명 = map_id. 안 그러면 매니페스트가 고를 수 없다.
+	_expect(fname == mid + ".json", "[계약/문서] %s 파일명 = map_id" % tag)
+
+	var rooms: Array = doc.get("rooms", [])
+	var rects: Dictionary = {}       # ref -> {c: Vector2, s: Vector2, layer: int}
+	var rows: Dictionary = {}
+	var order: Array = []
+	var bad: Array = []
+	for row in rooms:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var d := row as Dictionary
+		var ref := String(d.get("room_ref", ""))
+		rows[ref] = d
+		order.append(ref)
+		var geo: Dictionary = d.get("geometry", {})
+		if geo.is_empty():
+			bad.append("%s: geometry 없음" % ref)
+			continue
+		var c: Array = geo.get("center", [])
+		var s: Array = geo.get("size", [])
+		if c.size() != 2 or s.size() != 2:
+			bad.append("%s: geometry 형식" % ref)
+			continue
+		rects[ref] = {"c": Vector2(float(c[0]), float(c[1])),
+			"s": Vector2(float(s[0]), float(s[1])), "layer": int(d.get("layer", 0))}
+	_expect(bad.is_empty() and rects.size() == rooms.size(),
+		"[계약/문서] %s 방 %d개 전부 기하 보유 (%s)" % [tag, rooms.size(),
+			"전부" if bad.is_empty() else ", ".join(bad)])
+
+	# ── ID 등록 ────────────────────────────────────────────────────────────
+	var allowed_rooms: Array = reg.get("room_refs", [])
+	var allowed_pools: Array = reg.get("pool_slots", [])
+	var unreg: Array = []
+	for ref in order:
+		if not allowed_rooms.has(ref):
+			unreg.append(ref)
+		var ps := String((rows[ref] as Dictionary).get("pool_slot", ""))
+		if not ps.is_empty() and not allowed_pools.has(ps):
+			unreg.append(ps)
+	_expect(unreg.is_empty(), "[계약/문서] %s room_ref/pool_slot 전부 등록 (%s)" % [tag,
+		"전부" if unreg.is_empty() else "미등록: " + ", ".join(unreg)])
+
+	# ── enum ──────────────────────────────────────────────────────────────
+	const CATEGORIES := ["mandatory_threat", "gated_elite", "optional_threat", "patrol_route",
+		"ambush_candidate", "third_faction_candidate", "safe"]
+	const GRAMMARS := ["open", "choke", "los_broken", "split", "flank", "backline_pocket"]
+	const ROUTES := ["route_early", "route_mid", "route_deep"]
+	const PROFILES := ["Normal", "Hard", "Extreme"]
+	const RULES := ["requiresItem", "onBossKey", "onObjectiveComplete", "onFacilityTier", "onAccess"]
+	var enum_bad: Array = []
+	for ref in order:
+		var d: Dictionary = rows[ref]
+		if not d.has("layer"):
+			enum_bad.append("%s: layer 없음" % ref)
+		var cat := String((d.get("encounter_anchor", {}) as Dictionary).get("category", ""))
+		if not CATEGORIES.has(cat):
+			enum_bad.append("%s: category `%s`" % [ref, cat])
+		for g in d.get("spatial_grammar", []):
+			if not GRAMMARS.has(String(g)):
+				enum_bad.append("%s: grammar `%s`" % [ref, g])
+		# `spatialGrammar`는 **방 하나에 1~2개**다(LDG-001 §9) — 겹칠수록 읽기가 어려워진다.
+		var gn: int = (d.get("spatial_grammar", []) as Array).size()
+		if gn < 1 or gn > 2:
+			enum_bad.append("%s: grammar %d개(1~2)" % [ref, gn])
+		for rc in d.get("route_class", []):
+			if not ROUTES.has(String(rc)):
+				enum_bad.append("%s: route_class `%s`" % [ref, rc])
+		if d.has("difficulty_profile") and not PROFILES.has(String(d["difficulty_profile"])):
+			enum_bad.append("%s: difficulty_profile `%s`" % [ref, d["difficulty_profile"]])
+		var req: Dictionary = d.get("entry_requirement", {})
+		if not req.is_empty() and not RULES.has(String(req.get("rule", ""))):
+			enum_bad.append("%s: entry rule `%s`" % [ref, req.get("rule", "")])
+	_expect(enum_bad.is_empty(), "[계약/문서] %s 공간 필드 enum·개수 유효 (%s)" % [tag,
+		"전부" if enum_bad.is_empty() else ", ".join(enum_bad)])
+
+	# ── `gated_elite` ⇒ `entry_requirement` (LDG-001 §9 LD checklist) ──────
+	# 「잠긴 방이라야 확정 정예가 정당하다」. 열쇠가 아니어도 된다 — `onObjectiveComplete`도 조건이다.
+	var ungated: Array = []
+	for ref in order:
+		var d: Dictionary = rows[ref]
+		if String((d.get("encounter_anchor", {}) as Dictionary).get("category", "")) != "gated_elite":
+			continue
+		if (d.get("entry_requirement", {}) as Dictionary).is_empty():
+			ungated.append(ref)
+	# 요구 여부는 **맵이 선언한다**. 데모 맵은 이 규약보다 먼저 만들어져 두 방이 위반 상태인데,
+	# 거기에 잠금을 넣으면 QA-031 임계 경로가 바뀐다 — 그건 별도 판정이다. 그래서 선언으로 갈랐지만
+	# **위반 목록은 선언과 무관하게 매 런 출력한다**(조용히 통과 = 「덮였다」로 읽힌다).
+	if not ungated.is_empty():
+		print("  [설계] %s `gated_elite` 진입 조건 없음: %s (LDG-001 §9 LD checklist)" % [
+			tag, ", ".join(ungated)])
+	if bool((doc.get("design_targets", {}) as Dictionary).get("require_entry_gate_on_elite", false)):
+		_expect(ungated.is_empty(), "🔴 [계약/문서] %s `gated_elite`는 전부 진입 조건 동반 (%s)" % [tag,
+			"전부" if ungated.is_empty() else "조건 없음: " + ", ".join(ungated)])
+
+	# ── connects: 대상 존재 + 공유벽(겹침 ≥ width) ─────────────────────────
+	var edges: Array = []
+	var seen_edge: Dictionary = {}
+	var conn_bad: Array = []
+	for ref in order:
+		for c in (rows[ref] as Dictionary).get("connects", []):
+			var to := String((c as Dictionary).get("to", ""))
+			var w := float((c as Dictionary).get("width", 0.0))
+			if not rects.has(to):
+				conn_bad.append("%s→%s: 없는 방" % [ref, to])
+				continue
+			var key: String = ref + "|" + to if ref < to else to + "|" + ref
+			if seen_edge.has(key):
+				continue
+			seen_edge[key] = true
+			edges.append([ref, to, w])
+			var ov := _shared_wall_overlap(rects[ref], rects[to])
+			if ov < 0.0:
+				conn_bad.append("%s↔%s: 공유벽 없음" % [ref, to])
+			elif ov < w - 0.01:
+				conn_bad.append("%s↔%s: 겹침 %.1f < 폭 %.1f" % [ref, to, ov, w])
+	_expect(conn_bad.is_empty(), "[계약/문서] %s 연결 %d개가 전부 공유벽 (%s)" % [tag, edges.size(),
+		"일치" if conn_bad.is_empty() else ", ".join(conn_bad)])
+
+	# ── 같은 층 XZ 중첩 금지 (다른 층은 겹쳐야 정상) ───────────────────────
+	var ov_bad: Array = []
+	var cross := 0
+	for i in order.size():
+		for j in range(i + 1, order.size()):
+			var a: Dictionary = rects.get(order[i], {})
+			var b: Dictionary = rects.get(order[j], {})
+			if a.is_empty() or b.is_empty():
+				continue
+			if not _xz_overlaps(a, b):
+				continue
+			if int(a["layer"]) == int(b["layer"]):
+				ov_bad.append("%s↔%s" % [order[i], order[j]])
+			else:
+				cross += 1
+	_expect(ov_bad.is_empty(), "[계약/문서] %s **같은** 층 XZ 중첩 없음 (%s · 층 간 중첩 %d쌍)" % [tag,
+		"전부" if ov_bad.is_empty() else "겹침: " + ", ".join(ov_bad), cross])
+
+	# ── 계단: 다른 층을 가리킨다 / 문: 잠긴 방을 가리킨다 ──────────────────
+	var stairs: Array = []
+	var tr_bad: Array = []
+	for ref in order:
+		for a in ((rows[ref] as Dictionary).get("anchors", {}) as Dictionary).get("transitions", []):
+			var d := a as Dictionary
+			var role := String(d.get("role", ""))
+			if role == "stairs":
+				var to := String(d.get("to", ""))
+				if not rects.has(to):
+					tr_bad.append("%s 계단→%s: 없는 방" % [ref, to])
+				elif int((rects[to] as Dictionary)["layer"]) == int((rects[ref] as Dictionary)["layer"]):
+					# 계단은 **층을 넘는 워프**다. 같은 층이면 그건 `connects`여야 한다.
+					tr_bad.append("%s 계단→%s: 같은 층" % [ref, to])
+				else:
+					stairs.append([ref, to])
+			elif role == "key_gate":
+				var g := String(d.get("gates", ""))
+				if not rows.has(g):
+					tr_bad.append("%s 문→%s: 없는 방" % [ref, g])
+				elif ((rows[g] as Dictionary).get("entry_requirement", {}) as Dictionary).is_empty():
+					tr_bad.append("%s 문→%s: 그 방에 진입 조건 없음" % [ref, g])
+	_expect(tr_bad.is_empty(), "🔴 [계약/문서] %s 계단은 층을 넘고 문은 잠긴 방을 막는다 (%s)" % [tag,
+		"전부" if tr_bad.is_empty() else ", ".join(tr_bad)])
+
+	# ── 도달성: connects + 계단 ────────────────────────────────────────────
+	var adj_conn: Dictionary = {}      # `connects`만 — 걸어서 갈 수 있는 그래프
+	var adj: Dictionary = {}           # + 계단 — 실제로 갈 수 있는 그래프
+	for ref in order:
+		adj_conn[ref] = []
+		adj[ref] = []
+	for e in edges:
+		(adj_conn[e[0]] as Array).append(e[1])
+		(adj_conn[e[1]] as Array).append(e[0])
+		(adj[e[0]] as Array).append(e[1])
+		(adj[e[1]] as Array).append(e[0])
+	for s in stairs:
+		(adj[s[0]] as Array).append(s[1])
+		(adj[s[1]] as Array).append(s[0])
+	var entry := String(doc.get("entry_room", order[0] if order.size() > 0 else ""))
+	var seen: Dictionary = {}
+	var stack: Array = [entry] if rows.has(entry) else []
+	while not stack.is_empty():
+		var n: String = stack.pop_back()
+		if seen.has(n):
+			continue
+		seen[n] = true
+		for m in adj.get(n, []):
+			if not seen.has(m):
+				stack.append(m)
+	_expect(seen.size() == order.size(),
+		"[계약/문서] %s 전 방 도달 가능 — connects %d + 계단 %d (%d/%d)" % [tag, edges.size(),
+			stairs.size(), seen.size(), order.size()])
+
+	# ── 사이클 = E − V + C (연결 성분 수를 센다) ───────────────────────────
+	# 예전엔 `E − V + 1`이었다. 층이 갈린 맵은 성분이 2개 이상이라 그 식은 사이클을 **과소 계산**한다
+	# (백레이어 2방·1연결이 붙으면 사이클이 1 줄어든 것처럼 보인다).
+	# 두 그래프의 성분 수는 다르다 — 계단이 층을 이으면 성분이 합쳐진다. 각자 자기 C를 써야 한다.
+	var comps_conn := _components(order, adj_conn)
+	var comps_all := _components(order, adj)
+	var conn_only: int = edges.size() - order.size() + comps_conn
+	var cycles: int = edges.size() + stairs.size() - order.size() + comps_all
+	var t: Dictionary = doc.get("design_targets", {})
+	var min_c := int(t.get("min_cycles", 0))
+	_expect(conn_only >= min_c, "[계약/문서] %s 사이클 %d ≥ 목표 %d (E%d − V%d + C%d · 계단까지 세면 %d)" % [
+		tag, conn_only, min_c, edges.size(), order.size(), comps_conn, cycles])
+
+	# ── 상자 EV · bbox ────────────────────────────────────────────────────
+	var ev := 0.0
+	for ref in order:
+		if not (rows[ref] as Dictionary).has("loot_anchor"):
+			continue
+		var s2: Vector2 = (rects[ref] as Dictionary)["s"]
+		ev += minf(s2.x * s2.y / CHEST_AREA_PER, float(CHEST_MAX_PER_ROOM))
+	var band: Array = t.get("chest_ev_band", [0, 999])
+	_expect(ev >= float(band[0]) and ev <= float(band[1]),
+		"[계약/문서] %s 상자 EV %.1f ∈ [%s, %s]" % [tag, ev, band[0], band[1]])
+
+	var mn := Vector2(INF, INF)
+	var mx := Vector2(-INF, -INF)
+	for ref in order:
+		var r: Dictionary = rects[ref]
+		var c: Vector2 = r["c"]
+		var s3: Vector2 = r["s"]
+		mn.x = minf(mn.x, c.x - s3.x * 0.5); mn.y = minf(mn.y, c.y - s3.y * 0.5)
+		mx.x = maxf(mx.x, c.x + s3.x * 0.5); mx.y = maxf(mx.y, c.y + s3.y * 0.5)
+	var span := mx - mn
+	var bmax: Array = t.get("bbox_max_m", [9999, 9999])
+	_expect(span.x <= float(bmax[0]) and span.y <= float(bmax[1]),
+		"[계약/문서] %s 안개 바운딩 %.0f×%.0f ≤ %s×%s m" % [tag, span.x, span.y, bmax[0], bmax[1]])
+
+	# ── 앵커가 방 안 · 문법이 장애물을 실제로 갖는가 ────────────────────────
+	var out_bad: Array = []
+	var total := 0
+	var gmin: Dictionary = t.get("grammar_min_obstacles", {})
+	var gram_bad: Array = []
+	for ref in order:
+		var anchors: Dictionary = (rows[ref] as Dictionary).get("anchors", {})
+		var r2: Dictionary = rects[ref]
+		var c2: Vector2 = r2["c"]
+		var s4: Vector2 = r2["s"]
+		for kind in anchors:
+			for a in (anchors[kind] as Array):
+				total += 1
+				var p: Array = (a as Dictionary).get("pos", [])
+				if p.size() != 2:
+					out_bad.append("%s/%s: pos 형식" % [ref, kind])
+				elif absf(float(p[0])) > s4.x * 0.5 + 0.01 or absf(float(p[1])) > s4.y * 0.5 + 0.01:
+					out_bad.append("%s/%s" % [ref, kind])
+		var n_obs: int = (anchors.get("obstacles", []) as Array).size()
+		for g in (rows[ref] as Dictionary).get("spatial_grammar", []):
+			var need := int(gmin.get(String(g), 0))
+			if n_obs < need:
+				gram_bad.append("%s(%s): 장애물 %d < %d" % [ref, g, n_obs, need])
+	_expect(out_bad.is_empty(), "[계약/문서] %s 앵커 %d개가 전부 방 안 (%s)" % [tag, total,
+		"전부" if out_bad.is_empty() else "벗어남: " + ", ".join(out_bad)])
+	_expect(gram_bad.is_empty(), "🔴 [계약/문서] %s `spatial_grammar`가 장애물로 뒷받침됨 (%s)" % [tag,
+		"전부" if gram_bad.is_empty() else ", ".join(gram_bad)])
+
+	# ── 잠금 그래프 해결 가능성 ────────────────────────────────────────────
+	var yields_at: Dictionary = {}
+	for ref in order:
+		var anchors2: Dictionary = (rows[ref] as Dictionary).get("anchors", {})
+		for kind in ["interactions", "props", "hazards"]:
+			for a in (anchors2.get(kind, []) as Array):
+				var y := String((a as Dictionary).get("yields", ""))
+				if not y.is_empty():
+					yields_at[y] = ref
+	var lock_bad: Array = []
+	var locks := 0
+	for ref in order:
+		var req: Dictionary = (rows[ref] as Dictionary).get("entry_requirement", {})
+		var need := String(req.get("ref", ""))
+		if need.is_empty():
+			continue                  # 아이템이 아닌 조건(onObjectiveComplete 등)은 열쇠 그래프 밖이다
+		locks += 1
+		var src := String(yields_at.get(need, ""))
+		if src.is_empty():
+			lock_bad.append("%s: `%s` 산출처 없음" % [ref, need])
+		elif src == ref:
+			lock_bad.append("%s: 열쇠 `%s`가 **잠긴 방 안**" % [ref, need])
+	_expect(lock_bad.is_empty(), "🔴 [계약/문서] %s 잠금 %d개 해결 가능 (%s)" % [tag, locks,
+		"전부" if lock_bad.is_empty() else ", ".join(lock_bad)])
+
+	# ── 런이 이름으로 찾는 앵커 7종 ────────────────────────────────────────
+	var need_kinds := [["interactions", "role", "key_chest"], ["interactions", "role", "ally_cache"],
+		["transitions", "role", "key_gate"], ["hazards", "role", "plate"], ["hazards", "role", "lever"],
+		["props", "ref", "ENT-BARREL-001"], ["props", "ref", "ENT-TORCH-001"]]
+	var missing: Array = []
+	for n in need_kinds:
+		var found := false
+		for ref in order:
+			for a in (((rows[ref] as Dictionary).get("anchors", {}) as Dictionary).get(String(n[0]), []) as Array):
+				if String((a as Dictionary).get(String(n[1]), "")) == String(n[2]):
+					found = true
+		if not found:
+			missing.append("%s=%s" % [n[1], n[2]])
+	_expect(missing.is_empty(), "[계약/문서] %s 런이 찾는 앵커 7종 (%s)" % [tag,
+		"전부" if missing.is_empty() else "없음: " + ", ".join(missing)])
+
+	# ── pool_slot이 스폰 표로 해석되는가 ───────────────────────────────────
+	# 활성 맵은 **하드 게이트**(런이 즉시 깨진다). 비활성 맵은 아직 표가 없을 수 있어 리포트로 두되
+	# **개수를 말한다** — 조용히 넘어가면 「덮였다」로 읽힌다.
+	var have: Dictionary = {}
+	for r in pool_rows:
+		if typeof(r) == TYPE_DICTIONARY:
+			have[String((r as Dictionary).get("pool_slot", ""))] = true
+	var unresolved: Array = []
+	for ref in order:
+		var ps := String((rows[ref] as Dictionary).get("pool_slot", ""))
+		if not ps.is_empty() and not have.has(ps):
+			unresolved.append(ps)
+	if is_active:
+		_expect(unresolved.is_empty(), "[계약/문서] %s pool_slot 전부 스폰 표에 존재 (%s)" % [tag,
+			"전부" if unresolved.is_empty() else "없음: " + ", ".join(unresolved)])
+	else:
+		print("  [설계] %s pool_slot 미해석 %d/%d — 활성화 전 spawn_table 채우기 필요%s" % [tag,
+			unresolved.size(), order.size(),
+			("" if unresolved.is_empty() else " (" + ", ".join(unresolved) + ")")])
+
+
+## 두 방이 벽 하나를 공유하는가. 공유하면 그 벽에서의 **겹침 길이**(m), 아니면 −1.
+func _shared_wall_overlap(a: Dictionary, b: Dictionary) -> float:
+	var ac: Vector2 = a["c"]
+	var as_: Vector2 = a["s"]
+	var bc: Vector2 = b["c"]
+	var bs: Vector2 = b["s"]
+	var ax0 := ac.x - as_.x * 0.5
+	var ax1 := ac.x + as_.x * 0.5
+	var az0 := ac.y - as_.y * 0.5
+	var az1 := ac.y + as_.y * 0.5
+	var bx0 := bc.x - bs.x * 0.5
+	var bx1 := bc.x + bs.x * 0.5
+	var bz0 := bc.y - bs.y * 0.5
+	var bz1 := bc.y + bs.y * 0.5
+	if absf(ax1 - bx0) < 0.01 or absf(bx1 - ax0) < 0.01:
+		return minf(az1, bz1) - maxf(az0, bz0)
+	if absf(az1 - bz0) < 0.01 or absf(bz1 - az0) < 0.01:
+		return minf(ax1, bx1) - maxf(ax0, bx0)
+	return -1.0
+
+
+func _xz_overlaps(a: Dictionary, b: Dictionary) -> bool:
+	var ac: Vector2 = a["c"]
+	var as_: Vector2 = a["s"]
+	var bc: Vector2 = b["c"]
+	var bs: Vector2 = b["s"]
+	return absf(ac.x - bc.x) < (as_.x + bs.x) * 0.5 - 0.01 \
+		and absf(ac.y - bc.y) < (as_.y + bs.y) * 0.5 - 0.01
+
+
+## 연결 성분 수 — 사이클 식 `E − V + C`의 C.
+func _components(nodes: Array, adj: Dictionary) -> int:
+	var seen: Dictionary = {}
+	var n := 0
+	for r in nodes:
+		if seen.has(r):
+			continue
+		n += 1
+		var stack: Array = [r]
+		while not stack.is_empty():
+			var x: String = stack.pop_back()
+			if seen.has(x):
+				continue
+			seen[x] = true
+			for m in adj.get(x, []):
+				if not seen.has(m):
+					stack.append(m)
+	return n

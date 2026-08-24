@@ -1,118 +1,9 @@
 @tool
 extends "res://scripts/world/map_source.gd"
-## **MAP-DEMO-001 — 절차 그레이박스 MapSource 구현.** 방을 데이터(ROOM_SPECS 기하 + rooms.json `connects`)에서
+## **MAP-DEMO-001 — 절차 그레이박스 MapSource 구현.** 방을 **맵 문서**(`geometry` + `connects`)에서
 ## 박스로 생성한다. 계약 자체는 base `map_source.gd`가 소유하고, 여기는 **공간을 만드는 방법**만
 ## 안다 — 같은 계약의 authored(Blender) 구현이 나란히 설 수 있는 이유다.
 ## ref: docs/design/map_upgrade_plan.html §Phase 0 · 게이트 tools/map_smoke.gd
-
-## Room centers placed so adjacent rooms share wall edges directly.
-## Z+ = north (forward in 단면도). ×1.5 scale from 단면도 for better character-to-map ratio.
-## Original 단면도 52×76m → actual ~78×114m footprint.
-const ROOM_SPECS: Dictionary = {
-	"RM-ENTRY-01": {
-		"center": Vector3(0, 0, 0),
-		"size": Vector3(27, 0, 22.5),
-		"profile": "lit",
-		"label": "Ward Threshold",
-	},
-	"RM-ADV-01": {
-		"center": Vector3(0, 0, 32.25),
-		"size": Vector3(42, 0, 42),
-		"profile": "lit",
-		"label": "Open Combat Court",
-	},
-	"RM-OBJ-01": {
-		"center": Vector3(-33, 0, 41.25),
-		"size": Vector3(24, 0, 24),
-		"profile": "dim",
-		"label": "Dim Reliquary",
-	},
-	"RM-ADV-02": {
-		"center": Vector3(27, 0, 45.75),
-		"size": Vector3(12, 0, 27),
-		"profile": "standard",
-		"label": "East Passage",
-	},
-	"RM-ROUTE-01": {
-		"center": Vector3(27, 0, 68.25),
-		"size": Vector3(6, 0, 18),
-		"profile": "standard",
-		"label": "North Corridor",
-	},
-	"RM-EXT-01": {
-		"center": Vector3(27, 0, 83.25),
-		"size": Vector3(18, 0, 12),
-		"profile": "lit",
-		"extraction": true,
-		"label": "Extraction Landing",
-	},
-	# --- P2-S1 expansion (≥12 rooms): Upper branches (south/west) + Mid/Deep wing (east).
-	# Placed non-overlapping, sharing wall edges with a connected room. Critical path unchanged.
-	"RM-ADV-03": {
-		"center": Vector3(0, 0, -22.5),
-		"size": Vector3(27, 0, 22.5),
-		"profile": "standard",
-		"label": "South Antechamber",
-	},
-	"RM-ADV-04": {
-		"center": Vector3(-27, 0, 0),
-		"size": Vector3(27, 0, 22.5),
-		"profile": "standard",
-		"label": "West Gallery",
-	},
-	"RM-ADV-05": {
-		"center": Vector3(-54, 0, 0),
-		"size": Vector3(27, 0, 22.5),
-		"profile": "standard",
-		"label": "West Vault",
-	},
-	"RM-MID-01": {
-		"center": Vector3(48, 0, 45.75),
-		"size": Vector3(30, 0, 27),
-		"profile": "dim",
-		"label": "Mid — Slag Mire",
-	},
-	"RM-BOSS-01": {
-		"center": Vector3(48, 0, 18.75),
-		"size": Vector3(30, 0, 27),
-		"profile": "dim",
-		"label": "Mid — Warden Gate",
-	},
-	"RM-DEEP-01": {
-		"center": Vector3(75, 0, 45.75),
-		"size": Vector3(24, 0, 27),
-		"profile": "dim",
-		"label": "Deep — Gatefolk Corridor",
-	},
-	# --- P2-S2-fin: Upper Hard-branch chain (south off RM-ADV-03) for HARD-002/003/004.
-	# Linear south chain — each shares its north edge with the prior room (navmesh connected),
-	# all x∈[-13.5,13.5], descending z; zero overlap with existing rooms. Critical path unchanged.
-	"RM-ADV-06": {
-		"center": Vector3(0, 0, -45),
-		"size": Vector3(27, 0, 22.5),
-		"profile": "standard",
-		"label": "South Crypt",
-	},
-	"RM-ADV-07": {
-		"center": Vector3(0, 0, -67.5),
-		"size": Vector3(27, 0, 22.5),
-		"profile": "standard",
-		"label": "South Ossuary",
-	},
-	"RM-ADV-08": {
-		"center": Vector3(0, 0, -90),
-		"size": Vector3(27, 0, 22.5),
-		"profile": "standard",
-		"label": "South Catacomb",
-	},
-	"RM-ADV-09": {
-		"center": Vector3(0, 0, -112.5),
-		"size": Vector3(27, 0, 22.5),
-		"profile": "standard",
-		"label": "South Deepvault",
-	},
-}
-
 
 const PROFILE_COLORS: Dictionary = {
 	"lit": Color(0.45, 0.42, 0.38),
@@ -156,6 +47,9 @@ const OBSTACLE_TYPES: Dictionary = {
 var _room_areas: Dictionary = {}
 ## Per-room openings: room_ref -> Array of {side, pos_along, width}
 var _room_openings: Dictionary = {}
+## 맵 문서에서 읽은 방 기하 캐시 — `{room_ref: {center, size, label, extraction}}`.
+## 삽입 순서 = 문서 배열 순서 = **생성 순서**(벽 dedup이 순서에 의존한다).
+var _specs: Dictionary = {}
 
 
 ## 에디터 프리뷰(**옵트인**) — 켜면 3D 뷰포트에 그레이박스가 뜬다. 생성 노드는 `owner`를 설정하지
@@ -193,33 +87,40 @@ func geometry_root() -> Node3D:
 
 
 ## Populate the runtime room-points table + extraction point. Placeholder derives
-## from ROOM_SPECS geometry. A real (Blender) map replaces this — e.g. read authored
+## from the map document `geometry`. A real (Blender) map replaces this — e.g. read authored
 ## Marker3D points per room_ref — and every getter above keeps working unchanged.
 func _resolve_room_points() -> void:
 	_room_points.clear()
-	for room_ref in ROOM_SPECS.keys():
-		var spec: Dictionary = ROOM_SPECS[room_ref]
-		var center: Vector3 = spec.get("center", Vector3.ZERO)
+	_specs.clear()
+	for room_ref in data_room_refs():
+		var spec: Dictionary = room_geometry(String(room_ref))
+		if spec.is_empty():
+			push_error("[MAP] %s: 맵 문서에 `geometry` 없음 — 그레이박스는 데이터가 좌표를 갖는다" % room_ref)
+			continue
+		_specs[String(room_ref)] = spec
+		var center: Vector3 = spec["center"]
 		_room_points[String(room_ref)] = {
 			"spawn": center + Vector3(0, 0.02, 0),
 			"size": spec.get("size", Vector3(8, 0, 8)),
 		}
-		if spec.get("extraction", false):
+		if bool(spec["extraction"]):
 			_extraction_point = center   # 계약이 y를 나른다 — 바닥 높이가 다른 맵(Phase 5 단차)에 대비
 
 
 func _compute_openings() -> void:
-	for room_ref in ROOM_SPECS.keys():
+	for room_ref in _specs.keys():
 		_room_openings[room_ref] = []
 
 	for conn in room_connections():   # SSOT = rooms.json `connects`(개구부 폭 포함)
 		var ref_a: String = conn[0]
 		var ref_b: String = conn[1]
 		var width: float = conn[2]
-		var ca: Vector3 = ROOM_SPECS[ref_a]["center"]
-		var cb: Vector3 = ROOM_SPECS[ref_b]["center"]
-		var sa: Vector3 = ROOM_SPECS[ref_a]["size"]
-		var sb: Vector3 = ROOM_SPECS[ref_b]["size"]
+		if not _specs.has(ref_a) or not _specs.has(ref_b):
+			continue                      # 기하 없는 방은 위에서 이미 에러를 냈다
+		var ca: Vector3 = _specs[ref_a]["center"]
+		var cb: Vector3 = _specs[ref_b]["center"]
+		var sa: Vector3 = _specs[ref_a]["size"]
+		var sb: Vector3 = _specs[ref_b]["size"]
 		var diff := cb - ca
 
 		if absf(diff.x) > absf(diff.z):
@@ -256,12 +157,12 @@ func _compute_openings() -> void:
 
 
 func _build_map() -> void:
-	for room_ref in ROOM_SPECS.keys():
+	for room_ref in _specs.keys():
 		_build_room(String(room_ref))
 
 
 func _build_room(room_ref: String) -> void:
-	var spec: Dictionary = ROOM_SPECS[room_ref]
+	var spec: Dictionary = _specs[room_ref]
 	var center: Vector3 = spec["center"]
 	var size: Vector3 = spec["size"]
 	var profile: String = get_room_profile(room_ref)  # SSOT = rooms.json
@@ -273,7 +174,7 @@ func _build_room(room_ref: String) -> void:
 	_rooms_root.add_child(room_node)
 
 	var col: Color = PROFILE_COLORS.get(profile, Color.GRAY)
-	if spec.get("extraction", false):
+	if bool(spec["extraction"]):
 		col = Color(0.25, 0.55, 0.35)
 
 	# Floor
@@ -307,7 +208,7 @@ func _build_room(room_ref: String) -> void:
 	_room_areas[room_ref] = area
 
 	# Label
-	var room_label: String = spec.get("label", room_ref)
+	var room_label: String = String(spec["label"])
 	var label := Label3D.new()
 	label.text = "%s\n%s" % [room_ref, room_label]
 	label.position = center + Vector3(0, 3.2, 0)

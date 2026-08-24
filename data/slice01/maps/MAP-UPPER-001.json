@@ -1,0 +1,869 @@
+{
+  "map_id": "MAP-UPPER-001",
+  "zone_id": "ZONE-UPPER-001",
+  "blueprint_id": "DBP-UPPER-001",
+  "contract_id": "CONTRACT-UPPER-001",
+  "objective_room": "RM-UPPER-04",
+  "entry_room": "RM-UPPER-01",
+  "layer_floor_y": [
+    0.0,
+    -8.0
+  ],
+  "_note": "**MAP-UPPER-001 — 두 번째 그레이박스**(`DBP-UPPER-001`). 데모 맵을 대체하지 않는다: `MAP-DEMO-001`이 회귀 게이트·허브 사다리를 계속 소유하고 둘은 **병행**한다. 활성 맵은 `manifest.map_id`가 고르며 지금 활성은 데모다 — 이 파일은 **정적 게이트로만 검증**된다(부팅 검사는 활성 맵만 받는다). 목적은 예쁜 던전이 아니라 **맵 문법의 확정**이다: 루프 있는 위상 · 문법으로 구별되는 방 · 위험↔보상 결합 · 백레이어 1개.",
+  "_note_theme": "**`label`은 전부 「(임시)」다.** 지역 테마가 미확정이고 ID는 안정 축(`RM-UPPER-##`)이므로 정체성은 표시명·테마 축이 소유한다(`DEC-20260824-001` §F). 테마를 먼저 박으면 「병영이니까 침대」로 흐른다(`F-026` §3). 라벨은 **구조 역할**만 적어 두고, 지역 컨셉이 잡히면 이 필드만 갈아끼운다.",
+  "_note_topology": "연결 12개 · 방 11개 · 컴포넌트 2(layer 0 아홉 방 + layer 1 두 방) → **사이클 3**. 데모 맵은 방 16 · 연결 15 · 사이클 **0**(완전한 트리)이라 모든 분기가 왕복 dead end였다. 루프 A(01→02→04→03→01)는 **목표 왕복을 없앤다**, B(02→04→05→02)는 위험을 사면 빨라지는 우회로, C(04→06→09→07→05→04)는 두 입구 모두 무거운 전투가 지키는 심층 루프다. 계단(`transitions` `role: stairs`)은 `connects`와 **별개 축**이다 — 06→10(하강)·10→06(복귀)·11→04(**단방향 탈출**). 11→04만 있고 04→11이 없는 것은 의도다: 하층은 **잠긴 관문 06을 통과해야** 들어가고 목표실 04 옆으로 나온다. 04에 계단을 두면 열쇠 없이 하층을 거쳐 06에 닿아 잠금이 무의미해진다.",
+  "_note_geometry": "방 기하는 **데이터가 소유한다**(`geometry.center`/`size`, XZ·m). layer 1(`10`/`11`)은 layer 0의 발자국에 **겹친다** — 그게 백레이어의 요점이고, 그래서 수직 확장이 XZ 예산(= 안개 텍스처)을 안 늘린다. 바닥 Y는 `layer_floor_y[layer]`(지상 0 / 하층 −8).",
+  "design_targets": {
+    "min_cycles": 2,
+    "chest_ev_band": [
+      16,
+      20
+    ],
+    "bbox_max_m": [
+      200,
+      200
+    ],
+    "grammar_min_obstacles": {
+      "choke": 2,
+      "los_broken": 3,
+      "split": 2,
+      "flank": 2,
+      "backline_pocket": 1
+    },
+    "require_entry_gate_on_elite": true,
+    "_note_elite_gate": "true = `gated_elite` 방은 전부 진입 조건을 동반해야 한다(`LDG-001` §9 LD checklist). `06`은 열쇠, `07`은 `onObjectiveComplete`다 — 조건이 열쇠일 필요는 없다.",
+    "_note": "이 맵이 스스로 선언하는 **하드 게이트 목표치**다. 데모 맵의 목표치는 「현실 = 나빠지지 않기」였지만 여기는 **처음부터 올려 잡은 값**이다(`DBP-UPPER-001` §8): 사이클 0→2 이상, bbox 155×213 → 200×200 안, 상자 EV는 **총량 보존**(16~20)하고 tier로만 재분배. `grammar_min_obstacles`는 `spatial_grammar`가 **라벨로 남지 않게** 하는 축이다 — 「los_broken이라고 적었으면 시야를 끊는 것이 실제로 3개 있어야 한다」. 코드 수정 없이 데이터가 게이트를 강화한다."
+  },
+  "rooms": [
+    {
+      "room_ref": "RM-UPPER-01",
+      "geometry": {
+        "center": [
+          -31,
+          -11
+        ],
+        "size": [
+          30,
+          26
+        ]
+      },
+      "label": "(임시) 진입 광장",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-UPPER-02",
+          "width": 8.0
+        },
+        {
+          "to": "RM-UPPER-03",
+          "width": 8.0
+        },
+        {
+          "to": "RM-UPPER-08",
+          "width": 6.0
+        }
+      ],
+      "lighting_profile": "lit",
+      "route_class": [
+        "route_early",
+        "route_mid",
+        "route_deep"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "open"
+      ],
+      "encounter_anchor": {
+        "category": "safe"
+      },
+      "spawn_weight": 0.0,
+      "run_phase_on_enter": "Advance",
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "pillar",
+            "pos": [
+              0,
+              0
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              -8,
+              6
+            ]
+          },
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              8,
+              -6
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-02",
+      "geometry": {
+        "center": [
+          4,
+          -11
+        ],
+        "size": [
+          40,
+          26
+        ]
+      },
+      "label": "(임시) 중앙 분기",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-UPPER-04",
+          "width": 8.0
+        },
+        {
+          "to": "RM-UPPER-05",
+          "width": 6.0
+        }
+      ],
+      "lighting_profile": "standard",
+      "route_class": [
+        "route_early",
+        "route_mid",
+        "route_deep"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "open",
+        "flank"
+      ],
+      "encounter_anchor": {
+        "category": "mandatory_threat"
+      },
+      "loot_anchor": {
+        "tier": "safe"
+      },
+      "pool_slot": "P-UPPER-01",
+      "spawn_weight": 1.8,
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "pillar",
+            "pos": [
+              -10,
+              4
+            ]
+          },
+          {
+            "type": "crates",
+            "pos": [
+              8,
+              -4
+            ]
+          },
+          {
+            "type": "barrier",
+            "pos": [
+              0,
+              8
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "role": "ally_cache",
+            "pos": [
+              0,
+              0
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-BARREL-001",
+            "pos": [
+              12,
+              6
+            ]
+          },
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              -14,
+              -6
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-03",
+      "geometry": {
+        "center": [
+          -34,
+          22
+        ],
+        "size": [
+          36,
+          40
+        ]
+      },
+      "label": "(임시) 기록실",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-UPPER-04",
+          "width": 8.0
+        }
+      ],
+      "lighting_profile": "dim",
+      "route_class": [
+        "route_mid"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "los_broken"
+      ],
+      "encounter_anchor": {
+        "category": "ambush_candidate"
+      },
+      "loot_anchor": {
+        "tier": "contested"
+      },
+      "pool_slot": "P-UPPER-02",
+      "spawn_weight": 1.0,
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "pillar",
+            "pos": [
+              -8,
+              8
+            ]
+          },
+          {
+            "type": "pillar",
+            "pos": [
+              8,
+              -8
+            ]
+          },
+          {
+            "type": "crates",
+            "pos": [
+              -10,
+              -10
+            ]
+          },
+          {
+            "type": "crates",
+            "pos": [
+              10,
+              10
+            ]
+          }
+        ],
+        "interactions": [
+          {
+            "ref": "CHEST-UPPER-01",
+            "role": "key_chest",
+            "pos": [
+              0,
+              0
+            ],
+            "yields": "KEY-UPPER-01"
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              0,
+              14
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-04",
+      "geometry": {
+        "center": [
+          4,
+          22
+        ],
+        "size": [
+          40,
+          40
+        ]
+      },
+      "label": "(임시) 목표실 — 관통방",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-UPPER-05",
+          "width": 8.0
+        },
+        {
+          "to": "RM-UPPER-06",
+          "width": 6.0
+        }
+      ],
+      "lighting_profile": "standard",
+      "route_class": [
+        "route_mid",
+        "route_deep"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "split"
+      ],
+      "encounter_anchor": {
+        "category": "mandatory_threat"
+      },
+      "loot_anchor": {
+        "tier": "contested"
+      },
+      "pool_slot": "P-UPPER-03",
+      "spawn_weight": 1.6,
+      "run_phase_on_enter": "Objective",
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "barrier",
+            "pos": [
+              -6,
+              0
+            ]
+          },
+          {
+            "type": "barrier",
+            "pos": [
+              6,
+              0
+            ]
+          },
+          {
+            "type": "pillar",
+            "pos": [
+              0,
+              -12
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "role": "key_gate",
+            "gates": "RM-UPPER-06",
+            "pos": [
+              0,
+              19
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              -14,
+              14
+            ]
+          },
+          {
+            "ref": "ENT-BARREL-001",
+            "pos": [
+              14,
+              -14
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-05",
+      "geometry": {
+        "center": [
+          37,
+          10
+        ],
+        "size": [
+          26,
+          64
+        ]
+      },
+      "label": "(임시) 동측 우회 회랑",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-UPPER-07",
+          "width": 8.0
+        }
+      ],
+      "lighting_profile": "standard",
+      "route_class": [
+        "route_mid",
+        "route_deep"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "open"
+      ],
+      "encounter_anchor": {
+        "category": "optional_threat"
+      },
+      "loot_anchor": {
+        "tier": "contested"
+      },
+      "pool_slot": "P-UPPER-04",
+      "spawn_weight": 1.2,
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "crates",
+            "pos": [
+              -6,
+              -20
+            ]
+          },
+          {
+            "type": "pillar",
+            "pos": [
+              6,
+              10
+            ]
+          }
+        ],
+        "hazards": [
+          {
+            "role": "plate",
+            "pos": [
+              0,
+              -4
+            ]
+          },
+          {
+            "role": "lever",
+            "pos": [
+              0,
+              22
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              -8,
+              26
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-06",
+      "geometry": {
+        "center": [
+          4,
+          54
+        ],
+        "size": [
+          16,
+          24
+        ]
+      },
+      "label": "(임시) 관문",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-UPPER-09",
+          "width": 6.0
+        }
+      ],
+      "lighting_profile": "dim",
+      "route_class": [
+        "route_deep"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "choke"
+      ],
+      "encounter_anchor": {
+        "category": "gated_elite"
+      },
+      "loot_anchor": {
+        "tier": "gated"
+      },
+      "pool_slot": "P-UPPER-05",
+      "spawn_weight": 1.0,
+      "difficulty_profile": "Hard",
+      "entry_requirement": {
+        "rule": "requiresItem",
+        "ref": "KEY-UPPER-01",
+        "scope": "run",
+        "consume_on_use": true
+      },
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "barrier",
+            "pos": [
+              -4,
+              0
+            ]
+          },
+          {
+            "type": "barrier",
+            "pos": [
+              4,
+              0
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "role": "stairs",
+            "to": "RM-UPPER-10",
+            "pos": [
+              0,
+              -8
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              0,
+              9
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-07",
+      "geometry": {
+        "center": [
+          39,
+          66
+        ],
+        "size": [
+          30,
+          48
+        ]
+      },
+      "label": "(임시) 심부 회랑",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-UPPER-09",
+          "width": 8.0
+        }
+      ],
+      "lighting_profile": "dim",
+      "route_class": [
+        "route_deep"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "split"
+      ],
+      "encounter_anchor": {
+        "category": "gated_elite"
+      },
+      "loot_anchor": {
+        "tier": "gated"
+      },
+      "pool_slot": "P-UPPER-06",
+      "spawn_weight": 1.4,
+      "difficulty_profile": "Hard",
+      "entry_requirement": {
+        "rule": "onObjectiveComplete",
+        "scope": "run"
+      },
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "barrier",
+            "pos": [
+              -8,
+              -8
+            ]
+          },
+          {
+            "type": "barrier",
+            "pos": [
+              8,
+              8
+            ]
+          },
+          {
+            "type": "pillar",
+            "pos": [
+              0,
+              0
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              -12,
+              18
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-08",
+      "geometry": {
+        "center": [
+          -31,
+          -37
+        ],
+        "size": [
+          30,
+          26
+        ]
+      },
+      "label": "(임시) 조기 탈출대",
+      "world_layer": "Upper",
+      "connects": [],
+      "lighting_profile": "lit",
+      "route_class": [
+        "route_early"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "open"
+      ],
+      "encounter_anchor": {
+        "category": "safe"
+      },
+      "spawn_weight": 0.0,
+      "extraction_point_id": "POINT-UPPER-01",
+      "run_phase_on_enter": "Extraction",
+      "anchors": {
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-09",
+      "geometry": {
+        "center": [
+          8,
+          78
+        ],
+        "size": [
+          32,
+          24
+        ]
+      },
+      "label": "(임시) 심층 탈출대",
+      "world_layer": "Upper",
+      "connects": [],
+      "lighting_profile": "dim",
+      "route_class": [
+        "route_deep"
+      ],
+      "layer": 0,
+      "spatial_grammar": [
+        "choke"
+      ],
+      "encounter_anchor": {
+        "category": "third_faction_candidate"
+      },
+      "pool_slot": "P-UPPER-07",
+      "spawn_weight": 0.8,
+      "extraction_point_id": "POINT-UPPER-02",
+      "run_phase_on_enter": "Extraction",
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "barrier",
+            "pos": [
+              -8,
+              0
+            ]
+          },
+          {
+            "type": "barrier",
+            "pos": [
+              8,
+              0
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              0,
+              8
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-10",
+      "geometry": {
+        "center": [
+          4,
+          42
+        ],
+        "size": [
+          20,
+          60
+        ]
+      },
+      "label": "(임시) 하층 통로",
+      "world_layer": "Upper",
+      "connects": [
+        {
+          "to": "RM-UPPER-11",
+          "width": 6.0
+        }
+      ],
+      "lighting_profile": "unlit",
+      "route_class": [
+        "route_deep"
+      ],
+      "layer": 1,
+      "spatial_grammar": [
+        "los_broken"
+      ],
+      "encounter_anchor": {
+        "category": "patrol_route"
+      },
+      "loot_anchor": {
+        "tier": "contested"
+      },
+      "pool_slot": "P-UPPER-08",
+      "spawn_weight": 1.0,
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "pillar",
+            "pos": [
+              -6,
+              -20
+            ]
+          },
+          {
+            "type": "pillar",
+            "pos": [
+              6,
+              -6
+            ]
+          },
+          {
+            "type": "crates",
+            "pos": [
+              -6,
+              8
+            ]
+          },
+          {
+            "type": "crates",
+            "pos": [
+              6,
+              22
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "role": "stairs",
+            "to": "RM-UPPER-06",
+            "pos": [
+              0,
+              22
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "room_ref": "RM-UPPER-11",
+      "geometry": {
+        "center": [
+          4,
+          -2
+        ],
+        "size": [
+          30,
+          28
+        ]
+      },
+      "label": "(임시) 하층 보상실",
+      "world_layer": "Upper",
+      "connects": [],
+      "lighting_profile": "dim",
+      "route_class": [
+        "route_deep"
+      ],
+      "layer": 1,
+      "spatial_grammar": [
+        "backline_pocket"
+      ],
+      "encounter_anchor": {
+        "category": "optional_threat"
+      },
+      "loot_anchor": {
+        "tier": "gated"
+      },
+      "pool_slot": "P-UPPER-09",
+      "spawn_weight": 0.8,
+      "difficulty_profile": "Hard",
+      "anchors": {
+        "obstacles": [
+          {
+            "type": "crates",
+            "pos": [
+              0,
+              -8
+            ]
+          }
+        ],
+        "transitions": [
+          {
+            "role": "stairs",
+            "to": "RM-UPPER-04",
+            "pos": [
+              0,
+              12
+            ]
+          }
+        ],
+        "props": [
+          {
+            "ref": "ENT-TORCH-001",
+            "pos": [
+              -12,
+              10
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "_note_anchors": "앵커는 방 **중심 기준 로컬 XZ**(m). `transitions`는 계단(`role: stairs`, `to`)과 잠긴 문(`role: key_gate`, `gates`)을 함께 담는다 — 역할을 안 보면 도달성이 문을 계단으로 세어 거짓 통과한다([[DRIFT-178]]). 열쇠는 `RM-UPPER-03`(잠긴 방 **밖**)에서 나오고 문은 `RM-UPPER-06`을 막는다 — `gates`가 지목한 방의 `entry_requirement.ref`가 곧 문이 요구하는 열쇠 id다.",
+  "_note_gating": "`gated_elite` 두 방은 **둘 다 `entry_requirement`를 동반한다**(`LDG-001` §9 LD checklist). `06` = `requiresItem KEY-UPPER-01` · `scope: run`(소모성, 다음 런에 재잠금). `07` = `onObjectiveComplete` — 열쇠가 아니라 **진행 게이트**다(같은 §9.1 어휘, 신규 어휘 아님). `difficulty_profile: Hard`는 `06`/`07`/`11` 셋인데 잠긴 건 `06` 하나다 — 잠금 없는 오버라이드는 진입 전 전조를 둔다(§9.1 SHOULD). 여기서는 셋을 전부 `dim`/`unlit`로 두어 조명이 전조를 맡는다.",
+  "_note_pending": "⚠ **후속 필수(이 맵을 활성화하기 전에):** ① `spawn_table.json`에 `P-UPPER-01~09` 행이 없다 — `LDG-SPAWN-DEMO-001`의 행 구조를 재사용해 채워야 ENC가 해석된다(`DBP-UPPER-001` §6). ② `KEY-UPPER-01`/`CHEST-UPPER-01`은 표시명(`display_names.json`)이 없다. ③ `entry_requirement.rule: onObjectiveComplete`(방 진입 조건)은 런타임 미구현 — 현재는 `requiresItem` 문만 실물 문으로 세워진다. 정적 게이트가 ①을 **미해석 개수로 보고**한다(조용히 넘기지 않는다)."
+}

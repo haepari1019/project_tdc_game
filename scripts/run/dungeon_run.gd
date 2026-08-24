@@ -233,9 +233,13 @@ func _ready() -> void:
 	# 좌표는 전부 **맵 앵커**에서 온다(구 하드코딩). 맵을 갈아끼워도 이 블록은 그대로다.
 	var chest := Chest.new()
 	chest.title = "유물함"
-	# ID 계약: 아이템 id = **스펙 ID**(`KEY-DEMO-01`, DBP-DEMO-001 §6.1). rooms.json의
-	# `anchors.interactions[key_chest].yields` · `RM-EXT-01.entry_requirement.ref`와 같은 문자열이어야 한다.
-	chest.items = [{"id": "KEY-DEMO-01", "w": 1, "h": 1, "col": 0, "row": 0, "color": Color(0.95, 0.82, 0.22)}]
+	# ID 계약: 아이템 id = **스펙 ID**(`DBP-###` §6.1). 예전엔 `"KEY-DEMO-01"`이 여기 박혀 있어서
+	# 데이터의 `anchors.interactions[key_chest].yields` 선언과 **두 벌**이었다 — 맵을 갈아끼우면
+	# 「데이터는 `KEY-UPPER-01`을 선언하는데 상자엔 데모 열쇠가 들어 있는」 상태가 조용히 성립한다.
+	# 이제 **앵커의 `yields`가 단일 소유자**다. `entry_requirement.ref`와 같은 문자열이어야 하고,
+	# 그 일치는 map_smoke가 **실제 배치된 상자를 열어 보며** 검사한다.
+	chest.items = [{"id": _anchor_str("interactions", "role", "key_chest", "yields"),
+		"w": 1, "h": 1, "col": 0, "row": 0, "color": Color(0.95, 0.82, 0.22)}]
 	chest.setup(_inventory_ui)
 	chest.position = _anchor_pos("interactions", "role", "key_chest")
 	add_child(chest)
@@ -249,6 +253,10 @@ func _ready() -> void:
 	# Keyed door blocking the route→extraction opening (RM-ROUTE-01 → RM-EXT-01 @ z=77.25).
 	var door := Door.new()
 	door.setup(_inventory_ui, _run)
+	# **이 문이 요구하는 열쇠는 데이터가 정한다** — 앵커 `gates`가 막는 방을 지목하고,
+	# 열쇠 id는 그 방의 `entry_requirement.ref`다. 열쇠가 둘 이상인 순간(맵마다 다르다)
+	# 「아무 열쇠나 아무 문을 여는」 부분 문자열 판정으로 돌아가지 않게 하는 고리다.
+	door.key_id = _gated_key_id()
 	door.position = _anchor_pos("transitions", "role", "key_gate")
 	add_child(door)
 	# F2: the closed door casts a vision shadow (fog + enemy cones); opening frees these occluders.
@@ -320,6 +328,7 @@ func _ready() -> void:
 	_wall_xray.set_fog_material(_vision_fog.get_fog_material())
 	# Quest tracker (top-right, below the reserved minimap space).
 	var quest := QuestTracker.new()
+	quest.key_id = _gated_key_id()   # 표시 판정 = 문 판정 (어긋나면 「✓인데 안 열리는」 화면)
 	$HUD.add_child(quest)
 	quest.setup(_inventory_ui, _run)
 	# Minimap (top-right, above the quest tracker).
@@ -610,8 +619,29 @@ func _anchor_pos(kind: String, key: String, value: String) -> Vector3:
 	for a in _map.get_all_anchors(kind):
 		if String((a as Dictionary).get(key, "")) == value:
 			return (a as Dictionary)["pos"]
-	push_warning("[MAP] 앵커 없음 — %s/%s=%s (rooms.json anchors 확인)" % [kind, key, value])
+	push_warning("[MAP] 앵커 없음 — %s/%s=%s (맵 문서 anchors 확인)" % [kind, key, value])
 	return _map.get_spawn_position()
+
+
+## 잠긴 문이 요구하는 열쇠 id — `transitions[key_gate].gates` → 그 방의 `entry_requirement.ref`.
+## 데이터 한 곳(`entry_requirement`)이 「무엇이 필요한가」의 단일 소유자다.
+func _gated_key_id() -> String:
+	var room := _anchor_str("transitions", "role", "key_gate", "gates")
+	if room.is_empty():
+		return ""
+	var sd := get_node_or_null("/root/Slice01Data")
+	if sd == null:
+		return ""
+	return String((sd.get_room_row(room).get("entry_requirement", {}) as Dictionary).get("ref", ""))
+
+
+## 앵커가 실은 **문자열 필드**(`yields` 등). 데이터가 소유한 ID를 코드가 다시 적지 않기 위한 통로다.
+func _anchor_str(kind: String, key: String, value: String, field: String) -> String:
+	for a in _map.get_all_anchors(kind):
+		if String((a as Dictionary).get(key, "")) == value:
+			return String((a as Dictionary).get(field, ""))
+	push_warning("[MAP] 앵커 없음 — %s/%s=%s (맵 문서 anchors 확인)" % [kind, key, value])
+	return ""
 
 
 ## 같은 종류 앵커 전부(배럴·횃불처럼 여러 개).

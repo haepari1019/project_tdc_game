@@ -256,7 +256,7 @@ footer{
       <div class="b">
         <div class="t">「그 전에 데이터화」는 선택이 아니라 Phase 0이다</div>
         <div class="d">지금은 <strong>위상 자체가 코드</strong>다 — <code>ROOM_SPECS</code>·<code>CONNECTIONS</code>·<code>OBSTACLE_SPECS</code>·<code>LOOT_CHEST_ROOMS</code>가 전부 GDScript 상수다.
-        사이클 하나를 추가하려 해도 코드를 고쳐야 하고, <code>rooms.json</code>의 <code>connects</code>와 어긋나도 아무도 알려주지 않는다.
+        사이클 하나를 추가하려 해도 코드를 고쳐야 하고, <code>maps/&lt;map_id&gt;.json</code>의 <code>connects</code>와 어긋나도 아무도 알려주지 않는다.
         <strong>Phase 1을 하려면 Phase 0이 끝나 있어야 한다.</strong></div>
       </div>
     </div>
@@ -327,20 +327,21 @@ footer{
 
   <h3>소유권을 파일이 아니라 종류로 가른다</h3>
 
-  <p>기하를 <code>rooms.json</code>으로 내리면 authored 맵이 오는 순간 <strong>두 벌이 다시 생긴다</strong> —
+  <p>기하를 <code>maps/&lt;map_id&gt;.json</code>으로 내리면 authored 맵이 오는 순간 <strong>두 벌이 다시 생긴다</strong> —
   지금 고치려는 병을 그대로 재발시킨다. 그래서 이렇게 가른다.</p>
 
   <div class="tw">
   <table>
     <thead><tr><th>층</th><th>내용</th><th>소유자</th><th class="m">맵 교체 시</th></tr></thead>
     <tbody>
-      <tr><td><strong>의미</strong></td><td><code>room_ref</code> · <code>connects</code> · <code>world_layer</code> · <code>route_class</code> · grammar 태그 · encounter anchor category · loot tier · phase hint</td><td><code>rooms.json</code> (SSOT)</td><td class="m">유지</td></tr>
+      <tr><td><strong>의미</strong></td><td><code>room_ref</code> · <code>connects</code> · <code>world_layer</code> · <code>route_class</code> · grammar 태그 · encounter anchor category · loot tier · phase hint</td><td><code>maps/&lt;map_id&gt;.json</code> (SSOT)</td><td class="m">유지</td></tr>
       <tr><td><strong>공간</strong></td><td>기하 · 앵커 좌표 · 오클루더 · navmesh · 조명 배치</td><td><strong>MapSource</strong> (씬)</td><td class="m">교체</td></tr>
       <tr><td>다리</td><td colspan="2"><code>room_ref</code> 문자열 + 노드 이름 규약</td><td class="m">—</td></tr>
     </tbody>
   </table>
   </div>
 
+  <p>맵 1개 = 파일 1개다. 데이터는 <code>data/slice01/maps/&lt;map_id&gt;.json</code>이고 활성 맵은 <code>manifest.map_id</code>가 고른다(구 단일 <code>rooms.json</code>). <code>entry_room</code>·<code>design_targets</code>·<code>layer_floor_y</code>가 이미 맵 단위 속성이라, 맵을 추가할 때 <strong>기존 파일을 안 건드리는</strong> 쪽이 회귀 위험이 0이다.</p>
   <p>구현은 둘, 계약은 하나다. <code>geometry</code>·<code>anchors</code> 블록은 <strong>절차 그레이박스 전용 폴백</strong>으로 명시하고 authored 맵은 생략한다.</p>
 
   <ul>
@@ -537,7 +538,7 @@ footer{
     <thead><tr><th class="m">#</th><th>단계</th><th>주체</th><th>산출물</th><th class="m">왕복</th></tr></thead>
     <tbody>
       <tr><td class="m">0</td><td>ID 발급 — 유일하게 spec이 먼저</td><td>사람 승인 → spec</td><td><code>RM-FOR-01</code> · <code>P-FOR-01</code></td><td class="m">1회</td></tr>
-      <tr><td class="m">1</td><td>방 추가</td><td><strong>에이전트</strong></td><td><code>rooms.json</code> 행 1개</td><td class="m">초</td></tr>
+      <tr><td class="m">1</td><td>방 추가</td><td><strong>에이전트</strong></td><td><code>maps/&lt;map_id&gt;.json</code> 행 1개</td><td class="m">초</td></tr>
       <tr><td class="m">2</td><td>불변식 검사</td><td>툴</td><td><code>map_smoke</code> PASS/FAIL</td><td class="m">초</td></tr>
       <tr><td class="m">3</td><td>눈으로 확인</td><td>툴 → 에이전트 → 사람</td><td><code>map_shot</code> PNG</td><td class="m">분</td></tr>
       <tr><td class="m">4</td><td>문법 적용</td><td><strong>에이전트</strong></td><td><code>spatial_grammar</code> 2값</td><td class="m">초</td></tr>
@@ -605,7 +606,7 @@ footer{
     <thead><tr><th></th><th>지금</th><th>Phase 0 이후</th></tr></thead>
     <tbody>
       <tr><td>GDScript</td><td class="dim"><code>ROOM_SPECS</code> · <code>CONNECTIONS</code> · <code>LOOT_CHEST_ROOMS</code> (+ <code>OBSTACLE_SPECS</code>)</td><td><strong>0곳</strong></td></tr>
-      <tr><td>데이터</td><td class="dim"><code>rooms.json</code> · <code>spawn_table.json</code> · <code>id_registry.json</code></td><td>동일 3곳</td></tr>
+      <tr><td>데이터</td><td class="dim"><code>maps/&lt;map_id&gt;.json</code> · <code>spawn_table.json</code> · <code>id_registry.json</code></td><td>동일 3곳</td></tr>
       <tr><td>검증</td><td class="dim">실행해서 눈으로</td><td><code>map_smoke</code> + 스냅샷</td></tr>
       <tr><td><strong>합계</strong></td><td class="m"><strong>7곳 · 코드 3</strong></td><td class="m"><strong>3곳 · 코드 0</strong></td></tr>
     </tbody>
@@ -891,7 +892,7 @@ footer{
   <table>
     <thead><tr><th class="m">#</th><th>항목</th><th>성격</th></tr></thead>
     <tbody>
-      <tr><td class="m">1</td><td><code>layer</code> 축을 맵 계약 + <code>rooms.json</code>에 — 콜리전 비트·nav map·안개 텍스처의 <strong>공통 키</strong></td><td>기반 · <strong>패킷 §G 전파</strong></td></tr>
+      <tr><td class="m">1</td><td><code>layer</code> 축을 맵 계약 + <code>maps/&lt;map_id&gt;.json</code>에 — 콜리전 비트·nav map·안개 텍스처의 <strong>공통 키</strong></td><td>기반 · <strong>패킷 §G 전파</strong></td></tr>
       <tr><td class="m">2</td><td>안개 <strong>레이어별 탐색 누적</strong> + 비활성 레이어 미렌더</td><td>F-011</td></tr>
       <tr><td class="m">3</td><td>world 콜리전 <strong>비트 분리</strong>(32개 중 배정) — LOS 마스크 · wall xray</td><td>전투</td></tr>
       <tr><td class="m">4</td><td>레이어별 <code>NavigationRegion3D</code> — 활성만 <code>enabled</code>, 콜리전 마스크로 파싱 분리</td><td>이동</td></tr>
@@ -1062,7 +1063,7 @@ ok   [계약] 추출 지점이 RM-EXT-01 안에 있음
       <tr><td>MAP-DEMO-001 전체</td><td class="m"><span class="chip ok">유지</span></td><td>회귀 게이트 · 허브 사다리. 신규 맵은 <strong>병행</strong></td></tr>
       <tr><td>기름통 · 횃불 (RX-OIL-FIRE · ENT-TORCH)</td><td class="m"><span class="chip ok">유지</span></td><td>앵커로 내려서 임의의 방에 배치 가능하게</td></tr>
       <tr><td><code>ROOM_SPECS</code> · <code>CONNECTIONS</code> · <code>OBSTACLE_SPECS</code></td><td class="m"><span class="chip dead">폐기</span></td><td><code>DEBT-DM3</code> 해소 — MapSource로 이관</td></tr>
-      <tr><td><code>rooms.json</code>의 <code>connects</code> 두 벌</td><td class="m"><span class="chip dead">폐기</span></td><td>단일 소유자로</td></tr>
+      <tr><td><code>maps/&lt;map_id&gt;.json</code>의 <code>connects</code> 두 벌</td><td class="m"><span class="chip dead">폐기</span></td><td>단일 소유자로</td></tr>
       <tr><td><code>manifest.encounters</code> 레거시 핀 3개</td><td class="m"><span class="chip dead">폐기</span></td><td>실사용 경로는 <code>spawn_table</code></td></tr>
       <tr><td><code>P-3RD-01</code> · <code>ENC-3RD-001.json</code> 고아 경로</td><td class="m"><span class="chip warn">복구</span></td><td>3세력 exit 수렴으로 실배선 — 코드 상수 <code>THIRD_FACTION_PACK</code> 대체</td></tr>
       <tr><td>Hard 난이도 20행 + <code>ENC-HARD-*</code> 12종</td><td class="m"><span class="chip warn">복구</span></td><td>route × layer가 난이도 키를 공급하면 즉시 도달 가능</td></tr>

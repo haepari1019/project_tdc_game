@@ -60,7 +60,7 @@
 
 - [ ] **B2 ENC-HARD-007 (Extreme)** — 난이도 티어 채택 시(현 Normal/Hard). 23/24 ENC 완료. · ROADMAP §1
 - [ ] **B3 대장간 리롤** — 기어/스킬북 roll·affix 리롤 스테이션. Expansion 못박음(S6b 마지막). · `DRIFT-062`·`IMPL-DEC-20260626-035`
-- [ ] **DEBT-DM3** 실제 맵 지오메트리 — ROOM_SPECS placeholder 절차기하 유지, Blender 실맵 미대체(레벨아트 대기).
+- [ ] **DEBT-DM3** ↘축소(DRIFT-179) 실제 맵 지오메트리 — 기하는 **맵 문서 `geometry`로 SSOT화 완료**(GDScript 좌표 상수 0). 남은 것은 절차 박스가 placeholder라는 점뿐: Blender 실맵 미대체(레벨아트 대기). 갈아끼울 경로는 이미 서 있다(`authored_map_source` + `map_convention` + `import_post`).
 - [ ] **DEBT-PLAT-FWD** F-011 fog가 Forward+ 강제 → **web export 차단**. impl-only 결정(spec 비대상). web/mobile 타겟 채택 시만 재검토.
 - [ ] ~~적 진짜 탄도(회피가능)~~ — locked 설계, **비채택**(갭 아님, 참고용). · `DRIFT-059`·`IMPL-DEC-019`
 

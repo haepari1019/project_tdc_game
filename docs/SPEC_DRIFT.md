@@ -2296,3 +2296,40 @@
 - **영향 파일:** `data/slice01/rooms.json`(`entry_room`) · `scripts/world/map_source.gd`(`get_entry_room`·`stair_links`) · `scripts/run/dungeon_run.gd` · `tools/map_smoke.gd`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS**.
 - **상태:** ✅ 완료 · 전파 불요. 다음: `rooms.json`에 **11방 저작**(D-3) + `design_targets` 엄격값 → 계단 클릭 입력(D-4) → 3세력 층간(D-5).
+
+### DRIFT-179 — 맵 1개 = 파일 1개 + 방 기하 SSOT화 + 열쇠 id 데이터화 (D-3 전제) 🔷 Phase 1 · 전파 불요
+- **근거:** `MAP-UPPER-001`을 저작하려면 두 맵이 **병행**해야 한다(`DBP-UPPER-001` ssot_note). 그런데 데이터 구조가 **단일 맵 전제**였다 — 최상위에 `map_id` 하나, 방 배열 하나, `entry_room` 하나, `design_targets` 하나.
+- **① 맵 문서 분리.** `data/slice01/rooms.json` → `data/slice01/maps/<map_id>.json`, 활성 맵은 `manifest.map_id`가 고른다(`Slice01Data.map_doc_path()`). 「한 파일에 맵 축 추가」(`maps: {…}`)를 안 고른 이유: `entry_room`·`design_targets`·`layer_floor_y`·`zone_id`가 **이미 맵 단위 속성**이라 그 전부가 한 단계 안으로 들어가고 접근자마다 맵 키가 붙는다. 파일을 가르면 **맵을 추가할 때 기존 파일을 안 건드린다** → 데모 맵 회귀 위험이 0이다.
+- **🔴 ② 방 기하를 데이터로 내렸다(DEBT-DM3 축소).** `map_demo_layout.ROOM_SPECS`가 `center`/`size`/`label`을 든 **GDScript 좌표 상수**였다. 옮긴 이유는 두 가지다:
+  - `authored_map_source.gd`가 **스스로 적어둔 계약**(「절차: 데이터가 좌표를 갖는다 → 코드가 박스를 만든다」)과 코드 상수가 어긋나 있었다.
+  - 맵을 추가하면 같은 상수 블록을 코드에 또 만들어야 했다 → **맵마다 기하 규약이 달라진다.** 다음 맵이 어느 쪽을 따라야 할지 정할 수 없는 상태를 지금 없앴다.
+  - 계약은 `map_source.room_geometry()`가 소유하고 `y`도 나른다(`geometry.floor_y` → 없으면 맵 문서 `layer_floor_y[layer]`) — **층 간격 상수를 코드에 두지 않는다**(맵마다 단차가 다르다). `map_demo_layout`은 이제 **좌표를 하나도 갖지 않는다**(700 → 441줄).
+  - 배열 순서 = **생성 순서**이고 벽 dedup이 순서에 의존하므로, 옮길 때 구 상수의 키 순서를 그대로 보존했다(`RM-OBJ-01`이 `RM-ADV-02`보다 앞).
+- **🔴 ③ 열쇠 id도 코드에서 뺐다.** `chest.items = [{"id": "KEY-DEMO-01", …}]`가 박혀 있어서 데이터의 `anchors.interactions[key_chest].yields` 선언과 **두 벌**이었다 — 맵을 갈아끼우면 「데이터는 `KEY-UPPER-01`을 선언하는데 상자엔 데모 열쇠가 든」 상태가 조용히 성립한다. 이제 앵커 `yields`가 단일 소유자다.
+- **🔴 ④ 「id에 key가 들어가면 아무 문이나 열린다」를 고쳤다.** `backpack_has_key()`가 부분 문자열(`contains("key")`)이었고, 코드 주석 스스로 *「열쇠가 늘면 정확 일치로 좁혀야 한다」*고 적어 두고 있었다. `KEY-UPPER-01`이 생기는 순간 그게 **실제 결함**이 된다(데모 열쇠로 UPPER 문이 열린다). → `backpack_has_key(key_id)` / `consume_key(key_id)` **정확 일치**, `Door.key_id`·`QuestTracker.key_id`는 데이터에서 받는다: `transitions[key_gate].gates`가 막는 방을 지목하고 열쇠 id는 **그 방의 `entry_requirement.ref`**다. `key_id`가 빌 때만 구 동작으로 떨어진다(구 세이브 `"Key"` 호환).
+- **🔴 ⑤ 게이트가 텍스트를 안 보고 실물을 본다.** 「앵커 `yields` id가 코드에 실재」는 `dungeon_run.gd` **소스를 grep**했다 — ③으로 하드코딩이 사라지면 그 검사는 **아무것도 검사하지 않는 상태**가 된다(초록인데 무의미). **부팅된 씬의 상자를 열어 보는** 검사로 바꾸고, 문에 정확한 열쇠 id가 실렸는지도 못 박았다.
+- **반증 확인:** 데이터의 방 좌표를 3 m 밀면 공유벽·navmesh 통행·XZ 중첩 **3개가 빨개진다**(기하가 진짜 데이터에서 온다는 증거) · `yields`를 딴 id로 바꾸면 잠금 해결 가능성 FAIL · `gates` 선언을 지우면 「문이 정확한 열쇠 id를 안다」 FAIL. 되돌리면 전 수치가 이전과 동일(오클루더 97 · 연결 15 · 상자 EV 18.4 · bbox 155×213).
+- **영향 파일:** `data/slice01/maps/MAP-DEMO-001.json`(이동+`geometry`/`label`/`layer_floor_y`/`gates`) · `slice01_data.gd` · `map_source.gd`(`room_geometry`·`layer_floor_y`·`data_room_refs`·`read_map_doc_from_disk`) · `map_demo_layout.gd` · `dungeon_run.gd` · `inventory_ui.gd` · `door.gd` · `quest_tracker.gd` · `tools/map_smoke.gd` · `ARCHITECTURE.md`(DEBT-DM3 ↘low) · `map_contract.md` · `map_upgrade_plan.html`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS**.
+- **상태:** ✅ 완료 · 전파 불요(코드/데이터 배치 결정, 스펙 규칙 불변).
+
+### DRIFT-180 — `MAP-UPPER-001` 저작 + **전 맵 정적 게이트** (D-3) 🔷 Phase 1 · 전파 불요
+- **근거:** `DBP-UPPER-001`(spec, `DEC-20260824-001`)의 11방을 게임 데이터로 저작. 데모 맵을 대체하지 않는다 — `MAP-DEMO-001`이 회귀 게이트·허브 사다리를 계속 소유하고 **둘은 병행**한다.
+- **🔴 ① 「비활성 맵 = 검사 안 받는 데이터」를 안 만들었다.** 기존 검사는 전부 **부팅된 맵 하나**를 본다. 그러면 신규 맵은 활성이 되는 날에 **처음** 빨개진다 — 늦다. 그래서 축을 갈랐다:
+  - **부팅 검사** = navmesh 통행 · 오클루더 유도 · 스폰 · 전이 — **씬이 있어야** 답이 나오는 것.
+  - **정적 검사**(신규) = 위상 · 인접 · 잠금 그래프 · enum · 문법 — **기하가 데이터에 있으니**(DRIFT-179 ②) 씬 없이 답이 나오는 것. `data/slice01/maps/*.json` **전부**에 돈다.
+  - 겹치는 항목(인접·사이클)은 **일부러 양쪽에** 둔다: 정적은 전 맵을, 부팅은 씬↔데이터 일치를 본다.
+- **② 위상.** 방 11 · `connects` 12 · 컴포넌트 2 → **사이클 3**(데모는 방 16 · 연결 15 · 사이클 **0** = 완전한 트리, 모든 분기가 왕복 dead end였다). 루프 A `01→02→04→03→01`(목표 왕복 제거) · B `02→04→05→02`(위험을 사면 빨라지는 우회로) · C `04→06→09→07→05→04`(두 입구 모두 무거운 전투가 지키는 심층 루프).
+- **🔴 ③ 사이클 식이 틀렸었다 — `E − V + 1` → `E − V + C`.** C를 1로 고정하면 층이 갈린 맵(백레이어 = `connects` 성분 2개)의 사이클을 **과소 계산**한다: 백레이어 2방·1연결이 붙으면 사이클이 1 **줄어든** 것처럼 보인다. 정적·부팅 양쪽 다 고쳤다(데모는 단일 성분이라 값 불변 = 0).
+- **🔴 ④ 계단 방향이 잠금을 지킨다.** 계단은 `06→10`(하강) · `10→06`(복귀) · `11→04`(**단방향 탈출**)다. `04→11`을 **일부러 안 뒀다** — 두면 열쇠 없이 `04 → 11 → 10 → 06`으로 관문에 닿아 `KEY-UPPER-01` 잠금이 무의미해진다. 게이트가 「계단은 **층을 넘는다**」를 못 박는다(같은 층이면 그건 `connects`여야 한다).
+- **⑤ 위험↔보상.** `loot_anchor.tier` 8방 재분배로 **상자 EV 18.2**(밴드 16~20 = 데모 18.4 대비 총량 보존, `HUB-COR-000` 공급 곡선 불변). `bbox 106×140` ≤ 200×200 — 백레이어가 layer 0 발자국에 **겹치므로**(층 간 중첩 5쌍) 수직 확장이 안개 텍스처 예산을 안 늘린다.
+- **🔴 ⑥ `spatial_grammar`가 라벨로 남지 않게 했다.** 「`los_broken`이라고 적었으면 시야를 끊는 것이 실제로 3개 있어야 한다」 — 임계값은 **맵이 선언한다**(`design_targets.grammar_min_obstacles`). 코드에 박으면 데모 맵(`choke`에 장애물 0개)이 즉시 빨개지고 **임계값을 낮춰 맞추게 된다** — 그건 게이트가 아니라 장식이다. UPPER는 `choke 2 · los_broken 3 · split 2 · flank 2 · backline_pocket 1`을 선언한다.
+- **🔴 ⑦ 게이트가 데모 맵의 기존 스펙 위반을 잡았다.** `RM-BOSS-01`·`RM-DEEP-01`이 `gated_elite`인데 `entry_requirement`가 없다 — `LDG-001` §9 LD checklist(「잠긴 방이라야 확정 정예가 정당하다」) 위반. **조용히 통과시키지도, 임의로 고치지도 않았다**: 조건을 넣으면 `QA-031` 임계 경로가 바뀌므로 별도 판정 대상이고, 요구 여부를 맵이 선언하되(`require_entry_gate_on_elite`, 데모 `false` / UPPER `true`) **위반 방 이름은 선언과 무관하게 매 런 출력**한다. → **판정 필요 (미결)**.
+- **⑧ `gated_elite` 두 방 모두 조건을 갖는다.** `06` = `requiresItem KEY-UPPER-01` · `scope: run`(소모성) / `07` = `onObjectiveComplete` — 조건이 **열쇠일 필요는 없다**(같은 §9.1 어휘, 신규 어휘 아님). 청사진 §4.1은 「06만 잠긴다」였는데 그대로면 `07`이 위반이라 `07`에 진행 게이트를 붙였다.
+- **⑨ 라벨은 전부 「(임시)」.** 지역 테마 미확정이고 ID는 안정 축(`RM-UPPER-##`)이므로 정체성은 표시명 축이 소유한다(`DEC-20260824-001` §F). 구조 역할만 적어 두고 컨셉이 잡히면 이 필드만 갈아끼운다.
+- **⑩ 미해석을 조용히 넘기지 않는다.** `spawn_table.json`에 `P-UPPER-01~09` 행이 없다(청사진 §6 = 후속). 활성 맵은 **하드 게이트**, 비활성 맵은 **미해석 개수를 매 런 출력**한다 — 조용한 통과는 「덮였다」로 읽힌다.
+- **반증 확인(정적 게이트 6종 전부 물었다):** 방을 3 m 밀면 공유벽 FAIL · `los_broken` 장애물을 3→2로 줄이면 문법 FAIL(3→3은 정상 통과 = 임계값이 실제로 작동) · 열쇠를 잠긴 방 안에 넣으면 잠금 FAIL · 계단이 같은 층을 가리키면 계단 FAIL · `gated_elite` 조건을 지우면 조건 FAIL · 문이 조건 없는 방을 막으면 문 FAIL.
+- **영향 파일:** `data/slice01/maps/MAP-UPPER-001.json`(신규) · `MAP-DEMO-001.json`(`require_entry_gate_on_elite`) · `tools/map_smoke.gd`(정적 섹션 + 사이클 식).
+- **게이트:** `ci_smoke.sh` **15/15 PASS**. 신규 [계약/문서] 항목 **17종 × 맵 2개**.
+- **상태:** ✅ 완료 · 전파 불요(스펙이 이미 소유한 값의 구현). **미결 1건 = ⑦** 데모 맵 `gated_elite` 진입 조건.
+- **활성화 전 후속:** ① `spawn_table.json` `P-UPPER-*` 행 ② `KEY-UPPER-01`/`CHEST-UPPER-01` 표시명 ③ `entry_requirement.rule: onObjectiveComplete`(방 진입 조건) 런타임 — 현재는 `requiresItem` 문만 실물 문으로 선다 ④ 계단 앵커 클릭 입력(D-4) ⑤ 3세력 층간 이동(D-5).

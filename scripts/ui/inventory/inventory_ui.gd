@@ -191,24 +191,31 @@ func count_item(id: String) -> int:
 	return n
 
 
-## Does the player's backpack currently hold a key?
-## ⚠ 부분 문자열 매칭이다 — id에 "key"가 들어간 **다른 아이템도 문을 연다**(예: 미래의 "Monkey Charm").
-## 지금은 열쇠가 `KEY-DEMO-01` 하나뿐이라 무해하지만, 열쇠류가 늘면 정확 일치로 좁혀야 한다.
-## 넓게 두는 이유는 구 세이브의 `"Key"` 호환뿐이다.
-func backpack_has_key() -> bool:
+## 백팩이 **이 문의 열쇠**를 들고 있는가.
+## `key_id`가 주어지면 **정확 일치**다. 예전에는 항상 부분 문자열(`contains("key")`)이었는데,
+## 그러면 열쇠가 둘 이상인 순간 **아무 열쇠나 아무 문을 연다**(맵마다 다른 열쇠를 쓰므로 실제로 그렇게 된다).
+## `key_id`가 빈 문자열일 때만 구 동작으로 떨어진다 — 구 세이브의 `"Key"` 호환용이다.
+func backpack_has_key(key_id: String = "") -> bool:
 	for it in _backpack.items:
-		if String(it.id).to_lower().contains("key"):
+		if _is_key(String(it.id), key_id):
 			return true
 	return false
 
 
 ## Consume ONE key from the backpack — 키는 소모품, 문 열면 사라진다 (사용자 요청). True if removed.
-func consume_key() -> bool:
+func consume_key(key_id: String = "") -> bool:
 	for it in _backpack.items:
-		if String(it.get("id", "")).to_lower().contains("key"):
+		if _is_key(String(it.get("id", "")), key_id):
 			_backpack.lift(it)   # 시각/점유 제거 후 즉시 반환(변경된 배열 추가 순회 안 함)
 			return true
 	return false
+
+
+## 「이 id가 그 열쇠인가」 — `want`가 있으면 정확 일치, 없으면 구 부분 문자열(레거시 세이브 호환).
+func _is_key(id: String, want: String) -> bool:
+	if want.is_empty():
+		return id.to_lower().contains("key")
+	return id == want or id == "Key"      # "Key" = 구 세이브 아이템 id
 
 
 func _open() -> void:
