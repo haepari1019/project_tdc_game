@@ -758,6 +758,25 @@ func _check_authored_impl() -> void:
 
 	src.free()
 
+	# ⑤-c **레이어 전제 — MIA·다운 멤버로는 스왑할 수 없다.**
+	#    레이어 전이는 「행동 가능한 파티 전원」이 함께 가고 `down`/`MIA`는 남는다. 그런데 남겨진
+	#    멤버로 **스왑이 되면** 조작 가능한 파티가 두 레이어에 나뉘어 전제가 깨진다(활성 레이어 1개 가정).
+	#    `F-001` §3.6이 규정하고 `PartyController.try_swap_to()`가 이미 구현하는데 **시험이 없었다.**
+	var party: Node = _find_party(root)
+	if party == null:
+		_expect(false, "[계약/레이어] PartyController 접근")
+	else:
+		var members: Array = party.get_members()
+		_expect(members.size() >= 2, "[계약/레이어] 파티 %d명" % members.size())
+		if members.size() >= 2:
+			var target := 1
+			var m: Node = members[target]
+			m.set_mia(true)
+			_expect(not party.try_swap_to(target),
+				"🔴 [계약/레이어] MIA 멤버로 스왑 불가 — 파티가 두 레이어에 나뉘지 않는다")
+			m.set_mia(false)
+			_expect(party.try_swap_to(target), "[계약/레이어] MIA 해제 후엔 스왑된다(과잉 차단 아님)")
+
 	# ⑥ **임포트 후처리의 변환 로직** — glTF에는 Area3D·Marker3D가 없다. Blender Empty는 Node3D로
 	#    들어오고, 규약대로 런타임 노드로 바꾸는 것이 `import_post.convert_tree`다. 실제 `.glb`는
 	#    아직 없지만 **변환 로직 자체는 여기서 매 커밋 돌린다**(고스트 코드로 두지 않는다).
@@ -1026,6 +1045,17 @@ func _bbox_span() -> Vector2:
 		mn.x = minf(mn.x, c.x - sz.x * 0.5); mn.y = minf(mn.y, c.y - sz.y * 0.5)
 		mx.x = maxf(mx.x, c.x + sz.x * 0.5); mx.y = maxf(mx.y, c.y + sz.y * 0.5)
 	return mx - mn
+
+
+## 트리에서 PartyController 찾기(_check_authored_impl은 씬 참조를 안 받는다).
+func _find_party(n: Node) -> Node:
+	if n.has_method("try_swap_to") and n.has_method("get_members"):
+		return n
+	for c in n.get_children():
+		var r := _find_party(c)
+		if r != null:
+			return r
+	return null
 
 
 func _find_map(scn: Node) -> Node:

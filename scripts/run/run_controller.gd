@@ -59,8 +59,10 @@ func get_state() -> Dictionary:
 	}
 
 
-## F-001 §3.3: swap works in combat too. §3.6: only Control Lock / MIA block it
-## (neither implemented in slice-01) — so swap is always allowed for now.
+## F-001 §3.3: swap works in combat too. §3.6 예외 2종 중 **여기가 보는 건 Control Lock뿐**이고
+## 그건 아직 없다(컷씬·연출 구간이 없다) → 항상 true.
+## ⚠ **`MIA`·다운 차단은 여기가 아니라 `PartyController.try_swap_to()`에 이미 구현돼 있다.**
+## 예전 주석이 「둘 다 미구현」이라고 적어 둬서 오독을 낳았다 (DRIFT-170).
 ## partyInCombat tracks combat state for other systems, NOT for gating swap.
 func can_swap() -> bool:
 	return true
