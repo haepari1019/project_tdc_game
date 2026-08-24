@@ -160,15 +160,16 @@ func _ready() -> void:
 	_move_path = MovePathOverlay.new()  # RMB 이동 오더의 예상 경로 점선 (DRIFT-090)
 	add_child(_move_path)
 	_move_path.setup(_party)
-	_run.start_run("RM-ENTRY-01")
-	var spawn: Vector3 = _map.get_spawn_position("RM-ENTRY-01")
+	var entry_room: String = _map.get_entry_room()   # 데이터가 소유(맵마다 다르다)
+	_run.start_run(entry_room)
+	var spawn: Vector3 = _map.get_spawn_position(entry_room)
 	_party.spawn_at(spawn)
 	_party.bind_nav_layer(_map.get_active_layer(), _map)   # 파티 전원을 활성 레이어에(LDG-001 §9.2)
 	# Pre-spawn all encounters as dormant squads, pushed to each room's far side
 	# (away from the party) so the start-adjacent room isn't in range at spawn. Roll the per-run
 	# seed first → weighted ENC resolve + spawn scatter vary each run (LDG-SPAWN-DEMO-001 §2).
 	RunLoadout.roll_run_seed()
-	_combat.prespawn_encounters("RM-ENTRY-01")
+	_combat.prespawn_encounters(entry_room)
 	_party_sheet.setup(_party.get_members())
 	_controlled_sheet.setup(_party, _combat)   # 마석 보유량 표시(F-009 §3.8)
 	_aim = AimMarker.new()  # shared ground-target marker (skillbook aim + torch throw)

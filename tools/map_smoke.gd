@@ -66,6 +66,7 @@ func _init() -> void:
 	_check_layer_switch(scn, map)
 	await _check_layer_transition(scn, map)
 	_check_minimap_layer(scn, map)
+	_check_stair_links(map)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -138,12 +139,18 @@ func _check_graph(sd, map: Node) -> Array:
 	_expect(bad.is_empty(), "[계약] 선언된 연결 %d개가 전부 공유벽 (%s)" % [
 		edges.size(), "일치" if bad.is_empty() else "불일치: " + ", ".join(bad)])
 
-	# 도달성 — 시작 방에서 BFS.
+	# 도달성 — 시작 방에서 BFS. **`connects` + 계단**을 합쳐 본다.
+	# `connects`만 보면 계단으로만 닿는 **백레이어 방이 「고립」으로 잡힌다** — 실제로는 갈 수 있다.
+	# (반대로 **공유벽 검사는 `connects`만** 본다. 계단은 워프라 벽을 공유하지 않는다.)
 	var adj: Dictionary = {}
 	for e in edges:
 		adj.get_or_add(String(e[0]), []).append(String(e[1]))
 		adj.get_or_add(String(e[1]), []).append(String(e[0]))
-	var start := "RM-ENTRY-01"
+	var stairs: Array = map.stair_links() if map.has_method("stair_links") else []
+	for e in stairs:
+		adj.get_or_add(String(e[0]), []).append(String(e[1]))
+		adj.get_or_add(String(e[1]), []).append(String(e[0]))
+	var start := String(map.get_entry_room())
 	var visited: Dictionary = {start: true}
 	var queue: Array = [start]
 	while not queue.is_empty():
@@ -156,8 +163,9 @@ func _check_graph(sd, map: Node) -> Array:
 	for ref in refs:
 		if not visited.has(ref):
 			unreachable.append(ref)
-	_expect(unreachable.is_empty(), "[계약] 전 방 도달 가능 (%s)" % (
-		"%d/%d" % [visited.size(), refs.size()] if unreachable.is_empty() else "고립: " + ", ".join(unreachable)))
+	_expect(unreachable.is_empty(), "[계약] 전 방 도달 가능 — connects %d + 계단 %d (%s)" % [
+		edges.size(), stairs.size(),
+		"%d/%d" % [visited.size(), refs.size()] if unreachable.is_empty() else "고립: " + ", ".join(unreachable)])
 	return edges
 
 
@@ -656,7 +664,7 @@ func _check_layer_transition(scn: Node, map: Node) -> void:
 	stray.set_mia(false)
 	stray.global_position = (members[0] as Node3D).global_position + Vector3(1.5, 0, 0)
 	var _keep_unused := keep
-	await tx.transition("RM-ENTRY-01", 0, (members[0] as Node3D).global_position)
+	await tx.transition(String(map.get_entry_room()), 0, (members[0] as Node3D).global_position)
 	_expect(int(map.get_active_layer()) == 0, "[계약/전이] 되돌아오면 layer 0")
 
 
@@ -686,6 +694,38 @@ func _find_by_method(n: Node, m: String) -> Node:
 		if r != null:
 			return r
 	return null
+
+
+## **계단 링크 파싱** — `transitions` 앵커는 문(`key_gate`)도 계단(`stairs`)도 담는다.
+## 역할을 구분하지 않으면 **문을 계단으로 취급**해 도달성이 거짓으로 통과한다(문은 열쇠가 있어야 하고
+## 계단은 층을 넘는다 — 성격이 다르다). 지금 맵엔 계단이 없고 문이 하나 있으므로 그 구분이 그대로 검사가 된다.
+func _check_stair_links(map: Node) -> void:
+	var trans_n := 0
+	for a in map.get_all_anchors("transitions"):
+		trans_n += 1
+	_expect(trans_n > 0 and (map.stair_links() as Array).is_empty(),
+		"🔴 [계약] `transitions` %d개 중 계단 0개 — **문(key_gate)을 계단으로 세지 않는다**" % trans_n)
+
+	# 계단을 하나 심어 파싱·복원을 확인한다(런타임 주입 — 데이터는 안 건드린다).
+	var host := String(map.get_entry_room())
+	var block: Dictionary = map._anchors.get(host, {})
+	var had: bool = block.has("transitions")
+	var saved: Array = block.get("transitions", [])
+	block["transitions"] = [{"role": "stairs", "to": "RM-ADV-09",
+		"pos": map.get_spawn_position(host)}]
+	map._anchors[host] = block
+	var links: Array = map.stair_links()
+	var found := false
+	for l in links:
+		if String(l[0]) == host and String(l[1]) == "RM-ADV-09":
+			found = true
+	_expect(found, "[계약] 계단 앵커가 `stair_links()`에 잡힌다 (%d개)" % links.size())
+	if had:
+		block["transitions"] = saved
+	else:
+		block.erase("transitions")
+	map._anchors[host] = block
+	_expect((map.stair_links() as Array).is_empty(), "[계약] 주입 제거 후 복원")
 
 
 func _check_extraction(sd, map: Node) -> void:

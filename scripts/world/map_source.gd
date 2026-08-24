@@ -112,6 +112,32 @@ func _room_row(room_ref: String) -> Dictionary:
 	return {}
 
 
+## 파티가 진입하는 방(`rooms.json` `entry_room`). 맵마다 다르므로 **데이터가 소유한다**.
+func get_entry_room() -> String:
+	var e := String(_rooms_doc().get("entry_room", ""))
+	if not e.is_empty():
+		return e
+	for row in _rooms_doc().get("rooms", []):   # 폴백: 첫 방
+		if typeof(row) == TYPE_DICTIONARY:
+			return String((row as Dictionary).get("room_ref", ""))
+	return ""
+
+
+## **층 간 전이(계단) 목록** — `[[from_room, to_room], ...]`. `connects`(공유벽·도보)와 **별개**다:
+## `connects`는 걸어서 갈 수 있다는 뜻이고 계단은 워프다. 도달성은 **둘을 합쳐** 봐야 한다.
+func stair_links() -> Array:
+	var out: Array = []
+	for ref in _anchors:
+		for a in (_anchors[ref] as Dictionary).get("transitions", []):
+			var d := a as Dictionary
+			if String(d.get("role", "")) != "stairs":
+				continue
+			var to := String(d.get("to", ""))
+			if not to.is_empty():
+				out.append([String(ref), to])
+	return out
+
+
 ## 방이 속한 레이어(`rooms.json` `layer`; 기본 0 = 지상).
 func get_room_layer(room_ref: String) -> int:
 	return int(_room_row(room_ref).get("layer", 0))

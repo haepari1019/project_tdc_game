@@ -2283,3 +2283,16 @@
 - **게임 측:** 재핀 `8dc2169` → `feb90e9` · `id_registry`에 map 1·blueprint 1·contract 1·**room 11**·**pool 9**·point 2 등록(room_refs 16 → 27, pool_slots 16 → 25). **데이터는 아직 없다** — ID만 먼저다.
 - **게이트:** `ci_smoke.sh` **15/15 PASS**(등록만 늘었으므로 동작 불변).
 - **상태:** ✅ 완료 · spec 전파 완료. 다음: **`map_smoke` 도달성 BFS를 계단까지 확장**(위 ②) → `rooms.json`에 9+2방 저작 + `design_targets` 엄격값(`min_cycles 2` · `bbox 200×200`) → 계단 앵커 클릭 입력(C-6 잔여) → 3세력 층간(C-8).
+
+### DRIFT-178 — 도달성이 계단을 안다 + 시작 방 데이터화 (D-2) 🔷 Phase 1 · 전파 불요
+- **근거:** [[DRIFT-177]]의 후속 필수. `DBP-UPPER-001`의 백레이어 방(`RM-UPPER-10/11`)은 **계단으로만** 닿으므로, 도달성 BFS가 `connects`만 보면 방을 저작하는 순간 **「고립」으로 잡힌다**.
+- **🔴 ① `connects`와 계단은 성격이 다르다.** `connects` = **공유벽 + 개구부**(걸어서 갈 수 있다) · 계단 = **워프**(층을 넘는다). 그래서 검사가 갈린다:
+  - **공유벽 일치**는 `connects`**만** 본다 — 계단에 벽을 요구하면 층 간 이동이 불가능해진다.
+  - **도달성**은 **둘을 합쳐** 본다 — 실제로 갈 수 있는 곳을 물어야 한다.
+  - `stair_links()`가 그 경계다. `map_source`가 소유하고 `transitions` 앵커 중 `role: stairs`만 고른다.
+- **🔴 ② 역할 구분이 실제로 필요했다.** `transitions` 앵커는 **문(`key_gate`)도 담는다**. 역할을 안 보면 **문을 계단으로 취급**해 도달성이 거짓 통과한다 — 문은 열쇠가 있어야 열리고 계단은 층을 넘는다. 게이트로 못 박았다: 현 맵의 `transitions` 1개(열쇠문)가 **계단 0개**로 세어져야 한다.
+- **③ 시작 방을 데이터로 내렸다.** `"RM-ENTRY-01"`이 `dungeon_run`에 세 번, `map_smoke`에 두 번 박혀 있었다 — 신규 맵은 시작 방 이름이 다르므로 **맵을 갈아끼울 때 코드를 고쳐야 하는** 상태였다(Phase 0에서 없앤 좌표 리터럴과 같은 계열). → `rooms.json` `entry_room` + `map_source.get_entry_room()`(폴백: 첫 방).
+- **게이트:** 도달성 메시지가 `connects 15 + 계단 0 (16/16)`으로 **둘을 나눠 보고**한다 · 문을 계단으로 세지 않는다 · 계단 앵커를 런타임 주입하면 `stair_links()`가 잡고 제거하면 복원된다.
+- **영향 파일:** `data/slice01/rooms.json`(`entry_room`) · `scripts/world/map_source.gd`(`get_entry_room`·`stair_links`) · `scripts/run/dungeon_run.gd` · `tools/map_smoke.gd`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS**.
+- **상태:** ✅ 완료 · 전파 불요. 다음: `rooms.json`에 **11방 저작**(D-3) + `design_targets` 엄격값 → 계단 클릭 입력(D-4) → 3세력 층간(D-5).
