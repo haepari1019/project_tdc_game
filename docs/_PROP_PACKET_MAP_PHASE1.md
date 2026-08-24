@@ -2,7 +2,7 @@
 
 > **용도:** spec repo(`project_tdc` @`staging`)에서 `OPS_30`(impact_scan → 매퍼×4 → DecisionLog `DEC-` → TODO → SpecScopeTracker) → `OPS_20`(lint) → PR로 집행할 **역전파 목록**.
 > **이 레포는 spec md를 직접 편집하지 않는다**(AGENTS.md §Spec drift). 집행 후 [`spec_ref.json`](../spec_ref.json) 핀 bump가 이 레포의 유일한 spec-관련 쓰기.
-> 🕒 **초안 — 미집행.** **판정 2건 접수(2026-08-24): §B = 옵션 2 · §F = 실제 지역명 선반영.** 반영해 아래를 갱신했다.
+> 🕒 **초안 — 미집행.** **판정 접수(2026-08-24): §B = 옵션 2 + 진입 조건 2단 구조(런 내 소모성 · 영구 해금 **둘 다**) · §F = 실제 지역명 선반영.**
 >
 > **패킷 작성:** 2026-08-24 · **근거:** [map_upgrade_plan.html](design/map_upgrade_plan.html) Phase 1 · [map_demo_001_status.html](design/map_demo_001_status.html) 실측 · DRIFT-162~166(Phase 0 완료)
 > **선행 상태:** Phase 0 종료 — 맵 계약·계측기·앵커 데이터화 완료. **Phase 1은 첫 단계에서 스펙이 먼저 움직여야 한다.**
@@ -14,7 +14,7 @@
 | # | 항목 | 분류 | 대상 문서 | 근거(실측) |
 |---|---|---|---|---|
 | **A** | `routeClass` — 방이 어느 탈출로에 속하는가 | schema | `LDG-001` §8 · `DBP-DEFAULT-001` §3 · `F-006` §3.10.1 | 경로 개념이 없어 전투 예산이 **전역 4~5** |
-| **B** | **난이도 축을 방·경로가 소유한다**(옵션 2 채택) | **rule** ⚠ DecisionLog 필수 | `F-006` §3.1.2 · §3.10.1 · `D-015` · `DBP-DEFAULT-001` · `LDG-SPAWN-DEMO-001` | 도달 가능 ENC **12/24** — Hard 20행 + 12파일 사문화 |
+| **B** | **진입 조건 → 난이도 오버라이드**(2단) | **rule** ⚠ DecisionLog 필수 | `F-006` §3.1.2 · §3.10 · §3.10.1 · `D-015` · `DBP-DEFAULT-001` · `LDG-SPAWN-DEMO-001` | 도달 가능 ENC **12/24** — Hard 20행 + 12파일 사문화 |
 | **C** | `spatialGrammar` — 방의 전투 공간 문법 | schema | `LDG-001` §8 · `F-026` §3 | 장애물 보유 **2/16방** · 동일 규격 방 8개 |
 | **D** | `encounterAnchor.category` — 공간 역할이 **스폰 여부**를 정한다 | rule/schema | `F-006` §3.2 · `LDG-001` §8 · `DBP-DEFAULT-001` §4 | 진행 게이트가 **32 % / 40 %** 확률 |
 | **E** | `lootAnchor.tier` — 위험과 보상의 결합 | schema | `LDG-001` §8 (`HUB-COR-000` 참조) | 상자 **18.4** vs 전투 **4.5** (4:1) |
@@ -35,6 +35,8 @@
 | `spatialGrammar[]` | RM | `open` \| `choke` \| `los_broken` \| `split` \| `flank` \| `backline_pocket` | §C |
 | `encounterAnchor.category` | RM / Pool slot | `mandatory_threat` \| `gated_elite` \| `optional_threat` \| `patrol_route` \| `ambush_candidate` \| `third_faction_candidate` \| `safe` | §D |
 | `lootAnchor.tier` | RM | `safe` \| `contested` \| `gated` | §E |
+| `entryRequirement` | RM | 아래 §B 스키마 (`rule`·`ref`·`scope`·`consumeOnUse`·`grantOn`) | §B — **잠금** |
+| `difficultyProfile` | RM / route (override) | `Normal` \| `Hard` \| `Extreme` | §B — **오버라이드** |
 
 ---
 
@@ -52,9 +54,59 @@
 
 ### B. **난이도 축을 방·경로가 소유한다** — 옵션 2 채택 ⚠ `rule`
 
-**결정(2026-08-24):** 옵션 2. `difficultyProfile`을 방·경로가 오버라이드한다.
-초안 판단은 옵션 1이었으나 기획 판정으로 옵션 2로 간다 — **M6 판정(「어려운 관문은 맵의 방이 소유한다」)을
-가장 직접 표현하는 형태**이고, 티어라는 중간 어휘를 하나 더 만들지 않는다.
+**결정(2026-08-24):** 옵션 2 + **2단 구조**. 기획 의도가 「맵 난이도 분기」가 아니라
+**「메트로배니아식 진입 조건으로 잠긴 방 → 열면 그 안이 더 어렵다」**임이 확인됐다.
+
+```
+① 진입 조건(entryRequirement)  ── 잠금 ──▶  ② difficultyProfile 오버라이드
+   무엇으로 여는가                            열린 뒤 그 안이 얼마나 어려운가
+```
+
+**둘은 짝이다.** ①만 있으면 그냥 잠긴 빈 방이고, ②만 있으면 **모르고 걸어 들어가는 난장판**이 된다.
+초안 판단은 옵션 1(티어 축)이었으나 기획 판정으로 옵션 2 — 티어라는 중간 어휘를 만들지 않고
+M6 판정(「어려운 관문은 맵의 방이 소유한다」)을 직접 표현한다.
+
+#### ① 진입 조건 — **새 개념이 아니라 적용 범위 확대**
+
+스펙은 이미 진입 조건 어휘를 갖고 있다. 다만 **탈출 지점**과 **보스 레이드 입장**에만 붙어 있다:
+
+| 기존 조문 | 내용 | 지속성 |
+|---|---|---|
+| `F-006` §3.10 | Point별 `extractionActivationRule` — `always`·`onEntry`·`onObjectiveComplete`·**`requiresItem`**·**`onBossKey`** | 런 내 |
+| `GIMMICK-DEMO-01` | 열쇠 상자 → 문 (게임에 **이미 구현**) | 런 내 |
+| §3.1.8 | `mainBossAccessGrant: onExtractionSuccess` · `bossRaidEntryRequiresAccess` | **프로필 지속** |
+| §3.11.1 | `locksPreviousRooms` | 방 잠금 어휘 |
+
+→ **같은 어휘를 일반 `Room`으로 넓힌다.** 「없던 걸 만든다」가 아니라 「이미 있는 걸 제자리에 놓는다」다.
+탈출 지점 활성 조건과 방 진입 조건이 **같은 문법**을 쓰게 되는 것도 이득이다.
+
+**스키마 초안 — `entryRequirement` (RM 레벨, 선택 필드)**
+
+```yaml
+entryRequirement:
+  rule: requiresItem | onBossKey | onObjectiveComplete | onFacilityTier | onAccess
+  ref: <스펙 ID>              # KEY-DEMO-01 · facility_id · quest_id …  (새 ID 발명 금지)
+  scope: run | profile        # ▼ 아래 두 종류
+  consumeOnUse: true|false    # scope=run 에서 주로 true (열면 소모)
+  grantOn: onExtractionSuccess | onOpen   # scope=profile 확정 시점
+```
+
+**기획 결정: 두 종류를 다 쓴다.**
+
+| | `scope: run` — 소모성 | `scope: profile` — 영구 해금 |
+|---|---|---|
+| 여는 것 | 이 런에서 얻은 열쇠·해체 도구 | 시설 티어 · 의뢰 완료 · Access |
+| 다음 런 | **다시 잠긴다** | 계속 열려 있다 |
+| 만드는 압력 | *「이번 런엔 어느 문을 열까」* — 소모성이라 하나만 | *「저기를 뚫으려면 무엇을 갖춰야 하나」* — 메타 목표 |
+| 선례 | `GIMMICK-DEMO-01` (구현됨) | `mainBossAccessGrant` |
+
+**🔴 `grantOn`은 `onExtractionSuccess`를 권한다(초안 판단).** 문을 **연 순간** 영구 해금이면
+「열고 죽어도 이득」이 되어 익스트랙션 긴장이 빠진다. 스펙의 기존 영구 해금 사례가 이미
+`onExtractionSuccess`(**들고 나가야 내 것**)이고, 그 원칙을 깨지 않는 쪽이 정합적이다. — **확인 필요**
+
+**🔴 재방문 가치 완화(제안):** 영구 해금이 되면 그 방은 이후 그냥 「어려운 방」이 된다.
+둘을 **겹쳐 쓰면** 해소된다 — **접근은 `profile`로 영구히 열고, 그 안의 보상은 `run` 소모성으로 한 번 더 잠근다.**
+「둘 다 쓴다」는 판정이 이 조합을 자연스럽게 만든다.
 
 **문제(실측):** 도달 가능 ENC **12/24**. 난이도 선택 UI가 M6에서 폐기돼 `RunLoadout.difficulty`가 항상 빈 문자열
 → manifest 기본값 `Normal` 고정 → spawn_table의 **Hard 20행 + `ENC-HARD-*` 12파일이 영영 안 나온다.**
@@ -74,6 +126,7 @@
 | 대상 | 처리 | 사유 |
 |---|---|---|
 | `F-006` §3.1.2 | **본문 교체**(아래) | 여기가 규칙의 정본 |
+| `F-006` §3.10 | `requiresItem`/`onBossKey` 어휘를 **Room 진입 조건으로 확대** | 새 어휘 아님 |
 | `F-006` §3.10.1 | 한 줄 추가 — 경로 아키타입이 프로필을 공급 | §A와 짝 |
 | `LDG-001` §8 | `difficultyProfile` 행 추가(RM/Pool 오버라이드) | 필드 등록 |
 | `DBP-DEFAULT-001` §3 | 템플릿 주석 — 런 기본값 + 방/경로 override | 양식 |
@@ -109,8 +162,15 @@
 > 3) Pool의 규모/티어 참조 + 유효 프로필로 `docs/combat/` 테이블에서 `ENC-###` resolve
 > 4) `F-024` 인지 부하·Hazard 밀도 가이드 만족 검증
 
-**동반 요구(추가 제안):** 위 「전조」 조항이 없으면 이 변경은 **「모르고 밟는 난장판」**이 된다.
-`F-006` §3.2.3(의도치 않은 전투 개시 완화)과 같은 성격의 방어선이므로 같이 넣는 것을 권한다.
+**가드레일 — 잠금이 곧 예고다.** 초안에는 「진입 전 전조 필수」를 넣었는데, **잠긴 문 자체가 전조**이므로
+조항을 바꾼다: **「`difficultyProfile` 오버라이드는 `entryRequirement`를 동반한다」.**
+잠금 없는 순수 난이도 방을 허용할지는 판정 사항이나, 기본은 **짝으로 강제**하는 쪽을 권한다
+(`F-006` §3.2.3 「의도치 않은 전투 개시 완화」와 같은 성격의 방어선).
+
+**🔴 새 게이트 불변식 — 데드락 방지.** 메트로배니아에서 제일 흔한 사고가 **「열쇠가 잠긴 방 안에」**다.
+`map_smoke`가 그래프로 기계 검증할 수 있다: 잠금을 **간선 조건**으로 두고
+*「ENTRY에서 시작해 그때까지 획득 가능한 것만으로 모든 필수 목표·탈출에 도달 가능한가」*.
+`scope: profile` 잠금은 **처음 방문 시점 기준**으로 풀 수 있어야 한다(안 그러면 신규 플레이어가 막힌다).
 
 #### DecisionLog 초안 (`rule` 변경이므로 필수)
 
@@ -120,12 +180,16 @@
 - context: M6에서 난이도 선택 UI 폐기 → RunLoadout.difficulty 공백 → Normal 고정.
   Hard 20행 + ENC-HARD-* 12파일이 도달 불가(12/24). LDG-SPAWN-DEMO-001 _note_boss가
   이미 「어려운 관문은 맵의 방이 소유한다」고 적었으나 표현할 필드가 없었다.
-- decision: difficultyProfile을 Room/extractionRoute가 오버라이드한다. 런 기본값은
+- decision: **2단 구조.** ① Room이 entryRequirement(진입 조건)로 잠기고 ② 열린 방이
+  difficultyProfile을 오버라이드한다. 오버라이드는 잠금을 동반한다(짝). 런 기본값은
   Run Contract가 갖고 D-015가 폴백으로 보유. F-006 §3.1.2의 「한 런 안에서 진행 금지」 폐기.
+  진입 조건은 scope 2종을 모두 지원: run(소모성, 다음 런에 재잠금) · profile(영구 해금,
+  grantOn=onExtractionSuccess 권장). §3.10의 requiresItem/onBossKey 어휘를 Room으로 확대.
 - rejected: (옵션 1) encounterScaleRef 티어 축 신설 — 규칙 변경은 피하지만 난이도와
   거의 같은 뜻의 어휘를 하나 더 만든다. M6 판정의 직접 표현이 아니다.
-- guardrail: 오버라이드는 경로 선택으로 노출 + 진입 전 전조 필수. F-024 인지 상한은
-  오버라이드 후 값으로 검증.
+- guardrail: 오버라이드는 entryRequirement 동반(잠금이 곧 예고). F-024 인지 상한은
+  오버라이드 후 값으로 검증. **데드락 금지**: 잠금 그래프가 항상 해결 가능해야 한다
+  (열쇠가 잠긴 방 안에 있으면 안 된다) — map_smoke가 기계 검증.
 - impact_scope: [F-006, F-024, D-015, LDG-001, DBP-DEFAULT-001, LDG-SPAWN-DEMO-001, F-010]
 ```
 
@@ -158,12 +222,14 @@
 | category | 스폰 | 의미 |
 |---|---|---|
 | `mandatory_threat` | 100 % | 임계 경로의 필수 교전 |
-| `gated_elite` | 100 % | **진행 게이트** — 추첨에서 제외 |
+| `gated_elite` | 100 % | **잠긴 방의 확정 정예** — 추첨에서 제외 + `entryRequirement` 동반(§B) |
 | `optional_threat` | 가중 | 보상 루트 |
 | `patrol_route` | 경로 | `patrolGraphRef` 순회 |
 | `ambush_candidate` | 가중 | `AmbushHold` 후보 |
 | `third_faction_candidate` | 확률 | `F-028` exit 수렴 |
 | `safe` | 0 % | 진입·조기 탈출 |
+
+**§B와의 관계:** `gated_elite`는 원래 「확률 추첨에서 제외 = 항상 존재」만 뜻했다. §B의 `entryRequirement`가 생기면서 **접근 제어까지** 갖는 카테고리로 정확해진다 — 잠긴 방이므로 「모르고 밟는」 경로가 아니고, 그래서 확정 정예가 정당하다.
 
 **핵심 구분(문서에 명시 제안):** **「반드시 존재」이지 「반드시 싸움」이 아니다.** 관문은 경로 선택으로 남고, 랜덤성은 그 전투의 **구체적 형태**에 둔다. `F-006` §3.10(보스 격파는 탈출 전제가 아니다)과 정합.
 
@@ -244,7 +310,8 @@
 3. `OPS_30` — impact_scan → 매퍼×4(`mapper_sync_check.py --fix`) → `RelationGraph` 재생성 → **DecisionLog `DEC-` 발급(§B 초안 사용)** → `TODO.md` → `SpecScopeTracker.md` → `LevelDesignMap.md`
 4. `OPS_20` lint — `spec_xref_check.py` BLOCKER 0
 5. PR → merge
-6. **게임:** [`spec_ref.json`](../spec_ref.json) 핀 bump + `id_registry.json` 등록 + `rooms.json` 필드 반영 + `map_smoke` 설계 리포트를 **하드 게이트로 승격**(사이클 ≥ 2 · 경로별 교전 밴드 · 상자 EV 밴드)
+6. **게임:** [`spec_ref.json`](../spec_ref.json) 핀 bump + `id_registry.json` 등록 + `rooms.json` 필드 반영 + `map_smoke` 설계 리포트를 **하드 게이트로 승격**(사이클 ≥ 2 · 경로별 교전 밴드 · 상자 EV 밴드) + **잠금 그래프 해결 가능성**(데드락 방지, §B)
+7. **게임 구현 순서(§B):** 런 내 소모성은 기존 `Door`+`KEY-DEMO-01` 경로를 일반화하면 되고(구현돼 있다), 영구 해금은 `HubProfile`에 플래그를 남긴다(`set_quest_completed`와 같은 자리). **탈출 성공 정산 시점**에 확정하는 배선이 `grantOn: onExtractionSuccess`의 실체다.
 
 ---
 
@@ -264,11 +331,13 @@
 
 ## 5. 미판정 이월
 
-**해소됨:** ~~§B 옵션 택일~~ → 옵션 2 · ~~§F 명명 방향~~ → 실제 지역명 선반영 (2026-08-24)
+**해소됨(2026-08-24):** ~~§B 옵션 택일~~ → 옵션 2 · ~~§F 명명 방향~~ → 실제 지역명 · ~~진입 조건 지속성~~ → **`run`·`profile` 둘 다 사용**
 
 **남은 것:**
 - **지역 슬러그 8종**(§2) — 특히 GATE·DEEP·EXT **3건은 이름 자체가 없다**. 이후 모든 ID가 따라간다
 - **컨셉존 접두사** — `ZONE-`을 해저드 존과 계속 공유할지, `CZ-` 등으로 분리할지(기존 부채)
+- **`grantOn` 확정** — 초안 판단은 `onExtractionSuccess`(들고 나가야 내 것). `onOpen`이면 「열고 죽어도 이득」
+- **잠금 없는 순수 난이도 방**을 허용할지 — 초안은 「오버라이드는 잠금을 동반」으로 강제
 - `F-010` 배치 단계의 난이도 선택 UI 문구 처리(§B)
 - `spatialGrammar` enum 개수 — 5종 시작 vs 6종(+`backline_pocket`)
 - Phase 1 그레이박스의 실제 방 배치 — 플랜 문서 §Phase 1 도면은 **초안**이며 채택 전
