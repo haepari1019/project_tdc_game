@@ -229,7 +229,9 @@ func _ready() -> void:
 	# 좌표는 전부 **맵 앵커**에서 온다(구 하드코딩). 맵을 갈아끼워도 이 블록은 그대로다.
 	var chest := Chest.new()
 	chest.title = "유물함"
-	chest.items = [{"id": "Key", "w": 1, "h": 1, "col": 0, "row": 0, "color": Color(0.95, 0.82, 0.22)}]
+	# ID 계약: 아이템 id = **스펙 ID**(`KEY-DEMO-01`, DBP-DEMO-001 §6.1). rooms.json의
+	# `anchors.interactions[key_chest].yields` · `RM-EXT-01.entry_requirement.ref`와 같은 문자열이어야 한다.
+	chest.items = [{"id": "KEY-DEMO-01", "w": 1, "h": 1, "col": 0, "row": 0, "color": Color(0.95, 0.82, 0.22)}]
 	chest.setup(_inventory_ui)
 	chest.position = _anchor_pos("interactions", "role", "key_chest")
 	add_child(chest)

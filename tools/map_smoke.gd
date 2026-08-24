@@ -61,6 +61,8 @@ func _init() -> void:
 	_check_anchors(sd, map)
 	_check_layers(map)
 	_check_space_fields(sd, scn)
+	_check_design_targets(sd, map, edges)
+	_check_lock_solvable(sd, map)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
 	await _check_import_parity(scn, map)
@@ -485,6 +487,73 @@ func _check_space_fields(sd, scn: Node) -> void:
 	print("  [설계] 공간 역할    " + JSON.stringify(by_cat))
 
 
+## **맵이 선언한 목표치를 강제한다** (`rooms.json` `design_targets`).
+## 목표치를 코드 상수로 두면 맵마다 다른 값을 가질 수 없어서, 데모 맵을 봐주려고 게이트를 통째로
+## 느슨하게 만들게 된다. **맵이 자기 목표를 들고 오면** 신규 그레이박스가 엄격한 값을 선언하는 순간
+## 코드 변경 없이 게이트가 세진다.
+func _check_design_targets(sd, map: Node, edges: Array) -> void:
+	var t: Dictionary = sd.get_rooms_document().get("design_targets", {})
+	if t.is_empty():
+		_expect(false, "[계약] rooms.json `design_targets` 선언")
+		return
+
+	var cycles: int = edges.size() - _rects.size() + 1
+	var min_c: int = int(t.get("min_cycles", 0))
+	_expect(cycles >= min_c, "[계약] 사이클 %d ≥ 목표 %d" % [cycles, min_c])
+
+	var band: Array = t.get("chest_ev_band", [0, 999])
+	var ev := _chest_ev(sd)
+	_expect(ev >= float(band[0]) and ev <= float(band[1]),
+		"[계약] 상자 EV %.1f ∈ [%s, %s] — 구조를 바꾸다 재화가 조용히 반토막 나지 않게" % [ev, band[0], band[1]])
+
+	var bmax: Array = t.get("bbox_max_m", [9999, 9999])
+	var span := _bbox_span()
+	_expect(span.x <= float(bmax[0]) and span.y <= float(bmax[1]),
+		"[계약] 안개 바운딩 %.0f×%.0f ≤ %s×%s m — 빈 공간도 텍스처를 전액 낸다" % [span.x, span.y, bmax[0], bmax[1]])
+
+
+## **잠금 그래프 해결 가능성** — 메트로배니아 최다 사고가 「열쇠가 잠긴 방 안에」다.
+## `entry_requirement`가 요구하는 것을 **그 방에 들어가지 않고** 얻을 수 있어야 한다.
+func _check_lock_solvable(sd, map: Node) -> void:
+	var locked: Array = []      # [{room, ref}]
+	var yields_at: Dictionary = {}   # 산출물 -> room_ref
+	for row in sd.get_rooms_document().get("rooms", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var ref := String((row as Dictionary).get("room_ref", ""))
+		var req: Dictionary = (row as Dictionary).get("entry_requirement", {})
+		if not req.is_empty() and not String(req.get("ref", "")).is_empty():
+			locked.append({"room": ref, "need": String(req.get("ref", ""))})
+		for kind in ["interactions", "props", "hazards"]:
+			for a in map.get_anchors(ref, kind):
+				var y := String((a as Dictionary).get("yields", ""))
+				if not y.is_empty():
+					yields_at[y] = ref
+	if locked.is_empty():
+		print("  [설계] 잠금        없음")
+		return
+	var bad: Array = []
+	for l in locked:
+		var need := String(l["need"])
+		var src := String(yields_at.get(need, ""))
+		if src.is_empty():
+			bad.append("%s: `%s` 산출처 없음(어떤 앵커도 yields 안 함)" % [l["room"], need])
+		elif src == String(l["room"]):
+			bad.append("%s: 열쇠 `%s`가 **잠긴 방 안**에 있다" % [l["room"], need])
+	_expect(bad.is_empty(), "🔴 [계약] 잠금 %d개 해결 가능 (%s)" % [
+		locked.size(), "전부" if bad.is_empty() else ", ".join(bad)])
+
+	# 데이터가 선언한 산출물 id가 **코드가 실제로 넣는 id**와 같은가. 데이터끼리만 맞으면
+	# 「선언은 KEY-DEMO-01인데 상자엔 "Key"가 들어 있는」 상태를 못 잡는다(실제로 그랬다).
+	var src := FileAccess.get_file_as_string("res://scripts/run/dungeon_run.gd")
+	var ghost: Array = []
+	for y in yields_at:
+		if not src.contains('"%s"' % String(y)):
+			ghost.append(String(y))
+	_expect(ghost.is_empty(), "[계약] 앵커 yields id가 코드에 실재 (%s)" % (
+		"전부" if ghost.is_empty() else "없음: " + ", ".join(ghost)))
+
+
 func _check_extraction(sd, map: Node) -> void:
 	var ext_ref := ""
 	for row in sd.get_rooms_document().get("rooms", []):
@@ -854,6 +923,7 @@ func _report_design(sd, map: Node, edges: Array) -> void:
 	var floor_area := 0.0
 	var chest_ev := 0.0
 	var sizes: Dictionary = {}
+	# (상자 EV·바운딩은 게이트와 같은 헬퍼를 쓴다 — 두 벌 계산이 어긋나지 않게)
 	# 상자 EV는 **실제 배치 대상 방**만 센다 — 대상은 rooms.json `loot_anchor`가 소유한다
 	# (Phase 0에서 dungeon_run.LOOT_CHEST_ROOMS 상수를 대체했다).
 	var loot_rooms: Array = []
@@ -931,6 +1001,32 @@ func _count_coord_literals(path: String) -> int:
 
 
 # ============================================================================
+
+## 상자 기대치 — `loot_anchor`를 가진 방만, 면적 비례(방당 상한 3).
+func _chest_ev(sd) -> float:
+	var loot: Array = []
+	for row in sd.get_rooms_document().get("rooms", []):
+		if typeof(row) == TYPE_DICTIONARY and (row as Dictionary).has("loot_anchor"):
+			loot.append(String((row as Dictionary).get("room_ref", "")))
+	var ev := 0.0
+	for ref in _rects:
+		if loot.has(String(ref)):
+			var sz: Vector2 = _rects[ref]["s"]
+			ev += minf(sz.x * sz.y / CHEST_AREA_PER, float(CHEST_MAX_PER_ROOM))
+	return ev
+
+
+## 안개가 값을 치르는 바운딩 박스(XZ). 빈 공간도 전액 낸다.
+func _bbox_span() -> Vector2:
+	var mn := Vector2(INF, INF)
+	var mx := Vector2(-INF, -INF)
+	for ref in _rects:
+		var c: Vector2 = _rects[ref]["c"]
+		var sz: Vector2 = _rects[ref]["s"]
+		mn.x = minf(mn.x, c.x - sz.x * 0.5); mn.y = minf(mn.y, c.y - sz.y * 0.5)
+		mx.x = maxf(mx.x, c.x + sz.x * 0.5); mx.y = maxf(mx.y, c.y + sz.y * 0.5)
+	return mx - mn
+
 
 func _find_map(scn: Node) -> Node:
 	for c in scn.get_children():

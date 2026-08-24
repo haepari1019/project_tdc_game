@@ -16,7 +16,8 @@ const SkillText := preload("res://scripts/ui/skill_text.gd")
 ## Optional flavor blurb per item id, for the hover tooltip (PH). Generic-loot entries removed —
 ## only real items remain (Key = sealed-door key). Functional items show their own id/name.
 const ITEM_DESC := {
-	"Key": "봉인문을 여는 열쇠",
+	"KEY-DEMO-01": "봉인문을 여는 열쇠",
+	"Key": "봉인문을 여는 열쇠",   # 구 id — 이전 세이브 호환
 }
 
 var cols := 5

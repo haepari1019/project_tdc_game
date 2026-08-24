@@ -192,6 +192,9 @@ func count_item(id: String) -> int:
 
 
 ## Does the player's backpack currently hold a key?
+## ⚠ 부분 문자열 매칭이다 — id에 "key"가 들어간 **다른 아이템도 문을 연다**(예: 미래의 "Monkey Charm").
+## 지금은 열쇠가 `KEY-DEMO-01` 하나뿐이라 무해하지만, 열쇠류가 늘면 정확 일치로 좁혀야 한다.
+## 넓게 두는 이유는 구 세이브의 `"Key"` 호환뿐이다.
 func backpack_has_key() -> bool:
 	for it in _backpack.items:
 		if String(it.id).to_lower().contains("key"):

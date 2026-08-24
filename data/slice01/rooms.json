@@ -224,7 +224,8 @@
             "pos": [
               3,
               0
-            ]
+            ],
+            "yields": "KEY-DEMO-01"
           }
         ]
       },
@@ -572,5 +573,17 @@
   ],
   "_note_anchors": "앵커는 방 **중심 기준 로컬 XZ**(m). 코드에 박혀 있던 좌표를 여기로 내렸다 — 맵을 고칠 때 코드를 안 고치기 위한 최소 투자(맵 고도화 Phase 0). authored(Blender) 맵은 이 블록 대신 씬의 MK_* 마커가 좌표를 소유하고, 데이터는 종류·개수·ref만 남긴다. ref는 전부 **기존 스펙 ID**다(CHEST-DEMO-01·DOOR-DEMO-01·ENT-BARREL-001·ENT-TORCH-001·trap_split_lever) — 새 ID를 만들지 않았다. loot_anchor = 절차 상자 배치 대상(구 dungeon_run.LOOT_CHEST_ROOMS). tier 세분화는 Phase 3.",
   "_note_connects": "`connects`가 **개구부 폭까지 소유한다**(구 map_demo_layout.CONNECTIONS 상수). 지오메트리와 데이터가 같은 연결을 두 벌 갖고 있던 것을 해소 — 어긋나도 아무도 안 알려주던 자리다(ARCHITECTURE DEBT-DM3). 무향 그래프이며 양쪽에 적어도 되고 한쪽만 적어도 된다(합집합으로 읽는다). 게이트: tools/map_smoke.gd 「선언된 연결이 전부 공유벽」+「navmesh 통행」.",
-  "_note_space": "공간 필드 (spec `LDG-001` §9, `DEC-20260824-001`). `layer` = 같은 맵 안의 병렬 공간(0 = 지상; 다른 layer끼리는 XZ 중첩 허용, 같은 layer 안에서는 금지). `encounter_anchor.category` = **스폰 여부**를 정한다(`placement_behavior`는 거동) — `gated_elite`는 **예산 밖에서 항상** 스폰(진행 게이트가 확률에 걸리지 않게), `mandatory_threat`는 예산 안에서 항상, `safe`는 스폰하지 않는다, 나머지는 `spawn_weight` 가중 추첨. `spatial_grammar`는 **현 데모 맵의 실제 상태를 적은 것**이다 — 14방이 빈 사각형이라 `open`이 대부분이다(Phase 2에서 문법을 실제로 부여하면 이 값이 설계 의도가 된다). `route_class`는 데모 맵에 경로가 하나뿐이라 **적지 않는다** — 신규 그레이박스에서 도입. ⚠ `RM-ENTRY-01`은 `safe`가 아니라 `optional_threat`다 — `ENC-NORM-002`가 `P-ENTRY-01`에만 있어 `safe`로 두면 **사문화**된다. 대신 시작 방이 뽑히면 이웃 방으로 **이전**하는 기존 동작이 `F-006` §3.2.3(진입 즉시 어그로 금지)을 지킨다. 정식 해법(`aggro_wake_buffer_m` 또는 전용 warmup 방)은 후속."
+  "_note_space": "공간 필드 (spec `LDG-001` §9, `DEC-20260824-001`). `layer` = 같은 맵 안의 병렬 공간(0 = 지상; 다른 layer끼리는 XZ 중첩 허용, 같은 layer 안에서는 금지). `encounter_anchor.category` = **스폰 여부**를 정한다(`placement_behavior`는 거동) — `gated_elite`는 **예산 밖에서 항상** 스폰(진행 게이트가 확률에 걸리지 않게), `mandatory_threat`는 예산 안에서 항상, `safe`는 스폰하지 않는다, 나머지는 `spawn_weight` 가중 추첨. `spatial_grammar`는 **현 데모 맵의 실제 상태를 적은 것**이다 — 14방이 빈 사각형이라 `open`이 대부분이다(Phase 2에서 문법을 실제로 부여하면 이 값이 설계 의도가 된다). `route_class`는 데모 맵에 경로가 하나뿐이라 **적지 않는다** — 신규 그레이박스에서 도입. ⚠ `RM-ENTRY-01`은 `safe`가 아니라 `optional_threat`다 — `ENC-NORM-002`가 `P-ENTRY-01`에만 있어 `safe`로 두면 **사문화**된다. 대신 시작 방이 뽑히면 이웃 방으로 **이전**하는 기존 동작이 `F-006` §3.2.3(진입 즉시 어그로 금지)을 지킨다. 정식 해법(`aggro_wake_buffer_m` 또는 전용 warmup 방)은 후속.",
+  "design_targets": {
+    "min_cycles": 0,
+    "chest_ev_band": [
+      16,
+      20
+    ],
+    "bbox_max_m": [
+      160,
+      220
+    ],
+    "_note": "이 맵이 스스로 선언하는 **하드 게이트 목표치**다(tools/map_smoke.gd가 강제). 값은 **현 데모 맵의 현실**이다 — 지키는 목적이 「좋아지기」가 아니라 **「나빠지지 않기」**다: min_cycles 0(트리) · bbox 160×220(현재 155×213) · 상자 EV 16~20(현재 18.4). 신규 그레이박스는 같은 자리에 **min_cycles 2 · bbox 200×200**을 들고 오면 되고, 그러면 **코드 변경 없이 게이트가 세진다**. 목표치를 코드 상수로 두지 않는 이유가 그것이다."
+  }
 }
