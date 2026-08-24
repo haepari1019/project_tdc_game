@@ -71,6 +71,7 @@ func _init() -> void:
 	_check_ground_plane()
 	_check_third_layer(scn, map)
 	await _check_entry_requirements(scn, map, sd)
+	_check_theme_axis(map, sd)
 	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
@@ -1358,7 +1359,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements"]:
+	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements", "theme_axis"]:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -2165,6 +2166,7 @@ func _check_entry_requirements(scn: Node, _map: Node, sd) -> void:
 		"[계약/진입] 데모 봉인문 = `requiresItem` + **이 문이 곧 목표** (%s)" % keyed.get("rule"))
 
 	# ③ 진행 조건 문 — **누르는 조건이 아니라 진행 조건**이므로 스스로 열린다.
+	var Door = load("res://scripts/world/objects/door.gd")
 	var run: Node = null
 	for c in scn.get_children():
 		if c.has_method("complete_objective") and ("objective_complete" in c):
@@ -2172,7 +2174,6 @@ func _check_entry_requirements(scn: Node, _map: Node, sd) -> void:
 	if run == null:
 		_expect(false, "[계약/진입] RunController 접근")
 		return
-	var Door = load("res://scripts/world/objects/door.gd")
 	var prog = Door.new()
 	prog.rule = "onObjectiveComplete"
 	scn.add_child(prog)
@@ -2196,7 +2197,43 @@ func _check_entry_requirements(scn: Node, _map: Node, sd) -> void:
 	_expect(body_gone,
 		"🔴 [계약/진입] 목표가 끝나면 **스스로 열린다** — 끝내고 돌아와 누르게 만들지 않는다")
 
-	# ④ `completes_objective`가 없는 문은 목표를 끝내지 않는다.
+	# ④ **비소모 문은 열쇠를 안 먹는다.** 데모 맵의 심부 관문(`RM-BOSS-01`/`RM-DEEP-01`)은
+	#    탈출문과 **같은 열쇠**를 쓰되 `consume_on_use: false`다 — 먹어 버리면 심부에 들르는 순간
+	#    탈출문이 안 열려 런이 막힌다. 열쇠 하나가 「어디에 쓸까」가 아니라 **「어디까지 둘러볼까」**가 된다.
+	var inv: Node = null
+	for c in scn.get_children():
+		if c.has_method("backpack_has_key") and c.has_method("consume_key"):
+			inv = c
+	if inv == null:
+		for c in scn.get_node_or_null("HUD").get_children() if scn.has_node("HUD") else []:
+			if c.has_method("backpack_has_key") and c.has_method("consume_key"):
+				inv = c
+	if inv != null:
+		var kid := "KEY-DEMO-01"
+		inv._backpack.items.append({"id": kid, "w": 1, "h": 1, "col": 0, "row": 0})
+		var keep = Door.new()
+		keep.rule = "requiresItem"
+		keep.key_id = kid
+		keep.consume_on_use = false
+		scn.add_child(keep)
+		keep.setup(inv, run)
+		keep.interact()
+		_expect(inv.backpack_has_key(kid),
+			"🔴 [계약/진입] **비소모 문은 열쇠를 안 먹는다** — 심부에 들러도 탈출문이 열린다")
+		var eat = Door.new()
+		eat.rule = "requiresItem"
+		eat.key_id = kid
+		eat.consume_on_use = true
+		scn.add_child(eat)
+		eat.setup(inv, run)
+		eat.interact()
+		_expect(not inv.backpack_has_key(kid), "[계약/진입] 소모 문은 먹는다(과잉 보존 아님)")
+		keep.queue_free()
+		eat.queue_free()
+	else:
+		_expect(false, "[계약/진입] InventoryUI 접근")
+
+	# ⑤ `completes_objective`가 없는 문은 목표를 끝내지 않는다.
 	run.objective_complete = false
 	var plain = Door.new()
 	plain.rule = "onAccess"           # 미구현 규칙 = 잠그지 않는다(조용히 막으면 진행 불가)
@@ -2209,3 +2246,71 @@ func _check_entry_requirements(scn: Node, _map: Node, sd) -> void:
 	prog.queue_free()
 	plain.queue_free()
 	_sections["entry_requirements"] = true
+
+
+## **지역 정체성은 표시명 축이 소유한다**(`DEC-20260824-001` §F · `F-026` §3) — ID는 안정 축이다.
+## 그러려면 「이름은 나중에 공짜로 붙는다」가 **말이 아니라 성질**이어야 한다: 라벨을 바꿨을 때
+## 계약이 한 글자도 안 움직여야 한다. 안 그러면 테마를 확정하는 날 맵이 조용히 달라진다.
+## 임시 라벨은 **매 런 개수를 보고**한다 — 조용히 출시되지 않게.
+func _check_theme_axis(map: Node, sd) -> void:
+	var ref: String = map.get_entry_room()
+	var before := {
+		"spawn": map.get_spawn_position(ref),
+		"size": map.get_room_size(ref),
+		"rects": map.get_room_rects().duplicate(true),
+		"conns": map.room_connections().duplicate(true),
+		"layer": map.get_room_layer(ref),
+		"profile": map.get_room_profile(ref),
+	}
+	var row: Dictionary = {}
+	for r in sd._rooms.get("rooms", []):
+		if typeof(r) == TYPE_DICTIONARY and String((r as Dictionary).get("room_ref", "")) == ref:
+			row = r
+	var keep: String = String(row.get("label", ""))
+	var renamed := "지역명이 정해진 뒤의 이름"
+	row["label"] = renamed
+	var moved: Array = []
+	# **바뀐 값과 비교한다.** 옛 값과만 비교하면 계약이 라벨을 아예 안 읽는 경우에도(= 검사가 무의미)
+	# 통과해 버린다 — 반증 확인에서 실제로 그렇게 드러났다.
+	if String(map.room_geometry(ref).get("label", "")) != renamed:
+		moved.append("라벨이 계약에 안 실림(검사 무효)")
+	if map.get_spawn_position(ref) != before["spawn"]:
+		moved.append("spawn")
+	if map.get_room_size(ref) != before["size"]:
+		moved.append("size")
+	if str(map.get_room_rects()) != str(before["rects"]):
+		moved.append("rects")
+	if str(map.room_connections()) != str(before["conns"]):
+		moved.append("connects")
+	if map.get_room_layer(ref) != before["layer"]:
+		moved.append("layer")
+	if map.get_room_profile(ref) != before["profile"]:
+		moved.append("profile")
+	row["label"] = keep
+	_expect(moved.is_empty(), "🔴 [계약/테마] 라벨을 갈아도 계약이 안 움직인다 — 이름은 나중에 공짜다 (%s)" % (
+		"전부 불변" if moved.is_empty() else "움직임: " + ", ".join(moved)))
+
+	# zone_id 접두사 — `ZONE-`로 굳었다(두 맵 + 스펙 청사진 `zoneId`). 새 접두사를 만들지 않는다.
+	var bad_zone: Array = []
+	var temp := 0
+	var total := 0
+	var dir := DirAccess.open(MAPS_DIR)
+	for f in (dir.get_files() if dir != null else []):
+		if not f.ends_with(".json"):
+			continue
+		var doc = JSON.parse_string(FileAccess.get_file_as_string(MAPS_DIR + "/" + f))
+		if typeof(doc) != TYPE_DICTIONARY:
+			continue
+		var z := String((doc as Dictionary).get("zone_id", ""))
+		if not z.begins_with("ZONE-"):
+			bad_zone.append("%s: `%s`" % [f, z])
+		for r in (doc as Dictionary).get("rooms", []):
+			if typeof(r) != TYPE_DICTIONARY:
+				continue
+			total += 1
+			if String((r as Dictionary).get("label", "")).contains("(임시)"):
+				temp += 1
+	_expect(bad_zone.is_empty(), "[계약/테마] `zone_id` 접두사 = `ZONE-` (%s)" % (
+		"전부" if bad_zone.is_empty() else ", ".join(bad_zone)))
+	print("  [설계] 임시 라벨    %d / %d방 — 지역 테마 미확정(ID는 안정 축이라 라벨만 갈면 된다)" % [temp, total])
+	_sections["theme_axis"] = true

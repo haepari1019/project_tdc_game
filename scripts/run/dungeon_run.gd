@@ -675,6 +675,7 @@ func _place_gates() -> void:
 			var door := Door.new()
 			door.rule = String(req.get("rule", "requiresItem"))
 			door.key_id = String(req.get("ref", ""))
+			door.consume_on_use = bool(req.get("consume_on_use", true))
 			# 이 문을 열면 목표가 완료되는가 — **앵커가 명시할 때만**. 예전엔 무조건이라
 			# 문이 둘 이상인 맵에서 아무 관문이나 목표를 끝내 버렸다.
 			door.completes_objective = bool(d.get("completes_objective", false))

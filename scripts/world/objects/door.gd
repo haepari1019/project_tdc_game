@@ -20,6 +20,10 @@ var _inv: Node = null     # InventoryUI (key check)
 var key_id: String = ""
 ## 진입 조건 규칙(`entry_requirement.rule`). 기본값은 구 동작(열쇠 문).
 var rule: String = "requiresItem"
+## 열면 열쇠가 사라지는가(`entry_requirement.consume_on_use`, `LDG-001` §9.1).
+## **false면 같은 열쇠로 여러 문을 연다** — 열쇠 하나가 「어디에 쓸까」의 선택이 아니라
+## **「어디까지 둘러볼까」의 허가증**이 된다. 소모/비소모는 맵이 문마다 정한다.
+var consume_on_use: bool = true
 ## **이 문을 열면 런 목표가 완료되는가.** 데모 맵의 봉인문이 곧 목표(GIMMICK-DEMO-01)라
 ## 예전엔 **무조건** 완료시켰다 — 문이 둘 이상인 맵에서는 아무 관문이나 목표를 끝내 버린다.
 ## 이제 앵커가 `completes_objective`로 명시한 문만 완료시킨다.
@@ -76,8 +80,8 @@ func interact_anchor() -> Vector3:
 func interact() -> void:
 	if _opened or not _unlocked():
 		return  # locked — prompt already says what is needed
-	if (rule == "requiresItem" or rule == "onBossKey") and _inv != null and _inv.has_method("consume_key"):
-		_inv.consume_key(key_id)                    # 키 소모 — 문 열면 사라짐 (사용자 요청)
+	if consume_on_use and (rule == "requiresItem" or rule == "onBossKey") 			and _inv != null and _inv.has_method("consume_key"):
+		_inv.consume_key(key_id)                    # 소모성 문 — 열면 열쇠가 사라진다
 	_open_now()
 
 
@@ -98,7 +102,8 @@ func _open_now() -> void:
 	# 예전엔 무조건이라, 문이 둘 이상인 맵에서 아무 관문이나 목표를 끝내 버렸다.
 	if completes_objective and _run and _run.has_method("complete_objective"):
 		_run.complete_objective()             # objective = door opened
-	print("[TDC] 문 열림 (%s%s) — 길이 열렸다" % [rule, " · 목표 완료" if completes_objective else ""])
+	print("[TDC] 문 열림 (%s%s%s) — 길이 열렸다" % [rule,
+		"" if consume_on_use else " · 열쇠 유지", " · 목표 완료" if completes_objective else ""])
 
 
 func _build() -> void:

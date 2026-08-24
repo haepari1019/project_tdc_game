@@ -529,6 +529,26 @@
       ],
       "encounter_anchor": {
         "category": "optional_threat"
+      },
+      "anchors": {
+        "transitions": [
+          {
+            "role": "key_gate",
+            "gates": "RM-BOSS-01",
+            "pos": [
+              0,
+              -12
+            ]
+          },
+          {
+            "role": "key_gate",
+            "gates": "RM-DEEP-01",
+            "pos": [
+              13,
+              0
+            ]
+          }
+        ]
       }
     },
     {
@@ -564,6 +584,12 @@
       ],
       "encounter_anchor": {
         "category": "gated_elite"
+      },
+      "entry_requirement": {
+        "rule": "requiresItem",
+        "ref": "KEY-DEMO-01",
+        "scope": "run",
+        "consume_on_use": false
       }
     },
     {
@@ -598,6 +624,12 @@
       ],
       "encounter_anchor": {
         "category": "gated_elite"
+      },
+      "entry_requirement": {
+        "rule": "requiresItem",
+        "ref": "KEY-DEMO-01",
+        "scope": "run",
+        "consume_on_use": false
       }
     },
     {
@@ -762,8 +794,8 @@
       160,
       220
     ],
-    "require_entry_gate_on_elite": false,
-    "_note_elite_gate": "⚠ **false = 기존 위반을 안고 있다.** `RM-BOSS-01`·`RM-DEEP-01`이 `gated_elite`인데 `entry_requirement`가 없다(`LDG-001` §9 LD checklist 위반). 조건을 넣으면 `QA-031` 임계 경로가 바뀌므로 별도 판정으로 미룬다 — 대신 게이트가 **매 런 위반 방 이름을 출력**한다(조용히 통과하지 않는다). 신규 맵은 true로 선언한다.",
+    "require_entry_gate_on_elite": true,
+    "_note_elite_gate": "`gated_elite`는 스펙상 **진행 게이트**다(`F-006` §3.2.5 — 「허브·진행 게이트로 쓰이는 교전은 `gated_elite`로 두고 확률 추첨에 걸지 않는다」). `RM-BOSS-01`/`RM-DEEP-01`이 정확히 그렇다: `ENC-BOSS-001`·`ENC-DEEP-001`이 허브 승급 퀘스트의 완료 조건이고, `haul_forge_coal`(연료)은 **Deep 분기 전용**이라 대장간 티어 사다리가 여기 걸려 있다. 그래서 카테고리는 옳고, 빠져 있던 것은 `entryRequirement`뿐이었다(`LDG-001` §9 LD checklist).",
     "_note": "이 맵이 스스로 선언하는 **하드 게이트 목표치**다(tools/map_smoke.gd가 강제). 값은 **현 데모 맵의 현실**이다 — 지키는 목적이 「좋아지기」가 아니라 **「나빠지지 않기」**다: min_cycles 0(트리) · bbox 160×220(현재 155×213) · 상자 EV 16~20(현재 18.4). 신규 그레이박스는 같은 자리에 **min_cycles 2 · bbox 200×200**을 들고 오면 되고, 그러면 **코드 변경 없이 게이트가 세진다**. 목표치를 코드 상수로 두지 않는 이유가 그것이다."
   },
   "entry_room": "RM-ENTRY-01",
