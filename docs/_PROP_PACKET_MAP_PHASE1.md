@@ -2,7 +2,7 @@
 
 > **용도:** spec repo(`project_tdc` @`staging`)에서 `OPS_30`(impact_scan → 매퍼×4 → DecisionLog `DEC-` → TODO → SpecScopeTracker) → `OPS_20`(lint) → PR로 집행할 **역전파 목록**.
 > **이 레포는 spec md를 직접 편집하지 않는다**(AGENTS.md §Spec drift). 집행 후 [`spec_ref.json`](../spec_ref.json) 핀 bump가 이 레포의 유일한 spec-관련 쓰기.
-> 🕒 **초안 — 미집행.** §A~E는 판정이 필요하고, 특히 **§B는 두 안 중 택일**이다.
+> 🕒 **초안 — 미집행.** **판정 2건 접수(2026-08-24): §B = 옵션 2 · §F = 실제 지역명 선반영.** 반영해 아래를 갱신했다.
 >
 > **패킷 작성:** 2026-08-24 · **근거:** [map_upgrade_plan.html](design/map_upgrade_plan.html) Phase 1 · [map_demo_001_status.html](design/map_demo_001_status.html) 실측 · DRIFT-162~166(Phase 0 완료)
 > **선행 상태:** Phase 0 종료 — 맵 계약·계측기·앵커 데이터화 완료. **Phase 1은 첫 단계에서 스펙이 먼저 움직여야 한다.**
@@ -14,11 +14,11 @@
 | # | 항목 | 분류 | 대상 문서 | 근거(실측) |
 |---|---|---|---|---|
 | **A** | `routeClass` — 방이 어느 탈출로에 속하는가 | schema | `LDG-001` §8 · `DBP-DEFAULT-001` §3 · `F-006` §3.10.1 | 경로 개념이 없어 전투 예산이 **전역 4~5** |
-| **B** | **경로·레이어가 교전 티어를 공급한다** ⚠ **택일** | doc/schema 또는 rule | `F-006` §3.1.2 · §3.10.1 · `LDG-SPAWN-DEMO-001` | 도달 가능 ENC **12/24** — Hard 20행 + 12파일 사문화 |
+| **B** | **난이도 축을 방·경로가 소유한다**(옵션 2 채택) | **rule** ⚠ DecisionLog 필수 | `F-006` §3.1.2 · §3.10.1 · `D-015` · `DBP-DEFAULT-001` · `LDG-SPAWN-DEMO-001` | 도달 가능 ENC **12/24** — Hard 20행 + 12파일 사문화 |
 | **C** | `spatialGrammar` — 방의 전투 공간 문법 | schema | `LDG-001` §8 · `F-026` §3 | 장애물 보유 **2/16방** · 동일 규격 방 8개 |
 | **D** | `encounterAnchor.category` — 공간 역할이 **스폰 여부**를 정한다 | rule/schema | `F-006` §3.2 · `LDG-001` §8 · `DBP-DEFAULT-001` §4 | 진행 게이트가 **32 % / 40 %** 확률 |
 | **E** | `lootAnchor.tier` — 위험과 보상의 결합 | schema | `LDG-001` §8 (`HUB-COR-000` 참조) | 상자 **18.4** vs 전투 **4.5** (4:1) |
-| **F** | 신규 그레이박스 ID 발급 | scope/ID | `LevelDesignMap.md` · 신규 `DBP-###` | 방 9 · 탈출 2 · 사이클 3 |
+| **F** | 신규 ID + **Upper 지역 어휘 신설** | scope/ID | `LevelDesignMap.md` · 신규 `DBP-###` · `LAY-UPPER` | 방 9 · 탈출 2 · **ID 충돌**(아래) |
 
 > **튜닝 수치는 이 패킷에 없다** — 상자 EV 밴드(16~20)·장애물 좌표·전투 예산 수치는 전파 금지(로깅만, AGENTS.md §Spec drift).
 > **게임 소유라 전파하지 않는 것:** 맵 계약(MapSource) · Blender 노드 규약 · 오클루더 콜라이더 유도 · Concave 제외 · 안개 크기 예산 · 도면 방향. 전부 DRIFT-162~166에 로깅됨.
@@ -50,36 +50,86 @@
 
 ---
 
-### B. ⚠ **경로·레이어가 교전 티어를 공급한다** — **두 안 중 택일**
+### B. **난이도 축을 방·경로가 소유한다** — 옵션 2 채택 ⚠ `rule`
 
-**문제(실측):** 도달 가능 ENC가 **12/24**다. 난이도 선택 UI가 M6에서 폐기돼 `RunLoadout.difficulty`가 항상 빈 문자열 → manifest 기본값 `Normal` 고정 → **spawn_table의 Hard 20행 + `ENC-HARD-*` 12파일이 영영 안 나온다.** 유일한 예외가 `P-BOSS-01`의 문자열 override다.
+**결정(2026-08-24):** 옵션 2. `difficultyProfile`을 방·경로가 오버라이드한다.
+초안 판단은 옵션 1이었으나 기획 판정으로 옵션 2로 간다 — **M6 판정(「어려운 관문은 맵의 방이 소유한다」)을
+가장 직접 표현하는 형태**이고, 티어라는 중간 어휘를 하나 더 만들지 않는다.
 
-스펙도 이미 이 자리를 알고 있다 — `LDG-SPAWN-DEMO-001` `_note_boss`: *「어려운 관문」은 이제 토글이 아니라 **맵의 방**이 소유한다.* 그런데 **그걸 표현할 필드가 없다.**
+**문제(실측):** 도달 가능 ENC **12/24**. 난이도 선택 UI가 M6에서 폐기돼 `RunLoadout.difficulty`가 항상 빈 문자열
+→ manifest 기본값 `Normal` 고정 → spawn_table의 **Hard 20행 + `ENC-HARD-*` 12파일이 영영 안 나온다.**
 
-#### 옵션 1 — `encounterScaleRef` 실구현 (**권장 · 규칙 변경 없음**)
+**충돌하는 조문 — `F-006` §3.1.2:**
 
-`F-006` §3.1.2 resolve 순서 **2번이 이미 이렇게 적혀 있다**:
+> `Normal`, `Hard`, `Extreme` 등은 **던전 시작 전** 플레이어가 고르는 **난이도 프로필**이다.
+> - **한 런 안에서** `Normal` 구역을 지나 `Hard` 구역으로 "진행"하지 **않는다**.
 
-> Blueprint/Contract의 Pool 슬롯은 기본적으로 **"교전 규모/티어 참조"**(예: `encounterScaleRef` 또는 동등 키)를 사용한다.
+이 조문의 전제(**런 전 플레이어 선택**)가 M6에서 사라졌다. 선택 UI가 없는데 「선택한 프로필은 런 내내 불변」만
+남아 있어, **존재하지 않는 메커니즘을 지키느라 콘텐츠 절반이 잠긴** 상태다.
 
-게임은 이 단계를 건너뛰고 `(poolSlot, difficulty, world_layer)`로 바로 갔다. **원래 스펙대로 티어 참조를 실구현하고, 그 티어를 `routeClass × world_layer`가 공급**하면:
+#### ⚠ 영향 범위 실측 — `difficultyProfile` 참조 **41개 파일**
 
-- `F-006` §3.1.2의 *「한 런 안에서 Normal 구역 → Hard 구역으로 진행하지 않는다」* 규칙 **그대로 유지**된다. `difficultyProfile`은 여전히 런 전 확정·전역이다.
-- 티어는 난이도가 아니라 **공간의 성격**이다(`route_deep`의 Deep 방 = 높은 티어). 이미 `world_layer`가 resolve 키에 들어 있으니 축 하나(`routeClass`)를 더하는 것이다.
-- 사문화된 Hard 12종은 **티어 태그를 다시 붙이면** 되살아난다.
+무제한으로 손대면 패킷이 터진다. **가장 좁은 형태**로 집행할 것을 제안한다.
 
-**필요한 스펙 편집(작다):**
-- `F-006` §3.10.1에 한 줄 — *「경로 아키타입은 Pool의 교전 티어 참조를 공급한다(`routeClass` × `world_layer`)」*
-- `LDG-001` §8에 `routeClass[]` 행(§A와 동일)
-- `LDG-SPAWN-DEMO-001` resolve 키 표기를 `(poolSlot, tier, world_layer)`로 정정 + 기존 `difficulty` 컬럼의 해석 정리
+| 대상 | 처리 | 사유 |
+|---|---|---|
+| `F-006` §3.1.2 | **본문 교체**(아래) | 여기가 규칙의 정본 |
+| `F-006` §3.10.1 | 한 줄 추가 — 경로 아키타입이 프로필을 공급 | §A와 짝 |
+| `LDG-001` §8 | `difficultyProfile` 행 추가(RM/Pool 오버라이드) | 필드 등록 |
+| `DBP-DEFAULT-001` §3 | 템플릿 주석 — 런 기본값 + 방/경로 override | 양식 |
+| `LDG-SPAWN-DEMO-001` | resolve 키 표기 정정 | 실사용 |
+| `D-015` ExtractionRunState | **`difficultyProfile` 필드의 의미를 「런 기본값」으로 명시** | 아래 |
+| **`ENC-*` 21개 파일** | **건드리지 않는다** | 아래 |
 
-**미판정(사용자 판단 필요):** 기존 `ENC-HARD-*` 12종을 ⓐ 티어 태그로 재분류할지, ⓑ 파일명은 두고 spawn_table 컬럼만 티어로 읽을지.
+**① `D-015`가 이유 있는 부작용이다.** 런 상태가 `difficultyProfile`을 **하나** 들고 있는데, 방마다 다를 수 있게
+되면 그 값이 무엇을 뜻하는지 모호해진다. → 필드를 **「런 기본값(방/경로 override의 폴백)」**으로 재정의만 하고
+스키마는 그대로 둔다. 삭제하면 조기 탈출·정산·QA 계약이 같이 흔들린다.
 
-#### 옵션 2 — `difficultyProfile`을 방/경로가 오버라이드
+**② ENC 21개 파일은 손대지 않는다.** 헤더의 `difficultyProfile: Hard`는 **「이 ENC는 Hard 규모다」**로 이미
+기능하고 있다 — 누가 그 값을 정하느냐만 바뀌지, ENC 자신의 의미는 그대로다. 21파일을 여는 순간 패킷이
+검수 불가능해지고, 얻는 것이 없다.
 
-`F-006` §3.1.2의 *「한 런 안에서 진행하지 않는다」*와 **정면 충돌**한다. 분류가 `rule`이 되고 DecisionLog 필수.
+#### 제안 본문 — `F-006` §3.1.2 교체안 (초안)
 
-**초안 판단(참고):** 옵션 1이 스펙의 원래 설계를 되살리는 쪽이고 충돌도 없다. 다만 **채택은 기획 판정 사항**이다 — 옵션 2가 「난이도 = 지역 입장 조건」이라는 M6 판정을 더 직접 표현한다는 견해도 성립한다.
+> #### 3.1.2 Difficulty profile (공간이 소유 — NOT run phases)
+> `Normal`, `Hard`, `Extreme` 등은 **공간이 소유하는 난이도 프로필**이다.
+> - **런 기본값**은 `Run Contract`가 정한다(`D-015` `difficultyProfile` = 폴백).
+> - **`Room`/`extractionRoute`가 이를 오버라이드한다.** 한 런 안에서 `Normal` 구역을 지나 `Hard` 구역으로
+>   **진행할 수 있다** — 어려운 관문은 **토글이 아니라 맵의 방**이 소유한다.
+> - 오버라이드는 **경로 선택으로 노출**되어야 한다(`F-006` §3.10 — 보스 격파는 탈출 전제가 아니다).
+>   플레이어가 모르고 밟는 난이도 상승은 금지한다: 진입 전 **전조**(조명·`zoneAmbientTier`·문/관문 연출)를 둔다.
+> - 인지 부하 상한(`F-024`)은 **오버라이드 후 값**으로 검증한다.
+>
+> **폐기:** 「한 런 안에서 Normal 구역 → Hard 구역으로 진행하지 않는다」(M6에서 난이도 선택 UI가 사라져
+> 전제가 소멸). 이력은 §3.1.6 Legacy note에 남긴다.
+>
+> **resolve 순서(개정)**
+> 1) `Run Contract`의 런 기본 `difficultyProfile` 확정
+> 2) 인스턴스 생성 시 **방·경로 오버라이드** 적용 → 그 방의 유효 프로필 확정
+> 3) Pool의 규모/티어 참조 + 유효 프로필로 `docs/combat/` 테이블에서 `ENC-###` resolve
+> 4) `F-024` 인지 부하·Hazard 밀도 가이드 만족 검증
+
+**동반 요구(추가 제안):** 위 「전조」 조항이 없으면 이 변경은 **「모르고 밟는 난장판」**이 된다.
+`F-006` §3.2.3(의도치 않은 전투 개시 완화)과 같은 성격의 방어선이므로 같이 넣는 것을 권한다.
+
+#### DecisionLog 초안 (`rule` 변경이므로 필수)
+
+```
+- id: DEC-YYYYMMDD-###
+- title: 난이도 프로필을 공간이 소유한다 (런 전 토글 폐기의 완결)
+- context: M6에서 난이도 선택 UI 폐기 → RunLoadout.difficulty 공백 → Normal 고정.
+  Hard 20행 + ENC-HARD-* 12파일이 도달 불가(12/24). LDG-SPAWN-DEMO-001 _note_boss가
+  이미 「어려운 관문은 맵의 방이 소유한다」고 적었으나 표현할 필드가 없었다.
+- decision: difficultyProfile을 Room/extractionRoute가 오버라이드한다. 런 기본값은
+  Run Contract가 갖고 D-015가 폴백으로 보유. F-006 §3.1.2의 「한 런 안에서 진행 금지」 폐기.
+- rejected: (옵션 1) encounterScaleRef 티어 축 신설 — 규칙 변경은 피하지만 난이도와
+  거의 같은 뜻의 어휘를 하나 더 만든다. M6 판정의 직접 표현이 아니다.
+- guardrail: 오버라이드는 경로 선택으로 노출 + 진입 전 전조 필수. F-024 인지 상한은
+  오버라이드 후 값으로 검증.
+- impact_scope: [F-006, F-024, D-015, LDG-001, DBP-DEFAULT-001, LDG-SPAWN-DEMO-001, F-010]
+```
+
+**미판정:** `F-010` 배치 단계의 난이도 선택 UI 언급(§3.1.2가 참조) 처리 — ⓐ 문구 삭제 / ⓑ 「지역·입장 조건이 대체」로 갱신.
 
 ---
 
@@ -131,30 +181,67 @@
 
 ---
 
-## 2. 신규 ID 발급 (§F)
+## 2. 신규 ID + Upper 지역 어휘 (§F)
 
-Phase 1 그레이박스(방 9 · 연결 11 · **사이클 3** · 탈출 2점)에 필요한 ID. **미등록 ID는 로드 시점 abort**이므로 spec 등록이 게임 구현보다 **먼저**다.
+**결정(2026-08-24):** **실제 지역명 선반영.** `PROTO` 같은 임시 접두사를 쓰지 않는다.
 
-| 종류 | 개수 | 비고 |
+### ⚠ 먼저 — 지역명이 스펙에 아예 없다
+
+병영·수문·기록원·제련소는 **기획 코멘트에만 있고 스펙에 없다**(`docs` 전수 grep **0건**).
+`LAY-UPPER`는 톤·비주얼·전조만 정의하고 **구체 장소를 하나도 명명하지 않는다**.
+→ 이 패킷은 ID 발급뿐 아니라 **Upper 지역 어휘 자체를 신설**한다. 대상: `LAY-UPPER` §7 또는 신규 Zone 문서 + `LevelDesignMap.md`.
+
+### ⚠ 그리고 — ID 충돌이 이미 강제 조건이다
+
+`MAP-DEMO-001`은 **유지**한다(회귀 게이트·허브 사다리 T1/T3). 두 맵이 공존하는데
+`id_registry.room_refs`는 **평면 전역 목록**이라, 새 맵은 `RM-ENTRY-01`·`RM-OBJ-01`·`RM-EXT-01`·
+`RM-ADV-01..09`·`RM-MID-01`·`RM-BOSS-01`·`RM-DEEP-01`·`RM-ROUTE-01`을 **재사용할 수 없다**.
+
+역할 기반 이름(`RM-ENTRY-##`)을 이어 쓰면 번호만 늘려 가며 충돌을 피해야 하는데, 그러면
+「01은 데모, 02는 신맵」이라는 **문서 어디에도 안 적힌 규칙**이 생긴다. **지역명 채택이 이 문제를 자연히 없앤다.**
+
+### 제안 명명 체계 (기존 패턴 준수)
+
+| 종류 | 현행 예 | 제안 |
 |---|---|---|
-| `MAP-###` | 1 | 신규 맵 — `MAP-DEMO-001`은 **유지**(회귀 게이트·허브 사다리) |
-| `DBP-###` | 1 | `basedOn: DBP-DEFAULT-001` |
-| `CONTRACT-###` | 1 | |
-| `RM-###` | 9 | ENTRY · HALL · OBJ · REC · FOR · GATE · DEEP · EXT-A · EXT-B |
-| `P-###` | 6~7 | 앵커 카테고리별 pool slot |
-| `POINT-###` | 2 | **탈출 2점**(조기/심층) |
+| 맵 | `MAP-DEMO-001` | `MAP-UPPER-001` |
+| 청사진 | `DBP-DEMO-001` | `DBP-UPPER-001` (`basedOn: DBP-DEFAULT-001`) |
+| 계약 | `CONTRACT-DEMO-001` | `CONTRACT-UPPER-001` |
+| 컨셉존 | `ZONE-DEMO-UPPER` | `ZONE-UPPER-<REGION>` (지역별) |
+| 방 | `RM-ADV-01` | **`RM-<REGION>-##`** |
+| 풀 | `P-ADV-01` | `P-<REGION>-##` |
+| 추출점 | `POINT-DEMO-01` | `POINT-UPPER-01` / `-02` (**탈출 2점**) |
 
-**미판정(사용자 판단):** 명명 체계. `MAP-PROTO-002`(두 번째 프로토타입임을 드러냄) vs `MAP-UPPER-001`(실제 지역명 선반영) vs 다른 안. 이후 전부가 이 접두사를 따라가므로 **여기서 정하고 시작하는 게 싸다.**
+> `ZONE-` 접두사는 스펙에서 **해저드 존**(`ZONE-OIL-001`·`ZONE-FIRE-001`)에도 쓰인다.
+> 컨셉존과 해저드존이 같은 접두사를 공유하는 기존 부채다 — **이번에 분리할지 판정 필요**(예: 컨셉존 = `CZ-`).
 
-**동반:** `LevelDesignMap.md` 행 추가(신규 `DBP`/`RM` 등록 의무 — `F-026` §4) · 게임 측 `data/slice01/id_registry.json` 등록.
+### 지역 슬러그 — **이름은 기획 소유, 아래는 초안**
 
----
+| 한국어(기획 코멘트) | 슬러그 초안 | 공간 문법 | Phase 1 초안 방 |
+|---|---|---|---|
+| 성문 어귀 | `THRESHOLD` | `safe` | ENTRY |
+| 병영 | `BARRACKS` | `choke` + 증원 | HALL(중앙 분기) |
+| 기록원 | `ARCHIVE` | `los_broken` | REC |
+| 수문 | `SLUICE` | `split` + 우회 | OBJ(관통 목표방) |
+| 제련소 | `FOUNDRY` | `open` + hazard | FOR(보상 루트) |
+| **(미명명)** 위험 관문 | `?` | `choke` | GATE(확정 정예) |
+| **(미명명)** 심부 | `?` | `split` | DEEP(확정 교전) |
+| **(미명명)** 탈출 | `?` | `safe` | EXT-A / EXT-B |
+
+**판정 필요 3건:** GATE·DEEP·EXT 지역명. 나머지 5개도 슬러그 철자는 확정 필요(예: 성문 어귀를
+`THRESHOLD`로 할지 `WARDGATE`로 할지 — 데모 ENTRY 방 라벨이 이미 "Ward Threshold"다).
+
+### 발급 규모
+
+방 9 · 풀 6~7 · 추출점 2 · 맵/청사진/계약 각 1 · 컨셉존 4~8.
+**미등록 ID는 로드 시점 abort**이므로 spec 등록이 게임 구현보다 **먼저**다
+(`LevelDesignMap.md` 행 추가 = `F-026` §4 의무 → 게임 `data/slice01/id_registry.json`).
 
 ## 3. 집행 순서
 
-1. **§B 택일** + **§F 명명 확정** ← 여기서 막혀 있다(판정 필요)
-2. spec repo에서 SSOT 편집 — `LDG-001` §8 · `F-006` §3.10.1(+§3.1.2 옵션 2일 때) · `F-026` §3 · `DBP-DEFAULT-001` · 신규 `DBP-###`
-3. `OPS_30` — impact_scan → 매퍼×4(`mapper_sync_check.py --fix`) → `RelationGraph` 재생성 → DecisionLog `DEC-YYYYMMDD-###` → `TODO.md` → `SpecScopeTracker.md` → `LevelDesignMap.md`
+1. ~~§B 택일~~ ✅ 옵션 2 · ~~§F 방향~~ ✅ 실제 지역명 — **남은 판정: 지역 슬러그 8종(§2) · 컨셉존 접두사 분리 여부 · `F-010` UI 문구**
+2. spec repo에서 SSOT 편집 — **`F-006` §3.1.2 본문 교체**(§B) · §3.10.1 · `LDG-001` §8(필드 5행) · `D-015` 의미 명시 · `F-026` §3 · `DBP-DEFAULT-001` · `LAY-UPPER`(지역 어휘) · 신규 `DBP-UPPER-001`
+3. `OPS_30` — impact_scan → 매퍼×4(`mapper_sync_check.py --fix`) → `RelationGraph` 재생성 → **DecisionLog `DEC-` 발급(§B 초안 사용)** → `TODO.md` → `SpecScopeTracker.md` → `LevelDesignMap.md`
 4. `OPS_20` lint — `spec_xref_check.py` BLOCKER 0
 5. PR → merge
 6. **게임:** [`spec_ref.json`](../spec_ref.json) 핀 bump + `id_registry.json` 등록 + `rooms.json` 필드 반영 + `map_smoke` 설계 리포트를 **하드 게이트로 승격**(사이클 ≥ 2 · 경로별 교전 밴드 · 상자 EV 밴드)
@@ -177,8 +264,12 @@ Phase 1 그레이박스(방 9 · 연결 11 · **사이클 3** · 탈출 2점)에
 
 ## 5. 미판정 이월
 
-- **§B 옵션 택일** — 초안 판단은 옵션 1(규칙 변경 없음)이나 **기획 판정 사항**
-- **§F 명명 체계** — 이후 전부가 따라간다
-- `ENC-HARD-*` 12종의 티어 재분류 방식(ⓐ 파일 재태그 / ⓑ 컬럼 해석 변경)
-- `spatialGrammar` enum 개수 — 5종으로 시작할지 6종(+`backline_pocket`)으로 시작할지
+**해소됨:** ~~§B 옵션 택일~~ → 옵션 2 · ~~§F 명명 방향~~ → 실제 지역명 선반영 (2026-08-24)
+
+**남은 것:**
+- **지역 슬러그 8종**(§2) — 특히 GATE·DEEP·EXT **3건은 이름 자체가 없다**. 이후 모든 ID가 따라간다
+- **컨셉존 접두사** — `ZONE-`을 해저드 존과 계속 공유할지, `CZ-` 등으로 분리할지(기존 부채)
+- `F-010` 배치 단계의 난이도 선택 UI 문구 처리(§B)
+- `spatialGrammar` enum 개수 — 5종 시작 vs 6종(+`backline_pocket`)
 - Phase 1 그레이박스의 실제 방 배치 — 플랜 문서 §Phase 1 도면은 **초안**이며 채택 전
+- `ENC-HARD-*` 12종의 프로필 태그 유지 여부(§B ②는 「손대지 않는다」로 제안)
