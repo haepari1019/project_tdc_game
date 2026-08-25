@@ -36,6 +36,7 @@ const CHEST_OBSTACLE_GAP := 3.2  # 장애물 중심에서 떨어진 거리(옆�
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
 const LayerTransition := preload("res://scripts/run/controllers/layer_transition.gd")
 const Stairs := preload("res://scripts/world/objects/stairs.gd")
+const ExtractionBeacon := preload("res://scripts/world/objects/extraction_beacon.gd")
 ## 문이 개구부보다 이만큼 넓다 — 벽 두께만큼 물려 **옆으로 돌아 들어갈 틈**을 없앤다.
 const DOOR_OVERLAP_M := 1.2
 const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
@@ -254,6 +255,7 @@ func _ready() -> void:
 	ally_cache.position = _anchor_pos("interactions", "role", "ally_cache")
 	add_child(ally_cache)
 	_place_gates()               # 진입 조건의 실물 — 앵커 `key_gate`마다 문 하나
+	_place_extraction_beacons()  # 탈출은 **눌러서** 시작한다(F-007 `ExtractionActivate`)
 	# Corridor trap (RM-ROUTE-01 chokepoint, 6m wide): the controlled member crossing the
 	# plate spawns a fatal zone behind them → followers cut off (split). Far lever clears it.
 	var trap := Trap.new()
@@ -679,6 +681,28 @@ func _quest_key_id() -> String:
 		if (rule == "requiresItem" or rule == "onBossKey") and not String(req.get("ref", "")).is_empty():
 			return String(req["ref"])
 	return ""
+
+
+## **탈출 지점의 실물.** 계약이 주는 지점마다 탈출대를 세운다 — 근접으로 저절로 시작하던 것을
+## **눌러서 시작**으로 바꾼 자리다(`F-007` §3.1.2a `ExtractionActivate` = 이름부터 활성화다).
+## 활성 조건(`always`/`onObjectiveComplete`)은 탈출대가 들고 판정한다.
+func _place_extraction_beacons() -> void:
+	if _map == null or _run_end == null or not _map.has_method("get_extraction_points"):
+		return
+	var n := 0
+	for e in _map.get_extraction_points(true):   # 조건 무관 **전부** 세운다 — 잠긴 것도 보여야 한다
+		var d := e as Dictionary
+		var b = ExtractionBeacon.new()
+		b.room = String(d.get("room", ""))
+		b.activation = String(d.get("activation", "always"))
+		b.position = d["pos"]
+		add_child(b)
+		b.setup(_run, _run_end)
+		_vision_fog.fog_object(b)
+		_map.register_layer_object(b, int(_map.get_room_layer(b.room)))
+		n += 1
+	if n > 0:
+		print("[MAP] 탈출대 %d개 배치" % n)
 
 
 ## **진입 조건의 실물** — `transitions` 앵커 중 `role: key_gate`마다 문을 세운다.

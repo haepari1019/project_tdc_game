@@ -6,7 +6,7 @@ extends Node3D
 ## 예전엔 **열쇠만 아는 문**이었다. 그러면 열쇠가 아닌 조건(`onObjectiveComplete` 등)은
 ## 데이터에 적어도 **실물이 될 수 없어** 조용히 죽은 선언이 된다. 규칙별로 갈린다:
 ##   - `requiresItem` / `onBossKey` — 백팩의 **정확한 열쇠 id**. 열면 소모된다.
-##   - `onObjectiveComplete` — 목표 완료. **스스로 열린다**(누르는 조건이 아니라 진행 조건이다).
+##   - `onObjectiveComplete` — 목표 완료. **조건이 찼으면 눌러서 연다**(자동 개방 아님).
 ##   - `onFacilityTier` / `onAccess` — 어휘는 스펙에 있으나 **런타임 미구현**. 잠그지 않는다
 ##     (조용히 막으면 진행 불가가 되므로, 미구현은 **열어 두는 쪽**으로 실패한다).
 ##
@@ -40,9 +40,6 @@ var _occluders: Array = []   # F2: fog/cone occluders (closed door) — freed on
 func setup(inv: Node, run: Node) -> void:
 	_inv = inv
 	_run = run
-	# 진행 조건 문은 **스스로 열린다** — 목표를 끝내고 돌아와 문을 누르게 만들 이유가 없다.
-	if rule == "onObjectiveComplete" and _run != null and _run.has_signal("objective_completed"):
-		_run.objective_completed.connect(_open_now)
 
 
 ## F2: dynamic fog/cone occluders for the closed door (registered by dungeon_run). The closed door
@@ -87,7 +84,7 @@ func interact() -> void:
 	_open_now()
 
 
-## 실제로 치우는 부분. 진행 조건 문은 시그널로 여기 직행한다(누르지 않는다).
+## 실제로 치우는 부분.
 func _open_now() -> void:
 	if _opened:
 		return

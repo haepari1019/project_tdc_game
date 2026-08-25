@@ -82,7 +82,7 @@ func _init() -> void:
 	_check_theme_axis(map, sd)
 	_check_wake_buffer(scn, map, sd)
 	_check_route_bands(scn, sd)
-	_check_playability(scn, map, sd)
+	await _check_playability(scn, map, sd)
 	# 아래는 **데모 맵의 방 이름을 박아** 쓰는 거동 프로브다 — 기본 출정지에서만 돈다.
 	# (계약 검사는 위에서 전 맵 공통으로 끝났다.)
 	if not _contract_only:
@@ -2288,13 +2288,21 @@ func _check_entry_requirements(scn: Node, _map: Node, sd) -> void:
 
 	var was := bool(run.objective_complete)
 	run.complete_objective()
-	await root.get_tree().process_frame
+	await root.get_tree().process_frame     # 자동 개방이 있었다면 여기서 돈다 — 안 기다리면 검사가 공허하다
+	# **스스로 열리지 않는다** — 조건이 차도 문은 그대로 서 있고, 눌러야 열린다.
+	# 자동 개방은 「세계가 조용히 바뀌는」 사건이라 플레이어가 못 본다(사용자 판정으로 되돌렸다).
+	var still_there := false
+	for c in prog.get_children():
+		if c is StaticBody3D and is_instance_valid(c) and not c.is_queued_for_deletion():
+			still_there = true
+	_expect(still_there and String(prog.interact_prompt()).contains("열기"),
+		"🔴 [계약/진입] 조건이 차도 **스스로 열리지 않는다** — 프롬프트만 바뀐다")
+	prog.interact()
 	var body_gone := true
 	for c in prog.get_children():
 		if c is StaticBody3D and is_instance_valid(c) and not c.is_queued_for_deletion():
 			body_gone = false
-	_expect(body_gone,
-		"🔴 [계약/진입] 목표가 끝나면 **스스로 열린다** — 끝내고 돌아와 누르게 만들지 않는다")
+	_expect(body_gone, "🔴 [계약/진입] 조건이 차면 **눌러서 열린다**")
 
 	# ④ **비소모 문은 열쇠를 안 먹는다.** 데모 맵의 심부 관문(`RM-BOSS-01`/`RM-DEEP-01`)은
 	#    탈출문과 **같은 열쇠**를 쓰되 `consume_on_use: false`다 — 먹어 버리면 심부에 들르는 순간
@@ -2930,6 +2938,49 @@ func _check_playability(scn: Node, map: Node, sd) -> void:
 	# 데모처럼 **단일 지점을 목표 뒤에 두는 정당한 설계**를 잘못 고발한다.
 	var all_pts: int = (map.get_extraction_points(true) as Array).size()
 	var always_n: int = (map.get_extraction_points(false) as Array).size()
+	# **탈출은 눌러서 시작한다.** 지점마다 탈출대가 서 있고, 조건이 안 찼으면 눌러도 안 돈다 —
+	# 근접으로 저절로 시작하면 「커밋할 것인가」라는 선택이 사라진다(`F-007` `ExtractionActivate`).
+	var beacons: Array = []
+	for c in scn.get_children():
+		if ("activation" in c) and c.has_method("is_active") and c.has_method("interact_prompt"):
+			beacons.append(c)
+	var declared_pts: int = (map.get_extraction_points(true) as Array).size()
+	_expect(beacons.size() == declared_pts,
+		"🔴 [계약/플레이] 탈출 지점마다 **누를 것이 있다** (%d/%d)" % [beacons.size(), declared_pts])
+	var end_ctl: Node = null
+	var run_ref: Node = null
+	for c in scn.get_children():
+		if c.has_method("request_extraction") and c.has_method("is_extracting"):
+			end_ctl = c
+		if c.has_method("complete_objective") and ("objective_complete" in c):
+			run_ref = c
+	if end_ctl != null and run_ref != null and not beacons.is_empty():
+		_expect(not end_ctl.is_extracting(), "[계약/플레이] 근접만으로는 탈출이 시작되지 않는다")
+		var open_b: Node = null
+		for b in beacons:
+			if b.is_active():
+				open_b = b
+		# 잠긴 탈출대를 **만들어서** 시험한다 — 맵에 마침 하나 있기를 기대하면, 없는 맵에서
+		# 검사가 통째로 건너뛰어진다(반증 확인에서 그렇게 드러났다).
+		var Beacon = load("res://scripts/world/objects/extraction_beacon.gd")
+		var lock_b = Beacon.new()
+		lock_b.activation = "onObjectiveComplete"
+		scn.add_child(lock_b)
+		lock_b.setup(run_ref, end_ctl)
+		var was_obj := bool(run_ref.objective_complete)
+		run_ref.objective_complete = false
+		_expect(not lock_b.is_active() and String(lock_b.interact_prompt()).contains("목표 완료 필요"),
+			"🔴 [계약/플레이] 조건 미달 탈출대는 **이유를 말한다**")
+		lock_b.interact()
+		_expect(not end_ctl.is_extracting(), "🔴 [계약/플레이] 조건 미달 탈출대는 **눌러도 안 돈다**")
+		run_ref.objective_complete = was_obj
+		lock_b.queue_free()
+		if open_b != null:
+			open_b.interact()
+			_expect(end_ctl.is_extracting(), "🔴 [계약/플레이] 탈출대를 누르면 **홀드가 시작된다**")
+			open_b.interact()
+			_expect(not end_ctl.is_extracting(), "[계약/플레이] 다시 누르면 중단 — 커밋이 되돌릴 수 있다")
+
 	_expect(all_pts > 0 and (always_n > 0 or reachable),
 		"🔴 [계약/플레이] 탈출로가 뚫려 있다 — 지점 %d개(목표 전 열림 %d개)%s" % [all_pts, always_n,
 			"" if (always_n > 0 or reachable) else " · 전부 목표 뒤인데 목표를 완료할 길이 없다"])

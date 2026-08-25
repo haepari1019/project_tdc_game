@@ -2515,3 +2515,16 @@
 - **영향 파일:** `map_source.gd`(개구부 `axis`·`register_layer_object`) · `door.gd`(`span`) · `dungeon_run.gd`(문 유도·`_anchor_rows`·`_room_of_point`·`_check_objective_cleared`) · `run_end_controller.gd` · 맵 문서 2개(`objective_rule`·`extraction_activation`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
 - **게이트:** `ci_smoke.sh` 전 스위트 PASS · map smoke **DEMO·UPPER 모두 PASS**.
 - **⚠ 남은 것:** 이번 수정도 **헤드리스 검증**이다. 문을 실제로 우클릭해 여는 것, 층 전환 시 조명 느낌, 두 탈출 지점의 실플레이는 **사람 손이 필요하다**.
+
+### DRIFT-192 — 세계는 눌러서 바뀐다: 클릭 탈출 + 문 자동 개방 철회 🔷 Phase 2 · 전파 불요
+- **근거:** 사용자 판정. ① 탈출을 「존 진입 시 카운트」에서 **「탈출대를 눌러 시작」**으로 ② 조건부 문도 **「눌렀을 때 조건이 차 있으면 열린다」**로.
+- **🔴 ① 내 직전 판정을 되돌린다.** [[DRIFT-183]]에서 `onObjectiveComplete` 문을 **스스로 열리게** 했다(근거: 「목표를 끝내고 돌아와 누르게 만들 이유가 없다」). 그 논리가 약했다 — 문은 **지나가려고** 여는 것이라 열고 싶은 순간엔 이미 그 앞에 서 있고, 자동 개방이 도움이 되는 건 **멀리 있을 때뿐인데 그때가 바로 안 보이는 때**다. 「세계가 조용히 바뀌는」 사건이 된다. → 시그널 연결 제거(`RunController.objective_completed`도 쓰는 곳이 없어져 **함께 삭제** — 죽은 코드를 남기지 않는다).
+- **② 탈출은 근접이 아니라 활성화다.** 스펙 이름부터 `ExtractionActivate`(`F-007` §3.1.2a)인데 구현은 **존 반경에 들어가면 저절로** 시작했다 — 그러면 탈출이 「지나가다 걸리는 것」이 되어 **커밋할 것인가**라는 선택이 사라진다. → `extraction_beacon.gd` 신설(상자·문·계단과 같은 덕타이핑 계약, INTERACT 비트만 — 탈출대가 통행/시야를 막으면 안 된다). 누르면 `request_extraction()`, **다시 누르면 중단**(존 이탈로도 풀린다) — 되돌릴 수 있어야 커밋이 선택이다.
+- **③ 규약이 하나가 됐다.** 상자·문·레버·계단·탈출대가 전부 같다: 조건 미달이면 **프롬프트가 이유를 말하고**, 차 있으면 **눌러서** 바뀐다. 예외 없음.
+- **🔴 ④ 반증 확인이 새 게이트 둘의 공허함을 잡았다.**
+  - 「스스로 열리지 않는다」를 **프레임을 안 기다리고** 검사했다 — 자동 개방을 되살려도 아직 안 돌아서 통과했다. 「아직 안 열렸다」와 「못 열었다」를 구분하려면 **틈을 줘야 한다**.
+  - 「조건 미달 탈출대는 눌러도 안 돈다」가 **맵에 마침 잠긴 탈출대가 있기를 기대**했다 — 활성 조건을 무시하게 만들면 잠긴 탈출대가 사라져 **검사가 통째로 건너뛰어졌다**. → 잠긴 탈출대를 **만들어서** 시험한다.
+- **반증 확인(6종 전부):** 문 자동 개방 부활 → 「스스로 열리지 않는다」 FAIL · 탈출대 미배치 → 「누를 것이 있다 0/2」 · 누름이 홀드를 안 걸면 FAIL · 활성 조건 무시 → 「이유를 말한다」+「눌러도 안 돈다」 FAIL.
+- **⚠ 관찰(미해결):** map smoke 8런 중 **1런에서** `The axis Vector3(...) must be normalized` 162건이 떴다(예: `(0.058603, 0.0, -0.756069)`). 시드 의존이며 재현이 안 됐고(이후 4런 연속 0건), 이번 변경은 회전 수학을 안 건드리므로 **기존 경로**로 보인다. 쫓지 않되 값을 남긴다 — `rotated(axis, angle)`/`Basis(axis, angle)`에 정규화 안 된 방향 벡터가 들어가는 자리다.
+- **영향 파일:** `extraction_beacon.gd`(신규) · `door.gd` · `run_controller.gd`(시그널 삭제) · `run_end_controller.gd`(`request_extraction`/`cancel_extraction`/`is_extracting`) · `dungeon_run.gd`(`_place_extraction_beacons`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
+- **게이트:** `ci_smoke.sh` 전 스위트 PASS · map smoke **DEMO·UPPER 모두 PASS**.

@@ -15,6 +15,10 @@ const EXTRACT_RADIUS_M := 3.0
 ## it so a survivor MIA/separated blocks ExtractionActivate completion.
 const COHESION_RULE := true
 
+## 탈출대를 눌러 **활성화**했는가. 근접만으로는 시작하지 않는다.
+var _armed := false
+var _beacon: Node3D = null
+
 var _run: Node
 var _party: Node3D
 var _combat: Node3D
@@ -50,21 +54,37 @@ func _process(delta: float) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl == null:
 		return
-	# F-007 ExtractionActivate: 활성 지점에서 홀드 → Run Success. 존 이탈=취소(실패 아님).
-	# **활성 조건은 지점이 갖는다**(`always` / `onObjectiveComplete`, `F-006` §3.10) — 예전엔 여기서
-	# 전역으로 `objective_complete`를 AND해서 `always` 지점도 목표 전엔 안 열렸다. 조기 탈출로가
-	# 있는 맵에서는 그게 **탈출 자체를 막는다**(실제로 UPPER가 그랬다).
-	var in_extract: bool = not _run.run_over and _in_extraction_zone(ctrl.global_position)
+	# F-007 `ExtractionActivate` — 이름대로 **활성화가 먼저다**. 탈출대를 눌러야(`request_extraction`)
+	# 홀드가 돈다. 예전엔 존 반경에 들어가면 **저절로** 시작돼 「커밋할 것인가」라는 선택이 없었다.
+	# 활성 조건(`always`/`onObjectiveComplete`)은 **탈출대가** 판정한다(`F-006` §3.10).
+	# 존을 벗어나면 취소된다 — 실패가 아니라 **되돌리기**다.
+	var in_extract := false
+	if _armed and not _run.run_over and is_instance_valid(_beacon):
+		in_extract = Vector2(ctrl.global_position.x - _beacon.global_position.x,
+			ctrl.global_position.z - _beacon.global_position.z).length() < EXTRACT_RADIUS_M
 	_update_extraction(in_extract, delta)
 
 
-## **활성 탈출 지점 중 하나**에라도 들어와 있는가. 맵은 지점을 여럿 가질 수 있고 Point마다 활성
-## 조건이 다르다(`F-006` §3.10) — 예전엔 계약이 지점을 하나만 날라서, 탈출 방이 둘인 맵은
-## 나머지 하나가 **죽은 방**이 됐다.
-func _in_extraction_zone(p: Vector3) -> bool:
-	if _map != null and _map.has_method("nearest_extraction_distance"):
-		return _map.nearest_extraction_distance(p, _run.objective_complete) < EXTRACT_RADIUS_M
-	return p.distance_to(_map.get_extraction_position()) < EXTRACT_RADIUS_M
+## 탈출대가 부른다 — 여기서부터 홀드가 돈다.
+func request_extraction(beacon: Node3D) -> void:
+	if _run == null or _run.run_over:
+		return
+	_armed = true
+	_beacon = beacon
+	party_alert.emit("탈출 시작 — 자리를 지켜라", 1)
+
+
+## 되돌리기. 존 이탈로도 풀리지만, 눌러서도 풀 수 있어야 커밋이 **선택**이 된다.
+func cancel_extraction() -> void:
+	_armed = false
+	_beacon = null
+	_active = false
+	if _count != null:
+		_count.visible = false
+
+
+func is_extracting() -> bool:
+	return _armed
 
 
 ## ExtractionActivate hold-channel: a countdown that ticks down while in the zone and completes
@@ -72,8 +92,10 @@ func _in_extraction_zone(p: Vector3) -> bool:
 ## starting combat re-extends to 30s. Leaving the zone cancels (reset). Ticks high→low.
 func _update_extraction(in_zone: bool, delta: float) -> void:
 	if not in_zone:
-		if _active:
+		if _active or _armed:
 			_active = false
+			_armed = false          # 존을 벗어나면 **활성화도 풀린다** — 다시 눌러야 한다
+			_beacon = null
 			_count.visible = false
 		_blocked = false
 		return
@@ -99,6 +121,7 @@ func _update_extraction(in_zone: bool, delta: float) -> void:
 			return
 		_blocked = false
 		_active = false
+		_armed = false
 		_count.visible = false
 		_settle_extraction()  # F-007 §3.6 Extraction Success (incl. Partial)
 		return

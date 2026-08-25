@@ -7,7 +7,6 @@ signal run_booted(state: Dictionary)
 signal run_phase_changed(phase: String)
 signal room_changed(room_ref: String)
 signal encounter_triggered(encounter_id: String, room_ref: String)
-signal objective_completed()   # 목표 완료 — `onObjectiveComplete` 진입 조건 문이 스스로 열린다
 signal run_ended(result: String)
 signal run_settled(summary: Dictionary)   # F-007 §3.8 — full settlement payload for the UI
 
@@ -99,7 +98,6 @@ func complete_objective() -> void:
 	if objective_complete:
 		return
 	objective_complete = true
-	objective_completed.emit()
 	print("[TDC] Objective GIMMICK-DEMO-01 complete (stub)")
 	# GIMMICK-DEMO-01 = **`Q-HUB-012`(필기 상점 개장)** 완료 트리거. 구 `Q-HUB-010`(필기소)은 M6에서
 	# 건물째 사라졌고, 「목표를 완수하면 상점이 열린다」가 재료 임계값보다 사건에 가깝다.
