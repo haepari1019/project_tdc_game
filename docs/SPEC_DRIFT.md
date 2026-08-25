@@ -2496,3 +2496,22 @@
 - **영향 파일:** `blueprints/DBP-DEMO-001.json`(이동) · `DBP-UPPER-001.json`(신규) · `manifest.json` · `maps/*.json` · `slice01_data.gd` · `run_loadout.gd` · `main.gd` · `hub_gate_panel.gd` · `map_source.gd` · `map_demo_layout.gd` · `run_end_controller.gd` · `minimap.gd` · `run_controller.gd` · `tools/map_smoke.gd` · `tools/ci_smoke.sh` · `docs/design/map_contract.md`.
 - **게이트:** `ci_smoke.sh` **전 스위트 PASS · map smoke 2회(DEMO·UPPER) 모두 PASS**.
 - **상태:** ✅ 완료. 남은 것: 지역 테마 확정(설계자 — 라벨 11개 + `display_name`), Blender 실맵(DEBT-DM3 잔여).
+
+### DRIFT-191 — 플레이 피드백 3건: 문·층 광원·탈출 🔷 Phase 2 · 전파 불요
+- **근거:** `MAP-UPPER-001` 실플레이. **헤드리스 계약 검사를 전부 통과한 맵이 실제로는 못 쓸 상태였다** — 「부팅된다」와 「플레이된다」가 다르다는 것을 셋이 동시에 보여 줬다.
+- **🔴 ① 문이 개구부를 안 막았다.** 「상호작용이 없고 살짝 우회하면 다음 방으로 들어가진다」. 재보니 문 4개가 전부 개구부에서 **1~2 m 떨어져** 있고, 폭 6.4 m 고정이라 **8 m 개구부는 양옆이 뚫려** 있었으며, **회전이 전부 0°**라 X면 벽과 Z면 벽을 구분하지 않았다.
+  - 원인은 내가 `key_gate` 앵커의 `pos`를 **손으로 찍은 것**이다. 계약 검사는 「앵커가 방 안」만 보므로 통과한다.
+  - → **위치·회전·폭을 개구부에서 유도한다**(`get_room_openings()`가 `axis`·`width`를 함께 나른다). 앵커는 `gates`(무엇을 막는가)만 말한다 — 좌표를 안 쓰면 어긋날 자리도 없다. 폭은 개구부 + `DOOR_OVERLAP_M 1.2`로 벽 두께만큼 물린다.
+- **🔴 ② 아래층에서 윗층이 보이고 그림자가 투과했다.** `set_visible_layer`는 **정상 동작**했다(layer 0 방 0개 보임). 범인은 **방 노드 밖에 사는 것들**이었다 — `dungeon_run`이 놓는 횃불(**광원**)·배럴·상자·문·함정은 `geometry_root()` 자식이 아니라서 층 전환을 안 탄다. 남의 층 횃불이 계속 타면 빛과 그림자가 8 m를 넘어 내려온다.
+  - → `map_source.register_layer_object(node, layer)` 등록부. 세계에 놓는 것은 자기 층에 등록하고 `set_visible_layer`가 함께 숨긴다(현재 21개).
+  - 층은 **방이 안다** — 좌표만으로는 겹친 층에서 판정이 안 되므로 앵커를 **방과 함께** 받는 `_anchor_rows()`를 쓰고, 좌표로만 아는 오브젝트는 `y`로 가린다(`floor_y_at`의 `near_y`와 같은 수법).
+- **🔴 ③ 탈출이 안 됐다.** 두 겹이었다:
+  - `run_end_controller`가 **전역으로 `objective_complete`를 AND**했다 → 활성 조건이 `always`인 지점도 목표 전엔 안 열린다. **활성 조건은 지점이 갖는다**(`F-006` §3.10) — 전역 AND는 조기 탈출로가 있는 맵에서 **탈출 자체를 막는다**.
+  - 그리고 UPPER는 **목표를 완료할 길이 아예 없었다.** 데모의 목표는 「봉인문 열기」인데(`completes_objective` 앵커), UPPER에는 그런 문이 없고 `RM-UPPER-04`의 `run_phase_on_enter: Objective`는 **단계 표시만** 올린다. → 맵이 `objective_rule`을 선언한다: 데모 `onDoorOpen` / UPPER `onObjectiveRoomCleared`(`objective_room`의 분대 정리).
+  - 데모 지점은 `onObjectiveComplete`로 **명시**했다 — 구 전역 AND와 같은 규칙을 지점 선언으로 옮긴 것이라 동작이 불변이다.
+- **④ 게이트 [계약/플레이] 신설(5항목).** 셋 다 **이름 그대로** 잡는다: 문이 개구부를 막는가(거리·폭·축) · 층을 옮기면 남의 층 물건이 숨는가 · 목표를 완료할 길이 있는가 · 탈출로가 뚫려 있는가.
+  - 「항상 열린 지점이 ≥1」로 쓰려다 **되돌렸다** — 데모처럼 **단일 지점을 목표 뒤에 두는 정당한 설계**를 잘못 고발한다. 물어야 할 것은 「지점이 있고, 전부 목표 뒤라면 목표가 완료 가능한가」다.
+- **반증 확인(4종 전부):** 문을 앵커 좌표에 손으로 놓으면 「개구부에서 1~2 m」 · 폭을 고정하면 「폭 6.4 < 개구부 8.0」 · 세계 오브젝트를 안 숨기면 「남음 4개」 · `objective_rule`을 지우면 「미선언」.
+- **영향 파일:** `map_source.gd`(개구부 `axis`·`register_layer_object`) · `door.gd`(`span`) · `dungeon_run.gd`(문 유도·`_anchor_rows`·`_room_of_point`·`_check_objective_cleared`) · `run_end_controller.gd` · 맵 문서 2개(`objective_rule`·`extraction_activation`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
+- **게이트:** `ci_smoke.sh` 전 스위트 PASS · map smoke **DEMO·UPPER 모두 PASS**.
+- **⚠ 남은 것:** 이번 수정도 **헤드리스 검증**이다. 문을 실제로 우클릭해 여는 것, 층 전환 시 조명 느낌, 두 탈출 지점의 실플레이는 **사람 손이 필요하다**.

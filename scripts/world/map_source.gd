@@ -61,6 +61,8 @@ var _extraction_point: Vector3 = Vector3.ZERO
 ## 탈출 지점 **전부** — `[{pos: Vector3, room: String, activation: String}]`.
 ## 맵은 지점을 여럿 가질 수 있고 **Point마다 활성 조건이 다르다**(`F-006` §3.10).
 var _extraction_points: Array = []
+## 런이 놓은 세계 오브젝트의 층 등록부 — `[{node, layer}]`. 방 노드 밖에 사는 것들이다.
+var _layer_objects: Array = []
 ## LOS 오클루더 footprint(월드 XZ). `derive_occluders()`가 콜라이더에서 유도한다 — 손으로 채우지 않는다.
 ## {center: Vector2, half: Vector2}(box) 또는 {center: Vector2, radius: float}(cyl).
 var _occluders: Array = []
@@ -167,15 +169,20 @@ func get_room_openings(room_ref: String) -> Array:
 		var bsz: Vector3 = it["size"]
 		var d := bc - ac
 		var p := Vector3.ZERO
-		if absf(d.x) > absf(d.z):          # 동서 인접 — 문은 X 벽 위, Z 방향으로 겹친다
+		var axis := "z"                    # 개구부가 **뻗은** 축(문이 서는 방향)
+		if absf(d.x) > absf(d.z):          # 동서 인접 — 벽은 X면, 개구부는 Z 방향으로 뻗는다
 			var z0 := maxf(ac.z - asz.z * 0.5, bc.z - bsz.z * 0.5)
 			var z1 := minf(ac.z + asz.z * 0.5, bc.z + bsz.z * 0.5)
 			p = Vector3(ac.x + signf(d.x) * asz.x * 0.5, ac.y, (z0 + z1) * 0.5)
-		else:                              # 남북 인접 — 문은 Z 벽 위, X 방향으로 겹친다
+			axis = "z"
+		else:                              # 남북 인접 — 벽은 Z면, 개구부는 X 방향으로 뻗는다
 			var x0 := maxf(ac.x - asz.x * 0.5, bc.x - bsz.x * 0.5)
 			var x1 := minf(ac.x + asz.x * 0.5, bc.x + bsz.x * 0.5)
 			p = Vector3((x0 + x1) * 0.5, ac.y, ac.z + signf(d.z) * asz.z * 0.5)
-		out.append({"pos": p, "width": float(conn[2]), "to": other})
+			axis = "x"
+		# `axis`/`width`를 함께 나른다 — 문을 손으로 놓지 않기 위해서다. 손으로 놓으면
+		# **개구부에서 1~2 m 어긋나고 폭도 안 맞아 옆으로 돌아 들어갈 수 있다**(실제로 그랬다).
+		out.append({"pos": p, "width": float(conn[2]), "to": other, "axis": axis})
 	return out
 
 
@@ -614,6 +621,18 @@ func set_visible_layer(active: int) -> void:
 			continue
 		if c is Node3D:
 			(c as Node3D).visible = (get_room_layer(ref) == active)
+	# **방 지오메트리만 숨기면 부족하다.** 런이 세계에 놓는 것들(횃불·배럴·상자·문·함정)은
+	# 방 노드 **밖**에 산다 — 그대로 두면 남의 층 횃불이 계속 타면서 **광원과 그림자가 층을 넘는다**
+	# (플레이에서 「아래층에 내려가도 윗층이 보이고 그림자가 투과된다」로 나타났다).
+	for e in _layer_objects:
+		var n: Node = (e as Dictionary)["node"]
+		if is_instance_valid(n) and n is Node3D:
+			(n as Node3D).visible = (int((e as Dictionary)["layer"]) == active)
+
+
+## 런이 세계에 놓은 오브젝트를 **그 층에 등록**한다. 층 전환 시 함께 숨는다.
+func register_layer_object(n: Node, layer: int) -> void:
+	_layer_objects.append({"node": n, "layer": layer})
 
 
 ## 그 XZ 지점의 레이어(방 기준). 치명존이 **자기 층만** 깎게 한다.

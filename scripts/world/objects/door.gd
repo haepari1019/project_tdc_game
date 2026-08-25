@@ -12,7 +12,9 @@ extends Node3D
 ##
 ## ref: `LDG-001` §9.1 · `F-006` §3.10 · world loop / F-007.
 
-const SIZE := Vector3(6.4, 3.2, 0.9)  # spans the ~6-wide route→extraction opening
+const SIZE := Vector3(6.4, 3.2, 0.9)  # 기본값 — 실제 폭은 **개구부가 정한다**(`span`)
+## 이 문이 막아야 할 개구부 폭(m). 벽 두께만큼 더 물려 **옆으로 돌아 들어갈 틈**을 없앤다.
+var span: float = SIZE.x
 
 var _inv: Node = null     # InventoryUI (key check)
 ## **이 문이 요구하는 열쇠 id.** 맵 문서가 소유한다 — 문이 막는 방의 `entry_requirement.ref`다
@@ -109,7 +111,7 @@ func _open_now() -> void:
 func _build() -> void:
 	_mesh = MeshInstance3D.new()
 	var bm := BoxMesh.new()
-	bm.size = SIZE
+	bm.size = Vector3(span, SIZE.y, SIZE.z)
 	_mesh.mesh = bm
 	_mesh.position.y = SIZE.y * 0.5
 	var mat := StandardMaterial3D.new()
@@ -125,7 +127,7 @@ func _build() -> void:
 	_body.collision_mask = 0
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = SIZE
+	box.size = Vector3(span, SIZE.y, SIZE.z)
 	cs.shape = box
 	cs.position.y = SIZE.y * 0.5
 	_body.add_child(cs)

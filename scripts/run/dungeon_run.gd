@@ -36,6 +36,8 @@ const CHEST_OBSTACLE_GAP := 3.2  # 장애물 중심에서 떨어진 거리(옆�
 const WallXray := preload("res://scripts/run/controllers/wall_xray.gd")
 const LayerTransition := preload("res://scripts/run/controllers/layer_transition.gd")
 const Stairs := preload("res://scripts/world/objects/stairs.gd")
+## 문이 개구부보다 이만큼 넓다 — 벽 두께만큼 물려 **옆으로 돌아 들어갈 틈**을 없앤다.
+const DOOR_OVERLAP_M := 1.2
 const VisionFog := preload("res://scripts/run/controllers/vision_fog.gd")
 const EnemyVisionOverlay := preload("res://scripts/run/controllers/enemy_vision_overlay.gd")
 const MovePathOverlay := preload("res://scripts/run/controllers/move_path_overlay.gd")
@@ -265,21 +267,25 @@ func _ready() -> void:
 	# fog sweep missed them → fog them explicitly (else visible at full brightness in unseen rooms).
 	for o in [chest, ally_cache, trap, lever]:
 		_vision_fog.fog_object(o)
+		_map.register_layer_object(o, int(_map.get_room_layer(_room_of_point((o as Node3D).position))))
 	# Breakable oil barrels (ENT-BARREL) in the combat court — AoE breaks them → oil pool.
 	_place_loot_chests()   # 절차적 루트 상자 산포(퀘스트/아군 상자는 위에서 고정)
-	for bpos in _anchor_list("props", "ref", "ENT-BARREL-001"):
+	for row in _anchor_rows("props", "ref", "ENT-BARREL-001"):
 		var barrel := Barrel.new()
-		barrel.position = bpos
+		barrel.position = (row as Dictionary)["pos"]
 		add_child(barrel)
 		_vision_fog.fog_object(barrel)
+		_map.register_layer_object(barrel, int((row as Dictionary)["layer"]))
 	# A few carriable torches (ENT-TORCH) near the oil — the carry/throw + RX-OIL-FIRE gameplay
 	# spot. Rooms are lit by fixed lanterns (map), so an enemy can't dark out a room by throwing
 	# every light. Wire each torch to combat (ignite_at) + the carry/throw handlers. ref: F-021.
-	for tpos in _anchor_list("props", "ref", "ENT-TORCH-001"):
+	# 횃불은 **광원**이다 — 층 등록을 빼먹으면 남의 층 횃불이 계속 타면서 빛과 그림자가 층을 넘는다.
+	for row in _anchor_rows("props", "ref", "ENT-TORCH-001"):
 		var torch := Torch.new()
-		torch.position = tpos
+		torch.position = (row as Dictionary)["pos"]
 		add_child(torch)
 		_vision_fog.fog_object(torch)
+		_map.register_layer_object(torch, int((row as Dictionary)["layer"]))
 	for t in get_tree().get_nodes_in_group("torch"):
 		t.setup(_combat)
 		if not t.pickup_requested.is_connected(_torch.on_torch_pickup):
@@ -355,11 +361,34 @@ func _process(_delta: float) -> void:
 		_hud_sub.text = "Ready" if ctrl.sub_cooldown_s <= 0.0 else "%.1fs" % ctrl.sub_cooldown_s
 
 
-## ENC(분대) 클리어 → 허브 프로필에 기록(런 이벤트 퀘스트 판정용, 예: Q-HUB-020 armory).
-func _on_squad_cleared_quest(encounter_id: String, _pos: Vector3) -> void:
+## ENC(분대) 클리어 → 허브 프로필에 기록(런 이벤트 퀘스트 판정용, 예: Q-HUB-020 armory)
+## + **목표 완료 판정**(맵이 `objective_rule: onObjectiveRoomCleared`를 선언한 경우).
+func _on_squad_cleared_quest(encounter_id: String, pos: Vector3) -> void:
 	var hub: Node = get_node_or_null("/root/HubProfile")
 	if hub != null:
 		hub.record_enc_cleared(encounter_id, RunLoadout.get_difficulty())   # Hard면 Q-HUB-020 게이트(무기고)
+	_check_objective_cleared(pos)
+
+
+## **런 목표가 무엇으로 완료되는가는 맵이 정한다**(`objective_rule`).
+##   - `onDoorOpen` — 봉인문을 여는 것이 목표(데모). `Door.completes_objective`가 부른다.
+##   - `onObjectiveRoomCleared` — `objective_room`의 분대를 정리하면 완료.
+## 규칙이 없으면 목표가 **영원히 미완료**로 남고, `onObjectiveComplete` 탈출 지점이 안 열린다
+## (UPPER가 실제로 그 상태였다 — 탈출이 불가능했다).
+func _check_objective_cleared(pos: Vector3) -> void:
+	if _run == null or _run.objective_complete:
+		return
+	var sd := get_node_or_null("/root/Slice01Data")
+	if sd == null:
+		return
+	var doc: Dictionary = sd.get_rooms_document()
+	if String(doc.get("objective_rule", "onDoorOpen")) != "onObjectiveRoomCleared":
+		return
+	var target := String(doc.get("objective_room", ""))
+	if target.is_empty() or _room_of_point(pos) != target:
+		return
+	_run.complete_objective()
+	print("[TDC] 목표 완료 — %s 정리 (objective_rule=onObjectiveRoomCleared)" % target)
 
 
 ## Shift+우클릭 버리기 (백팩) → 컨트롤 멤버 발치에 재획득 가능한 ItemDrop 생성.
@@ -672,6 +701,16 @@ func _place_gates() -> void:
 			var req: Dictionary = {}
 			if sd != null and not gated.is_empty():
 				req = sd.get_room_row(gated).get("entry_requirement", {})
+			# **위치·회전·폭은 개구부에서 유도한다.** 앵커는 「무엇을 막는가」(`gates`)만 말한다 —
+			# 손으로 놓으면 개구부에서 1~2 m 어긋나고 폭도 안 맞아 **옆으로 돌아 들어갈 수 있다**
+			# (실제로 그랬다: 8 m 개구부에 6.4 m 문이 2 m 떨어져 회전 없이 서 있었다).
+			var op: Dictionary = {}
+			for o in _map.get_room_openings(String(ref)):
+				if String((o as Dictionary).get("to", "")) == gated:
+					op = o
+			if op.is_empty():
+				push_warning("[MAP] %s→%s 개구부 없음 — 문을 세울 수 없다" % [ref, gated])
+				continue
 			var door := Door.new()
 			door.rule = String(req.get("rule", "requiresItem"))
 			door.key_id = String(req.get("ref", ""))
@@ -679,11 +718,17 @@ func _place_gates() -> void:
 			# 이 문을 열면 목표가 완료되는가 — **앵커가 명시할 때만**. 예전엔 무조건이라
 			# 문이 둘 이상인 맵에서 아무 관문이나 목표를 끝내 버렸다.
 			door.completes_objective = bool(d.get("completes_objective", false))
-			door.position = d["pos"]
+			door.span = float(op.get("width", Door.SIZE.x)) + DOOR_OVERLAP_M
+			door.position = op["pos"]
+			if String(op.get("axis", "x")) == "z":
+				door.rotation.y = PI * 0.5      # 개구부가 Z로 뻗으면 문도 Z로 선다
 			door.setup(_inventory_ui, _run)
 			add_child(door)
+			_map.register_layer_object(door, int(_map.get_room_layer(String(ref))))
 			# F2: 닫힌 문은 시야 그림자를 드리운다(안개 + 적 시야콘). 열리면 이 오클루더가 해제된다.
-			var half := Vector2(Door.SIZE.x * 0.5, Door.SIZE.z * 0.5)
+			var half := Vector2(door.span * 0.5, Door.SIZE.z * 0.5)
+			if String(op.get("axis", "x")) == "z":
+				half = Vector2(Door.SIZE.z * 0.5, door.span * 0.5)
 			var xz := Vector2(door.position.x, door.position.z)
 			door.set_occluders([
 				_vision_fog.add_box_occluder(xz, half),
@@ -697,6 +742,23 @@ func _place_gates() -> void:
 		print("[MAP] 진입 조건 문 %d개 배치" % n)
 
 
+## 이 좌표가 속한 방 — 세계 오브젝트의 층을 정하는 데 쓴다. 층이 겹치므로 **y로 가린다**.
+func _room_of_point(p: Vector3) -> String:
+	var best := ""
+	var best_d := INF
+	for ref in _map.data_room_refs():
+		var room := String(ref)
+		var c: Vector3 = _map.get_spawn_position(room)
+		var sz: Vector3 = _map.get_room_size(room)
+		if absf(p.x - c.x) > sz.x * 0.5 or absf(p.z - c.z) > sz.z * 0.5:
+			continue
+		var d: float = absf(p.y - c.y)
+		if d < best_d:
+			best_d = d
+			best = room
+	return best
+
+
 ## 앵커가 실은 **문자열 필드**(`yields` 등). 데이터가 소유한 ID를 코드가 다시 적지 않기 위한 통로다.
 func _anchor_str(kind: String, key: String, value: String, field: String) -> String:
 	for a in _map.get_all_anchors(kind):
@@ -704,6 +766,21 @@ func _anchor_str(kind: String, key: String, value: String, field: String) -> Str
 			return String((a as Dictionary).get(field, ""))
 	push_warning("[MAP] 앵커 없음 — %s/%s=%s (맵 문서 anchors 확인)" % [kind, key, value])
 	return ""
+
+
+## 같은 종류 앵커 전부 — **방과 함께**. 세계에 놓는 오브젝트는 자기 층을 알아야 하고,
+## 층은 방이 안다. 좌표만 받으면 층이 겹치는 맵에서 **어느 층 물건인지 알 수 없다**.
+func _anchor_rows(kind: String, key: String, value: String) -> Array:
+	var out: Array = []
+	if _map == null:
+		return out
+	for ref in _map.data_room_refs():
+		var room := String(ref)
+		for a in _map.get_anchors(room, kind):
+			if String((a as Dictionary).get(key, "")) == value:
+				out.append({"pos": (a as Dictionary)["pos"], "room": room,
+					"layer": int(_map.get_room_layer(room))})
+	return out
 
 
 ## 같은 종류 앵커 전부(배럴·횃불처럼 여러 개).

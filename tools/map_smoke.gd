@@ -82,6 +82,7 @@ func _init() -> void:
 	_check_theme_axis(map, sd)
 	_check_wake_buffer(scn, map, sd)
 	_check_route_bands(scn, sd)
+	_check_playability(scn, map, sd)
 	# 아래는 **데모 맵의 방 이름을 박아** 쓰는 거동 프로브다 — 기본 출정지에서만 돈다.
 	# (계약 검사는 위에서 전 맵 공통으로 끝났다.)
 	if not _contract_only:
@@ -1453,7 +1454,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	var need: Array = ["map_documents", "theme_axis", "wake_buffer", "route_bands"]
+	var need: Array = ["map_documents", "theme_axis", "wake_buffer", "route_bands", "playability"]
 	if not _contract_only:
 		need.append_array(["import_parity", "authored_impl", "stairs_input", "ground_plane",
 			"third_layer", "entry_requirements", "patrol_graphs"])
@@ -2848,3 +2849,88 @@ func _layer_of_bit(mask: int) -> int:
 		if (mask & (1 << (3 + l))) != 0:
 			return l
 	return -1
+
+
+## **플레이로 드러난 세 결함을 이름 그대로 잡는다**(DRIFT-191). 셋 다 헤드리스 계약 검사를
+## 통과하면서 실제 플레이에선 맵을 못 쓰게 만들었다 — 「부팅된다」와 「플레이된다」는 다르다.
+func _check_playability(scn: Node, map: Node, sd) -> void:
+	# ① **문이 개구부를 실제로 막는가.** 손으로 놓으면 1~2 m 어긋나고 폭도 안 맞아
+	#    **옆으로 돌아 들어갈 수 있다**(실제로 그랬다). 위치·회전·폭은 개구부에서 유도해야 한다.
+	var bad_doors: Array = []
+	var doors := 0
+	for c in scn.get_children():
+		if not (("rule" in c) and ("completes_objective" in c)):
+			continue
+		doors += 1
+		var p: Vector3 = (c as Node3D).global_position
+		var near: Dictionary = {}
+		var nd := INF
+		for ref in map.data_room_refs():
+			for o in map.get_room_openings(String(ref)):
+				var op: Vector3 = (o as Dictionary)["pos"]
+				var dist: float = Vector2(p.x - op.x, p.z - op.z).length()
+				if dist < nd:
+					nd = dist
+					near = o
+		if nd > 0.6:
+			bad_doors.append("%s: 개구부에서 %.1f m" % [c.name, nd])
+			continue
+		# 폭: 문이 개구부보다 넓어야 옆이 안 뚫린다.
+		if float(c.get("span")) < float(near.get("width", 0.0)) + 0.01:
+			bad_doors.append("%s: 폭 %.1f < 개구부 %.1f" % [c.name, c.get("span"), near.get("width", 0.0)])
+			continue
+		# 방향: 개구부가 뻗은 축과 문이 선 축이 같아야 한다.
+		var want_rot: float = PI * 0.5 if String(near.get("axis", "x")) == "z" else 0.0
+		if absf(fmod(absf(float((c as Node3D).rotation.y) - want_rot), PI)) > 0.05:
+			bad_doors.append("%s: 축 불일치(%s)" % [c.name, near.get("axis", "?")])
+	_expect(bad_doors.is_empty(), "🔴 [계약/플레이] 문 %d개가 **개구부를 실제로 막는다** (%s)" % [doors,
+		"전부" if bad_doors.is_empty() else ", ".join(bad_doors)])
+
+	# ② **층을 옮기면 남의 층 물건이 사라지는가.** 방 지오메트리만 숨기면 런이 놓은 것들
+	#    (횃불=광원·배럴·상자·문·함정)이 남아 **빛과 그림자가 층을 넘는다**(실제로 그랬다).
+	var layers: Array = map.layers_present()
+	if layers.size() >= 2:
+		var other: int = int(layers[1])
+		map.set_visible_layer(other)
+		var leaked: Array = []
+		for e in (map.get("_layer_objects") as Array):
+			var n: Node = (e as Dictionary)["node"]
+			if not is_instance_valid(n) or not (n is Node3D):
+				continue
+			if int((e as Dictionary)["layer"]) != other and bool((n as Node3D).visible):
+				leaked.append(String(n.name))
+		map.set_visible_layer(0)
+		_expect(leaked.is_empty(), "🔴 [계약/플레이] 층을 옮기면 **남의 층 물건이 숨는다** — 광원이 층을 넘으면 안 된다 (%s)" % (
+			"전부" if leaked.is_empty() else "남음: " + ", ".join(leaked.slice(0, 4))))
+		# 등록 자체가 비어 있으면 위 검사가 공허하다.
+		_expect((map.get("_layer_objects") as Array).size() > 0,
+			"[계약/플레이] 런이 놓은 오브젝트가 층에 등록됨 (%d개)" % (map.get("_layer_objects") as Array).size())
+
+	# ③ **탈출이 가능한가.** 목표가 완료될 길이 없으면 `onObjectiveComplete` 지점이 영원히 안 열리고,
+	#    `always` 지점조차 전역 AND에 막힐 수 있다(실제로 UPPER가 그 상태였다).
+	var doc: Dictionary = sd.get_rooms_document()
+	var rule := String(doc.get("objective_rule", ""))
+	var reachable := false
+	var why := ""
+	match rule:
+		"onDoorOpen":
+			for c in scn.get_children():
+				if ("completes_objective" in c) and bool(c.get("completes_objective")):
+					reachable = true
+			why = "목표 문 없음"
+		"onObjectiveRoomCleared":
+			var target := String(doc.get("objective_room", ""))
+			reachable = not target.is_empty() and _rects.has(target)
+			why = "objective_room `%s` 없음" % target
+		_:
+			why = "objective_rule 미선언"
+	_expect(reachable, "🔴 [계약/플레이] 목표를 **완료할 길이 있다** (%s)" % (rule if reachable else why))
+	# **탈출로가 실제로 뚫려 있는가.** 지점이 하나도 없으면 당연히 막히고, 전부 목표 뒤라면
+	# **목표가 완료 가능해야** 뚫린다(위 검사). 「항상 열린 지점이 하나는 있어야 한다」로 쓰면
+	# 데모처럼 **단일 지점을 목표 뒤에 두는 정당한 설계**를 잘못 고발한다.
+	var all_pts: int = (map.get_extraction_points(true) as Array).size()
+	var always_n: int = (map.get_extraction_points(false) as Array).size()
+	_expect(all_pts > 0 and (always_n > 0 or reachable),
+		"🔴 [계약/플레이] 탈출로가 뚫려 있다 — 지점 %d개(목표 전 열림 %d개)%s" % [all_pts, always_n,
+			"" if (always_n > 0 or reachable) else " · 전부 목표 뒤인데 목표를 완료할 길이 없다"])
+	_sections["playability"] = true

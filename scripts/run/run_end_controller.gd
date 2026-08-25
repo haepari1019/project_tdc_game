@@ -50,10 +50,11 @@ func _process(delta: float) -> void:
 	var ctrl: CharacterBody3D = _party.get_controlled()
 	if ctrl == null:
 		return
-	# F-007 ExtractionActivate: hold at POINT-DEMO-01 with the objective done → Run Success.
-	# Leaving the zone cancels (no failure — 미완료=런 지속). Big countdown UI ticks down.
-	var in_extract: bool = not _run.run_over and _run.objective_complete \
-			and _in_extraction_zone(ctrl.global_position)
+	# F-007 ExtractionActivate: 활성 지점에서 홀드 → Run Success. 존 이탈=취소(실패 아님).
+	# **활성 조건은 지점이 갖는다**(`always` / `onObjectiveComplete`, `F-006` §3.10) — 예전엔 여기서
+	# 전역으로 `objective_complete`를 AND해서 `always` 지점도 목표 전엔 안 열렸다. 조기 탈출로가
+	# 있는 맵에서는 그게 **탈출 자체를 막는다**(실제로 UPPER가 그랬다).
+	var in_extract: bool = not _run.run_over and _in_extraction_zone(ctrl.global_position)
 	_update_extraction(in_extract, delta)
 
 

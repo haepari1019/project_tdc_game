@@ -3,6 +3,8 @@
   "zone_id": "ZONE-UPPER-001",
   "objective_room": "RM-UPPER-04",
   "entry_room": "RM-UPPER-01",
+  "objective_rule": "onObjectiveRoomCleared",
+  "_note_objective": "런 목표가 **무엇으로 완료되는가**. `objective_room`의 분대를 정리하면 목표 완료. 이 맵의 목표는 문이 아니라 **방**이다 — 규칙이 없으면 목표가 영원히 미완료로 남아 **탈출이 불가능**해진다(실제로 그랬다). 맵마다 다르므로 코드가 아니라 데이터가 정한다.",
   "layer_floor_y": [
     0.0,
     -8.0
