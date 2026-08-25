@@ -26,6 +26,10 @@ var rule: String = "requiresItem"
 ## **false면 같은 열쇠로 여러 문을 연다** — 열쇠 하나가 「어디에 쓸까」의 선택이 아니라
 ## **「어디까지 둘러볼까」의 허가증**이 된다. 소모/비소모는 맵이 문마다 정한다.
 var consume_on_use: bool = true
+## 프롬프트에 쓸 **열쇠 이름과 출처**. 「열쇠 필요」만 뜨면 어디서 나오는지 알 수 없어
+## 맵을 헤매게 된다(사용자: 「열쇠가 어디서 나오는지 특정되지 않아 불편함」).
+var key_label: String = ""
+var key_source: String = ""
 ## **이 문을 열면 런 목표가 완료되는가.** 데모 맵의 봉인문이 곧 목표(GIMMICK-DEMO-01)라
 ## 예전엔 **무조건** 완료시켰다 — 문이 둘 이상인 맵에서는 아무 관문이나 목표를 끝내 버린다.
 ## 이제 앵커가 `completes_objective`로 명시한 문만 완료시킨다.
@@ -58,7 +62,11 @@ func interact_prompt() -> String:
 		return "문\n[우클릭] 열기"
 	if rule == "onObjectiveComplete":
 		return "봉쇄된 문\n🔒 목표 완료 필요"
-	return "잠긴 문\n🔒 열쇠 필요"
+	# **무엇이, 어디서.** 「열쇠 필요」만 뜨면 어디서 나오는지 알 수 없어 맵을 헤매게 된다.
+	var what: String = key_label if not key_label.is_empty() else "열쇠"
+	if key_source.is_empty():
+		return "잠긴 문\n🔒 %s 필요" % what
+	return "잠긴 문\n🔒 %s 필요 — %s" % [what, key_source]
 
 
 ## 이 문의 조건이 충족됐는가. **미구현 규칙은 잠그지 않는다** — 조용히 막으면 진행 불가가 된다.

@@ -139,8 +139,12 @@ func _update_leash_ring(show: bool, anchor_pos: Vector3, members: Array) -> void
 ## navmesh (map_demo_layout), so the path routes AROUND them; INF if there's no path or it
 ## can't actually reach the anchor (a corridor severed). ref: F-004 §3.3 (거리 = nav path
 ## length; 경로 단절/우회 → reachable distance; 도달 불가 → hold/MIA).
+## **자기 층의 nav 맵으로 묻는다.** 전역 기본 맵으로 물으면 layer 1의 멤버가 layer 0 메시 위로
+## 스냅돼 경로 끝점이 층 간격만큼 어긋나고, 그 결과 **바로 옆에 서 있어도 「도달 불가」**가 되어
+## 5초 뒤 MIA가 뜬다(계단으로 내려간 직후가 정확히 그 상황이었다).
+## 구 `get_maps()[0]` 지뢰([[DRIFT-174]])와 같은 계열 — 「nav 맵이 하나다」라는 가정이 남은 세 번째 자리.
 func _reachable_dist(member: CharacterBody3D, anchor_pos: Vector3) -> float:
-	var map: RID = member.get_world_3d().navigation_map
+	var map: RID = member.nav_map_rid if ("nav_map_rid" in member) and (member.nav_map_rid as RID).is_valid() 		else member.get_world_3d().navigation_map
 	if not map.is_valid():
 		return 0.0
 	var path: PackedVector3Array = NavigationServer3D.map_get_path(map, member.global_position, anchor_pos, true)

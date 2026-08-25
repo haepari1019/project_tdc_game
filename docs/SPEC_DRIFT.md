@@ -2528,3 +2528,16 @@
 - **⚠ 관찰(미해결):** map smoke 8런 중 **1런에서** `The axis Vector3(...) must be normalized` 162건이 떴다(예: `(0.058603, 0.0, -0.756069)`). 시드 의존이며 재현이 안 됐고(이후 4런 연속 0건), 이번 변경은 회전 수학을 안 건드리므로 **기존 경로**로 보인다. 쫓지 않되 값을 남긴다 — `rotated(axis, angle)`/`Basis(axis, angle)`에 정규화 안 된 방향 벡터가 들어가는 자리다.
 - **영향 파일:** `extraction_beacon.gd`(신규) · `door.gd` · `run_controller.gd`(시그널 삭제) · `run_end_controller.gd`(`request_extraction`/`cancel_extraction`/`is_extracting`) · `dungeon_run.gd`(`_place_extraction_beacons`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
 - **게이트:** `ci_smoke.sh` 전 스위트 PASS · map smoke **DEMO·UPPER 모두 PASS**.
+
+### DRIFT-193 — 플레이 피드백 5건: 층 가시성·MIA 잠김·미니맵·열쇠 출처·박스 선택 🔷 Phase 2 · 전파 불요
+- **근거:** `MAP-UPPER-001` 실플레이 2차. 계약도 플레이 게이트도 통과한 맵이 **읽히지 않아서** 못 쓰는 상태였다.
+- **🔴 ① 「계단으로 내려가면 옆에 있는 아군이 MIA가 되고 조작이 잠긴다」 — `nav 맵이 하나다` 가정의 세 번째 자리.** `MiaController._reachable_dist()`가 `get_world_3d().navigation_map`(layer 0)으로 경로를 물었다. layer 1의 멤버는 layer 0 메시로 스냅돼 경로 끝점이 **층 간격만큼 어긋나** `INF`(도달 불가)가 되고, 5초 뒤 MIA → 조작 잠김 → 되돌아가면 아군이 아래 남아 **다시 내려갈 수도 없다**(결집 조건). → 유닛의 `nav_map_rid`로 묻는다. 같은 계열: [[DRIFT-174]](`get_maps()[0]`) · [[DRIFT-190]](게이트 통행 검사).
+- **🔴 ② 「관통방과 중앙분기 사이에 안 보이는 적」 — 유닛이 층을 안 따랐다.** `set_visible_layer`가 방 지오메트리([[DRIFT-176]])와 세계 오브젝트([[DRIFT-191]])는 숨기게 됐지만 **유닛은 아직 아니었다**. `RM-UPPER-11`(layer 1)이 정확히 `RM-UPPER-02`↔`04` 아래에 겹쳐 있어, 그 방 적들이 **바닥 아래에 떠 있는 「안 보이는 적」**으로 남았다. 적은 스폰·사망으로 계속 바뀌므로 등록부가 아니라 **그룹에서 훑는다**.
+  - ⚠ 이 진단은 **위치 일치에 근거한 추론**이다. 층 문제였다면 이 수정으로 사라지고, 아니라면 다른 원인(안개 등)이 남는다 — 확인이 필요하다.
+- **③ 「열쇠가 어디서 나오는지 특정되지 않아 불편함」.** 데이터는 답을 이미 갖고 있었다(`yields` 앵커) — 아무도 **말해 주지 않았을** 뿐이다. 잠긴 문 프롬프트가 **열쇠 이름 + 나오는 방**을 말하고(`잠긴 문 / 🔒 봉인문을 여는 열쇠 필요 — Dim Reliquary`), 미니맵이 그 상자를 **마름모**로 가리킨다. 저작은 안 늘었다.
+- **④ 「미니맵 노란 표시가 뭔지 모르겠고 필요도 없다」.** 그룹 `interactable` **전체**를 같은 점으로 찍고 있었다 — 횃불·배럴·루트 상자·문·계단·탈출대가 뒤섞여 뜻이 없어졌다(데모 31개). 남을 자격은 **선택을 바꾸는 것**뿐: 열쇠 상자 · 잠긴 문(탈출대·계단은 이미 자기 마커). 나머지는 안 그린다.
+- **⑤ 「드래그 선택이 부자연스럽다 — 왼쪽보다 위쪽 우선이 낫겠다」.** 축을 바꾸는 대신 **축 우선순위를 없앴다**: 좌측이든 상단이든 화면 축 하나를 고르는 것은 자의적이고, 박스 선택의 뜻은 「내가 이 사람을 감쌌다」이므로 **덮인 비율이 가장 큰** 아군이 답이다. 완전 동률일 때만 위쪽(겹쳐 선 경우).
+- **⑥ 게이트 [계약/가독] 신설(5항목).** 유닛이 층을 따르는가 · MIA 질의가 자기 층 맵을 쓰는가(**층을 옮기면 값이 달라져야** 한다 — 전역 맵이면 안 달라진다) · 잠긴 문이 열쇠와 출처를 말하는가 · 열쇠 상자가 표시 근거를 갖는가.
+- **반증 확인(4종 전부):** MIA 질의를 전역 맵으로 → FAIL · 유닛 층 가시성 제거 → FAIL · 문 출처 제거 → FAIL · 상자 `yields` 제거 → FAIL(+「선언된 yields가 실제 상자 안에」도 함께).
+- **영향 파일:** `mia_controller.gd` · `map_source.gd`(유닛 층) · `minimap.gd` · `door.gd`(프롬프트) · `chest.gd`(`yields`) · `dungeon_run.gd`(`_item_label`·`_yield_source_label`) · `selection_controller.gd` · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
+- **게이트:** `ci_smoke.sh` 전 스위트 PASS · map smoke DEMO·UPPER 모두 PASS.

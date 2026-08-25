@@ -14,7 +14,8 @@ const C_BORDER := Color(0.40, 0.43, 0.52, 0.55)
 const C_ROOM := Color(0.22, 0.24, 0.30, 0.95)
 const C_ROOM_EDGE := Color(0.46, 0.49, 0.57)
 const C_EXTRACT := Color(0.34, 0.90, 0.45)
-const C_INTERACT := Color(0.95, 0.82, 0.30)
+const C_KEY := Color(0.98, 0.86, 0.25)     # 열쇠가 나오는 상자 — 「어디서 나오나」의 답
+const C_LOCK := Color(0.85, 0.35, 0.30)    # 잠긴 문 — 어디가 막혔나
 const C_PLAYER := Color(0.32, 0.78, 1.0)
 const C_BATTLE := Color(0.95, 0.35, 0.25)   # 제3세력 교전 흔적(F-028 §3.3 — 멀리서 정보·기회)
 const C_STAIRS := Color(0.72, 0.62, 0.98)   # 계단(레이어 전이) — 층을 옮기는 유일한 지점
@@ -126,11 +127,20 @@ func _draw() -> void:
 			_draw_extraction((e as Dictionary)["pos"])
 	elif _map and _map.has_method("get_extraction_position"):
 		_draw_extraction(_map.get_extraction_position())
-	# Interactables (chest / door / drops).
+	# **뜻 있는 것만 그린다.** 예전엔 그룹 `interactable` 전체를 같은 노란 점으로 찍었는데,
+	# 횃불·배럴·루트 상자·문·계단·탈출대가 전부 섞여 **무엇을 뜻하는지 알 수 없는 점 무리**가 됐다
+	# (사용자: 「뭔지 모르겠고 필요도 없는 것 같음」). 미니맵에 남을 자격은 **길을 정하는 것**뿐이다:
+	#   ① 열쇠가 나오는 상자 — 「열쇠가 어디서 나오는지 특정되지 않아 불편하다」의 답이다
+	#   ② 잠긴 문 — 어디가 막혔는지
+	# 탈출대·계단은 위에서 이미 자기 마커로 그린다.
 	for n in get_tree().get_nodes_in_group("interactable"):
-		if is_instance_valid(n) and n is Node3D:
-			var ip: Vector3 = (n as Node3D).global_position
-			draw_circle(_w2m(ip.x, ip.z), 2.6, C_INTERACT)
+		if not (is_instance_valid(n) and n is Node3D):
+			continue
+		var ip: Vector3 = (n as Node3D).global_position
+		if ("yields" in n) and not String(n.get("yields")).is_empty():
+			_draw_key(_w2m(ip.x, ip.z))
+		elif ("rule" in n) and ("key_id" in n) and not bool(n.get("_opened") if "_opened" in n else false):
+			draw_circle(_w2m(ip.x, ip.z), 2.4, C_LOCK)
 	# S5b P3b — 제3세력 교전 단서: engaged 제3세력(faction "Third") 위치에 적색 마커(멀리서 "저기서 싸운다"
 	# 정보). 몬스터 위치는 표시 안 함(포그 유지) — 3세력만 흔적으로 노출(F-028 §3.3).
 	for n in get_tree().get_nodes_in_group("enemy"):
@@ -167,3 +177,10 @@ func _draw() -> void:
 
 func _draw_extraction(ep: Vector3) -> void:
 	draw_circle(_w2m(ep.x, ep.z), 4.0, C_EXTRACT)
+
+
+## 열쇠 표시 — 점이 아니라 **마름모**로 그려 다른 마커와 구별된다.
+func _draw_key(p: Vector2) -> void:
+	var r := 3.4
+	draw_colored_polygon(PackedVector2Array([
+		p + Vector2(0, -r), p + Vector2(r, 0), p + Vector2(0, r), p + Vector2(-r, 0)]), C_KEY)

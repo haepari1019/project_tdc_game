@@ -83,6 +83,7 @@ func _init() -> void:
 	_check_wake_buffer(scn, map, sd)
 	_check_route_bands(scn, sd)
 	await _check_playability(scn, map, sd)
+	_check_readability(scn, map, sd)
 	# 아래는 **데모 맵의 방 이름을 박아** 쓰는 거동 프로브다 — 기본 출정지에서만 돈다.
 	# (계약 검사는 위에서 전 맵 공통으로 끝났다.)
 	if not _contract_only:
@@ -1454,7 +1455,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	var need: Array = ["map_documents", "theme_axis", "wake_buffer", "route_bands", "playability"]
+	var need: Array = ["map_documents", "theme_axis", "wake_buffer", "route_bands", "playability", "readability"]
 	if not _contract_only:
 		need.append_array(["import_parity", "authored_impl", "stairs_input", "ground_plane",
 			"third_layer", "entry_requirements", "patrol_graphs"])
@@ -2985,3 +2986,84 @@ func _check_playability(scn: Node, map: Node, sd) -> void:
 		"🔴 [계약/플레이] 탈출로가 뚫려 있다 — 지점 %d개(목표 전 열림 %d개)%s" % [all_pts, always_n,
 			"" if (always_n > 0 or reachable) else " · 전부 목표 뒤인데 목표를 완료할 길이 없다"])
 	_sections["playability"] = true
+
+
+## **플레이 2차 피드백**(DRIFT-193) — 「보이는가 · 알 수 있는가 · 갇히지 않는가」.
+## 계약도 플레이도 통과한 맵이 **읽히지 않아서** 못 쓰는 경우가 있다.
+func _check_readability(scn: Node, map: Node, sd) -> void:
+	# ① **유닛이 층을 따른다.** 남의 층 적은 바닥 아래에 떠 있어 「안 보이는 적」이 된다 —
+	#    층이 XZ를 공유하므로 미니맵·타겟팅상 같은 자리에 겹친다.
+	var layers: Array = map.layers_present()
+	if layers.size() >= 2:
+		var other: int = int(layers[1])
+		var combat: Node = null
+		for c in scn.get_children():
+			if c.has_method("prespawn_encounters") and ("_enemies" in c):
+				combat = c
+		if combat != null and not (combat._enemies as Array).is_empty():
+			var probe = (combat._enemies as Array)[0]
+			var keep_layer := int(probe.nav_layer)
+			probe.nav_layer = other
+			map.set_visible_layer(0)
+			var hidden_ok: bool = not bool(probe.visible)
+			map.set_visible_layer(other)
+			var shown_ok: bool = bool(probe.visible)
+			probe.nav_layer = keep_layer
+			map.set_visible_layer(0)
+			_expect(hidden_ok and shown_ok,
+				"🔴 [계약/가독] **유닛도 층을 따른다** — 남의 층 적이 바닥 아래 「안 보이는 적」이 되면 안 된다")
+
+	# ② **MIA 경로 질의가 자기 층 맵을 쓴다.** 전역 맵으로 물으면 layer 1에서 바로 옆 아군도
+	#    「도달 불가」가 되어 5초 뒤 MIA가 뜨고 조작이 잠긴다(계단으로 내려간 직후가 그랬다).
+	var party: Node = _find_party(root)
+	var mia: Node = null
+	if party != null:
+		for c in party.get_children():
+			if c.has_method("tick") and ("_mia_timer" in c):
+				mia = c
+	if mia != null and party != null:
+		var members: Array = party.get_members()
+		var a: Node3D = members[0] as Node3D
+		var b: Node3D = members[1] as Node3D
+		b.global_position = a.global_position + Vector3(2, 0, 0)
+		var d_near: float = mia._reachable_dist(b, a.global_position)
+		# 층을 옮긴 척 — 위치는 그대로 두고 nav 바인딩만 다른 층으로. 자기 층 맵을 쓰면
+		# 이 조작으로 결과가 **달라져야** 한다(전역 맵을 쓰면 아무 일도 안 일어난다).
+		var keep_rid: RID = b.nav_map_rid
+		b.nav_map_rid = map.get_nav_map(1) if map.get_nav_map(1) != map.get_nav_map(0) else keep_rid
+		var uses_own: bool = (b.nav_map_rid != keep_rid)
+		var d_other: float = mia._reachable_dist(b, a.global_position)
+		b.nav_map_rid = keep_rid
+		_expect(d_near < 10.0, "[계약/가독] 바로 옆 아군은 **도달 가능**하다 (%.1f m)" % d_near)
+		if uses_own:
+			_expect(d_other != d_near,
+				"🔴 [계약/가독] MIA 경로 질의가 **자기 층 맵**을 쓴다 — 전역 맵이면 층을 옮겨도 값이 같다")
+
+	# ③ **잠긴 문이 무엇이·어디서를 말한다.** 「열쇠 필요」만으로는 맵을 헤매게 된다.
+	var vague: Array = []
+	for c in scn.get_children():
+		if not (("rule" in c) and ("key_id" in c)):
+			continue
+		if String(c.get("rule")) != "requiresItem" or String(c.get("key_id")).is_empty():
+			continue
+		var txt := String(c.interact_prompt())
+		if not txt.contains("—"):
+			vague.append(txt.replace("
+", " / "))
+	_expect(vague.is_empty(), "🔴 [계약/가독] 잠긴 문이 **열쇠와 출처**를 말한다 (%s)" % (
+		"전부" if vague.is_empty() else ", ".join(vague)))
+
+	# ④ **미니맵이 뜻 있는 것만 그린다.** 그룹 전체를 같은 점으로 찍으면 무엇을 뜻하는지
+	#    알 수 없는 점 무리가 된다. 열쇠 상자는 **반드시** 표시된다(그게 ③의 짝이다).
+	var key_marked := 0
+	var generic := 0
+	for n in root.get_tree().get_nodes_in_group("interactable"):
+		if not (is_instance_valid(n) and n is Node3D):
+			continue
+		if ("yields" in n) and not String(n.get("yields")).is_empty():
+			key_marked += 1
+		elif not (("rule" in n) or ("on_layer" in n) or ("activation" in n)):
+			generic += 1
+	_expect(key_marked > 0, "🔴 [계약/가독] 열쇠 상자가 미니맵에 표시될 근거를 갖는다 (%d)" % key_marked)
+	print("  [설계] 미니맵      열쇠 %d · 일반 interactable %d개는 안 그린다" % [key_marked, generic])
+	_sections["readability"] = true

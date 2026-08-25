@@ -628,6 +628,12 @@ func set_visible_layer(active: int) -> void:
 		var n: Node = (e as Dictionary)["node"]
 		if is_instance_valid(n) and n is Node3D:
 			(n as Node3D).visible = (int((e as Dictionary)["layer"]) == active)
+	# **유닛도 층을 따른다.** 적은 스폰·사망으로 계속 바뀌므로 등록부가 아니라 그룹에서 훑는다.
+	# 안 하면 남의 층 적이 **바닥 아래에 떠 있는 「안 보이는 적」**으로 남는다 — 겹친 층이라
+	# XZ상으로는 같은 자리에 있고, 실제로 그렇게 보였다.
+	for u in get_tree().get_nodes_in_group("enemy"):
+		if is_instance_valid(u) and u is Node3D and ("nav_layer" in u):
+			(u as Node3D).visible = (int(u.nav_layer) == active)
 
 
 ## 런이 세계에 놓은 오브젝트를 **그 층에 등록**한다. 층 전환 시 함께 숨는다.

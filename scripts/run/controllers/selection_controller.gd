@@ -99,19 +99,25 @@ func _update_marquee() -> void:
 	_marquee.visible = true
 
 
-## 박스가 **충분히 덮은** 아군 중 화면 x가 가장 작은(좌측) 캐릭터로 스왑. 없으면 무동작.
+## 박스가 **가장 많이 덮은** 아군으로 스왑. 없으면 무동작.
 ##
 ## 예전엔 아군의 **원점(발밑) 한 점**이 박스에 드는지만 봤다. 그래서 몸통이 거의 다 박스
 ## 밖이어도 발끝만 걸치면 후보가 되고, 거기에 좌측 우선 규칙이 겹쳐 **의도한 가운데 아군 대신
 ## 왼쪽에 살짝 걸린 아군이 선택**됐다. 이제 캐릭터의 화면상 사각형 중 박스와 겹친 **면적
 ## 비율**을 재서 SELECT_COVER_MIN 이상만 후보로 삼는다.
+##
+## 그 위에 있던 **좌측 우선**도 없앴다. 「왼쪽」이든 「위쪽」이든 화면 축 하나를 고르는 것은
+## 자의적이고, 뭉쳐 있을 때 **엉뚱한 쪽이 뽑히는 느낌**을 준다(사용자 지적). 박스 선택의 뜻은
+## 「내가 이 사람을 감쌌다」이므로 **덮인 비율이 가장 큰** 아군이 답이다 — 축 우선순위 자체가
+## 필요 없어진다. 완전히 같은 비율일 때만 화면 위쪽을 먼저 본다(겹쳐 선 경우의 동률 해소).
 func _swap_to_leftmost_in_box() -> void:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
 		return
 	var rect := _box_rect()
 	var best_idx := -1
-	var best_x := INF
+	var best_ratio := 0.0
+	var best_y := INF
 	for m in _party.get_members():
 		if not is_instance_valid(m) or (m.has_method("is_alive") and not m.is_alive()):
 			continue
@@ -120,8 +126,11 @@ func _swap_to_leftmost_in_box() -> void:
 			continue                     # 카메라 뒤 등 투영 불가
 		var covered := rect.intersection(body)
 		var ratio := (covered.size.x * covered.size.y) / (body.size.x * body.size.y)
-		if ratio >= SELECT_COVER_MIN and body.position.x < best_x:
-			best_x = body.position.x
+		if ratio < SELECT_COVER_MIN:
+			continue
+		if ratio > best_ratio + 0.001 or (absf(ratio - best_ratio) <= 0.001 and body.position.y < best_y):
+			best_ratio = ratio
+			best_y = body.position.y
 			best_idx = _party.index_of(m)
 	if best_idx >= 0:
 		_party.try_swap_to(best_idx)

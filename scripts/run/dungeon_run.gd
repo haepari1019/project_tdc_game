@@ -242,7 +242,8 @@ func _ready() -> void:
 	# 「데이터는 `KEY-UPPER-01`을 선언하는데 상자엔 데모 열쇠가 들어 있는」 상태가 조용히 성립한다.
 	# 이제 **앵커의 `yields`가 단일 소유자**다. `entry_requirement.ref`와 같은 문자열이어야 하고,
 	# 그 일치는 map_smoke가 **실제 배치된 상자를 열어 보며** 검사한다.
-	chest.items = [{"id": _anchor_str("interactions", "role", "key_chest", "yields"),
+	chest.yields = _anchor_str("interactions", "role", "key_chest", "yields")   # 미니맵이 찾을 근거
+	chest.items = [{"id": chest.yields,
 		"w": 1, "h": 1, "col": 0, "row": 0, "color": Color(0.95, 0.82, 0.22)}]
 	chest.setup(_inventory_ui)
 	chest.position = _anchor_pos("interactions", "role", "key_chest")
@@ -743,6 +744,11 @@ func _place_gates() -> void:
 			# 문이 둘 이상인 맵에서 아무 관문이나 목표를 끝내 버렸다.
 			door.completes_objective = bool(d.get("completes_objective", false))
 			door.span = float(op.get("width", Door.SIZE.x)) + DOOR_OVERLAP_M
+			# **무엇이, 어디서** — 「열쇠 필요」만 뜨면 맵을 헤매게 된다.
+			var need_id := String(req.get("ref", ""))
+			if not need_id.is_empty():
+				door.key_label = _item_label(need_id)
+				door.key_source = _yield_source_label(need_id)
 			door.position = op["pos"]
 			if String(op.get("axis", "x")) == "z":
 				door.rotation.y = PI * 0.5      # 개구부가 Z로 뻗으면 문도 Z로 선다
@@ -764,6 +770,30 @@ func _place_gates() -> void:
 			n += 1
 	if n > 0:
 		print("[MAP] 진입 조건 문 %d개 배치" % n)
+
+
+## 아이템의 유저 표시명 — 없으면 ID 그대로(백엔드 ID와 UI 라벨 분리, `display_names.json`).
+func _item_label(item_id: String) -> String:
+	var sd := get_node_or_null("/root/Slice01Data")
+	if sd == null:
+		return item_id
+	var d := String(sd.get_item_desc(item_id))
+	return d if not d.is_empty() else item_id
+
+
+## 이 산출물이 **어느 방에서** 나오는가 — 표시용 라벨. 맵 문서의 `yields` 앵커에서 찾는다.
+## 「열쇠가 어디서 나오는지 특정되지 않아 불편하다」의 답이 이 한 줄이다.
+func _yield_source_label(item_id: String) -> String:
+	if _map == null:
+		return ""
+	for ref in _map.data_room_refs():
+		var room := String(ref)
+		for kind in ["interactions", "props", "hazards"]:
+			for a in _map.get_anchors(room, kind):
+				if String((a as Dictionary).get("yields", "")) == item_id:
+					var geo: Dictionary = _map.room_geometry(room)
+					return String(geo.get("label", room)) if not geo.is_empty() else room
+	return ""
 
 
 ## 이 좌표가 속한 방 — 세계 오브젝트의 층을 정하는 데 쓴다. 층이 겹치므로 **y로 가린다**.

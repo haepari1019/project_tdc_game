@@ -3,6 +3,9 @@ extends Node3D
 ## (proximity + interact key) opens the loot view; items are dragged out into the player
 ## backpack (cross-container move). ref: world loop (chest→key→door→extraction) / F-010.
 
+## 이 상자가 내주는 **스펙 ID**(맵 문서 `anchors.interactions[].yields`). 미니맵이 「열쇠가 어디서
+## 나오나」를 표시하는 근거이고, 비면 평범한 루트 상자다.
+var yields: String = ""
 var title := "CHEST"
 var tier := "fixed"          # "common" | "rare" | "fixed"(퀘스트/특수) — 비주얼·등급 표시
 var items: Array = []        # [{id, w, h, col, row, color}] — persisted by InventoryUI
