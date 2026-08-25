@@ -53,8 +53,17 @@ func _process(delta: float) -> void:
 	# F-007 ExtractionActivate: hold at POINT-DEMO-01 with the objective done → Run Success.
 	# Leaving the zone cancels (no failure — 미완료=런 지속). Big countdown UI ticks down.
 	var in_extract: bool = not _run.run_over and _run.objective_complete \
-			and ctrl.global_position.distance_to(_map.get_extraction_position()) < EXTRACT_RADIUS_M
+			and _in_extraction_zone(ctrl.global_position)
 	_update_extraction(in_extract, delta)
+
+
+## **활성 탈출 지점 중 하나**에라도 들어와 있는가. 맵은 지점을 여럿 가질 수 있고 Point마다 활성
+## 조건이 다르다(`F-006` §3.10) — 예전엔 계약이 지점을 하나만 날라서, 탈출 방이 둘인 맵은
+## 나머지 하나가 **죽은 방**이 됐다.
+func _in_extraction_zone(p: Vector3) -> bool:
+	if _map != null and _map.has_method("nearest_extraction_distance"):
+		return _map.nearest_extraction_distance(p, _run.objective_complete) < EXTRACT_RADIUS_M
+	return p.distance_to(_map.get_extraction_position()) < EXTRACT_RADIUS_M
 
 
 ## ExtractionActivate hold-channel: a countdown that ticks down while in the zone and completes

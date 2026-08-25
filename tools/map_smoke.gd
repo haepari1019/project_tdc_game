@@ -28,6 +28,10 @@ var _ok := true
 var _sections: Dictionary = {}   # 섹션 완주 플래그 — 중간에 죽은 스모크를 초록으로 넘기지 않는다
 var _sd: Node = null          # /root/Slice01Data — --script 실행에선 전역 식별자가 안 잡힌다
 var _rects: Dictionary = {}   # room_ref -> {c: Vector2, s: Vector2}
+## **계약만 검사하는 모드.** 기본 출정지가 아닌 blueprint로 돌 때 켜진다 — 「이 맵도 부팅되고
+## 계약을 지키는가」를 묻는다. 깊은 거동 프로브(레이어 전환·계단 입력·3세력·진입 조건·순찰 주입)는
+## 데모 맵의 **방 이름을 박아** 쓰므로 기본 출정지에서만 돈다.
+var _contract_only := false
 
 
 func _init() -> void:
@@ -39,6 +43,17 @@ func _init() -> void:
 		print("MAP SMOKE FAILED — Slice01Data not loaded")
 		quit(1)
 		return
+
+	# **출정지를 바꿔 가며 돌 수 있다** — 「활성화」는 두 맵이 다 부팅되고 계약을 지켜야 성립한다.
+	var want_bp := OS.get_environment("TDC_BLUEPRINT")
+	if not want_bp.is_empty():
+		if not sd.set_active_blueprint(want_bp):
+			print("MAP SMOKE FAILED — 출정지 전환 실패: %s" % want_bp)
+			quit(1)
+			return
+		_contract_only = want_bp != String(sd.get_manifest().get("blueprint_id", ""))
+	print("[SMOKE] 출정지 = %s → %s%s" % [sd.active_blueprint_id(), sd.active_map_id(),
+		"  (계약만)" if _contract_only else ""])
 
 	var scn = load("res://scenes/run/dungeon_run.tscn").instantiate()
 	root.add_child(scn)
@@ -63,23 +78,27 @@ func _init() -> void:
 	_check_space_fields(sd, scn, map)
 	_check_design_targets(sd, map, edges)
 	_check_lock_solvable(sd, map, scn)
-	_check_layer_switch(scn, map)
-	await _check_layer_transition(scn, map)
-	_check_minimap_layer(scn, map)
 	_check_stair_links(map)
-	await _check_stairs_input(scn, map)
-	_check_ground_plane()
-	_check_third_layer(scn, map)
-	await _check_entry_requirements(scn, map, sd)
 	_check_theme_axis(map, sd)
 	_check_wake_buffer(scn, map, sd)
 	_check_route_bands(scn, sd)
-	_check_patrol_graphs(scn, map, sd)
+	# 아래는 **데모 맵의 방 이름을 박아** 쓰는 거동 프로브다 — 기본 출정지에서만 돈다.
+	# (계약 검사는 위에서 전 맵 공통으로 끝났다.)
+	if not _contract_only:
+		_check_layer_switch(scn, map)
+		await _check_layer_transition(scn, map)
+		_check_minimap_layer(scn, map)
+		await _check_stairs_input(scn, map)
+		_check_ground_plane()
+		_check_third_layer(scn, map)
+		await _check_entry_requirements(scn, map, sd)
+		_check_patrol_graphs(scn, map, sd)
 	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
-	await _check_import_parity(scn, map)
-	await _check_authored_impl()
+	if not _contract_only:
+		await _check_import_parity(scn, map)
+		await _check_authored_impl()
 
 	_finish(scn)
 
@@ -207,16 +226,44 @@ func _check_navigation(scn: Node, map: Node, edges: Array) -> void:
 	if world == null:
 		_expect(false, "[계약] navigation map 접근")
 		return
-	var nav_map: RID = world.navigation_map
 	for _i in 5:                                # nav 서버 동기화 여유
 		await process_frame
+
+	# ① **방 기준점이 navmesh 위에 있는가.** 기준점은 스폰·경로 질의의 출발점이다 — 그 위에 장애물이
+	#    있으면 질의가 방을 못 벗어나고, 증상은 「연결 막힘」으로 나타나 **원인을 엉뚱한 곳으로** 가리킨다
+	#    (실제로 그랬다: 원인은 방 중심에 놓인 기둥이었다).
+	var buried: Array = []
+	for ref in _rects:
+		var room := String(ref)
+		var nm: RID = map.get_nav_map(int((_rects[room] as Dictionary).get("layer", 0)))
+		var sp: Vector3 = map.get_spawn_position(room)
+		var cp: Vector3 = NavigationServer3D.map_get_closest_point(nm, sp)
+		var probe: Vector3 = sp + Vector3(0, 0, 0)
+		# 기준점에서 **같은 방 안 다른 지점**으로 경로가 나는가 — 기둥 속에 갇히면 안 난다.
+		var sz: Vector2 = (_rects[room] as Dictionary)["s"]
+		var away: Vector3 = sp + Vector3(sz.x * 0.3, 0, sz.y * 0.3)
+		var pth: PackedVector3Array = NavigationServer3D.map_get_path(nm, sp, away, true)
+		# **도착하는가**를 묻는다 — 「경로가 존재하는가」만 보면 기둥 속 작은 섬에서도 2점짜리
+		# 경로가 나와 통과한다(반증 확인에서 실제로 그랬다).
+		var arrived: bool = pth.size() >= 2 and Vector2(
+			pth[pth.size() - 1].x - away.x, pth[pth.size() - 1].z - away.z).length() < 1.5
+		if Vector2(cp.x - sp.x, cp.z - sp.z).length() > 1.0 or not arrived:
+			buried.append(room)
+	_expect(buried.is_empty(), "🔴 [계약] 방 기준점이 **navmesh 위**에 있다 — 장애물에 파묻히면 경로가 안 난다 (%s)" % (
+		"전부" if buried.is_empty() else "파묻힘: " + ", ".join(buried)))
+
+	# ② 연결 통행. **각 방의 층 맵**으로 묻는다 — 층이 XZ를 공유하므로 layer 0 맵으로 물으면
+	#    layer 1 연결이 「위층을 걸어서」 판정돼 항상 막힌 것처럼 보인다.
 	var blocked: Array = []
 	for e in edges:
-		var from: Vector3 = map.get_spawn_position(String(e[0]))
-		var to: Vector3 = map.get_spawn_position(String(e[1]))
-		var path: PackedVector3Array = NavigationServer3D.map_get_path(nav_map, from, to, true)
+		var ra := String(e[0])
+		var rb := String(e[1])
+		var nm2: RID = map.get_nav_map(int((_rects.get(ra, {}) as Dictionary).get("layer", 0)))
+		var from: Vector3 = map.get_spawn_position(ra)
+		var to: Vector3 = map.get_spawn_position(rb)
+		var path: PackedVector3Array = NavigationServer3D.map_get_path(nm2, from, to, true)
 		if path.size() < 2 or path[path.size() - 1].distance_to(to) > 3.0:
-			blocked.append("%s→%s" % [e[0], e[1]])
+			blocked.append("%s→%s" % [ra, rb])
 	_expect(blocked.is_empty(), "[계약] 연결 %d개 navmesh 통행 (%s)" % [
 		edges.size(), "전부" if blocked.is_empty() else "막힘: " + ", ".join(blocked)])
 
@@ -250,9 +297,12 @@ func _check_occluders(map: Node) -> void:
 ## 레이어 1 콜라이더 중 **LOS 높이(y=1.0)를 가리는** 것의 수. 바닥(두께 0.3, y≤0)은 자동 제외된다 —
 ## 「시야를 막는가」로 판정하므로 authored 맵의 임의 지오메트리에도 같은 규칙이 선다.
 ## 맵 구현과 **독립적으로** 다시 계산한다(같은 규칙, 다른 코드) — 그래야 대조에 의미가 있다.
+## 미러도 **전 층**을 본다. 예전엔 `& 1`(layer 0 비트)만 봐서, 층이 둘인 맵에서
+## 「같은 출처」 검사가 layer 0끼리만 비교하고 layer 1을 통째로 놓쳤다.
 func _collect_los_footprints(n: Node, out: Array) -> void:
 	for c in n.get_children():
-		if c is StaticBody3D and (int((c as StaticBody3D).collision_layer) & 1) != 0:
+		var bit: int = int((c as StaticBody3D).collision_layer) if c is StaticBody3D else 0
+		if c is StaticBody3D and (bit & _world_mask_all()) != 0:
 			for cs in c.get_children():
 				if cs is CollisionShape3D:
 					var fp := _footprint_of(cs as CollisionShape3D)
@@ -266,7 +316,7 @@ func _footprint_of(cs: CollisionShape3D) -> Dictionary:
 	if shape == null:
 		return {}
 	var xf := cs.global_transform
-	var eye: float = _floor_y_at(Vector2(xf.origin.x, xf.origin.z)) + LOS_EYE_H
+	var eye: float = _floor_y_at(Vector2(xf.origin.x, xf.origin.z), xf.origin.y) + LOS_EYE_H
 	if shape is BoxShape3D:
 		var h: Vector3 = (shape as BoxShape3D).size * 0.5
 		var mn := Vector2(INF, INF)
@@ -313,13 +363,24 @@ func _footprint_of(cs: CollisionShape3D) -> Dictionary:
 
 
 ## 맵 구현과 독립적으로 계산한다 — `_rects`(계약 getter 결과)만 보고 바닥 높이를 되짚는다.
-func _floor_y_at(xz: Vector2) -> float:
+## 구현(`map_source.floor_y_at`)과 **같은 규칙**이어야 「같은 출처」 검사가 의미를 갖는다:
+## 층 메타데이터가 아니라 **`near_y`에 가장 가까운 바닥**을 고른다.
+func _floor_y_at(xz: Vector2, near_y: float = INF) -> float:
+	var best := 0.0
+	var best_d := INF
 	for ref in _rects:
 		var c: Vector2 = _rects[ref]["c"]
 		var sz: Vector2 = _rects[ref]["s"]
-		if absf(xz.x - c.x) <= sz.x * 0.5 + 0.5 and absf(xz.y - c.y) <= sz.y * 0.5 + 0.5:
-			return float(_rects[ref].get("y", 0.0))
-	return 0.0
+		if absf(xz.x - c.x) > sz.x * 0.5 + 0.5 or absf(xz.y - c.y) > sz.y * 0.5 + 0.5:
+			continue
+		var fy := float((_rects[ref] as Dictionary).get("y", 0.0))
+		if near_y == INF:
+			return fy
+		var d: float = absf(near_y - fy)
+		if d < best_d:
+			best_d = d
+			best = fy
+	return best if best_d < INF else 0.0
 
 
 func _same_footprint(a: Dictionary, b: Dictionary) -> bool:
@@ -605,7 +666,12 @@ func _check_lock_solvable(sd, map: Node, scn: Node) -> void:
 	# 문이 요구하는 열쇠 = 잠긴 방이 요구하는 열쇠. 열쇠가 둘 이상이면 부분 문자열 판정이
 	# 「아무 열쇠나 아무 문을 여는」 상태가 되므로, **문에 id가 실렸는지**를 못 박는다.
 	for c in scn.get_children():
-		if not ("key_id" in c):
+		if not ("key_id" in c) or not ("rule" in c):
+			continue
+		# **열쇠를 요구하는 규칙일 때만** id를 묻는다. `onObjectiveComplete` 문은 열쇠가 없는 게 정상이고,
+		# 그걸 요구하면 「열쇠가 아닌 진입 조건」이라는 축 자체를 부정하게 된다.
+		var rule := String(c.get("rule"))
+		if rule != "requiresItem" and rule != "onBossKey":
 			continue
 		var kid := String(c.get("key_id"))
 		var want := ""
@@ -740,47 +806,72 @@ func _find_by_method(n: Node, m: String) -> Node:
 ## 역할을 구분하지 않으면 **문을 계단으로 취급**해 도달성이 거짓으로 통과한다(문은 열쇠가 있어야 하고
 ## 계단은 층을 넘는다 — 성격이 다르다). 지금 맵엔 계단이 없고 문이 하나 있으므로 그 구분이 그대로 검사가 된다.
 func _check_stair_links(map: Node) -> void:
+	# `transitions`는 계단과 **잠긴 문**을 함께 담는다. 물어야 할 것은 「계단이 0개인가」가 아니라
+	# **역할로 갈리는가**다 — 데모는 문만, UPPER는 둘 다 있다.
 	var trans_n := 0
+	var role_stairs := 0
 	for a in map.get_all_anchors("transitions"):
 		trans_n += 1
-	_expect(trans_n > 0 and (map.stair_links() as Array).is_empty(),
-		"🔴 [계약] `transitions` %d개 중 계단 0개 — **문(key_gate)을 계단으로 세지 않는다**" % trans_n)
+		if String((a as Dictionary).get("role", "")) == "stairs":
+			role_stairs += 1
+	_expect(trans_n > 0 and (map.stair_links() as Array).size() == role_stairs,
+		"🔴 [계약] `transitions` %d개 중 계단 %d개만 `stair_links()` — **문(key_gate)을 계단으로 안 센다**" % [
+			trans_n, role_stairs])
 
 	# 계단을 하나 심어 파싱·복원을 확인한다(런타임 주입 — 데이터는 안 건드린다).
 	var host := String(map.get_entry_room())
 	var block: Dictionary = map._anchors.get(host, {})
 	var had: bool = block.has("transitions")
 	var saved: Array = block.get("transitions", [])
-	block["transitions"] = [{"role": "stairs", "to": "RM-ADV-09",
-		"pos": map.get_spawn_position(host)}]
+	var probe_to := ""            # 시작 방이 아닌 아무 방 — 맵마다 이름이 다르므로 데이터에서 고른다
+	for r in map.data_room_refs():
+		if String(r) != host:
+			probe_to = String(r)
+			break
+	var before_n: int = (map.stair_links() as Array).size()
+	block["transitions"] = saved.duplicate()
+	(block["transitions"] as Array).append({"role": "stairs", "to": probe_to,
+		"pos": map.get_spawn_position(host)})
 	map._anchors[host] = block
 	var links: Array = map.stair_links()
 	var found := false
 	for l in links:
-		if String(l[0]) == host and String(l[1]) == "RM-ADV-09":
+		if String(l[0]) == host and String(l[1]) == probe_to:
 			found = true
-	_expect(found, "[계약] 계단 앵커가 `stair_links()`에 잡힌다 (%d개)" % links.size())
+	_expect(found and links.size() == before_n + 1,
+		"[계약] 계단 앵커가 `stair_links()`에 잡힌다 (%d → %d)" % [before_n, links.size()])
 	if had:
 		block["transitions"] = saved
 	else:
 		block.erase("transitions")
 	map._anchors[host] = block
-	_expect((map.stair_links() as Array).is_empty(), "[계약] 주입 제거 후 복원")
+	_expect((map.stair_links() as Array).size() == before_n, "[계약] 주입 제거 후 복원 (%d)" % before_n)
 
 
 func _check_extraction(sd, map: Node) -> void:
-	var ext_ref := ""
+	# 탈출 지점은 **여럿일 수 있다**(Point마다 활성 조건이 다르다, `F-006` §3.10) —
+	# 하나만 보면 탈출 방이 둘인 맵에서 나머지가 **죽은 방**인 채로 통과한다.
+	var declared: Array = []
 	for row in sd.get_rooms_document().get("rooms", []):
 		if not String((row as Dictionary).get("extraction_point_id", "")).is_empty():
-			ext_ref = String((row as Dictionary).get("room_ref", ""))
-	_expect(not ext_ref.is_empty(), "[계약] extraction_point_id를 가진 방 존재")
-	if ext_ref.is_empty() or not _rects.has(ext_ref):
-		return
-	var p: Vector3 = map.get_extraction_position()
-	var c: Vector2 = _rects[ext_ref]["c"]
-	var s: Vector2 = _rects[ext_ref]["s"]
-	var inside: bool = absf(p.x - c.x) <= s.x * 0.5 and absf(p.z - c.y) <= s.y * 0.5
-	_expect(inside, "[계약] 추출 지점이 %s 안에 있음" % ext_ref)
+			declared.append(String((row as Dictionary).get("room_ref", "")))
+	_expect(not declared.is_empty(), "[계약] extraction_point_id를 가진 방 존재 (%d)" % declared.size())
+	var pts: Array = map.get_extraction_points(true)
+	_expect(pts.size() == declared.size(),
+		"🔴 [계약] 선언한 탈출 지점 %d개가 **전부 계약에 실린다** (%d)" % [declared.size(), pts.size()])
+	var outside: Array = []
+	for e in pts:
+		var ref := String((e as Dictionary).get("room", ""))
+		if not _rects.has(ref):
+			outside.append(ref + "(방 없음)")
+			continue
+		var p: Vector3 = (e as Dictionary)["pos"]
+		var c: Vector2 = _rects[ref]["c"]
+		var s2: Vector2 = _rects[ref]["s"]
+		if absf(p.x - c.x) > s2.x * 0.5 or absf(p.z - c.y) > s2.y * 0.5:
+			outside.append(ref)
+	_expect(outside.is_empty(), "[계약] 탈출 지점이 전부 자기 방 안 (%s)" % (
+		"전부" if outside.is_empty() else "벗어남: " + ", ".join(outside)))
 
 
 ## **두 번째 MapSource 구현을 실제로 돌린다.** 플랜의 「절차 맵과 authored 씬 둘 다 같은 불변식」이
@@ -1362,7 +1453,11 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements", "theme_axis", "wake_buffer", "route_bands", "patrol_graphs"]:
+	var need: Array = ["map_documents", "theme_axis", "wake_buffer", "route_bands"]
+	if not _contract_only:
+		need.append_array(["import_parity", "authored_impl", "stairs_input", "ground_plane",
+			"third_layer", "entry_requirements", "patrol_graphs"])
+	for sec in need:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -2736,3 +2831,20 @@ func _check_patrol_graphs(scn: Node, map: Node, sd) -> void:
 	doc2.erase("patrol_graphs")
 	row.erase("patrol_graph_ref")
 	_sections["patrol_graphs"] = true
+
+
+## `MapSource.world_bit`/`layer_of_bit` 미러 — 게이트가 구현을 preload 하지 않으므로 규칙만 복제한다.
+func _world_mask_all() -> int:
+	var m := 1
+	for l in range(1, 4):
+		m |= 1 << (3 + l)
+	return m
+
+
+func _layer_of_bit(mask: int) -> int:
+	if (mask & 1) != 0:
+		return 0
+	for l in range(1, 4):
+		if (mask & (1 << (3 + l))) != 0:
+			return l
+	return -1

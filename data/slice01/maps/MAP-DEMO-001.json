@@ -363,6 +363,7 @@
       "connects": [],
       "lighting_profile": "lit",
       "extraction_point_id": "POINT-DEMO-01",
+      "extraction_activation": "always",
       "run_phase_on_enter": "Extraction",
       "spawn_weight": 0.0,
       "layer": 0,
@@ -807,5 +808,6 @@
   ],
   "_note_geometry": "방 기하(`geometry.center`/`size`, 방 중심 기준 XZ·m)와 `label`을 **데이터가 소유한다** — 예전에는 `map_demo_layout.ROOM_SPECS` GDScript 상수였다. 옮긴 이유는 두 가지다: ① `authored_map_source`가 스스로 적어둔 계약(「데이터가 좌표를 갖는다 → 코드가 박스를 만든다」)과 코드 상수가 어긋나 있었고, ② 맵을 추가할 때(`MAP-UPPER-001`) 같은 상수 블록을 코드에 또 만들어야 했다 — 그러면 맵마다 기하 규약이 달라진다. `y`는 계약이 나르므로(`floor_y`, 기본값 = `layer_floor_y[layer]`) 층별 바닥 높이가 다른 맵도 같은 필드로 표현된다. 배열 순서 = **생성 순서**이고 벽 dedup이 순서에 의존하므로, 옮길 때 구 상수의 키 순서를 그대로 보존했다(RM-OBJ-01이 RM-ADV-02보다 앞).",
   "_note_layer_floor_y": "층별 기본 바닥 Y(m). `layer` 인덱스로 읽는다. 데모 맵은 layer 0 하나뿐이라 `[0.0]`. 코드에 층 간격 상수를 두지 않기 위한 축이다 — 맵마다 단차가 다르다.",
-  "_note_transitions": "`transitions` 앵커는 **층을 넘는 계단**(`role: stairs`, `to`)과 **잠긴 문**(`role: key_gate`, `gates`)을 함께 담는다. 역할을 안 보면 도달성 검사가 문을 계단으로 세어 거짓 통과한다([[DRIFT-178]]). `gates` = 이 문이 막는 방 — 문이 요구하는 열쇠는 **그 방의 `entry_requirement.ref`**이고, 코드는 그걸 읽어 문에 실는다(구 하드코딩 `\"KEY-DEMO-01\"` 제거). `completes_objective`는 **이 문이 곧 런 목표인 맵**에서만 true다(데모 맵의 봉인문 = GIMMICK-DEMO-01). 예전엔 코드가 무조건 목표를 완료시켰다 — 문이 둘 이상인 맵에서는 아무 관문이나 목표를 끝내 버린다."
+  "_note_transitions": "`transitions` 앵커는 **층을 넘는 계단**(`role: stairs`, `to`)과 **잠긴 문**(`role: key_gate`, `gates`)을 함께 담는다. 역할을 안 보면 도달성 검사가 문을 계단으로 세어 거짓 통과한다([[DRIFT-178]]). `gates` = 이 문이 막는 방 — 문이 요구하는 열쇠는 **그 방의 `entry_requirement.ref`**이고, 코드는 그걸 읽어 문에 실는다(구 하드코딩 `\"KEY-DEMO-01\"` 제거). `completes_objective`는 **이 문이 곧 런 목표인 맵**에서만 true다(데모 맵의 봉인문 = GIMMICK-DEMO-01). 예전엔 코드가 무조건 목표를 완료시켰다 — 문이 둘 이상인 맵에서는 아무 관문이나 목표를 끝내 버린다.",
+  "_note_extraction": "탈출 지점은 **여러 개일 수 있다**(`F-006` §3.10 — Point마다 활성 조건이 다르다). `extraction_activation`: `always` = 언제나 · `onObjectiveComplete` = 목표 완료 후. 예전엔 계약이 지점을 **하나만** 날라서, 탈출 방이 둘인 맵은 **나중에 지어진 방이 이기고** 나머지가 죽은 방이 됐다."
 }

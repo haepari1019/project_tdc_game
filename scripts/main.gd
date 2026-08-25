@@ -558,6 +558,11 @@ func _on_stash_item_discarded(item: Dictionary) -> void:
 
 func _deploy() -> void:
 	_commit_run_loadout()
+	# **출정지 확정은 씬 전환 전이어야 한다.** 던전 씬에서는 `MapDemoLayout._ready()`가
+	# `dungeon_run._ready()`보다 먼저 돌아 이미 지어진 뒤가 된다.
+	if not Slice01Data.set_active_blueprint(_gate.selected_blueprint_id()):
+		push_error("[TDC] 출정 취소 — 출정지 데이터가 유효하지 않다")
+		return
 	if _hub != null:
 		_hub.mark_run_started()   # F-020 §3.2.0 첫 런 게이트 — 출정 확정 시점에 오른다
 	get_tree().change_scene_to_file(DUNGEON_SCENE)

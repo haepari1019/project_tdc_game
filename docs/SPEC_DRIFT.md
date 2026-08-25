@@ -2479,3 +2479,20 @@
 - **전파(OPS_30):** `F-007` §3.1.2a 재작성 · `F-028` §3.2.3 `pressureOnChannel` 폐기 + anti-pattern 추가 · DecisionLog · TODO · SpecScopeTracker · RelationGraph 재생성. **mapper sync 0건 · OPS_20 lint BLOCKER 0**.
 - **재핀:** `spec_ref.json` `016a279` → **`64784c5`**.
 - **상태:** ✅ 완료. **Phase 2 잔여 0건** — ①`aggro_wake_buffer_m` ②경로 밴드 ③`patrolGraphRef` ④수렴/채널 판정이 전부 끝났다.
+
+### DRIFT-190 — `MAP-UPPER-001` 활성화: 성문에서 출정지를 고른다 🔷 Phase 2 · 전파 불요
+- **판정:** `manifest.map_id`를 갈아끼우는 대신 **성문에서 고른다.** 고르는 단위는 맵이 아니라 **blueprint**다 — 「어느 지역·계약으로 나갈 것인가」. 두 맵이 **동시에 살아 있고** 데모 맵의 회귀 게이트·허브 사다리가 그대로 남는다.
+- **🔴 ① 축을 뒤집으니 두 벌이 하나가 됐다.** 막고 있던 것은 `blueprint.json map_id must match manifest`였는데, 그 검사는 **매니페스트와 blueprint가 같은 `map_id`를 각자 들고 있어서** 존재했다. blueprint를 **`map_id`의 단일 소유자**로 만드니 검사할 것이 없어졌다: `blueprint.json` → `blueprints/<id>.json` 2개, `manifest.blueprint_id`는 **기본 선택**만, `map_id`/`contract_id`는 매니페스트에서 **삭제**. 맵 문서의 역참조(`blueprint_id`/`contract_id`)도 지웠다.
+- **② 확정은 씬 전환 전이다.** `MapDemoLayout._ready()`가 `dungeon_run._ready()`보다 **먼저** 돌기 때문에 던전 씬 안에서 바꾸면 이미 지어진 뒤다 → `main._deploy()`에서 `Slice01Data.set_active_blueprint()`. 성문 패널은 `blueprints/*.json`을 그대로 읽으므로 **지역을 추가할 때 UI를 안 고친다**.
+- **🔴 ③ 부팅해 보니 진짜 버그가 나왔다 — 층이 겹치면 「좌표로 바닥 묻기」가 성립하지 않는다.** `floor_y_at(xz)`가 층을 몰라 **먼저 걸린 방**의 바닥을 돌려줬다. 그래서 layer 1 벽의 눈높이를 layer 0 바닥으로 재고, 그 벽은 LOS 높이대를 안 가려 **오클루더에서 통째로 빠졌다** — layer 1 오클루더 **0개 = 안개 없는 층**. 단층 맵으로는 절대 안 드러난다.
+  - 처음엔 **층 번호로 가리려** 했는데 그게 합성 프로브를 깼다(프로브가 만든 방은 문서에 없어 층이 0으로 읽힌다). → **`near_y`로 가린다**: 묻는 쪽(콜라이더)이 자기 높이를 아니 **가장 가까운 바닥**을 고르면 층 메타데이터가 필요 없다. 0 → **15개**.
+- **🔴 ④ 게이트의 미러도 같이 틀려 있었다.** 「같은 출처」 검사의 미러가 `collision_layer & 1`(layer 0 비트)만 봐서, 구현만 고치면 **선언 93 / 유도 78**로 어긋났다. 미러도 전 층 + `near_y`로.
+- **🔴 ⑤ 「연결 막힘」이 원인을 엉뚱한 곳으로 가리켰다.** navmesh 통행 5건 실패의 진짜 원인은 **방 기준점 위에 놓인 장애물**이었다(내 저작: `RM-UPPER-01`/`07`에 `pillar(0,0)`). 기준점은 스폰·경로 질의의 **출발점**이라 그 위에 콜라이더가 있으면 질의가 방을 못 벗어난다. → 저작 수정 + **원인을 이름 그대로 잡는 검사** 신설(「방 기준점이 navmesh 위에 있다」). 그 검사가 곧바로 하나를 더 잡았다: `RM-UPPER-06`의 폭 8 m 배리어 둘이 **가운데서 맞물려** 방 중심을 봉했다 → 어긋나게 놓아 지그재그 choke로.
+  - **반증 확인에서 이 검사도 약했다** — 「경로가 존재하는가」만 봐서 기둥 속 작은 섬에서도 2점짜리 경로로 통과했다. **「도착하는가」**로 바꾸니 문다.
+- **🔴 ⑥ 층 간 연결은 그 층의 nav 맵으로 물어야 한다.** `10→11`이 막힌 것으로 나온 이유는 layer 0 맵으로 물어 「위층을 걸어서」 판정됐기 때문이다(끝점 y=0.45 vs 목표 −7.98).
+- **🔴 ⑦ 탈출 지점이 하나만 실렸다.** 계약이 `_extraction_point` 하나만 날라서, 탈출 방이 둘인 UPPER는 **나중에 지어진 방이 이기고** `RM-UPPER-08`(조기 탈출)이 죽은 방이 됐다. → `get_extraction_points(objective_done)` + `extraction_activation`(`always`/`onObjectiveComplete`) 데이터화. `run_end_controller`는 **활성 지점 중 아무 데나**, 미니맵은 **전부** 그린다.
+- **⑧ 게이트를 출정지마다 돌린다.** 「활성화」는 데이터 통과가 아니라 **실제로 부팅되고 계약을 지키는 것**이다. `ci_smoke`가 `blueprints/*.json`을 순회하며 `map_smoke`를 돌린다 — 기본 출정지는 전 스위트, 나머지는 계약 검사(거동 프로브는 데모 맵의 방 이름을 박아 쓴다).
+- **반증 확인(5종 전부):** `floor_y_at`를 층 무지로 → 오클루더 미일치 15 + 안개 없는 방 2 · 기준점 위 장애물 → 파묻힘 + 통행 3건 · nav 질의를 layer 0 고정 → `10→11` 막힘 · 탈출 지점 하나만 → 「2개 중 1」 · (기준점 검사의 「도착」 강화 자체도 반증 확인으로 드러났다).
+- **영향 파일:** `blueprints/DBP-DEMO-001.json`(이동) · `DBP-UPPER-001.json`(신규) · `manifest.json` · `maps/*.json` · `slice01_data.gd` · `run_loadout.gd` · `main.gd` · `hub_gate_panel.gd` · `map_source.gd` · `map_demo_layout.gd` · `run_end_controller.gd` · `minimap.gd` · `run_controller.gd` · `tools/map_smoke.gd` · `tools/ci_smoke.sh` · `docs/design/map_contract.md`.
+- **게이트:** `ci_smoke.sh` **전 스위트 PASS · map smoke 2회(DEMO·UPPER) 모두 PASS**.
+- **상태:** ✅ 완료. 남은 것: 지역 테마 확정(설계자 — 라벨 11개 + `display_name`), Blender 실맵(DEBT-DM3 잔여).

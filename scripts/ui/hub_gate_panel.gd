@@ -5,8 +5,12 @@ extends HubPanel
 ## 다룬다면 여기는 **떠남**을 다룬다 — 성문을 지나면 되돌아올 수 없다는 게 요점이라, 되돌릴 수
 ## 없는 확인(첫 런 게이트·빈 슬롯 경고)이 여기 모여 있다.
 ##
-## **난이도 선택은 없다**(M6). 지역·입장조건이 그 축을 가져가기로 했고, 그때까지는 manifest
-## 기본값을 쓴다 — `RunLoadout.get_difficulty()`가 폴백을 이미 갖고 있어 코드는 손대지 않았다.
+## **어디로 나갈지는 여기서 고른다.** 고르는 단위는 맵이 아니라 **blueprint**다 — 「어느 지역·계약으로
+## 나갈 것인가」이고, blueprint가 `map_id`의 단일 소유자다. 선택은 `RunLoadout.blueprint_id`에 실리고
+## **씬 전환 전에** `Slice01Data.set_active_blueprint()`로 확정된다(`main._deploy`).
+##
+## **난이도 선택은 없다**(M6). 지역·입장조건이 그 축을 가져갔다 — 이제 방이 `difficulty_profile`을
+## 덮으므로(`F-006` §3.1.2) 「어디로 가는가」가 곧 난이도 선택이다.
 
 const FormationEditor := preload("res://scripts/ui/inventory/formation_editor.gd")
 const UnitVisuals := preload("res://scripts/core/unit_visuals.gd")
@@ -17,6 +21,9 @@ signal deploy_requested
 
 var party: Node = null
 
+var _dest: OptionButton
+var _dest_info: Label
+var _blueprints: Array = []
 var _formation: Panel
 var _carry: VBoxContainer
 var _gate_lbl: Label
@@ -39,6 +46,13 @@ func _ready() -> void:
 	var lc := VBoxContainer.new()
 	lc.add_theme_constant_override("separation", HubTheme.GAP_S)
 	cols.add_child(lc)
+	lc.add_child(HubTheme.section("출정지"))
+	_dest = OptionButton.new()
+	_dest.custom_minimum_size = Vector2(230, 34)
+	_dest.item_selected.connect(_on_dest_selected)
+	lc.add_child(_dest)
+	_dest_info = HubTheme.para("", "HubMeta", null, 230)
+	lc.add_child(_dest_info)
 	lc.add_child(HubTheme.section("포메이션"))
 	_formation = FormationEditor.new()
 	_formation.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -60,15 +74,52 @@ func _ready() -> void:
 	_gate_lbl = HubTheme.para("", "", null, 600)
 	body.add_child(_gate_lbl)
 	_start = Button.new()
-	_start.text = "성문을 나선다 (DBP-DEMO-001)"
+	_start.text = "성문을 나선다"
 	_start.custom_minimum_size = Vector2(0, 44)
 	_start.pressed.connect(_on_start_pressed)
 	body.add_child(_start)
 
 
 func open_panel() -> void:
+	_setup_destinations()
 	_setup_formation()
 	super()
+
+
+## 출정지 목록 — `blueprints/*.json`을 그대로 읽는다. 새 지역을 추가할 때 **UI를 안 고친다**.
+func _setup_destinations() -> void:
+	if _dest == null:
+		return
+	_blueprints = Slice01Data.available_blueprints()
+	var cur := String(RunLoadout.get_blueprint_id())
+	_dest.clear()
+	var sel := 0
+	for i in _blueprints.size():
+		var b: Dictionary = _blueprints[i]
+		_dest.add_item(String(b["display_name"]))
+		if String(b["blueprint_id"]) == cur:
+			sel = i
+	if _dest.item_count > 0:
+		_dest.select(sel)
+		_on_dest_selected(sel)
+
+
+func _on_dest_selected(idx: int) -> void:
+	if idx < 0 or idx >= _blueprints.size():
+		return
+	var b: Dictionary = _blueprints[idx]
+	RunLoadout.blueprint_id = String(b["blueprint_id"])
+	if _dest_info != null:
+		_dest_info.text = "%s
+%s" % [b["blueprint_id"], b["map_id"]]
+
+
+## 지금 선택된 출정지. `main._deploy()`가 씬 전환 전에 이걸로 확정한다.
+func selected_blueprint_id() -> String:
+	var i := _dest.selected if _dest != null else -1
+	if i >= 0 and i < _blueprints.size():
+		return String((_blueprints[i] as Dictionary)["blueprint_id"])
+	return String(RunLoadout.get_blueprint_id())
 
 
 ## 포메이션 토큰은 **열 때마다** 파티 슬롯 오프셋에서 다시 세운다 — 마을에서 건을 갈아 구성이

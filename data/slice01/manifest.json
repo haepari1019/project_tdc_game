@@ -3,8 +3,7 @@
   "phase": "1b",
   "contract": "QA-031",
   "blueprint_id": "DBP-DEMO-001",
-  "map_id": "MAP-DEMO-001",
-  "contract_id": "CONTRACT-DEMO-001",
+  "_note_blueprint_id": "**기본 출정지.** 성문에서 고르면 `RunLoadout.blueprint_id`가 덮는다. `map_id`/`contract_id`는 여기서 **뺐다** — blueprint가 그 둘의 단일 소유자이고, 매니페스트가 같은 값을 또 들면 어긋날 수 있는 자리가 생긴다(구 `blueprint.json map_id must match manifest` 검사가 바로 그 두 벌을 지키느라 있었다).",
   "difficulty_profile": "Normal",
   "identity_skill_ids": [
     "tank_anchor_guard",
@@ -12,7 +11,12 @@
     "nuker_mark_ruin",
     "healer_mend_circle"
   ],
-  "class_ids": ["Tank", "DPS", "Nuker", "Healer"],
+  "class_ids": [
+    "Tank",
+    "DPS",
+    "Nuker",
+    "Healer"
+  ],
   "encounters": {
     "P-ENTRY-01": "ENC-NORM-002",
     "P-ADV-01": "ENC-NORM-001",

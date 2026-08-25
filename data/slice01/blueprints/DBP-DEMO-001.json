@@ -1,0 +1,18 @@
+{
+  "blueprint_id": "DBP-DEMO-001",
+  "contract_id": "CONTRACT-DEMO-001",
+  "map_id": "MAP-DEMO-001",
+  "difficulty_profile": "Normal",
+  "run_phase_sequence": [
+    "Entry",
+    "Advance",
+    "Objective",
+    "AdvanceExtraction",
+    "Extraction"
+  ],
+  "third_faction": {
+    "enabled": false
+  },
+  "display_name": "폐허가 된 관문 (데모)",
+  "_note": "**blueprint 1개 = 파일 1개**(구 단일 `blueprint.json`). 성문에서 고르는 단위는 맵이 아니라 **blueprint**다 — 「어느 지역·계약으로 나갈 것인가」. 그래서 `map_id`의 **단일 소유자가 blueprint**이고, 예전에 있던 `blueprint.json map_id == manifest.map_id` 동일성 검사가 필요 없어졌다(두 벌이 아니게 됐다). `manifest.blueprint_id`는 **기본 선택**이며, 런타임 선택은 `RunLoadout.blueprint_id`가 덮는다."
+}

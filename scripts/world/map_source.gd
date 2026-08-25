@@ -58,6 +58,9 @@ static func layer_of_bit(mask: int) -> int:
 var _room_points: Dictionary = {}
 ## 추출 지점(지면). **하위 구현이 채운다.**
 var _extraction_point: Vector3 = Vector3.ZERO
+## 탈출 지점 **전부** — `[{pos: Vector3, room: String, activation: String}]`.
+## 맵은 지점을 여럿 가질 수 있고 **Point마다 활성 조건이 다르다**(`F-006` §3.10).
+var _extraction_points: Array = []
 ## LOS 오클루더 footprint(월드 XZ). `derive_occluders()`가 콜라이더에서 유도한다 — 손으로 채우지 않는다.
 ## {center: Vector2, half: Vector2}(box) 또는 {center: Vector2, radius: float}(cyl).
 var _occluders: Array = []
@@ -331,6 +334,27 @@ func get_extraction_position() -> Vector3:
 	return _extraction_point
 
 
+## **활성 탈출 지점 전부.** `objective_done`에 따라 `onObjectiveComplete` 지점이 열린다.
+## 예전엔 계약이 지점을 하나만 날라서 탈출 방이 둘인 맵은 **하나가 죽은 방**이 됐다.
+func get_extraction_points(objective_done: bool = true) -> Array:
+	var out: Array = []
+	for e in _extraction_points:
+		var d := e as Dictionary
+		if String(d.get("activation", "always")) == "onObjectiveComplete" and not objective_done:
+			continue
+		out.append(d)
+	return out
+
+
+## 이 좌표에서 가장 가까운 **활성** 지점까지의 거리. 없으면 INF.
+func nearest_extraction_distance(from: Vector3, objective_done: bool = true) -> float:
+	var best := INF
+	for e in get_extraction_points(objective_done):
+		var p: Vector3 = (e as Dictionary)["pos"]
+		best = minf(best, Vector2(from.x - p.x, from.z - p.z).length())
+	return best
+
+
 ## LOS 오클루더 footprint(월드 XZ) — **적 시야 레이캐스트가 쓰는 콜라이더와 같은 출처**.
 ## `derive_occluders()`가 world 콜라이더에서 유도하므로 둘이 어긋날 수 없다. F-011 전제.
 ## **활성 레이어만** 돌려준다 — 안개는 XZ 텍스처 하나라 다른 층 도형이 섞이면 거짓말을 한다.
@@ -440,14 +464,29 @@ func resolve_anchors_from_data() -> void:
 
 ## 그 XZ 지점의 **방 바닥 높이**. 계단으로 내려간 구획(바닥 y<0)에서도 LOS 기준이 따라오게 한다.
 ## 어느 방에도 안 들어가면 0(맵 밖 지오메트리).
-func floor_y_at(xz: Vector2) -> float:
+## **층이 XZ를 공유하므로 좌표만으로는 답이 하나가 아니다**(백레이어의 요점). 층을 안 가리면
+## **먼저 걸린 방**의 바닥이 나오고, layer 1 벽의 눈높이를 layer 0 바닥으로 재게 된다 — 그 벽은
+## LOS 높이대를 안 가려 **오클루더에서 통째로 빠진다**(= 안개 없는 층). 단층 맵에선 안 드러난다.
+##
+## 가리는 방법은 **층 메타데이터가 아니라 `near_y`**다: 묻는 쪽(콜라이더)이 자기 높이를 알고 있으므로
+## 그와 **가장 가까운 바닥**을 고른다. 합성 프로브처럼 문서에 없는 방도 그대로 맞는다 —
+## 층 번호를 몰라도 되기 때문이다.
+func floor_y_at(xz: Vector2, near_y: float = INF) -> float:
+	var best := 0.0
+	var best_d := INF
 	for ref in _room_points:
 		var p: Dictionary = _room_points[ref]
 		var c: Vector3 = p["spawn"]
 		var sz: Vector3 = p["size"]
-		if absf(xz.x - c.x) <= sz.x * 0.5 + 0.5 and absf(xz.y - c.z) <= sz.z * 0.5 + 0.5:
+		if absf(xz.x - c.x) > sz.x * 0.5 + 0.5 or absf(xz.y - c.z) > sz.z * 0.5 + 0.5:
+			continue
+		if near_y == INF:
 			return c.y
-	return 0.0
+		var d: float = absf(near_y - c.y)
+		if d < best_d:
+			best_d = d
+			best = c.y
+	return best if best_d < INF else 0.0
 
 
 ## 지오메트리 아래 레이어 1 콜라이더 중 **LOS 높이를 가리는 것**의 XZ footprint를 모은다.
@@ -479,7 +518,8 @@ func _footprint(cs: CollisionShape3D) -> Dictionary:
 	if shape == null:
 		return {}
 	var xf := cs.global_transform
-	var eye: float = floor_y_at(Vector2(xf.origin.x, xf.origin.z)) + LOS_EYE_H
+	# **자기 높이에 가장 가까운 바닥**을 기준으로 눈높이를 잰다 — 겹친 층에서 답을 하나로 만든다.
+	var eye: float = floor_y_at(Vector2(xf.origin.x, xf.origin.z), xf.origin.y) + LOS_EYE_H
 	if shape is BoxShape3D:
 		var h: Vector3 = (shape as BoxShape3D).size * 0.5
 		var mn := Vector2(INF, INF)

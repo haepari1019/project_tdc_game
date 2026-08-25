@@ -1,0 +1,18 @@
+{
+  "blueprint_id": "DBP-UPPER-001",
+  "contract_id": "CONTRACT-UPPER-001",
+  "map_id": "MAP-UPPER-001",
+  "display_name": "상층 그레이박스 (임시)",
+  "difficulty_profile": "Normal",
+  "run_phase_sequence": [
+    "Entry",
+    "Advance",
+    "Objective",
+    "AdvanceExtraction",
+    "Extraction"
+  ],
+  "third_faction": {
+    "enabled": false
+  },
+  "_note": "`DBP-UPPER-001` — 루프 위상·백레이어 그레이박스. `difficulty_profile`은 **런 기본값(폴백)**이고 심부 방들이 `Hard`로 덮는다(`F-006` §3.1.2). `third_faction.enabled`는 Slice-01 스코프 가드상 `false`여야 한다 — 창발 주입(게임 S5b)은 이 플래그와 별개로 돈다. `display_name`은 **(임시)**다: 지역 테마 미확정이고 ID는 안정 축이라 이 필드만 갈면 된다."
+}

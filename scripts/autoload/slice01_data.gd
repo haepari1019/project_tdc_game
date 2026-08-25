@@ -10,7 +10,7 @@ const IDENTITIES_PATH := SLICE01_DIR + "identities.json"
 const ENEMIES_PATH := SLICE01_DIR + "enemies.json"
 const ABILITIES_PATH := SLICE01_DIR + "abilities.json"
 const MAPS_DIR := SLICE01_DIR + "maps/"                          # 맵 1개 = 파일 1개 (맵 문서)
-const BLUEPRINT_PATH := SLICE01_DIR + "blueprint.json"
+const BLUEPRINTS_DIR := SLICE01_DIR + "blueprints/"          # blueprint 1개 = 파일 1개
 const GEAR_PATH := SLICE01_DIR + "gear.json"
 const SKILLBOOKS_PATH := SLICE01_DIR + "skillbooks.json"
 const CONSUMABLES_PATH := SLICE01_DIR + "consumables.json"
@@ -552,20 +552,90 @@ func get_summary() -> String:
 	]
 
 
-## **맵 문서 경로** — `manifest.map_id`가 고른다. 맵 1개 = 파일 1개다(구 단일 `rooms.json`):
-## `entry_room`·`design_targets`·`zone_id`가 이미 **맵 단위 속성**이라 맵을 추가할 때 기존 파일을
-## 건드리지 않는 쪽이 회귀 위험이 0이다. ref: docs/design/map_upgrade_plan.html §Phase 1 D-3
+## **맵 문서 경로.** 맵 1개 = 파일 1개다(구 단일 `rooms.json`): `entry_room`·`design_targets`·
+## `zone_id`가 이미 **맵 단위 속성**이라 맵을 추가할 때 기존 파일을 건드리지 않는 쪽이 회귀 위험이 0이다.
 static func map_doc_path(map_id: String) -> String:
 	return MAPS_DIR + map_id + ".json"
 
 
-## 활성 맵 문서를 읽는다. `map_id`가 비면 매니페스트 자체가 이미 에러를 냈으므로 여기서 한 번 더 못 박는다.
+## **blueprint 문서 경로.** 성문에서 고르는 단위이며 **`map_id`의 단일 소유자**다.
+static func blueprint_doc_path(blueprint_id: String) -> String:
+	return BLUEPRINTS_DIR + blueprint_id + ".json"
+
+
+## 활성 blueprint — 런타임 선택(`RunLoadout.blueprint_id`) > `manifest.blueprint_id` 기본값.
+func active_blueprint_id() -> String:
+	var rl := get_node_or_null("/root/RunLoadout")
+	if rl != null and "blueprint_id" in rl and not String(rl.blueprint_id).is_empty():
+		return String(rl.blueprint_id)
+	return String(_manifest.get("blueprint_id", ""))
+
+
+## 활성 맵 id — **blueprint가 정한다**(맵 문서는 자기 id만 갖는다).
+func active_map_id() -> String:
+	return String(_blueprint.get("map_id", ""))
+
+
+func _read_blueprint_document(errors: Array[String]) -> Dictionary:
+	var bid := active_blueprint_id()
+	if bid.is_empty():
+		errors.append("blueprint_id 없음 — 나갈 곳을 고를 수 없다")
+		return {}
+	return _read_json_dict(blueprint_doc_path(bid), "blueprint:" + bid, errors)
+
+
+## 활성 맵 문서를 읽는다. **어느 맵인지는 blueprint가 안다** — 예전엔 매니페스트와 blueprint가
+## 각자 `map_id`를 들고 동일성을 검사했는데, 그건 두 벌이라 어긋날 수 있는 자리였다.
 func _read_map_document(errors: Array[String]) -> Dictionary:
-	var map_id := String(_manifest.get("map_id", ""))
+	var map_id := active_map_id()
 	if map_id.is_empty():
-		errors.append("manifest.map_id 없음 — 맵 문서를 고를 수 없다")
+		errors.append("blueprint에 map_id 없음 — 맵 문서를 고를 수 없다")
 		return {}
 	return _read_json_dict(map_doc_path(map_id), "map:" + map_id, errors)
+
+
+## **나갈 곳을 바꾼다.** 성문 선택이 확정될 때(출정 직전) 부른다 — 씬 전환 전이어야 한다.
+## `MapDemoLayout._ready()`가 `dungeon_run._ready()`보다 **먼저** 돌기 때문에, 던전 씬 안에서
+## 바꾸면 이미 지어진 뒤다.
+func set_active_blueprint(blueprint_id: String) -> bool:
+	var rl := get_node_or_null("/root/RunLoadout")
+	if rl != null and "blueprint_id" in rl:
+		rl.blueprint_id = blueprint_id
+	var errors: Array[String] = []
+	_blueprint = _read_blueprint_document(errors)
+	_rooms = _read_map_document(errors)
+	_validate_blueprint(errors)
+	_validate_rooms(errors)
+	if not errors.is_empty():
+		for e in errors:
+			push_error("[TDC] 출정지 전환 실패 — %s" % e)
+		return false
+	print("[TDC] 출정지 = %s → %s" % [blueprint_id, active_map_id()])
+	return true
+
+
+## 고를 수 있는 출정지 — `blueprints/*.json`. `[{blueprint_id, map_id, display_name}]`.
+func available_blueprints() -> Array:
+	var out: Array = []
+	var dir := DirAccess.open(BLUEPRINTS_DIR)
+	if dir == null:
+		return out
+	var names: Array = []
+	for f in dir.get_files():
+		if f.ends_with(".json"):
+			names.append(f)
+	names.sort()
+	for f in names:
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(BLUEPRINTS_DIR + f))
+		if typeof(parsed) != TYPE_DICTIONARY:
+			continue
+		var d := parsed as Dictionary
+		out.append({
+			"blueprint_id": String(d.get("blueprint_id", f.get_basename())),
+			"map_id": String(d.get("map_id", "")),
+			"display_name": String(d.get("display_name", d.get("blueprint_id", ""))),
+		})
+	return out
 
 
 func _load_and_validate() -> bool:
@@ -575,8 +645,8 @@ func _load_and_validate() -> bool:
 	var identities_doc := _read_json_dict(IDENTITIES_PATH, "identities", errors)
 	var enemies_doc := _read_json_dict(ENEMIES_PATH, "enemies", errors)
 	var abilities_doc := _read_json_dict(ABILITIES_PATH, "abilities", errors)
+	_blueprint = _read_blueprint_document(errors)
 	_rooms = _read_map_document(errors)
-	_blueprint = _read_json_dict(BLUEPRINT_PATH, "blueprint", errors)
 	var gear_doc := _read_json_dict(GEAR_PATH, "gear", errors)
 	var skillbooks_doc := _read_json_dict(SKILLBOOKS_PATH, "skillbooks", errors)
 	var consumables_doc := _read_json_dict(CONSUMABLES_PATH, "consumables", errors)
@@ -1052,12 +1122,13 @@ func _validate_blueprint(errors: Array[String]) -> void:
 		"blueprint_id",
 		errors
 	)
-	if String(_blueprint.get("map_id", "")) != String(_manifest.get("map_id", "")):
-		errors.append("blueprint.json map_id must match manifest")
-	if String(_blueprint.get("contract_id", "")) != String(_manifest.get("contract_id", "")):
-		errors.append("blueprint.json contract_id must match manifest")
+	# `map_id`/`contract_id` 동일성 검사는 **없앴다** — blueprint가 그 둘의 단일 소유자다.
+	# 예전엔 매니페스트가 같은 값을 또 들고 있어서 어긋날 수 있었다(두 벌).
+	IdValidate.require_id(String(_blueprint.get("map_id", "")), _registry_list("map_ids"), "map_id", errors)
+	IdValidate.require_id(
+		String(_blueprint.get("contract_id", "")), _registry_list("contract_ids"), "contract_id", errors)
 	if bool(_blueprint.get("third_faction", {}).get("enabled", false)):
-		errors.append("Slice-01: third_faction must be disabled in blueprint.json")
+		errors.append("Slice-01: third_faction must be disabled (blueprint %s)" % _blueprint.get("blueprint_id", "?"))
 
 
 func _validate_manifest(errors: Array[String]) -> void:
@@ -1067,18 +1138,7 @@ func _validate_manifest(errors: Array[String]) -> void:
 		"blueprint_id",
 		errors
 	)
-	IdValidate.require_id(
-		String(_manifest.get("map_id", "")),
-		_registry_list("map_ids"),
-		"map_id",
-		errors
-	)
-	IdValidate.require_id(
-		String(_manifest.get("contract_id", "")),
-		_registry_list("contract_ids"),
-		"contract_id",
-		errors
-	)
+	# `map_id`/`contract_id`는 매니페스트가 안 갖는다 — **blueprint가 소유**하고 거기서 검증한다.
 	var required_enc := String(_manifest.get("required_encounter_smoke", ""))
 	IdValidate.require_id(required_enc, _registry_list("encounter_ids"), "encounter_id", errors)
 	var manifest_identities: Array = _manifest.get("identity_skill_ids", [])
@@ -1153,8 +1213,8 @@ func _validate_encounter_units(doc: Dictionary, errors: Array[String]) -> void:
 
 
 func _validate_rooms(errors: Array[String]) -> void:
-	if String(_rooms.get("map_id", "")) != String(_manifest.get("map_id", "")):
-		errors.append("맵 문서 map_id != manifest map_id (파일명도 map_id여야 한다)")
+	if String(_rooms.get("map_id", "")) != active_map_id():
+		errors.append("맵 문서 map_id != blueprint가 고른 map_id (파일명도 map_id여야 한다)")
 	var allowed_rooms: Array = _registry_list("room_refs")
 	var raw: Array = _rooms.get("rooms", [])
 	if typeof(raw) != TYPE_ARRAY:

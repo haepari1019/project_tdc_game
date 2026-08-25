@@ -162,13 +162,19 @@ else echo "  PASS"; fi
 # 풀리는가 · **오클루더 집합 = LOS 높이대 레이어1 콜라이더**(F-011 「같은 출처」 불변식).
 # 구현이 아니라 **계약**을 시험하므로 Blender authored 맵으로 갈아끼워도 이 스위트가 그대로 돈다.
 # [설계] 줄은 목표치 추적(사이클·안개 예산·상자 EV)이며 실패시키지 않는다 — 현 맵이 기준선이다.
-echo "== map contract smoke (맵 고도화 Phase 0) =="
-maplog="/tmp/ci_map_smoke.log"
-"$GODOT" --headless --path "$PROJ" --script res://tools/map_smoke.gd >"$maplog" 2>&1
-mapcode=$?
-if [ "$mapcode" -ne 0 ] || ! grep -qF "MAP SMOKE PASSED" "$maplog"; then
-  echo "  FAIL: map smoke (exit=$mapcode) —"; grep -nE "FAIL|$ERRPAT" "$maplog" | head -8; fail=1
-else echo "  PASS"; grep -F "  [설계]" "$maplog"; fi
+# **출정지마다 한 번씩 돈다.** 「활성화」는 그 맵이 **실제로 부팅되고 계약을 지켜야** 성립한다 —
+# 데이터만 통과하고 켤 수 없는 맵은 활성화된 게 아니다. 기본 출정지는 전 스위트(거동 프로브 포함),
+# 나머지는 계약 검사(프로브는 데모 맵의 방 이름을 박아 쓴다).
+echo "== map contract smoke (맵 계약 · 출정지별) =="
+for bp in "" $(ls "$PROJ/data/slice01/blueprints"/*.json 2>/dev/null | xargs -n1 basename | sed 's/\.json$//'); do
+  maplog="/tmp/ci_map_smoke${bp:+_$bp}.log"
+  TDC_BLUEPRINT="$bp" "$GODOT" --headless --path "$PROJ" --script res://tools/map_smoke.gd >"$maplog" 2>&1
+  mapcode=$?
+  label="${bp:-기본}"
+  if [ "$mapcode" -ne 0 ] || ! grep -qF "MAP SMOKE PASSED" "$maplog"; then
+    echo "  FAIL: map smoke [$label] (exit=$mapcode) —"; grep -nE "FAIL|$ERRPAT" "$maplog" | head -8; fail=1
+  else echo "  PASS [$label]"; [ -z "$bp" ] && grep -F "  [설계]" "$maplog"; fi
+done
 
 echo "------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "SMOKE PASSED"; exit 0; else echo "SMOKE FAILED"; exit 1; fi

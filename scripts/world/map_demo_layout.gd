@@ -92,6 +92,7 @@ func geometry_root() -> Node3D:
 func _resolve_room_points() -> void:
 	_room_points.clear()
 	_specs.clear()
+	_extraction_points.clear()
 	for room_ref in data_room_refs():
 		var spec: Dictionary = room_geometry(String(room_ref))
 		if spec.is_empty():
@@ -104,7 +105,13 @@ func _resolve_room_points() -> void:
 			"size": spec.get("size", Vector3(8, 0, 8)),
 		}
 		if bool(spec["extraction"]):
-			_extraction_point = center   # 계약이 y를 나른다 — 바닥 높이가 다른 맵(Phase 5 단차)에 대비
+			# 계약이 y를 나른다 — 바닥 높이가 다른 맵(단차·백레이어)에 대비.
+			var row := _room_row(String(room_ref))
+			var act := String(row.get("extraction_activation", "always"))
+			_extraction_points.append({"pos": center, "room": String(room_ref), "activation": act})
+			# 단일 getter 폴백은 **항상 열린 지점** 우선 — 나중에 지어진 방이 이기면 조기 탈출이 죽는다.
+			if _extraction_point == Vector3.ZERO or act == "always":
+				_extraction_point = center
 
 
 func _compute_openings() -> void:

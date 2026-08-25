@@ -120,9 +120,12 @@ func _draw() -> void:
 		draw_rect(rect, C_ROOM, true)
 		draw_rect(rect, C_ROOM_EDGE, false, 1.0)
 	# Extraction point.
-	if _map and _map.has_method("get_extraction_position"):
-		var ep: Vector3 = _map.get_extraction_position()
-		draw_circle(_w2m(ep.x, ep.z), 4.0, C_EXTRACT)
+	if _map and _map.has_method("get_extraction_points"):
+		# 탈출 지점은 여럿일 수 있다 — 하나만 그리면 나머지가 **없는 것처럼** 보인다.
+		for e in _map.get_extraction_points(true):
+			_draw_extraction((e as Dictionary)["pos"])
+	elif _map and _map.has_method("get_extraction_position"):
+		_draw_extraction(_map.get_extraction_position())
 	# Interactables (chest / door / drops).
 	for n in get_tree().get_nodes_in_group("interactable"):
 		if is_instance_valid(n) and n is Node3D:
@@ -160,3 +163,7 @@ func _draw() -> void:
 				var nv := v.normalized() * 2.5
 				var tip := _w2m(ctrl.global_position.x + nv.x, ctrl.global_position.z + nv.z)
 				draw_line(pm, tip, Color(1, 1, 1, 0.9), 1.5)
+
+
+func _draw_extraction(ep: Vector3) -> void:
+	draw_circle(_w2m(ep.x, ep.z), 4.0, C_EXTRACT)
