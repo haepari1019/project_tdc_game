@@ -303,7 +303,8 @@ func _tick_patrol(enemy: CharacterBody3D, _delta: float) -> void:
 	var to := wp - enemy.global_position
 	to.y = 0.0
 	if to.length() <= ROAM_ARRIVE_M:
-		enemy.patrol_idx = (enemy.patrol_idx + 1) % PATROL_POINTS  # advance to the next leg
+		var legs: int = (enemy.patrol_stops as Array).size()
+		enemy.patrol_idx = (enemy.patrol_idx + 1) % (legs if legs > 0 else PATROL_POINTS)
 		wp = _patrol_point(enemy, enemy.patrol_idx)
 	enemy.face_toward(wp)
 	enemy.velocity = _nav_move(enemy, wp, enemy.current_move_speed() * PATROL_SPEED_FRAC)
@@ -311,8 +312,13 @@ func _tick_patrol(enemy: CharacterBody3D, _delta: float) -> void:
 
 
 
-## A point on the patrol loop — `idx` of PATROL_POINTS evenly around home at PATROL_RADIUS_M.
+## 다음 순찰 지점. **저작 그래프가 있으면 그 정류장**(`patrolGraphRef` — 방을 넘나든다),
+## 없으면 초소 주위 원형 루프(맵 무관 폴백). 그래프 순찰은 `wake_clamp`을 안 탄다 —
+## 방을 넘어야 하는데 방 안에 가두면 순찰이 성립하지 않는다(대신 분대 광원으로 예고한다).
 func _patrol_point(enemy: CharacterBody3D, idx: int) -> Vector3:
+	var stops: Array = enemy.patrol_stops
+	if not stops.is_empty():
+		return stops[idx % stops.size()]
 	var ang := float(idx) / float(PATROL_POINTS) * TAU
 	return enemy.wake_clamp(enemy.home_pos + Vector3(cos(ang), 0.0, sin(ang)) * PATROL_RADIUS_M)
 

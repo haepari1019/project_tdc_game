@@ -96,6 +96,10 @@ var wake_center: Vector3 = Vector3.ZERO
 var wake_half: Vector2 = Vector2.ZERO
 var ambush_reveal_radius_m: float = 8.0   # AmbushHold: spring when a party actor is within this
 var patrol_idx: int = 0                   # current waypoint index on the patrol loop
+## **저작된 순찰 정류장**(`patrolGraphRef`, `F-006` §3.2.4). 비면 구 동작(초소 주위 원형 루프)이다 —
+## 맵 무관 폴백이라 그래프를 안 쓰는 맵의 분대는 그대로 돈다.
+var patrol_stops: Array = []
+var _squad_light: OmniLight3D = null
 var anchor_id: int = 0                    # AmbushHold dual-anchor: which hiding spot this unit holds
 var wake_policy: String = "all"           # "all" = squad wakes together; "sequential" = per-anchor
 # F-021 §3.1.2 object-priority: this enemy seeks + uses nearby enemy-usable objects. A held
@@ -641,6 +645,28 @@ func apply_poison_stack(dur: float, add_dps: float, cap_dps: float, unit_dps: fl
 		popup_status("중독", Color(0.5, 0.9, 0.4))
 	_outcome.apply_stack("Poison", dur, add_dps, cap_dps, unit_dps)
 	_update_status_badges()   # 즉시 갱신(중독 스택 배지)
+
+
+## **분대 광원**(`perceptionProfile: squadLight`, `F-006` §3.2.4 「텔레그래프」).
+## 그래프 순찰은 방을 넘나들며 **문 앞을 지난다** — 그래서 §3.2.3 문 버퍼에서 빠진다.
+## 그 면제의 근거가 「순찰은 예고된다」인 이상 **예고가 실재해야 한다.** 안 그러면 규칙을
+## 근거 없이 끄는 셈이다.
+func set_squad_light(on: bool) -> void:
+	if on and _squad_light == null:
+		_squad_light = OmniLight3D.new()
+		_squad_light.name = "SquadLight"
+		_squad_light.position = Vector3(0, 1.6, 0)
+		_squad_light.omni_range = 9.0
+		_squad_light.light_energy = 1.6
+		_squad_light.light_color = Color(1.0, 0.78, 0.52)
+		add_child(_squad_light)
+	elif not on and _squad_light != null:
+		_squad_light.queue_free()
+		_squad_light = null
+
+
+func has_squad_light() -> bool:
+	return _squad_light != null and is_instance_valid(_squad_light)
 
 
 ## 이 지점을 **문 회피 반경 밖으로** 옮긴다. 방 밖으로는 안 나간다.

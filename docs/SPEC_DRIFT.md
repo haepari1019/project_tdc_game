@@ -2440,3 +2440,19 @@
 - **영향 파일:** `combat_controller.gd`(`pick_with_bands`) · `data/slice01/maps/MAP-UPPER-001.json`(`route_bands`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS**. [계약/경로] 6항목.
 - **상태:** ✅ 완료 · 전파 불요. 다음 Phase 2: `patrolGraphRef`(③ — `Patrol`은 이미 원형 순회 중이라 **개선**이다) → `exitConvergenceRouteRef`(④).
+
+### DRIFT-187 — 순찰이 저작된 길을 돈다 + 예고한다 (Phase 2 ③) 🔷 Phase 2 · 전파 불요
+- **근거:** `F-006` §3.2.4 `patrolGraphRef`(Room edge · `holdAnchor`, level-design SSOT). `Patrol`은 **이미 작동하고 있었다** — 초소 주위 반경 6 m 원형 루프. 그래서 이건 신규 기능이 아니라 **그 원을 저작 그래프로 바꾸는 개선**이고, 그래프가 없으면 원형으로 떨어진다(맵 무관 폴백 → 데모 맵의 `ENC-PAT-*` 분대는 그대로).
+- **① 정류장은 방이고 이동은 `connects` 간선을 탄다.** 좌표를 저작하지 않으므로 그래프가 지오메트리와 어긋날 수 없고, 붙어 있지 않은 두 방을 이으면 정적 게이트가 고발한다. 전 정류장은 **같은 층**이어야 한다 — 표준 몬스터는 레이어 고정이고 층을 넘는 건 제3세력뿐이다([[DRIFT-182]]).
+- **🔴 ② 앞 작업과 정면으로 부딪혔고, 그 해소가 이 항목의 핵심이다.** [[DRIFT-185]]의 문 버퍼는 휴면 유닛을 **자기 방 안에 가둔다**(`wake_clamp`). 그런데 그래프 순찰은 **방을 넘나드는 게 일**이다. 둘 중 하나를 꺾어야 하는데:
+  - §3.2.3은 **배치** 규칙이다 — 문 뒤에 **가만히 숨어 있는** 적으로부터 진입을 보호한다.
+  - §3.2.4는 순찰에 **텔레그래프를 요구한다**(발소리·`squadLight`) — 순찰은 **예고된 위협**이다.
+  - → 그래프 순찰은 문 버퍼에서 **뺀다**(`wake_ruled = false`). 단, **면제의 근거가 예고인 이상 예고가 실재해야 한다.**
+- **🔴 ③ 그래서 `squadLight`를 같이 구현했다.** 확인해 보니 적 측 분대 광원이 **아예 없었다**(grep 0건). 면제만 하고 예고가 없으면 **규칙을 근거 없이 끄는 것**이므로, `set_squad_light()`(OmniLight3D, 9 m)를 붙이고 게이트가 「면제 + 광원 실재」를 **한 항목으로** 검사한다.
+- **④ 활성 순찰 상한**(§3.2.4 Contract 가이드 ≤2, `max_active_patrols`로 덮는다). 넘으면 그 분대는 그래프를 안 받고 **원형 루프로 남는다** — 스폰을 취소하지 않는다(전투 수는 경로 밴드가 이미 정했다).
+- **⑤ 타 Group 자동 aggro 없음**(§3.3.2)은 **이미 성립**한다 — `_is_hostile`이 진영 기준이라 `Dungeon` 순찰이 `Dungeon` 분대를 깨우지 않는다. 새로 짤 게 없어 확인만 했다.
+- **🔴 ⑥ 반증 확인이 또 게이트의 공허함을 잡았다.** 순회 로직이 **그래프를 무시하고 원형으로 돌게** 만들어도 초록이었다 — 게이트가 「유닛이 정류장 **데이터를 받았는지**」만 보고 「**AI가 그걸 쓰는지**」는 안 봤다. `_patrol_point(e, i) == stops[i]`를 못 박으니 문다(어긋남 6.4 m·30.7 m). 이번 세션에서 **네 번째** 같은 종류다(`_mask` · nav rid · 라벨 가드 · 여기).
+- **반증 확인(5종 전부):** 안 붙은 두 방을 잇기 → 연결 없음 · 층을 넘기기 → 다른 층 · 광원 끄기 → 면제+예고 FAIL · 상한 검사 빼기 → FAIL · 그래프 무시 → 정류장 어긋남.
+- **영향 파일:** `map_source.gd`(`get_patrol_stops`·`patrol_graph_rooms`) · `enemy_unit.gd`(`patrol_stops`·`set_squad_light`) · `enemy_ai.gd`(`_patrol_point` 분기) · `combat_controller.gd`(`_apply_patrol_graph`·`MAX_ACTIVE_PATROLS`) · `MAP-UPPER-001.json`(`patrol_graphs` `PG-UPPER-01`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
+- **게이트:** `ci_smoke.sh` **15/15 PASS**. [계약/순찰] 8항목.
+- **상태:** ✅ 완료 · 전파 불요. 남은 Phase 2: `exitConvergenceRouteRef`(④ — `F-028` §3.2.3, 심층 탈출로 수렴).

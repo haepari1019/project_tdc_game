@@ -176,6 +176,33 @@ func get_room_openings(room_ref: String) -> Array:
 	return out
 
 
+## **순찰 그래프의 정류장 방 목록** — `patrol_graphs[<ref>].stops[].room` 순서대로.
+func patrol_graph_rooms(graph_ref: String) -> Array:
+	var g: Dictionary = (_rooms_doc().get("patrol_graphs", {}) as Dictionary).get(graph_ref, {})
+	var out: Array = []
+	for st in g.get("stops", []):
+		out.append(String((st as Dictionary).get("room", "")))
+	return out
+
+
+## **순찰 정류장의 월드 좌표.** 정류장은 **방**이고 이동은 `connects` 간선을 탄다 —
+## 그래서 그래프가 지오메트리와 어긋날 수 없다(붙어 있지 않은 두 방을 이으면 게이트가 고발한다).
+## `pos`(방 로컬 XZ)를 적으면 그 방 안의 특정 지점(`holdAnchor`)에 선다.
+func get_patrol_stops(graph_ref: String) -> Array:
+	var g: Dictionary = (_rooms_doc().get("patrol_graphs", {}) as Dictionary).get(graph_ref, {})
+	var out: Array = []
+	for st in g.get("stops", []):
+		var d := st as Dictionary
+		var room := String(d.get("room", ""))
+		var geo := room_geometry(room)
+		if geo.is_empty():
+			continue
+		var c: Vector3 = geo["center"]
+		var p: Array = d.get("pos", [])
+		out.append(c + Vector3(float(p[0]), 0.0, float(p[1])) if p.size() == 2 else c)
+	return out
+
+
 ## **층 간 전이(계단) 목록** — `[[from_room, to_room], ...]`. `connects`(공유벽·도보)와 **별개**다:
 ## `connects`는 걸어서 갈 수 있다는 뜻이고 계단은 워프다. 도달성은 **둘을 합쳐** 봐야 한다.
 func stair_links() -> Array:

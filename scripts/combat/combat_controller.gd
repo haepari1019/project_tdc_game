@@ -693,6 +693,7 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	if _map and _map.has_method("get_spawn_position"):
 		_spawn_origin = _map.get_spawn_position(spawn_room)
 	# Resolve per room via the spawn table: (pool, run difficulty, room world_layer).
+	_active_patrols = 0
 	var difficulty := RunLoadout.get_difficulty()   # hub selection > manifest default (single source)
 	var run_seed := int(RunLoadout.get_run_seed())  # weighted ENC resolve + spawn scatter (LDG-SPAWN §2)
 	# 런 전체 전투 수 = 예산(RUN_ENCOUNTER 4~5). 방마다 무조건(난장판) 대신 pool 방을 spawn_weight로
@@ -841,6 +842,7 @@ func _spawn_squad(encounter_id: String, room_ref: String, units_override: Array 
 		String(enc.get("faction", "Dungeon")))
 	_bind_nav_layer(before_n, room_ref)
 	_apply_wake_buffer(before_n, room_ref)   # F-006 §3.2.3 — 진입 즉시 어그로 금지
+	_apply_patrol_graph(before_n, room_ref, String(enc.get("placement_behavior", "Fixed")))
 	var reinf: Dictionary = enc.get("reinforcement", {})
 	_squads.append({
 		"id": squad_id,
@@ -1389,6 +1391,45 @@ func _nearest_stairs(from: Vector3, layer: int) -> Node3D:
 ##
 ## 코너 뒤 즉시 어그로(§3.2.3 1번째 항목)가 바로 이 둘의 위반이다.
 const AGGRO_WAKE_BUFFER_M := 4.0     # F-006 §3.2.3 초기값 — 튜닝 수치(SPEC_DRIFT)
+## 활성 순찰 분대 상한(`F-006` §3.2.4 Contract 가이드 ≤2). 맵이 `max_active_patrols`로 덮는다.
+const MAX_ACTIVE_PATROLS := 2
+var _active_patrols := 0
+
+
+## **저작된 순찰 그래프를 붙인다**(`F-006` §3.2.4 `patrolGraphRef`). 없으면 구 동작(초소 주위
+## 원형 루프)으로 떨어진다 — 맵 무관 폴백이라 그래프를 안 쓰는 맵의 `ENC-PAT-*` 분대는 그대로다.
+##
+## **그래프 순찰은 §3.2.3 문 버퍼에서 빠진다.** 방을 넘나드는 게 일인데 방 안에 가두면 순찰이
+## 성립하지 않는다. 대신 **분대 광원**(`squadLight`)을 켠다 — 면제의 근거가 「순찰은 예고된다」인
+## 이상 예고가 실재해야 하고, 게이트가 그 실재를 확인한다.
+##
+## 활성 순찰 분대는 **상한**이 있다(§3.2.4 Contract 가이드 ≤2). 넘으면 그 분대는 그래프를 안 받고
+## 원형 루프로 남는다 — 스폰을 취소하지 않는다(전투 수는 경로 밴드가 이미 정했다).
+func _apply_patrol_graph(from_index: int, room_ref: String, placement: String) -> void:
+	if placement != "Patrol" or _map == null:
+		return
+	var graph_ref := String(Slice01Data.get_room_row(room_ref).get("patrol_graph_ref", ""))
+	if graph_ref.is_empty() or not _map.has_method("get_patrol_stops"):
+		return
+	var cap := int(Slice01Data.get_rooms_document().get("design_targets", {}).get(
+		"max_active_patrols", MAX_ACTIVE_PATROLS))
+	if _active_patrols >= cap:
+		print("[TDC] 순찰 상한 %d 도달 — %s는 원형 루프로 남는다" % [cap, room_ref])
+		return
+	var stops: Array = _map.get_patrol_stops(graph_ref)
+	if stops.size() < 2:
+		push_warning("[MAP] 순찰 그래프 %s 정류장 %d개 (2 이상 필요)" % [graph_ref, stops.size()])
+		return
+	for i in range(from_index, _enemies.size()):
+		var e = _enemies[i]
+		if not is_instance_valid(e):
+			continue
+		e.patrol_stops = stops
+		e.wake_ruled = false      # 문 버퍼 대상 아님 — 대신 광원으로 예고한다
+		e.wake_r = 0.0
+		e.set_squad_light(true)
+	_active_patrols += 1
+	print("[TDC] 순찰 그래프 %s (%d정류장) → %s" % [graph_ref, stops.size(), room_ref])
 
 
 ## 스폰 직후 휴면 분대에 적용. **교전 상태로 태어난 유닛(제3세력 창발)은 대상이 아니다** —

@@ -74,6 +74,7 @@ func _init() -> void:
 	_check_theme_axis(map, sd)
 	_check_wake_buffer(scn, map, sd)
 	_check_route_bands(scn, sd)
+	_check_patrol_graphs(scn, map, sd)
 	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
@@ -1361,7 +1362,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements", "theme_axis", "wake_buffer", "route_bands"]:
+	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements", "theme_axis", "wake_buffer", "route_bands", "patrol_graphs"]:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -2591,3 +2592,147 @@ func _check_route_bands(scn: Node, sd) -> void:
 		"🔴 [계약/경로] 상한 0인 경로를 건드리는 방은 **24시드 내내 안 뽑힌다** (최대 %d방%s)" % [
 			tight_n, "" if leaked.is_empty() else " · 샌 것: " + ", ".join(leaked.slice(0, 3))])
 	_sections["route_bands"] = true
+
+
+## **순찰 그래프**(`F-006` §3.2.4 `patrolGraphRef`).
+## 그래프는 레벨 디자인 SSOT이므로 **데이터가 지오메트리와 어긋날 수 있다** — 붙어 있지 않은 두 방을
+## 잇거나 층을 넘는 그래프. 정적으로 막고, 실제 순회는 주입으로 확인한다.
+func _check_patrol_graphs(scn: Node, map: Node, sd) -> void:
+	# ① 전 맵 문서: 정류장이 **연결돼 있고 같은 층**인가.
+	var dir := DirAccess.open(MAPS_DIR)
+	var graphs := 0
+	for f in (dir.get_files() if dir != null else []):
+		if not f.ends_with(".json"):
+			continue
+		var doc = JSON.parse_string(FileAccess.get_file_as_string(MAPS_DIR + "/" + f))
+		if typeof(doc) != TYPE_DICTIONARY:
+			continue
+		var pg: Dictionary = (doc as Dictionary).get("patrol_graphs", {})
+		if pg.is_empty():
+			continue
+		var mid := String((doc as Dictionary).get("map_id", "?"))
+		var rooms: Dictionary = {}
+		var edges: Dictionary = {}      # "a|b" (정렬) -> true
+		for row in (doc as Dictionary).get("rooms", []):
+			if typeof(row) != TYPE_DICTIONARY:
+				continue
+			var d := row as Dictionary
+			var ref := String(d.get("room_ref", ""))
+			rooms[ref] = int(d.get("layer", 0))
+			for c in d.get("connects", []):
+				var to := String((c as Dictionary).get("to", ""))
+				edges[(ref + "|" + to) if ref < to else (to + "|" + ref)] = true
+		var bad: Array = []
+		var refd: Dictionary = {}
+		for row in (doc as Dictionary).get("rooms", []):
+			if typeof(row) == TYPE_DICTIONARY:
+				var gr := String((row as Dictionary).get("patrol_graph_ref", ""))
+				if not gr.is_empty():
+					refd[gr] = true
+					if not pg.has(gr):
+						bad.append("%s: 없는 그래프 `%s`" % [row["room_ref"], gr])
+		for g in pg:
+			graphs += 1
+			var stops: Array = (pg[g] as Dictionary).get("stops", [])
+			if stops.size() < 2:
+				bad.append("%s: 정류장 %d개(2 이상)" % [g, stops.size()])
+				continue
+			if not refd.has(String(g)):
+				bad.append("%s: 아무 방도 참조 안 함(사문)" % g)
+			var layer := -999
+			for i in stops.size():
+				var a := String((stops[i] as Dictionary).get("room", ""))
+				if not rooms.has(a):
+					bad.append("%s: 없는 방 `%s`" % [g, a])
+					continue
+				if layer == -999:
+					layer = int(rooms[a])
+				elif int(rooms[a]) != layer:
+					# 표준 몬스터는 레이어 고정 — 층을 넘는 건 제3세력뿐이다(F-028 §3.2.2a).
+					bad.append("%s: `%s`가 다른 층(%d≠%d)" % [g, a, rooms[a], layer])
+				var b := String((stops[(i + 1) % stops.size()] as Dictionary).get("room", ""))
+				if a == b or not rooms.has(b):
+					continue
+				var key: String = (a + "|" + b) if a < b else (b + "|" + a)
+				if not edges.has(key):
+					bad.append("%s: `%s`↔`%s` 연결 없음" % [g, a, b])
+		_expect(bad.is_empty(), "🔴 [계약/순찰] %s 그래프가 **연결·동일 층** (%s)" % [mid,
+			"전부" if bad.is_empty() else ", ".join(bad)])
+	_expect(graphs > 0, "[계약/순찰] 순찰 그래프 %d개 선언" % graphs)
+
+	# ② 실제 순회 — 활성 맵엔 그래프가 없으므로(경로가 하나뿐) **주입해서** 확인한다.
+	var combat: Node = null
+	for c in scn.get_children():
+		if c.has_method("_apply_patrol_graph"):
+			combat = c
+	if combat == null:
+		_expect(false, "[계약/순찰] CombatController 접근")
+		return
+	var rows: Array = sd._rooms.get("rooms", [])
+	var host := "RM-ADV-05"
+	var away := "RM-ADV-04"
+	var row: Dictionary = {}
+	for r in rows:
+		if typeof(r) == TYPE_DICTIONARY and String((r as Dictionary).get("room_ref", "")) == host:
+			row = r
+	var doc2: Dictionary = sd._rooms
+	doc2["patrol_graphs"] = {"PG-TEST": {"stops": [{"room": host}, {"room": away}]}}
+	row["patrol_graph_ref"] = "PG-TEST"
+	var stops: Array = map.get_patrol_stops("PG-TEST")
+	_expect(stops.size() == 2, "[계약/순찰] 정류장 좌표 해석 (%d)" % stops.size())
+
+	var before: int = combat._enemies.size()
+	combat._active_patrols = 0
+	combat._spawn_squad("ENC-PAT-001", host)
+	var crew: Array = []
+	for i in range(before, combat._enemies.size()):
+		crew.append(combat._enemies[i])
+	_expect(not crew.is_empty(), "[계약/순찰] 순찰 분대 스폰 (%d기)" % crew.size())
+	if crew.is_empty():
+		doc2.erase("patrol_graphs")
+		row.erase("patrol_graph_ref")
+		return
+	var e = crew[0]
+	_expect((e.patrol_stops as Array).size() == 2 and String(e.placement_mode) == "Patrol",
+		"🔴 [계약/순찰] 분대가 **저작 정류장**을 받는다 (%d개 · %s)" % [
+			(e.patrol_stops as Array).size(), e.placement_mode])
+	# **방을 넘나드는 게 일이므로 문 버퍼에서 빠진다** — 대신 예고(분대 광원)가 실재해야 한다.
+	_expect(not bool(e.wake_ruled) and e.has_squad_light(),
+		"🔴 [계약/순찰] 문 버퍼 면제 + **분대 광원으로 예고**(§3.2.4 텔레그래프) — 면제만 하고 예고가 없으면 규칙을 근거 없이 끄는 것")
+	# **AI가 실제로 그 정류장을 쓰는가.** 유닛이 데이터를 받았는지만 보면, 순회 로직이 그래프를
+	# 무시하고 원형 루프를 돌아도 초록이다(반증 확인에서 실제로 그랬다).
+	var ai: Node = combat._enemy_ai
+	var wrong: Array = []
+	for i in (e.patrol_stops as Array).size():
+		var want: Vector3 = (e.patrol_stops as Array)[i]
+		var got: Vector3 = ai._patrol_point(e, i)
+		if got.distance_to(want) > 0.5:
+			wrong.append("idx %d: %.1f m 어긋남" % [i, got.distance_to(want)])
+	_expect(wrong.is_empty(), "🔴 [계약/순찰] 순회 로직이 **그 정류장으로 간다** (%s)" % (
+		"전부" if wrong.is_empty() else ", ".join(wrong)))
+
+	# 정류장이 **자기 방 밖**을 포함한다 = 실제로 방을 넘는다.
+	var rooms_hit: Dictionary = {}
+	for sp in (e.patrol_stops as Array):
+		rooms_hit[_room_of(sp)] = true
+	_expect(rooms_hit.size() >= 2, "🔴 [계약/순찰] 정류장이 **방을 넘는다** (%d방)" % rooms_hit.size())
+
+	# ③ 상한 — 두 번째 분대는 그래프를 못 받는다(원형 루프로 남는다).
+	combat._active_patrols = int(_sd_targets(sd).get("max_active_patrols", combat.MAX_ACTIVE_PATROLS))
+	var before2: int = combat._enemies.size()
+	combat._spawn_squad("ENC-PAT-001", host)
+	var over_ok := true
+	for i in range(before2, combat._enemies.size()):
+		if not (combat._enemies[i].patrol_stops as Array).is_empty():
+			over_ok = false
+	_expect(over_ok, "🔴 [계약/순찰] 활성 순찰 **상한**을 넘으면 그래프를 안 받는다 (§3.2.4 ≤2)")
+
+	# 정리
+	for i in range(before, combat._enemies.size()):
+		if is_instance_valid(combat._enemies[i]):
+			combat._enemies[i].queue_free()
+	combat._enemies = combat._enemies.slice(0, before)
+	combat._active_patrols = 0
+	doc2.erase("patrol_graphs")
+	row.erase("patrol_graph_ref")
+	_sections["patrol_graphs"] = true
