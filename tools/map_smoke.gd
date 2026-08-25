@@ -73,6 +73,7 @@ func _init() -> void:
 	await _check_entry_requirements(scn, map, sd)
 	_check_theme_axis(map, sd)
 	_check_wake_buffer(scn, map, sd)
+	_check_route_bands(scn, sd)
 	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
@@ -1360,7 +1361,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements", "theme_axis", "wake_buffer"]:
+	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements", "theme_axis", "wake_buffer", "route_bands"]:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -2469,3 +2470,124 @@ func _room_of(p: Vector3) -> String:
 ## 활성 맵의 `design_targets`.
 func _sd_targets(sd) -> Dictionary:
 	return sd.get_rooms_document().get("design_targets", {})
+
+
+## **경로별 교전 밴드**(`F-006` §3.10.1 · `DBP-UPPER-001` §8) — 전역 예산 하나면 조기 탈출로와
+## 심층로의 압력이 같아져 위험↔보상 축이 사라진다. 두 가지를 묻는다:
+##   ① **선언이 만족 가능한가**(정적, 전 맵) — 하한을 채울 방이 실제로 있는가, 필수 방만으로 상한을 넘지 않는가.
+##   ② **뽑기가 밴드를 지키는가**(주입) — 활성 맵엔 `route_class`가 없으므로(경로가 하나뿐이라 안 적었다)
+##      데모 맵 데이터에 경로를 **주입해** 실제 picker를 여러 시드로 돌린다.
+func _check_route_bands(scn: Node, sd) -> void:
+	var combat: Node = null
+	for c in scn.get_children():
+		if c.has_method("pick_with_bands"):
+			combat = c
+	if combat == null:
+		_expect(false, "[계약/경로] CombatController 접근")
+		return
+
+	# ① 전 맵 문서: 밴드 선언이 만족 가능한가.
+	var dir := DirAccess.open(MAPS_DIR)
+	var declared := 0
+	for f in (dir.get_files() if dir != null else []):
+		if not f.ends_with(".json"):
+			continue
+		var doc = JSON.parse_string(FileAccess.get_file_as_string(MAPS_DIR + "/" + f))
+		if typeof(doc) != TYPE_DICTIONARY:
+			continue
+		var bands: Dictionary = ((doc as Dictionary).get("design_targets", {}) as Dictionary).get("route_bands", {})
+		var mid := String((doc as Dictionary).get("map_id", "?"))
+		if bands.is_empty():
+			continue
+		declared += 1
+		var must: Dictionary = {}       # route -> 필수(mandatory) 방 수
+		var avail: Dictionary = {}      # route -> 필수 + 뽑을 수 있는 optional 수
+		var no_route: Array = []
+		for r in bands:
+			must[String(r)] = 0
+			avail[String(r)] = 0
+		for row in (doc as Dictionary).get("rooms", []):
+			if typeof(row) != TYPE_DICTIONARY:
+				continue
+			var d := row as Dictionary
+			if String(d.get("pool_slot", "")).is_empty():
+				continue
+			var cat := String((d.get("encounter_anchor", {}) as Dictionary).get("category", ""))
+			if cat == "safe" or cat == "gated_elite":
+				continue        # safe는 안 뽑고, gated는 경로 압력이 아니다
+			var routes: Array = d.get("route_class", [])
+			if routes.is_empty():
+				no_route.append(String(d.get("room_ref", "")))
+				continue
+			for r in routes:
+				var key := String(r)
+				if not avail.has(key):
+					continue
+				avail[key] = int(avail[key]) + 1
+				if cat == "mandatory_threat":
+					must[key] = int(must[key]) + 1
+		# 밴드를 선언한 맵은 **전투 방마다 경로를 적어야 한다** — 안 적힌 방은 영원히 안 뽑힌다.
+		_expect(no_route.is_empty(), "🔴 [계약/경로] %s 전투 방이 전부 `route_class` 보유 (%s)" % [mid,
+			"전부" if no_route.is_empty() else "없음: " + ", ".join(no_route)])
+		var bad: Array = []
+		for r in bands:
+			var key := String(r)
+			var lo := int((bands[r] as Array)[0])
+			var hi := int((bands[r] as Array)[1])
+			if int(must[key]) > hi:
+				bad.append("%s: 필수 %d > 상한 %d" % [key, must[key], hi])
+			if int(avail[key]) < lo:
+				bad.append("%s: 가용 %d < 하한 %d" % [key, avail[key], lo])
+		_expect(bad.is_empty(), "🔴 [계약/경로] %s 밴드가 **기하상 만족 가능** (%s)" % [mid,
+			"전부" if bad.is_empty() else ", ".join(bad)])
+
+	_expect(declared > 0, "[계약/경로] 밴드를 선언한 맵 %d개" % declared)
+
+	# ② 실제 picker가 밴드를 지키는가 — 데모 맵 후보에 경로를 **주입해** 여러 시드로 돌린다.
+	#    (활성 맵은 경로가 하나뿐이라 `route_class`가 없다. 그래서 데이터가 아니라 주입으로 검증한다.)
+	const BANDS := {"route_early": [1, 2], "route_mid": [2, 3], "route_deep": [3, 4]}
+	var mand: Array = [
+		{"room": "M1", "weight": 1.0, "routes": ["route_early", "route_mid", "route_deep"]},
+	]
+	var opt: Array = []
+	for i in 8:
+		var routes: Array = ["route_deep"] if i % 3 == 0 else (
+			["route_mid", "route_deep"] if i % 3 == 1 else ["route_early", "route_mid"])
+		opt.append({"room": "O%d" % i, "weight": 1.0 + float(i % 3), "routes": routes})
+	var violated: Array = []
+	var seen_counts: Dictionary = {}
+	for seed in range(1, 25):
+		var picked: Array = combat.pick_with_bands(mand, opt, BANDS, seed)
+		var cnt: Dictionary = {"route_early": 0, "route_mid": 0, "route_deep": 0}
+		for row in (mand + picked):
+			for r in (row["routes"] as Array):
+				cnt[String(r)] = int(cnt[String(r)]) + 1
+		for r in BANDS:
+			var lo: int = BANDS[r][0]
+			var hi: int = BANDS[r][1]
+			if int(cnt[r]) < lo or int(cnt[r]) > hi:
+				violated.append("seed %d %s=%d ∉ [%d,%d]" % [seed, r, cnt[r], lo, hi])
+		seen_counts["%d/%d/%d" % [cnt["route_early"], cnt["route_mid"], cnt["route_deep"]]] = true
+	_expect(violated.is_empty(), "🔴 [계약/경로] 24시드 전부 밴드 안 (%s)" % (
+		"전부" if violated.is_empty() else ", ".join(violated.slice(0, 3))))
+	# 전부 같은 조합만 나오면 밴드가 아니라 **한 해답만** 있는 것이다 — 검사가 공허해지는 자리.
+	_expect(seen_counts.size() >= 2,
+		"[계약/경로] 시드마다 다른 조합이 나온다 (%d종) — 밴드가 고정 해답이 아니다" % seen_counts.size())
+
+	# ③ 상한을 0으로 만들면 **아무도 못 뽑는다** — 밴드가 실제로 제약으로 작동하는지의 반증.
+	# **한 시드로는 부족하다** — 상한 검사를 꺼도 그 시드가 우연히 통과할 수 있다(실제로 그랬다).
+	# 상한 0인 경로를 **건드리는 방이 단 한 번도** 안 뽑혀야 한다.
+	const TIGHT := {"route_early": [0, 0], "route_mid": [0, 0], "route_deep": [1, 1]}
+	var leaked: Array = []
+	var tight_n := 0
+	for seed2 in range(1, 25):
+		var tight: Array = combat.pick_with_bands([], opt, TIGHT, seed2)
+		tight_n = maxi(tight_n, tight.size())
+		for row in tight:
+			for r in (row["routes"] as Array):
+				if String(r) != "route_deep":
+					leaked.append("seed %d %s" % [seed2, row["room"]])
+	_expect(leaked.is_empty() and tight_n == 1,
+		"🔴 [계약/경로] 상한 0인 경로를 건드리는 방은 **24시드 내내 안 뽑힌다** (최대 %d방%s)" % [
+			tight_n, "" if leaked.is_empty() else " · 샌 것: " + ", ".join(leaked.slice(0, 3))])
+	_sections["route_bands"] = true

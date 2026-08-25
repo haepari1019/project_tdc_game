@@ -717,6 +717,7 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 		# 잠긴 관문 뒤가 더 어려운 것은 맵을 갈아끼워서가 아니라 **그 방이 그렇게 선언**해서다.
 		var e := {"room": String(row.get("room_ref", "")), "pool": pool,
 			"layer": String(row.get("world_layer", "Upper")), "weight": weight, "cat": cat,
+			"routes": (row.get("route_class", []) as Array),
 			"difficulty": Slice01Data.get_room_difficulty(String(row.get("room_ref", "")), difficulty)}
 		match cat:
 			"gated_elite":      gated.append(e)
@@ -728,7 +729,14 @@ func prespawn_encounters(spawn_room: String = "RM-ENTRY-01") -> void:
 	# gated는 **임계 경로 밖의 선택적 관문**이라 예산을 먹지 않는다 — 「반드시 존재」이지 「반드시 싸움」이
 	# 아니다(`F-006` §3.2.5). 안 그러면 우회하지 않는 플레이어의 경로상 전투가 그만큼 줄어든다.
 	var chosen: Array = mandatory.duplicate()
-	chosen.append_array(_weighted_pick_rooms(optional, maxi(0, budget - mandatory.size()), run_seed))
+	# **경로별 밴드**(`design_targets.route_bands`)를 선언한 맵은 전역 예산 대신 그걸 쓴다.
+	# 전역 예산 하나면 조기 탈출로와 심층로의 압력이 같아진다 — 위험↔보상 축이 사라진다
+	# (`F-006` §3.10.1 · `DBP-UPPER-001` §8). 선언이 없으면 구 동작(전역 예산) 그대로다.
+	var bands: Dictionary = Slice01Data.get_rooms_document().get("design_targets", {}).get("route_bands", {})
+	if bands.is_empty():
+		chosen.append_array(_weighted_pick_rooms(optional, maxi(0, budget - mandatory.size()), run_seed))
+	else:
+		chosen.append_array(pick_with_bands(mandatory, optional, bands, run_seed))
 	chosen.append_array(gated)
 	var combat_rooms: Array = []
 	var used_encs: Dictionary = {}   # S5b P4 런 내 비복원 — 같은 ENC frame 반복 회피(시드 재롤)
@@ -927,6 +935,64 @@ func _anchor_center(base: Vector3, anchor_id: int, anchor_count: int) -> Vector3
 
 ## pool 방 후보를 spawn_weight로 가중 추첨(비복원) → 최대 `count`개 선택(시드 결정적). 런 전체 전투 예산.
 ## spawn_weight = 선택 확률(조밀할수록 잘 뽑힘·0은 후보에서 이미 제외). 향후 각 전투를 더 무겁게 만들 예정.
+## **경로별 교전 밴드로 뽑는다.** 방 하나가 여러 경로에 속할 수 있으므로(`route_class[]`),
+## 한 방을 고르면 **그 방이 속한 모든 경로**의 카운트가 함께 오른다.
+##
+## 규칙:
+##   - `mandatory_threat`는 이미 들어가 있고 자기 경로들을 **미리 채운다**.
+##   - `gated_elite`는 세지 않는다 — 임계 경로 **밖**의 선택적 관문이라 그 경로의 압력이 아니다
+##     (예산에서 뺀 것과 같은 이유, `F-006` §3.2.5).
+##   - 후보는 **하한 미달 경로를 채우면서** 어떤 경로의 **상한도 안 넘기는** 것만 자격이 있다.
+##   - 더 채울 수 없으면 멈춘다 — 밴드가 기하상 불가능해도 **런은 진행된다**(정적 게이트가 따로 고발한다).
+##
+## 반환값은 **추가로 고른 optional 방들**이다. 테스트가 직접 부를 수 있게 public으로 둔다.
+func pick_with_bands(mandatory: Array, optional: Array, bands: Dictionary, seed: int) -> Array:
+	var count: Dictionary = {}
+	for r in bands:
+		count[String(r)] = 0
+	for m in mandatory:
+		for r in (m.get("routes", []) as Array):
+			if count.has(String(r)):
+				count[String(r)] = int(count[String(r)]) + 1
+	var pool: Array = optional.duplicate()
+	var chosen: Array = []
+	var draw := 0
+	while not pool.is_empty():
+		var need := false
+		for r in bands:
+			if int(count[String(r)]) < int((bands[r] as Array)[0]):
+				need = true
+		if not need:
+			break
+		var elig: Array = []
+		for c in pool:
+			var helps := false
+			var over := false
+			for r in (c.get("routes", []) as Array):
+				var key := String(r)
+				if not count.has(key):
+					continue
+				if int(count[key]) + 1 > int((bands[key] as Array)[1]):
+					over = true
+				if int(count[key]) < int((bands[key] as Array)[0]):
+					helps = true
+			if helps and not over:
+				elig.append(c)
+		if elig.is_empty():
+			break
+		var picked: Array = _weighted_pick_rooms(elig, 1, seed + draw * 131)
+		if picked.is_empty():
+			break
+		var c2: Dictionary = picked[0]
+		chosen.append(c2)
+		pool.erase(c2)
+		for r in (c2.get("routes", []) as Array):
+			if count.has(String(r)):
+				count[String(r)] = int(count[String(r)]) + 1
+		draw += 1
+	return chosen
+
+
 func _weighted_pick_rooms(candidates: Array, count: int, seed: int) -> Array:
 	var pool: Array = candidates.duplicate()
 	var chosen: Array = []
