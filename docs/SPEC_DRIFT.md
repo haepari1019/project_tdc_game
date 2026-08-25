@@ -2456,3 +2456,14 @@
 - **영향 파일:** `map_source.gd`(`get_patrol_stops`·`patrol_graph_rooms`) · `enemy_unit.gd`(`patrol_stops`·`set_squad_light`) · `enemy_ai.gd`(`_patrol_point` 분기) · `combat_controller.gd`(`_apply_patrol_graph`·`MAX_ACTIVE_PATROLS`) · `MAP-UPPER-001.json`(`patrol_graphs` `PG-UPPER-01`) · `tools/map_smoke.gd` · `docs/design/map_contract.md`.
 - **게이트:** `ci_smoke.sh` **15/15 PASS**. [계약/순찰] 8항목.
 - **상태:** ✅ 완료 · 전파 불요. 남은 Phase 2: `exitConvergenceRouteRef`(④ — `F-028` §3.2.3, 심층 탈출로 수렴).
+
+### DRIFT-188 — 제3세력 수렴 폐기 전파 + 재핀 (`DEC-20260824-003`) 🔷 전파 완료 · 게임 구현 변경 없음
+- **판정:** 제3세력에게 **전용 탈출 구역(`objectiveType: Exit`)을 주지 않고, 탈출 지점으로 수렴시키지 않는다.** `exitConvergenceRouteRef`·`exitWaypointRef` 폐기, `pressureOnChannel` **유지**.
+- **🔴 이유 — 스펙이 자기 자신과 모순됐다.** `F-028` §3.1.2는 제3세력을 「플레이어가 못 따라가는 곳으로 도망쳐 목표를 무효화」하는 **필수 추격**으로 쓰지 말라고 금지한다. 그런데 §3.2.3의 수렴은 **방향만 반대인 같은 것**이다 — 파티의 탈출 지점을 향해 스크립트로 몰아넣는다. §3.2.2a(레이어 이동)가 이미 같은 판정을 내렸고 **게임 구현도 그 축으로 서 있다**([[DRIFT-182]]): 자기 층에 사냥감이 떨어져서 움직이고, **파티가 같은 층에 있으면 안 움직인다**. 수렴을 남기면 한 문서 안에서 두 규칙이 서로를 부정한다.
+- **② 「유동 위협」(§3.1.1)에 고정 목적지를 주면 예측 가능해진다** — 성격 규정과 어긋난다.
+- **③ 잃는 게 없다.** 노리던 「심층 선택 시 추가 긴장」은 `DEC-20260824-001`이 신설하고 이번 Phase 2가 구현한 축들로 **이미 나온다**: 경로별 교전 밴드([[DRIFT-186]] — `route_deep`가 더 많이 싸운다) · Room `difficultyProfile` override([[DRIFT-183]] — 심부가 Hard) · `third_faction_candidate`(심층 탈출 방에 **스폰**된다 — 「거기 있을 수 있다」 ≠ 「거기로 간다」) · Extraction 활성 조건(`onObjectiveComplete`).
+- **④ `pressureOnChannel`은 남겼다** — 수렴의 부속이 아니다. 「목적지를 향해 간다」가 아니라 **「마침 근처에 있으면 채널을 방해한다」는 반응**이고, `F-007` §3.1.2a(3세력 contact 시 채널 중단)의 짝이다. 빼면 추출 채널을 위협하는 축이 하나도 안 남는다. **게임 측 미구현** — 스펙 `TODO`에 명시했다.
+- **게임 측 변경:** **없음.** 수렴은 애초에 구현된 적이 없다(grep 0건). 이 판정의 가치는 「나중에 구현할 것」 목록에서 빼는 것과, 이미 구현된 §3.2.2a와 조문이 어긋나지 않게 하는 것이다.
+- **전파(OPS_30):** `F-028` §3.2.3 재작성 + 메타표 정리 + anti-pattern에 「수렴시키기」 추가 · `F-006` §3.10.1 가이드 · `DBP-UPPER-001` §7 · `I-007` §5-2 커버리지 · DecisionLog · TODO(맵 고도화 블록 실태 반영 — 완료 항목 7건 갱신) · SpecScopeTracker · LevelDesignMap · RelationGraph 재생성. **mapper sync 0건 · OPS_20 lint BLOCKER 0**(잔여 1건은 무관한 기존 NOTE).
+- **재핀:** `spec_ref.json` `feb90e9` → **`016a279`**.
+- **상태:** ✅ 완료. Phase 2 남은 것 = `pressureOnChannel` 구현(게임).
