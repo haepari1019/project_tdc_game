@@ -2467,3 +2467,15 @@
 - **전파(OPS_30):** `F-028` §3.2.3 재작성 + 메타표 정리 + anti-pattern에 「수렴시키기」 추가 · `F-006` §3.10.1 가이드 · `DBP-UPPER-001` §7 · `I-007` §5-2 커버리지 · DecisionLog · TODO(맵 고도화 블록 실태 반영 — 완료 항목 7건 갱신) · SpecScopeTracker · LevelDesignMap · RelationGraph 재생성. **mapper sync 0건 · OPS_20 lint BLOCKER 0**(잔여 1건은 무관한 기존 NOTE).
 - **재핀:** `spec_ref.json` `feb90e9` → **`016a279`**.
 - **상태:** ✅ 완료. Phase 2 남은 것 = `pressureOnChannel` 구현(게임).
+
+### DRIFT-189 — 추출 홀드 = 거점 유지 확정 + `DRIFT-020/031` 재분류 (`DEC-20260824-004`) 🔷 전파 완료 · 게임 구현 변경 없음
+- **판정:** `ExtractionActivate`는 **시전 채널이 아니라 거점 유지**다. `extractionChannelInterruptible`과 interrupt 목록(Root · hard CC · 피격 stagger · 3세력 contact) **폐기** — 취소는 **존 이탈만**. 전투 중 홀드는 **절대값** `extractionChannelCombatDurationS`(20–40, 경로별)로 신설. 연쇄로 `thirdFaction.pressureOnChannel`도 폐기.
+- **🔴 왜 — 조문이 시전을 전제했는데 구현은 거점 유지였다.** interrupt 목록은 「시전 동작을 끊는다」는 어휘인데 `ExtractionActivate`에는 **시전자가 없다**. 4인 파티에서 시전자를 지정하면 조작 전환·CC·사망이 전부 한 명에게 걸려 탈출이 「누가 채널을 잡을 것인가」로 축소된다. 거점 유지에서는 밀려나 **존을 벗어나는 것**이 곧 취소이므로 별도 목록이 필요 없다.
+- **② 압력은 이미 있다.** 못 뽑게 만드는 것은 중단 규칙이 아니라 **전투 자체**다 — 전투 중 홀드가 길어지고 그 시간을 못 버티면 전멸(§3.7.1). 물러나면 취소·재시도 가능하므로 「커밋할 것인가」가 선택으로 남는다. 중단 모델의 「맞으면 취소, 물러났다 다시」보다 스테이크가 크고 조작이 단순하다.
+- **③ 배수가 아니라 절대값**인 이유: 기본 홀드가 이미 경로별 절대값(3–6 s)이라 배수면 두 축이 얽힌다(A 3 s → 18 s, C 6 s → 36 s로 의도치 않게 벌어진다).
+- **🔴 ④ 내 직전 판정의 근거가 틀렸음을 기록한다.** `DEC-20260824-003`에서 `pressureOnChannel`을 남기며 *「빼면 추출 채널을 위협하는 축이 하나도 안 남는다」*고 적었는데, **연장 모델에서는 전제가 틀렸다** — 전투가 홀드를 5 → 30 s로 늘리는 것 자체가 위협이다. 그래서 이번에 폐기로 번복했다. 폐기 이유는 둘: ① 중단 규칙이 없으니 「채널 중 interrupt 가중」이 **가리킬 대상을 잃는다** ② 표적을 강제하면 `F-028` §3.2.3이 연 세 선택지(회피·**이용**·동시 채널 압력) 중 「이용」이 죽는다 — 수렴을 뺀 것과 **같은 이유**다.
+- **🔴 ⑤ 기존 드리프트 분류가 틀려 있었다.** `DRIFT-020`·`DRIFT-031`이 「채널 5/30 s」를 **tuning**으로 달아 뒀는데, 「전투가 채널에 **어떻게 작용하는가**」는 수치가 아니라 **규칙**이다(`extractionChannelInterruptible`이라는 스펙 필드가 소유하던 축을 게임이 다른 규칙으로 대체하고 있었다). CLAUDE.md 기준 rule 드리프트였고, 이번 전파로 **조문이 구현을 따라오며 해소**된다.
+- **게임 측 변경:** **없음.** 처음부터 거점 유지 + 전투 연장으로 구현돼 있었다(`run_end_controller.gd` — 비전투 5 s / 전투 30 s, 존 이탈 취소, 결집 게이트 0 정지). 현 30 s는 새 밴드 20–40 안이다.
+- **전파(OPS_30):** `F-007` §3.1.2a 재작성 · `F-028` §3.2.3 `pressureOnChannel` 폐기 + anti-pattern 추가 · DecisionLog · TODO · SpecScopeTracker · RelationGraph 재생성. **mapper sync 0건 · OPS_20 lint BLOCKER 0**.
+- **재핀:** `spec_ref.json` `016a279` → **`64784c5`**.
+- **상태:** ✅ 완료. **Phase 2 잔여 0건** — ①`aggro_wake_buffer_m` ②경로 밴드 ③`patrolGraphRef` ④수렴/채널 판정이 전부 끝났다.
