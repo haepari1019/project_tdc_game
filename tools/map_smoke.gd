@@ -72,6 +72,7 @@ func _init() -> void:
 	_check_third_layer(scn, map)
 	await _check_entry_requirements(scn, map, sd)
 	_check_theme_axis(map, sd)
+	_check_wake_buffer(scn, map, sd)
 	_check_map_documents(sd)
 	_check_extraction(sd, map)
 	_report_design(sd, map, edges)
@@ -1359,7 +1360,7 @@ func _find_map(scn: Node) -> Node:
 func _finish(scn: Node) -> void:
 	scn.queue_free()
 	# 런타임 에러로 섹션이 통째로 건너뛰어졌는데 초록으로 끝나는 일이 없게(방금 그런 일이 있었다).
-	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements", "theme_axis"]:
+	for sec in ["import_parity", "authored_impl", "map_documents", "stairs_input", "ground_plane", "third_layer", "entry_requirements", "theme_axis", "wake_buffer"]:
 		if not _sections.has(sec):
 			print("  FAIL [게이트] 섹션 미완주: %s" % sec)
 			_ok = false
@@ -2314,3 +2315,157 @@ func _check_theme_axis(map: Node, sd) -> void:
 		"전부" if bad_zone.is_empty() else ", ".join(bad_zone)))
 	print("  [설계] 임시 라벨    %d / %d방 — 지역 테마 미확정(ID는 안정 축이라 라벨만 갈면 된다)" % [temp, total])
 	_sections["theme_axis"] = true
+
+
+## **문이 어디인가 + 진입 즉시 어그로 금지**(`F-006` §3.2.3).
+## 계약이 `connects`+기하에서 문을 **유도**하는데, 그 유도가 틀리면 규칙 전체가 엉뚱한 좌표를 지킨다.
+## 그래서 먼저 **유도한 문 = 실제로 벽에 뚫린 구멍**임을 확인하고, 그 위에서 규칙을 검사한다.
+func _check_wake_buffer(scn: Node, map: Node, sd) -> void:
+	# ① 유도 ↔ 실제 벽 구멍 대조. 그레이박스가 벽을 자를 때 쓴 `_room_openings`와 같아야 한다.
+	var built: Dictionary = map.get("_room_openings")
+	var mism: Array = []
+	var doors_total := 0
+	for ref in _rects:
+		var room := String(ref)
+		var derived: Array = map.get_room_openings(room)
+		doors_total += derived.size()
+		var n_built: int = (built.get(room, []) as Array).size()
+		if derived.size() != n_built:
+			mism.append("%s: 유도 %d ≠ 벽 %d" % [room, derived.size(), n_built])
+			continue
+		# 유도한 문이 실제 구멍 중심과 겹치는가 — side/pos_along을 월드로 되돌려 비교.
+		var c: Vector2 = (_rects[room] as Dictionary)["c"]
+		var s2: Vector2 = (_rects[room] as Dictionary)["s"]
+		for o in (built.get(room, []) as Array):
+			var d := o as Dictionary
+			var side := String(d["side"])
+			var along := float(d["pos_along"])
+			var wp := Vector2.ZERO
+			match side:
+				"east":  wp = Vector2(c.x + s2.x * 0.5, c.y + along)
+				"west":  wp = Vector2(c.x - s2.x * 0.5, c.y + along)
+				"north": wp = Vector2(c.x + along, c.y + s2.y * 0.5)
+				"south": wp = Vector2(c.x + along, c.y - s2.y * 0.5)
+			var best := INF
+			for dd in derived:
+				var p: Vector3 = (dd as Dictionary)["pos"]
+				best = minf(best, wp.distance_to(Vector2(p.x, p.z)))
+			if best > 0.5:
+				mism.append("%s/%s: %.1f m 어긋남" % [room, side, best])
+	_expect(mism.is_empty(), "🔴 [계약/문] 유도한 문 %d개가 **실제 벽 구멍**과 일치 (%s)" % [doors_total,
+		"전부" if mism.is_empty() else ", ".join(mism)])
+
+	# ② 휴면 유닛이 §3.2.3을 지키는가.
+	var combat: Node = null
+	for c2 in scn.get_children():
+		if c2.has_method("prespawn_encounters") and ("_enemies" in c2):
+			combat = c2
+	if combat == null:
+		_expect(false, "[계약/어그로] CombatController 접근")
+		return
+	var EnemyAI = load("res://scripts/combat/enemy_ai.gd")
+	# **임계값은 맵이 선언한다.** 구현과 같은 상수에서 읽으면 상수를 낮췄을 때 게이트도 같이
+	# 내려가 「규칙을 몰래 끄는 것」을 못 잡는다(반증 확인에서 실제로 그랬다).
+	var want_buf: float = float((_sd_targets(sd)).get("aggro_wake_buffer_m", 0.0))
+	_expect(absf(float(combat.AGGRO_WAKE_BUFFER_M) - want_buf) < 0.001,
+		"🔴 [계약/어그로] 코드 버퍼 %.1f m = 맵 선언 %.1f m (F-006 §3.2.3)" % [
+			combat.AGGRO_WAKE_BUFFER_M, want_buf])
+	var combat_r: float = EnemyAI.SIGHT_RANGE_M * (1.0 - EnemyAI.ALERT_ZONE_FRAC)
+	var min_r: float = EnemyAI.PROXIMITY_M + want_buf
+	var safe_r: float = combat_r + want_buf
+	var too_near: Array = []
+	var short: Array = []
+	var narrow: Array = []
+	var checked := 0
+	var skipped := 0
+	for e in combat._enemies:
+		if not is_instance_valid(e) or e.engaged or e.training_dummy:
+			continue
+		# 대상은 **초기 배치**뿐이다. 증원·제3세력 창발은 「모르고 걸어 들어갔을 때」가 아니다.
+		if not bool(e.wake_ruled):
+			skipped += 1
+			continue
+		# 파티를 **이미 감지해** 조사·복귀 중인 유닛은 대상이 아니다 — 규칙은 「모르고 걸어
+		# 들어갔을 때」를 지킨다. 감지 후의 이동까지 묶으면 그건 다른 규칙이다.
+		if bool(e.has_investigate) or bool(e.returning):
+			skipped += 1
+			continue
+		# **자기 방의 문**으로 잰다 — 서 있는 방이 아니라. 규칙은 「이 유닛이 자기 초소의 문에서
+		# 떨어져 있는가」이고, 남의 방으로 새는 것은 위의 방 클램프가 따로 막는다.
+		var room := _room_of(e.global_position)
+		checked += 1
+		var gap := INF
+		for d in (e.wake_doors as Array):
+			gap = minf(gap, Vector2(e.global_position.x - (d as Vector3).x,
+				e.global_position.z - (d as Vector3).z).length())
+		if gap == INF:
+			continue
+		if room.is_empty():
+			room = "?"
+		# 초소(`home_pos`)도 같은 규칙을 지켜야 한다 — 스폰 클램프의 증인이다.
+		# 위치만 보면 틱 클램프가 한 프레임 만에 되밀어 주므로 스폰 쪽이 죽어도 안 드러난다.
+		var hg := INF
+		for d in (e.wake_doors as Array):
+			hg = minf(hg, Vector2(e.home_pos.x - (d as Vector3).x,
+				e.home_pos.z - (d as Vector3).z).length())
+		if hg + 0.01 < min_r:
+			too_near.append("%s 초소@%s %.1f<%.1f" % [e.name, room, hg, min_r])
+		if gap + 0.01 < min_r:
+			too_near.append("%s@%s %.1f<%.1f" % [e.name, room, gap, min_r])
+		elif gap + 0.01 < safe_r:
+			# 방이 좁아 못 채우는 경우와 **채울 수 있는데 안 지킨** 경우를 가른다.
+			if _room_reach(map, room) + 0.01 >= safe_r:
+				short.append("%s@%s %.1f<%.1f" % [e.name, room, gap, safe_r])
+			else:
+				narrow.append("%s(%.1f m)" % [room, gap])
+	_expect(checked > 0, "[계약/어그로] 초기 배치 휴면 %d기 검사 (대상 외 %d기 = 증원·3세력)" % [checked, skipped])
+	_expect(too_near.is_empty(),
+		"🔴 [계약/어그로] 문에서 근접 바닥+버퍼(%.1f m) 확보 — **360°라 등져도 안 통한다** (%s)" % [
+			min_r, "전부" if too_near.is_empty() else ", ".join(too_near)])
+	_expect(short.is_empty(),
+		"🔴 [계약/어그로] 방이 허락하면 **전투존+버퍼(%.1f m)** 확보 — 들어와서 1초는 걷는다 (%s)" % [
+			safe_r, "전부" if short.is_empty() else ", ".join(short)])
+	if not narrow.is_empty():
+		print("  [설계] 좁은 방      %s — 기하상 %.1f m 불가. 「시야에 들어온 뒤 전투 판정」이 받는다(§3.2.3)" % [
+			", ".join(narrow), safe_r])
+	_sections["wake_buffer"] = true
+
+
+## 이 방 안에서 **문에서 가장 멀리** 떨어질 수 있는 거리(격자 표본). 규칙이 기하상 가능한지 가른다.
+## **클램프와 같은 공간**(벽 마진 안쪽)에서 재야 한다 — 방 전체로 재면 유닛이 갈 수 없는 구석까지
+## 세어 「가능한데 안 지켰다」고 잘못 고발한다.
+const WALL_MARGIN := 5.0   # combat_controller.SPAWN_WALL_MARGIN 미러
+
+func _room_reach(map: Node, room: String) -> float:
+	var doors: Array = map.get_room_openings(room)
+	if doors.is_empty():
+		return INF
+	var c: Vector2 = (_rects[room] as Dictionary)["c"]
+	var s0: Vector2 = (_rects[room] as Dictionary)["s"]
+	var s2 := Vector2(maxf(s0.x - WALL_MARGIN * 2.0, 1.0), maxf(s0.y - WALL_MARGIN * 2.0, 1.0))
+	var best := 0.0
+	for i in 41:
+		for j in 41:
+			var p := Vector2(c.x - s2.x * 0.5 + s2.x * float(i) / 40.0,
+				c.y - s2.y * 0.5 + s2.y * float(j) / 40.0)
+			var m := INF
+			for d in doors:
+				var dp: Vector3 = (d as Dictionary)["pos"]
+				m = minf(m, p.distance_to(Vector2(dp.x, dp.z)))
+			best = maxf(best, m)
+	return best
+
+
+## 이 좌표가 속한 방(같은 층 기준). 없으면 "".
+func _room_of(p: Vector3) -> String:
+	for ref in _rects:
+		var c: Vector2 = (_rects[ref] as Dictionary)["c"]
+		var s2: Vector2 = (_rects[ref] as Dictionary)["s"]
+		if absf(p.x - c.x) <= s2.x * 0.5 and absf(p.z - c.y) <= s2.y * 0.5:
+			return String(ref)
+	return ""
+
+
+## 활성 맵의 `design_targets`.
+func _sd_targets(sd) -> Dictionary:
+	return sd.get_rooms_document().get("design_targets", {})

@@ -84,6 +84,16 @@ var attack_count: int = 0
 # Placement behavior (F-006, P2-S2-place; set per-encounter at spawn): Fixed = dormant roam,
 # Patrol = walk a loop around spawn home, AmbushHold = hold hidden + spring on party proximity.
 var placement_mode: String = "Fixed"
+## **문에서 떨어져 있어야 할 거리**(`F-006` §3.2.3). 0이면 규칙 없음.
+## 스폰 위치뿐 아니라 **로밍·순회 목표**도 이걸 통과한다 — 안 그러면 5 m 로밍이 버퍼를 그냥 먹는다.
+var wake_r: float = 0.0
+## **이 유닛이 §3.2.3 대상인가.** 초기 배치(populate)만 대상이다 — 증원(`reinforcement`)은 전투가
+## 이미 시작된 뒤 후방/측면으로 도착하고, 제3세력 창발은 교전 상태로 태어난다. 둘 다 「모르고 걸어
+## 들어갔을 때」가 아니므로 문 버퍼를 적용하면 오히려 배치 의도를 깬다.
+var wake_ruled: bool = false
+var wake_doors: Array = []          # 이 방의 문 월드 좌표
+var wake_center: Vector3 = Vector3.ZERO
+var wake_half: Vector2 = Vector2.ZERO
 var ambush_reveal_radius_m: float = 8.0   # AmbushHold: spring when a party actor is within this
 var patrol_idx: int = 0                   # current waypoint index on the patrol loop
 var anchor_id: int = 0                    # AmbushHold dual-anchor: which hiding spot this unit holds
@@ -631,6 +641,55 @@ func apply_poison_stack(dur: float, add_dps: float, cap_dps: float, unit_dps: fl
 		popup_status("중독", Color(0.5, 0.9, 0.4))
 	_outcome.apply_stack("Poison", dur, add_dps, cap_dps, unit_dps)
 	_update_status_badges()   # 즉시 갱신(중독 스택 배지)
+
+
+## 이 지점을 **문 회피 반경 밖으로** 옮긴다. 방 밖으로는 안 나간다.
+##
+## **가장 가까운 문에서 방사형으로 미는** 방식은 틀렸다 — 남북에 문이 둘인 방에서는 한 문을 피하면
+## 다른 문으로 가까워져 **진동만 하고**, 정작 넓은 좌우로 빠지는 길을 못 찾는다(게이트가 그렇게 드러냈다).
+## 방은 박스이고 문은 몇 개뿐이므로 **격자에서 고른다**: 반경을 만족하는 점 중 **원래 위치에 가장 가까운**
+## 것(스폰 산포를 최대한 보존), 하나도 없으면 **최대-최소 거리 점**으로 포화한다.
+## 복도처럼 반경을 못 채우는 방은 실패하지 않고 낼 수 있는 최대에서 멈춘다 — 그 경우는 스펙의 다른
+## 항목이 받는다: 「좁은 통로 뒤 첫 적은 **시야에 들어온 뒤** 전투 판정」(`F-006` §3.2.3).
+func wake_clamp(p: Vector3) -> Vector3:
+	if wake_r <= 0.0 or wake_doors.is_empty():
+		return p
+	# **먼저 자기 방 안으로** 가둔다. 예전엔 거리 조건만 보고 통과시켜서, 문에서 충분히 먼
+	# 로밍 지점이면 **옆방으로 새어 나가도** 그냥 뒀다 — 그러면 남의 방 문 앞에 서 있게 된다.
+	# 초소를 떠나 방을 옮기는 건 로밍이 아니라 `Patrol`의 일이다.
+	p.x = clampf(p.x, wake_center.x - wake_half.x, wake_center.x + wake_half.x)
+	p.z = clampf(p.z, wake_center.z - wake_half.y, wake_center.z + wake_half.y)
+	if _door_gap(p) >= wake_r:
+		return p
+	const STEPS := 40   # 격자 해상도 — 낮으면 목표를 몇 십 cm 차이로 못 맞춘다
+	var best_ok: Vector3 = Vector3.INF
+	var best_ok_d := INF
+	var best_any: Vector3 = p
+	var best_any_gap := -1.0
+	for i in STEPS + 1:
+		for j in STEPS + 1:
+			var q := Vector3(
+				wake_center.x - wake_half.x + wake_half.x * 2.0 * float(i) / float(STEPS), p.y,
+				wake_center.z - wake_half.y + wake_half.y * 2.0 * float(j) / float(STEPS))
+			var gap := _door_gap(q)
+			if gap > best_any_gap:
+				best_any_gap = gap
+				best_any = q
+			if gap < wake_r:
+				continue
+			var d: float = Vector2(q.x - p.x, q.z - p.z).length()
+			if d < best_ok_d:
+				best_ok_d = d
+				best_ok = q
+	return best_ok if best_ok != Vector3.INF else best_any
+
+
+## 가장 가까운 문까지의 XZ 거리.
+func _door_gap(p: Vector3) -> float:
+	var m := INF
+	for d in wake_doors:
+		m = minf(m, Vector2(p.x - (d as Vector3).x, p.z - (d as Vector3).z).length())
+	return m
 
 
 ## **층을 넘을 수 있는가 — 제3세력만**(`F-028` §3.2.2a). 표준 몬스터(`faction: Dungeon`)는

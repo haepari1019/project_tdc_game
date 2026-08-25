@@ -256,6 +256,11 @@ func _tick_dormant(enemy: CharacterBody3D, members: Array, delta: float) -> void
 		_tick_patrol(enemy, delta)
 	else:
 		_tick_roam(enemy, delta)
+	# **F-006 §3.2.3 — 초소의 문 버퍼를 매 프레임 지킨다.** 분기마다 붙이지 않고 여기 한 번인 이유:
+	# 목표(로밍 지점·웨이포인트)만 묶으면 **가는 길**이 문을 스치고, 매복은 안 움직이는데도
+	# **물리 밀림**으로 서서히 밀린다. 위 조기 return들(교전·조사·복귀)은 일부러 안 지난다 —
+	# 그건 파티를 **이미 감지한 뒤**의 이동이고, 이 규칙은 「모르고 걸어 들어갔을 때」를 지킨다.
+	enemy.global_position = enemy.wake_clamp(enemy.global_position)
 
 
 ## Dormant idle movement: wander to random points near the spawn home, pausing (and scanning)
@@ -283,7 +288,8 @@ func _tick_roam(enemy: CharacterBody3D, delta: float) -> void:
 	if enemy.roam_timer_s <= 0.0:
 		var ang := randf() * TAU
 		var r := sqrt(randf()) * ROAM_RADIUS_M   # uniform within the disc
-		enemy.roam_target = enemy.home_pos + Vector3(cos(ang) * r, 0.0, sin(ang) * r)
+		# F-006 §3.2.3 — 로밍이 문 앞으로 걸어 나가면 스폰 때 확보한 버퍼가 무의미해진다.
+		enemy.roam_target = enemy.wake_clamp(enemy.home_pos + Vector3(cos(ang) * r, 0.0, sin(ang) * r))
 		enemy.roaming = true
 		enemy.roam_timer_s = ROAM_MAX_WALK_S
 
@@ -304,10 +310,11 @@ func _tick_patrol(enemy: CharacterBody3D, _delta: float) -> void:
 	enemy.move_and_slide()
 
 
+
 ## A point on the patrol loop — `idx` of PATROL_POINTS evenly around home at PATROL_RADIUS_M.
 func _patrol_point(enemy: CharacterBody3D, idx: int) -> Vector3:
 	var ang := float(idx) / float(PATROL_POINTS) * TAU
-	return enemy.home_pos + Vector3(cos(ang), 0.0, sin(ang)) * PATROL_RADIUS_M
+	return enemy.wake_clamp(enemy.home_pos + Vector3(cos(ang), 0.0, sin(ang)) * PATROL_RADIUS_M)
 
 
 ## Per-enemy tick entry. Dormant (휴식중) enemies perceive (see _tick_dormant);

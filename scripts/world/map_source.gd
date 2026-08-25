@@ -136,6 +136,46 @@ func get_entry_room() -> String:
 	return ""
 
 
+## **방의 개구부(문) 월드 위치** — `[{pos: Vector3, width: float, to: String}]`.
+## `connects` + 기하에서 **유도한다**(별도 저작 없음): 공유벽 위 겹침 구간의 중점이 문이다.
+##
+## 계약이 이걸 알아야 하는 이유: `F-006` §3.2.3 「진입 즉시 어그로 금지」는 **문 기준** 규칙이다.
+## 문이 어디인지 모르면 「방 입구에서 최소 1초」를 계산할 수 없고, 그래서 그 규칙이 0%였다.
+## 문법(choke/flank)·경로 밴드도 결국 같은 축을 쓴다.
+func get_room_openings(room_ref: String) -> Array:
+	var me := room_geometry(room_ref)
+	if me.is_empty():
+		return []
+	var out: Array = []
+	for conn in room_connections():
+		var other := ""
+		if String(conn[0]) == room_ref:
+			other = String(conn[1])
+		elif String(conn[1]) == room_ref:
+			other = String(conn[0])
+		if other.is_empty():
+			continue
+		var it := room_geometry(other)
+		if it.is_empty():
+			continue
+		var ac: Vector3 = me["center"]
+		var asz: Vector3 = me["size"]
+		var bc: Vector3 = it["center"]
+		var bsz: Vector3 = it["size"]
+		var d := bc - ac
+		var p := Vector3.ZERO
+		if absf(d.x) > absf(d.z):          # 동서 인접 — 문은 X 벽 위, Z 방향으로 겹친다
+			var z0 := maxf(ac.z - asz.z * 0.5, bc.z - bsz.z * 0.5)
+			var z1 := minf(ac.z + asz.z * 0.5, bc.z + bsz.z * 0.5)
+			p = Vector3(ac.x + signf(d.x) * asz.x * 0.5, ac.y, (z0 + z1) * 0.5)
+		else:                              # 남북 인접 — 문은 Z 벽 위, X 방향으로 겹친다
+			var x0 := maxf(ac.x - asz.x * 0.5, bc.x - bsz.x * 0.5)
+			var x1 := minf(ac.x + asz.x * 0.5, bc.x + bsz.x * 0.5)
+			p = Vector3((x0 + x1) * 0.5, ac.y, ac.z + signf(d.z) * asz.z * 0.5)
+		out.append({"pos": p, "width": float(conn[2]), "to": other})
+	return out
+
+
 ## **층 간 전이(계단) 목록** — `[[from_room, to_room], ...]`. `connects`(공유벽·도보)와 **별개**다:
 ## `connects`는 걸어서 갈 수 있다는 뜻이고 계단은 워프다. 도달성은 **둘을 합쳐** 봐야 한다.
 func stair_links() -> Array:

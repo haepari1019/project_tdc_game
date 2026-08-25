@@ -801,6 +801,7 @@ func debug_spawn_unit(enemy_id: String, count: int, room_ref: String, engaged: b
 	var before := _enemies.size()
 	_spawn_at(units, center, squad_id, engaged, "Fixed", 1, "all", faction)
 	_bind_nav_layer(before, room_ref)
+	_apply_wake_buffer(before, room_ref)
 	# DEV: opportunistic 사물 상호작용(배럴 능동 부수기) 관찰용 — SINGLE UNIT은 ENC override(interacts_
 	# with_objects) 경로를 안 타므로 이번 소환분에만 직접 켠다. prespawn 실경로는 ENC override가 담당.
 	if interact_objects:
@@ -831,6 +832,7 @@ func _spawn_squad(encounter_id: String, room_ref: String, units_override: Array 
 		int(enc.get("ambush_anchor_count", 1)), String(enc.get("wake_policy", "all")),
 		String(enc.get("faction", "Dungeon")))
 	_bind_nav_layer(before_n, room_ref)
+	_apply_wake_buffer(before_n, room_ref)   # F-006 §3.2.3 — 진입 즉시 어그로 금지
 	var reinf: Dictionary = enc.get("reinforcement", {})
 	_squads.append({
 		"id": squad_id,
@@ -1304,3 +1306,60 @@ func _nearest_stairs(from: Vector3, layer: int) -> Node3D:
 			bd = d
 			best = n as Node3D
 	return best
+
+
+## **`F-006` §3.2.3 — 진입 즉시 어그로 금지.** 방 입구에서 **최소 1초는 이동·판단**할 수 있어야 한다.
+##
+## 지금까지 0%였던 이유는 계약이 **문이 어디인지 몰랐기** 때문이다(`get_room_openings`가 그걸 푼다).
+## 실측 수치로 규칙을 세운다:
+##   - 전투존 = `SIGHT_RANGE_M × (1 − ALERT_ZONE_FRAC)` = **9.6 m** — 여기 들어오면 즉시 교전.
+##   - 근접 바닥 = `PROXIMITY_M` **2.5 m** — **360°**라 등져도 안 통한다.
+##   - 파티 1초 이동 ≈ **4.0 m** = `AGGRO_WAKE_BUFFER_M`(스펙 초기값).
+##
+## 그래서 휴면 유닛은 문마다 **둘 중 하나**를 만족해야 한다:
+##   ① 거리 ≥ 전투존 + 버퍼 (13.6 m) — 들어와서 4 m 걸을 여유가 있다.
+##   ② 문이 **시야콘 밖**(뒤 200° 맹점) — 「시야에 들어온 뒤 전투 판정」(§3.2.3 4번째 항목).
+## 단, ②는 근접 바닥을 못 이기므로 **거리 ≥ 2.5 + 4.0 = 6.5 m**는 무조건 확보한다(밀어낸다).
+##
+## 코너 뒤 즉시 어그로(§3.2.3 1번째 항목)가 바로 이 둘의 위반이다.
+const AGGRO_WAKE_BUFFER_M := 4.0     # F-006 §3.2.3 초기값 — 튜닝 수치(SPEC_DRIFT)
+
+
+## 스폰 직후 휴면 분대에 적용. **교전 상태로 태어난 유닛(제3세력 창발)은 대상이 아니다** —
+## 규칙은 「모르고 걸어 들어갔을 때」를 지키는 것이지 이미 시작된 싸움을 늦추는 게 아니다.
+##
+## **facing 축은 안 쓴다.** 처음엔 「문을 맹점에 두게 돌린다」로 짰는데, `Fixed` 유닛은 로밍하며
+## 계속 방향이 바뀌므로 **스폰 시점의 facing은 한 프레임짜리**다(게이트가 그렇게 드러냈다).
+## 남는 건 거리 축이고, 그래서 **로밍·순회 목표까지** 같은 반경을 통과시킨다.
+func _apply_wake_buffer(from_index: int, room_ref: String) -> void:
+	if _map == null or not _map.has_method("get_room_openings"):
+		return
+	var doors: Array = _map.get_room_openings(room_ref)
+	if doors.is_empty():
+		return
+	var pts: Array = []
+	for d in doors:
+		pts.append((d as Dictionary)["pos"])
+	var center: Vector3 = _map.get_spawn_position(room_ref)
+	var size: Vector3 = _map.get_room_size(room_ref) if _map.has_method("get_room_size") else Vector3(16, 0, 16)
+	var want: float = EnemyAI.SIGHT_RANGE_M * (1.0 - EnemyAI.ALERT_ZONE_FRAC) + AGGRO_WAKE_BUFFER_M
+	var half := Vector2(maxf(size.x * 0.5 - SPAWN_WALL_MARGIN, 0.5), maxf(size.z * 0.5 - SPAWN_WALL_MARGIN, 0.5))
+	for i in range(from_index, _enemies.size()):
+		var e = _enemies[i]
+		if not is_instance_valid(e) or e.engaged:
+			continue
+		e.wake_doors = pts
+		e.wake_center = center
+		e.wake_half = half
+		e.wake_r = want
+		e.wake_ruled = true
+		e.global_position = e.wake_clamp(e.global_position)
+		e.home_pos = e.global_position      # 로밍·복귀 기준도 밀린 위치로      # 로밍·복귀 기준도 밀린 위치로
+
+
+## 방 안(벽에서 여유를 두고)으로 클램프.
+func _clamp_in_room(p: Vector3, center: Vector3, size: Vector3) -> Vector3:
+	var hx: float = maxf(size.x * 0.5 - SPAWN_WALL_MARGIN, 0.5)
+	var hz: float = maxf(size.z * 0.5 - SPAWN_WALL_MARGIN, 0.5)
+	return Vector3(clampf(p.x, center.x - hx, center.x + hx), p.y,
+		clampf(p.z, center.z - hz, center.z + hz))
