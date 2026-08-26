@@ -247,9 +247,11 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 			_resolve_sub(member, slot_index, pd, target_pos)
 			inst.cooldown_s = cd * (1.0 - _cd_refund_frac)   # ON-KILL-FEED 환급(DRIFT-132)
 			_cd_refund_frac = 0.0
+		# 마지막 인자 = **시전 대상**(단일 대상 스킬만 non-null) — 시전 내내 그 적 발밑에 조준
+		# 표식이 유지된다(DRIFT-197). 사거리 **안**이라 접근 오더가 아예 없는 경우까지 덮는다.
 		node.setup(member, slot_index, cast_s, self, on_done,
 			float(p.get("cast_range_disc_m", 0.0)), _cast_bar_color(String(p.get("kind", ""))),
-			_cast_charge_color(p))
+			_cast_charge_color(p), target_unit)
 		return
 	# 즉발 — 발현 성공 시에만 차감.
 	_cd_refund_frac = 0.0
@@ -651,7 +653,7 @@ func _dps_overdrive_empower(member: CharacterBody3D, slot_index: int, aim: Vecto
 				return false   # aim에 Oil 없음(장판 미형성) → 초월 미소모
 			SkillVfx.telegraph(self, aim, Color(0.25, 0.95, 0.85), r)
 		"venom":              # 맹독 폭주 — 초월 중 독 스택 폭증 + 독 zone 잔류(payoff). base/적/비초월엔 zone 없음.
-			var pdps: float = float(inst.params.get("poison_dps", 8.0))
+			var pdps: float = float(inst.params.get("poison_dps", 5.5))
 			var pcap: float = pdps * float(inst.params.get("poison_stack_cap", 5))
 			for e in enemies_in_radius(aim, r):
 				if e.has_method("apply_poison_stack"):

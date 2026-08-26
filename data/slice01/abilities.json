@@ -95,7 +95,7 @@
       "cooldown_s": 9.0,
       "radius_m": 2.0,
       "ttl_s": 9.0,
-      "dps": 8.0
+      "dps": 5.5
     },
     "AB-040": {
       "kind": "spawn_zone",

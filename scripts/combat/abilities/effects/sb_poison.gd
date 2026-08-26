@@ -15,7 +15,7 @@ func cast(m: CharacterBody3D, p: Dictionary, target_pos: Vector3, ctx) -> bool:
 	var center: Vector3 = target_pos if target_pos != Vector3.ZERO else m.global_position   # 논타겟 지면 조준 착탄점(AI/조준없음 = 자기중심)
 	var coeff := float(p.get("_coeff", 1.0))
 	var direct: float = float(p.get("damage_mult", 0.3)) * m.basic_damage * coeff    # 소량 즉발
-	var unit_dps: float = float(p.get("poison_dps", 8.0))                            # 스택 1개의 기본 DoT dps
+	var unit_dps: float = float(p.get("poison_dps", 5.5))                            # 스택 1개의 기본 DoT dps
 	var add_dps: float = unit_dps * coeff                                            # 착탄 즉시 얹는 dps(=1스택; 강화는 결속이 +3=4스택)
 	var dur := float(p.get("poison_dur_s", 8.0))
 	var cap: float = unit_dps * float(p.get("poison_stack_cap", 5))                  # 최대 누적(스택 cap 기준)

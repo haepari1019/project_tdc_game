@@ -59,7 +59,7 @@ const IGNITE_SEED_R := 0.6                   # Fire가 연료 명중 시 최소 
 const FIRE_CREEP_BASE_PROB := 0.72
 const FIRE_CREEP_MIN_PROB := 0.30
 const FIRE_NOISE_FREQ := 0.5                 # 확산 노이즈 무늬 스케일(m 좌표 — 낮을수록 큰 무늬)
-const FIRE_CREEP_DPS := 8.0                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러)
+const FIRE_CREEP_DPS := 5.5                  # 번진 Fire dps(reaction_system.FIRE_DPS 미러 — 셋이 같은 값이어야 한다)
 const FIRE_CREEP_TTL := 4.0                  # 번진 Fire 지속(reaction_system.FIRE_TTL 미러)
 const SMOKE_AFTER_TTL := 3.5                 # 불이 꺼진 자리 → 연기 잔류(불이 번진 만큼 연기가 따라 퍼짐)
 const SMOKE_EXPAND_MPS := 1.67               # 연기 외곽 팽창 **속도(m/s)** — cadence = CELL_M/mps(셀 크기 무관). 0.25m=0.15s.

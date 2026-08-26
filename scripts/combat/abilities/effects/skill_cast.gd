@@ -22,7 +22,7 @@ var _done: bool = false
 
 func setup(caster: CharacterBody3D, slot_index: int, dur: float, ctx, on_complete: Callable,
 		radius: float = 0.0, bar_color: Color = Color(0.45, 0.8, 1.0),
-		charge_color: Color = Color(0, 0, 0, 0)) -> void:
+		charge_color: Color = Color(0, 0, 0, 0), target: Node3D = null) -> void:
 	_caster = caster
 	_slot = slot_index
 	_dur = dur
@@ -39,7 +39,9 @@ func setup(caster: CharacterBody3D, slot_index: int, dur: float, ctx, on_complet
 	if charge_color.a > 0.0:                        # 「전격 모으기」 캐스트 차징 — 적 charge_up을 아군 캐스트로 확장.
 		SkillVfx.charge_up(self, caster.global_position, dur, charge_color)   # self 자식 → 취소/완료 시 함께 정리
 	if caster.has_method("begin_channel"):
-		caster.begin_channel(dur)                  # 점유 = 캐스트 중 다른 서브 차단
+		# 점유 = 캐스트 중 다른 서브 차단. `target`을 함께 실어 시전 내내 대상 조준 표식이 뜬다
+		# (DRIFT-197) — 완료·취소 어느 쪽이든 `end_channel()`을 지나므로 해제가 자동이다.
+		caster.begin_channel(dur, target)
 
 
 func _process(delta: float) -> void:

@@ -170,7 +170,24 @@ func handle_click(event: InputEvent) -> bool:
 	return false
 
 
-## 마우스 아래의 적(레이픽) — 없으면 null. selection_controller._pick과 같은 방식(레이어 4 = 적).
+## 마우스 아래의 적 — **정확 우선, 근접 스냅 보조**(DRIFT-198). 없으면 null.
+##
+## 예전엔 레이픽 하나였다(selection_controller._pick과 같은 방식, 레이어 4 = 적). 그런데 적 몸통은
+## 0.7m이고 기본 줌(거리 19 · FOV 75°)에서 **1m ≈ 37px**이라 화면상 **약 26px**짜리 표적이다 —
+## 중심에서 13px 안에 커서를 놓아야 했고, 빗나가면 시전이 **통째로 취소**됐다(빈 지면 = 취소).
+## 표적이 작은 게 문제지 사용자의 조준이 문제가 아니다.
+##
+## → ① 레이픽이 맞으면 그것이 답(정밀 조준은 여전히 이긴다 — 겹친 적 사이에서 고를 수 있어야 한다).
+##    ② 빗나가면 커서에서 `PICK_SLACK_PX` 안에 **몸통 중심**이 들어온 적 중 **화면상 가장 가까운** 것.
+##
+## **화면 거리(px)로 재는 이유:** 불만은 「마우스를 너무 정확히 놓아야 한다」는 **입력** 문제라 보정도
+## 입력 좌표계에서 해야 한다. 월드 반경(m)으로 재면 줌에 따라 관대함이 달라진다 — 카메라를 밀수록
+## 같은 1m가 화면에선 좁아지므로 **멀리 볼 때 더 빡빡해진다**(정확히 지금 불편한 그 상황이 악화된다).
+## 뷰포트는 1920×1080 고정 + `canvas_items` 스트레치라 px가 해상도와 무관하게 안정적이다.
+const PICK_SLACK_PX := 40.0        # 기본 줌에서 ≈1.08m — 몸통 반폭(0.35m) 너머로 한 뼘
+const PICK_BODY_MID_Y := 0.7       # 발밑 원점 → 몸통 중심 높이(enemy_unit.BOX_BASE.y 1.4의 절반)
+
+
 func _pick_enemy_under_mouse() -> CharacterBody3D:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
@@ -180,15 +197,42 @@ func _pick_enemy_under_mouse() -> CharacterBody3D:
 	var to := from + cam.project_ray_normal(mp) * 1000.0
 	var q := PhysicsRayQueryParameters3D.create(from, to, LAYER_ENEMY)
 	var hit := cam.get_world_3d().direct_space_state.intersect_ray(q)
-	if hit.is_empty():
-		return null
-	var c = hit.get("collider")
-	return c as CharacterBody3D if c != null and c.is_in_group("enemy") else null
+	if not hit.is_empty():
+		var c = hit.get("collider")
+		if c != null and c.is_in_group("enemy"):
+			return c as CharacterBody3D
+	return _nearest_enemy_on_screen(cam, mp)
+
+
+## 커서에서 `PICK_SLACK_PX` 안의 적 중 화면상 최근접(없으면 null). **안 보이는 적은 제외** —
+## 스냅이 안개 너머를 찍는 수단이 되면 안 된다. 죽은 적도 제외(시체 스냅 방지).
+func _nearest_enemy_on_screen(cam: Camera3D, mp: Vector2) -> CharacterBody3D:
+	var best: CharacterBody3D = null
+	var best_d := PICK_SLACK_PX
+	for e in get_tree().get_nodes_in_group("enemy"):
+		var u := e as CharacterBody3D
+		if u == null or not is_instance_valid(u):
+			continue
+		if u.has_method("is_alive") and not u.is_alive():
+			continue
+		if u.has_method("is_seen") and not u.is_seen():
+			continue
+		var mid: Vector3 = u.global_position + Vector3(0.0, PICK_BODY_MID_Y, 0.0)
+		if cam.is_position_behind(mid):
+			continue
+		var d := cam.unproject_position(mid).distance_to(mp)
+		if d < best_d:
+			best_d = d
+			best = u
+	return best
 
 
 ## 확정: 사거리 안이면 즉시 시전, 밖이면 navmesh로 사거리까지 걸어가서 도착 시 시전(이동 중 WASD로 취소).
 ## `unit`(단일 대상 잠금)은 걸어가는 경로에서도 클로저에 실려 유지된다 — 그 사이 대상이 움직여도
 ## 시전 시점의 위치를 `cast_skillbook`이 다시 읽으므로 조준이 따라간다.
+## **걸어가는 목적지도 그 유닛에 고정한다**(DRIFT-196) — 예전엔 목적지가 클릭 순간의 **좌표**라
+## 적이 자리를 뜨면 엉뚱한 빈 땅으로 걸어가 사거리에 못 들고, 점선도 그 빈 땅을 가리켰다.
+## 시전 해소는 이미 대상을 따라가고 있었으므로(위) **접근과 표시만** 뒤처져 있던 셈이다.
 func _confirm_cast(target_pos: Vector3, unit = null) -> void:
 	var m := _member
 	var slot := _slot
@@ -198,14 +242,19 @@ func _confirm_cast(target_pos: Vector3, unit = null) -> void:
 	if _is_line_aim:
 		cb.cast_skillbook(m, slot, target_pos, unit)
 		return
-	var d: Vector3 = m.global_position - target_pos
+	# 단일 대상 잠금이면 **거리 판정도 대상 기준**이다. 관대 선택(DRIFT-198)으로 커서 지면점과 대상이
+	# 최대 ~1m 어긋날 수 있어, 지면점으로 재면 「사거리 안」이라 즉시 쐈는데 **실제 대상은 밖**인 경우가
+	# 생긴다(반대로 안인데 헛걸음하기도 한다). 시전 해소(`ability_dispatch`가 대상 위치로 덮어씀)도
+	# 접근 목적지(추종)도 이미 대상을 쓰므로, 판정만 지면점에 남겨 둘 이유가 없다.
+	var aim_pos: Vector3 = unit.global_position if unit != null and is_instance_valid(unit) else target_pos
+	var d: Vector3 = m.global_position - aim_pos
 	d.y = 0.0
 	if d.length() <= rng:
-		cb.cast_skillbook(m, slot, target_pos, unit)
+		cb.cast_skillbook(m, slot, aim_pos, unit)
 		return
 	var pc := m.get_node_or_null("Control")
 	if pc != null and pc.has_method("order_move_to"):
-		# target_pos까지 걷되 rng만큼 못 미쳐서 멈추고 → 도착 콜백에서 시전(그 지점은 이미 사거리 안).
-		pc.order_move_to(target_pos, func() -> void: cb.cast_skillbook(m, slot, target_pos, unit), rng)
+		# aim_pos까지 걷되 rng만큼 못 미쳐서 멈추고 → 도착 콜백에서 시전(그 지점은 이미 사거리 안).
+		pc.order_move_to(aim_pos, func() -> void: cb.cast_skillbook(m, slot, aim_pos, unit), rng, unit)
 	else:
-		cb.cast_skillbook(m, slot, target_pos, unit)
+		cb.cast_skillbook(m, slot, aim_pos, unit)

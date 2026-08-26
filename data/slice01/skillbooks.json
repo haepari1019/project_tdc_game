@@ -31,7 +31,7 @@
         "kind": "skillbook_poison",
         "element": "poison",
         "cooldown_s": 4,
-        "cast_s": 2.0,
+        "cast_s": 1.6,
         "targeted": true,
         "range_m": 9,
         "radius_m": 5.0,
@@ -76,7 +76,7 @@
         "kind": "skillbook_bolt",
         "element": "cold",
         "cooldown_s": 5.5,
-        "cast_s": 3.5,
+        "cast_s": 2.8,
         "targeted": true,
         "range_m": 12,
         "radius_m": 2.0,
@@ -109,7 +109,7 @@
         "kind": "skillbook_bolt",
         "element": "fire",
         "cooldown_s": 10,
-        "cast_s": 3.0,
+        "cast_s": 2.4,
         "targeted": true,
         "range_m": 9,
         "radius_m": 2.6,
@@ -135,7 +135,7 @@
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 6,
-        "cast_s": 3.0,
+        "cast_s": 2.4,
         "cast_range_disc_m": 6.0,
         "radius_m": 6.0,
         "heal_pct": 0.22
@@ -198,7 +198,7 @@
         "duration_s": 3.0,
         "targeted": true,
         "range_m": 10,
-        "cast_s": 1.0
+        "cast_s": 0.8
       },
       "tier": "Basic",
       "skill_family": "Buff"
@@ -234,7 +234,7 @@
         "radius_m": 8.0,
         "shield_pct": 0.22,
         "ward_s": 2.5,
-        "cast_s": 1.1
+        "cast_s": 0.9
       },
       "tier": "Master",
       "skill_family": "Heal"
@@ -293,7 +293,7 @@
         "radius_m": 4.0,
         "shield_pct": 0.18,
         "duration_s": 2.5,
-        "cast_s": 1.2
+        "cast_s": 0.95
       },
       "tier": "Advanced",
       "skill_family": "Buff"
@@ -379,7 +379,7 @@
         "ticks": 14,
         "tick_interval_s": 0.3,
         "tick_mult": 0.03,
-        "poison_dps": 6.0,
+        "poison_dps": 4.0,
         "poison_dur_s": 8.0,
         "poison_stack_cap": 5
       },
@@ -479,7 +479,7 @@
         "kind": "skillbook_bolt",
         "element": "lightning",
         "cooldown_s": 6,
-        "cast_s": 3.0,
+        "cast_s": 2.4,
         "targeted": true,
         "range_m": 11,
         "radius_m": 4.0,
@@ -507,7 +507,7 @@
         "single_target": true,
         "element": "lightning",
         "cooldown_s": 12,
-        "cast_s": 4.0,
+        "cast_s": 3.2,
         "targeted": true,
         "range_m": 14,
         "radius_m": 1.2,
@@ -527,7 +527,7 @@
       "cast": {
         "kind": "skillbook_strike",
         "cooldown_s": 16,
-        "cast_s": 3.0,
+        "cast_s": 2.4,
         "targeted": true,
         "shape": "rect",
         "length_m": 5.0,
@@ -614,7 +614,7 @@
       "cast": {
         "kind": "skillbook_bolt",
         "cooldown_s": 5,
-        "cast_s": 3.0,
+        "cast_s": 2.4,
         "targeted": true,
         "range_m": 10,
         "radius_m": 2.0,
@@ -640,7 +640,7 @@
         "kind": "skillbook_polymorph",
         "single_target": true,
         "cooldown_s": 12,
-        "cast_s": 3.0,
+        "cast_s": 2.4,
         "targeted": true,
         "range_m": 13,
         "radius_m": 1.6,
@@ -660,7 +660,7 @@
         "kind": "skillbook_dash",
         "single_target": true,
         "cooldown_s": 14,
-        "cast_s": 1.0,
+        "cast_s": 0.8,
         "targeted": true,
         "range_m": 8,
         "radius_m": 2.5,
@@ -685,7 +685,7 @@
         "kind": "skillbook_silence",
         "single_target": true,
         "cooldown_s": 8,
-        "cast_s": 1.5,
+        "cast_s": 1.2,
         "targeted": true,
         "range_m": 10,
         "radius_m": 2.0,
@@ -779,7 +779,7 @@
         "scatter_cone_deg": 70.0,
         "scatter_deadzone_m": 1.2,
         "scatter_hit_radius_m": 0.55,
-        "cast_s": 3.5
+        "cast_s": 2.8
       },
       "tier": "Basic",
       "skill_family": "SustainDamage"
@@ -800,7 +800,7 @@
         "single_target": true,
         "element": "cold",
         "cooldown_s": 9,
-        "cast_s": 1.5,
+        "cast_s": 1.2,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.2,
@@ -827,7 +827,7 @@
         "kind": "skillbook_bolt",
         "element": "lightning",
         "cooldown_s": 14,
-        "cast_s": 2.5,
+        "cast_s": 2.0,
         "targeted": true,
         "range_m": 10,
         "radius_m": 3.0,
@@ -854,7 +854,7 @@
         "kind": "skillbook_bolt",
         "single_target": true,
         "cooldown_s": 16,
-        "cast_s": 5.0,
+        "cast_s": 4.0,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.2,
@@ -880,7 +880,7 @@
       "cast": {
         "kind": "skillbook_channel_heal",
         "cooldown_s": 14,
-        "cast_s": 5.5,
+        "cast_s": 4.4,
         "cast_range_disc_m": 6.0,
         "radius_m": 6.0,
         "heal_pct": 0.55
@@ -904,7 +904,7 @@
         "single_target": true,
         "element": "lightning",
         "cooldown_s": 18,
-        "cast_s": 4.5,
+        "cast_s": 3.6,
         "targeted": true,
         "range_m": 15,
         "radius_m": 1.4,
@@ -932,7 +932,7 @@
         "mark_threat": 120.0,
         "floor": 50.0,
         "taunt_all": true,
-        "cast_s": 2.5
+        "cast_s": 2.0
       },
       "tier": "Basic",
       "skill_family": "Control"
@@ -998,7 +998,7 @@
         "kind": "skillbook_pin",
         "single_target": true,
         "cooldown_s": 10,
-        "cast_s": 1.0,
+        "cast_s": 0.8,
         "targeted": true,
         "range_m": 12,
         "radius_m": 1.8,
@@ -1019,7 +1019,7 @@
         "kind": "skillbook_root",
         "cooldown_s": 16,
         "targeted": true,
-        "cast_s": 1.0,
+        "cast_s": 0.8,
         "range_m": 14,
         "radius_m": 3.5,
         "root_s": 4.0,
@@ -1040,7 +1040,7 @@
         "kind": "skillbook_tether",
         "single_target": true,
         "cooldown_s": 8,
-        "cast_s": 2.0,
+        "cast_s": 1.6,
         "targeted": true,
         "range_m": 12,
         "radius_m": 2.0,
@@ -1064,7 +1064,7 @@
         "kind": "skillbook_execute",
         "single_target": true,
         "cooldown_s": 13,
-        "cast_s": 1.5,
+        "cast_s": 1.2,
         "targeted": true,
         "range_m": 10,
         "radius_m": 2.0,

@@ -838,9 +838,13 @@ func _sv1_update_follow(
 		if member.has_method("is_stunned") and member.is_stunned():
 			member.velocity = Vector3.ZERO
 			continue
-		if member.has_method("is_channeling") and member.is_channeling():
+		# 캐스팅/채널 중 비조작 멤버 — 진형 추종·교전을 멈추고 제자리 유지(스킬 발현까지 진형 깨져도
+		# 유지). 조작 중이면 위에서 skip → WASD 이동 시 정상 취소.
+		# `is_channeling`(점유)만 보면 **채널링 스킬이 안 걸린다**(DRIFT-199) — 스왑 후 다른 멤버를
+		# 움직이면 채널 중인 멤버가 진형을 따라 끌려가 스스로 채널을 끊었다.
+		if member.has_method("is_casting_or_channeling") and member.is_casting_or_channeling():
 			member.velocity = Vector3.ZERO
-			continue  # 캐스팅(채널) 중 비조작 멤버 — 진형 추종\교전을 멈추고 제자리 유지(스킬 발현까지 진형 깨져도 유지). 조작 중이면 위에서 skip → WASD 이동 시 정상 취소.
+			continue
 		# RMB 이동 오더 — 진형 추종·교전보다 우선. 스왑으로 조작을 놓은 멤버가 자기 목적지로
 		# 계속 걸어가게 하는 지점이다(각 멤버를 다른 위치로 따로 보내기). 도착 후 HOLD 는
 		# 진형 복귀 없이 그 자리를 지킨다 — 집합키(rally)나 새 오더로만 풀린다.
@@ -901,8 +905,9 @@ func _sv1_update_follow(
 		if anchor.has_method("is_stunned") and anchor.is_stunned():
 			anchor.velocity = Vector3.ZERO
 			return
-		# 채널 중인 비조작 앵커도 제자리 유지(스킬 발현까지 진형 깨져도 유지).
-		if anchor.has_method("is_channeling") and anchor.is_channeling():
+		# 채널 중인 비조작 앵커도 제자리 유지(스킬 발현까지 진형 깨져도 유지). 팔로워와 같은 술어를
+		# 쓴다 — 점유든 진행 중인 채널이든(DRIFT-199).
+		if anchor.has_method("is_casting_or_channeling") and anchor.is_casting_or_channeling():
 			anchor.velocity = Vector3.ZERO
 			return
 		# 앵커도 이동 오더가 있으면 그게 우선(팔로워와 동일 규칙). 앵커가 HOLD 면 그 자리가

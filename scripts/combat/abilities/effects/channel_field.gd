@@ -155,7 +155,7 @@ func _tick_cone(i: int) -> void:
 ## `cloud` — **조준점**에 머무는 독 구름(AB-110). 틱마다 독 스택을 누적한다(AB-010과 같은 API).
 ## 피해가 아니라 **스택**이 payoff라 `_dmg`는 0에 가깝게 잡는다.
 func _tick_cloud() -> void:
-	var unit_dps := float(_params.get("poison_dps", 6.0))
+	var unit_dps := float(_params.get("poison_dps", 4.0))
 	var dur := float(_params.get("poison_dur_s", 8.0))
 	var cap: float = unit_dps * float(_params.get("poison_stack_cap", 5))
 	var hits := _hit_all(_ctx.enemies_in_radius(_origin, _radius))

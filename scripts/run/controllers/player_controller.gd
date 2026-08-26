@@ -52,7 +52,7 @@ func _physics_process(delta: float) -> void:
 		# 오지 않는다(직접 움직이면 시전 취소 = 기존 규칙 유지). 비조작 멤버는
 		# party_controller Pass 1/3 이 채널 분기에서 같은 처리를 이미 한다.
 		# 정지 중엔 order_desired_velocity 를 부르지 않으므로 끼임 타이머도 안 쌓인다.
-		if body.has_method("is_channeling") and body.is_channeling():
+		if body.has_method("is_casting_or_channeling") and body.is_casting_or_channeling():
 			body.velocity = Vector3.ZERO
 			body.move_and_slide()
 			return
@@ -137,10 +137,12 @@ func _target_velocity(input: Vector2) -> Vector3:
 ## 오더 자체는 멤버가 소유한다 — 여기서는 조작 중인 멤버에게 전달만 한다. 스왑해도 살아남아
 ## party_controller 가 이어서 구동한다. cb 있는 심부름(상호작용·캐스트 접근)은 도착 시 풀리고,
 ## cb 없는 순수 이동 오더는 그 자리에 HOLD 한다.
-func order_move_to(target: Vector3, cb: Callable, arrive_dist: float) -> void:
+## `follow`가 있으면 목적지가 좌표가 아니라 **그 유닛**이다 — 대상이 움직이면 경로가 따라간다
+## (단일 대상 시전 접근, DRIFT-196). 그 외 호출자는 3인자 그대로 = 기존 좌표 오더.
+func order_move_to(target: Vector3, cb: Callable, arrive_dist: float, follow: Node3D = null) -> void:
 	var body := get_parent() as CharacterBody3D
 	if body != null and body.has_method("order_move_to"):
-		body.order_move_to(target, cb, arrive_dist)
+		body.order_move_to(target, cb, arrive_dist, follow)
 
 
 func cancel_move() -> void:

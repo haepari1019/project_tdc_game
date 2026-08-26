@@ -64,7 +64,7 @@ const USE_SURFACE_GRID := true
 ## **틱 상한 없음(사용자 확정):** 돌진·넉백처럼 한 번에 크게 움직이면 그만큼 크게 아픈 게 맞다 —
 ## 가시밭을 깔아 **돌진을 억제**하거나 **넉백으로 추가 딜**을 넣는 창의적 사용을 열어 두기 위함.
 ## 상한을 두면 "많이 움직이면 손해"라는 규칙 자체가 무뎌진다.
-const THORN_DMG_PER_M := 3.0     # 이동 1m당 피해 — 상한 없이 선형
+const THORN_DMG_PER_M := 2.0     # 이동 1m당 피해 — 상한 없이 선형. 3.0→2.0 = DoT -30% 패스(DRIFT-194)
 const THORN_MIN_MOVE_M := 0.05   # 이보다 적게 움직이면 정지로 간주(부동 시 무피해)
 const THORN_POPUP_S := 0.5       # 피해 표기 주기 — `OutcomeStatus.DOT_TICK_S`와 같은 리듬(DoT 장판과 통일)
 const THORN_POPUP_COLOR := Color(0.92, 0.96, 0.90)   # 하얀 가시 색과 맞춘 표기색

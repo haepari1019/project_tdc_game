@@ -70,7 +70,7 @@ const KO := {
 	"Bloodlust": "광폭", "Vulnerable": "취약", "Poison": "중독", "Frozen": "빙결",
 	"Taunted": "도발",
 }
-const DEFAULT_IGNITE_DPS := 8.0
+const DEFAULT_IGNITE_DPS := 5.5   # mag 없이 걸린 점화의 기본 dps — reaction_system.FIRE_DPS·surface_grid.FIRE_CREEP_DPS와 같은 값(DRIFT-194)
 # ── 지속피해(DoT) 공통 규격 (DRIFT-089) ──────────────────────────────────────────────────────
 # **모든 DoT는 같은 리듬·같은 표기**로 뜬다(중독이 기준, 점화도 동일). 예전엔 점화만 "누적 1HP마다
 # take_damage" 라 팝업이 아예 없었고(피해가 조용히 들어감) 중독만 0.5s 팝업이 있었다.

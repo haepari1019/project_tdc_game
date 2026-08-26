@@ -1174,7 +1174,7 @@ func _apply_enemy_hit(enemy: CharacterBody3D, target: CharacterBody3D, eff: Dict
 	match kind:
 		"enemy_poison":
 			if target.has_method("apply_poison"):   # enemy_unit엔 없음(진영전 표적이면 skip)
-				target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 5.0)))
+				target.apply_poison(float(eff.get("poison_dur_s", 4.0)), float(eff.get("poison_dps", 3.5)))
 		"enemy_stun":
 			target.apply_stun(float(eff.get("stun_s", 1.0)))
 		"enemy_charge":  # AB-004 Charged Voltaic — Shock + LightningHit (Water/Steam → Shock RX)

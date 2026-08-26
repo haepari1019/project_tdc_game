@@ -187,6 +187,8 @@ var _last_move_dir: Vector3 = Vector3.ZERO   # 마지막으로 실제 이동하�
 # resolves. NOTE: AB-054 Rending Beam is a CHANNEL, not a wind-up cast — it does NOT set this (it no
 # longer occupies/roots; instead moving or casting interrupts it via _active_channel below).
 var _channel_timer_s: float = 0.0
+## 이번 캐스트의 대상 유닛(단일 대상 스킬만; 없으면 null) — 조준 표식이 이 값을 읽는다. DRIFT-197.
+var _cast_target: Node3D = null
 ## AB-054 채널 진행 노드 참조 — 이동/다른 스킬 시전이 채널을 강제로 막지 않고 대신 중단시킨다(begin_channel 점유와 별개).
 var _active_channel: Node = null
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/OilSlick/IceGlide/Shock/
@@ -263,6 +265,10 @@ var _order_cb: Callable = Callable()
 var _order_arrive_dist: float = 0.4
 var _order_hold_on_arrive: bool = true
 var _order_stuck_s: float = 0.0
+## **추종 대상**(DRIFT-196) — 단일 대상 스킬을 사거리 밖에 쓰면 목적지가 **좌표가 아니라 유닛**이 된다.
+## 매 틱 `_order_target`을 대상의 현위치로 갱신하므로 적이 움직이면 경로도 점선도 따라간다.
+## null = 기존 좌표 오더(순수 이동·상자·소모품 투척)와 동일 거동.
+var _order_follow: Node3D = null
 
 
 ## Spawn a party member from its Identity Gear master (F-008 §3.7): the gear's
@@ -998,9 +1004,11 @@ func nav_invalidate() -> void:
 ## Order this member to walk to `target`. `cb` (optional) fires on arrival — an order WITH a
 ## callback is a "go do this" errand and releases to NONE on arrival; a bare move order parks
 ## the member (HOLD) so it can be positioned independently of the formation.
-func order_move_to(target: Vector3, cb: Callable = Callable(), arrive_dist: float = 0.4) -> void:
+func order_move_to(target: Vector3, cb: Callable = Callable(), arrive_dist: float = 0.4,
+		follow: Node3D = null) -> void:
 	if not _alive or _mia:
 		return
+	_order_follow = follow          # 유닛 추종 오더(단일 대상 시전 접근) — null이면 기존 좌표 오더
 	_order_target = target
 	_order_cb = cb
 	_order_arrive_dist = arrive_dist
@@ -1017,6 +1025,7 @@ func cancel_order() -> void:
 		return
 	_order_state = MoveOrder.NONE
 	_order_cb = Callable()
+	_order_follow = null
 	_order_stuck_s = 0.0
 	nav_invalidate()      # 오더 경로를 진형 추종이 물려받지 않게
 
@@ -1040,12 +1049,24 @@ func order_target() -> Vector3:
 	return _order_target
 
 
+## 추종 중인 대상(없으면 null) — 점선 오버레이가 **색과 표식**을 이 값으로 가른다(DRIFT-196).
+func order_follow_target() -> Node3D:
+	return _order_follow if _order_follow != null and is_instance_valid(_order_follow) else null
+
+
 ## MOVING 인 멤버의 이번 틱 목표 속도. navmesh 웨이포인트를 따라가고, 도착하면
 ## 콜백을 쏜 뒤 HOLD/NONE 으로 전이한다(그 프레임은 ZERO 반환). 조작/비조작 양쪽
 ## 구동 경로가 공유한다 — 이동 규칙이 한 벌만 존재하도록.
 func order_desired_velocity(speed: float, delta: float) -> Vector3:
 	if _order_state != MoveOrder.MOVING:
 		return Vector3.ZERO
+	# 추종 오더 — 목적지를 **대상의 현위치**로 갱신한다. 대상이 죽거나 사라지면 쫓아갈 이유가
+	# 없으므로 오더를 놓는다(`cancel_order`는 콜백을 쏘지 않는다 = 시전도 일어나지 않는다).
+	if _order_follow != null:
+		if not is_instance_valid(_order_follow) or (_order_follow.has_method("is_alive") and not _order_follow.is_alive()):
+			cancel_order()
+			return Vector3.ZERO
+		_order_target = _order_follow.global_position
 	var to_final := _order_target - global_position
 	to_final.y = 0.0
 	if to_final.length() <= _order_arrive_dist:
@@ -1076,6 +1097,7 @@ func order_desired_velocity(speed: float, delta: float) -> Vector3:
 func _finish_order() -> void:
 	var cb := _order_cb
 	_order_cb = Callable()
+	_order_follow = null
 	_order_stuck_s = 0.0
 	_order_state = MoveOrder.HOLD if _order_hold_on_arrive else MoveOrder.NONE
 	if not _order_hold_on_arrive:
@@ -1473,17 +1495,44 @@ func last_move_dir() -> Vector3:
 
 
 ## F-009 Channeling (AB-054 Rending Beam) — mark the caster occupied for `dur` (blocks other sub casts).
-func begin_channel(dur: float) -> void:
+## `target`(DRIFT-197) = 이 캐스트가 **누구에게** 나가는가. 점선 오버레이가 시전 내내 그 대상 발밑에
+## 조준 표식을 그린다. 시전 점유와 **같은 수명**에 매다는 이유: 캐스트의 모든 출구(완료·취소·중단·
+## 시전자 사망)가 예외 없이 `end_channel()`을 지나므로 **해제 지점을 새로 만들 필요가 없다**.
+func begin_channel(dur: float, target: Node3D = null) -> void:
 	_channel_timer_s = maxf(_channel_timer_s, dur)
+	_cast_target = target
 
 
 func is_channeling() -> bool:
 	return _alive and _channel_timer_s > 0.0
 
 
+## 시전 중인 대상(없으면 null). **시전 중일 때만** 돌려준다 — 점유 타이머는 스스로 소진되므로
+## `end_channel()`이 어떤 경로에서 누락돼도 표식이 캐스트 길이를 넘겨 남지 않는다(자기제한).
+## 대상이 죽거나 사라져도 null — 시체에 조준 표식이 남지 않는다.
+func cast_target() -> Node3D:
+	if not is_channeling() or _cast_target == null or not is_instance_valid(_cast_target):
+		return null
+	if _cast_target.has_method("is_alive") and not _cast_target.is_alive():
+		return null
+	return _cast_target
+
+
+## **시전 중인가 — 캐스트 점유든 진행 중인 채널이든**(DRIFT-199).
+## `is_channeling()`은 `begin_channel` **점유**만 본다 = `cast_s` 윈드업(SkillCast)과 채널힐뿐이고,
+## `sb_channeling`(AB-054/109/110/111)은 **일부러 점유를 안 잡는다**("시전자는 자유롭게 움직이되
+## 움직이면 끊긴다"). 그래서 「채널 중엔 제자리」 가드들이 정작 **채널링 스킬에는 안 걸렸다.**
+## 자동 이동(진형 추종·오더)이 끌고 가면 안 되는 상태는 **둘 다**이므로 여기서 하나로 묻는다.
+## ⚠️ 이건 이동 **금지**가 아니다 — WASD 직접 이동은 여전히 통하고 그러면 채널이 끊긴다(규칙 유지).
+## 막는 것은 **본인이 고르지 않은 이동**뿐이다.
+func is_casting_or_channeling() -> bool:
+	return is_channeling() or (_active_channel != null and is_instance_valid(_active_channel))
+
+
 ## 채널 종료/취소 — 점유 즉시 해제(완료·취소 공통). ref: channel_heal.
 func end_channel() -> void:
 	_channel_timer_s = 0.0
+	_cast_target = null
 
 
 ## AB-054 채널 노드 등록(시전 시). 이전 채널이 남아 있으면 먼저 중단.

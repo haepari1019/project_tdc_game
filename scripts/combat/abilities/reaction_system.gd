@@ -9,7 +9,7 @@ extends Node3D
 const SkillVfx := preload("res://scripts/combat/abilities/skill_vfx.gd")
 const HazardZone := preload("res://scripts/world/hazards/hazard_zone.gd")
 
-const FIRE_DPS := 8.0       # residual fire = Ignited burn dps (hazard_zone Fire→Ignited)
+const FIRE_DPS := 5.5       # residual fire = Ignited burn dps (hazard_zone Fire→Ignited). 8.0→5.5 = DoT -30% 패스(DRIFT-194)
 const FIRE_TTL := 4.0       # SPAWN-ZONE-FIRE-4S-R2
 const IGNITE_DUR := 5.0     # APPLY-IGNITED-…-5S — explosion ignites caught units
 const SMOKE_TTL := 5.0      # SPAWN-ZONE-SMOKE-5S-R3 — 연소 연기(무해·시야), ToxicGas 아님

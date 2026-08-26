@@ -440,7 +440,10 @@ func _initialize() -> void:
 	_chk("AB-051 위협 < AB-035(사거리 대가)", float(c51.get("mark_threat", 0.0)) < float(c35.get("mark_threat", 0.0)))
 	# 축 확정: AB-035 = 광역 + 캐스트 커밋 / AB-051 = 단일 + 즉발 원거리.
 	_chk("AB-035 = 광역 도발(taunt_all)", bool(c35.get("taunt_all", false)))
-	_chk("AB-035 = 캐스트 커밋 2.5s", is_equal_approx(float(c35.get("cast_s", 0.0)), 2.5))
+	# 리터럴(2.5s)이 아니라 **축**을 검사한다 — 캐스팅 튜닝 패스(DRIFT-195)마다 게이트 숫자를 따라
+	# 고치면 게이트가 지키는 것이 없어진다. 지켜야 할 것은 「AB-035는 커밋이 있고 AB-051은 즉발」이고,
+	# 그 대비는 아래 `AB-051 = 즉발` 검사와 **쌍으로** 성립한다. 1.0s = "커밋"이라 부를 수 있는 하한.
+	_chk("AB-035 = 캐스트 커밋(≥1.0s)", float(c35.get("cast_s", 0.0)) >= 1.0)
 	_chk("AB-051 = 단일(taunt_all 없음)", not bool(c51.get("taunt_all", false)))
 	_chk("AB-051 = 즉발(cast_s 없음)", float(c51.get("cast_s", 0.0)) == 0.0)
 	_chk("AB-035 반경 > AB-051(광역이 실제로 넓다)", float(c35.get("radius_m", 0.0)) > float(c51.get("radius_m", 0.0)))
@@ -877,7 +880,7 @@ func _initialize() -> void:
 	_chk("AB-053 지속 화력 동결(mult/cd <= 0.25)",
 		float(c053.get("damage_mult", 0.0)) / maxf(float(c053.get("cooldown_s", 1.0)), 0.001) <= 0.25)
 	# 3초 캐스트짜리가 1초급 배율이면 "기다린 보람"이 없다 — cast_s 대비 최소 사다리.
-	_chk("AB-053 cast 3.0s 사다리(mult >= 2.0)", float(c053.get("damage_mult", 0.0)) >= 2.0)
+	_chk("AB-053 cast %.1fs 사다리(mult >= 2.0)" % float(c053.get("cast_s", 0.0)), float(c053.get("damage_mult", 0.0)) >= 2.0)
 
 	# ── ENC-NORM-004 후열 캐스터 조우(DRIFT-126) ────────────────────────────────
 	# authored `units`는 던전 런에선 제너레이터가 덮지만(`_should_generate`) **샌드박스 ENC 스폰은

@@ -496,6 +496,11 @@ var last_seen_pos: Vector3 = Vector3.ZERO
 const _SEEN_FADE_S := 0.18
 
 ## Fade in/out by whether any party member has LOS. Stores last-seen pos on hide.
+## 지금 플레이어에게 보이는가(안개/LOS). 관대 선택(DRIFT-198)이 **안개 너머를 스냅하지 않도록** 읽는다.
+func is_seen() -> bool:
+	return _seen
+
+
 func set_seen(seen: bool) -> void:
 	if seen == _seen:
 		return
