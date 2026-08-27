@@ -3,6 +3,10 @@
   "contract_id": "CONTRACT-DEMO-001",
   "map_id": "MAP-DEMO-001",
   "difficulty_profile": "Normal",
+  "objective": {
+    "rule": "onDoorOpen",
+    "door_ref": "DOOR-DEMO-01"
+  },
   "run_phase_sequence": [
     "Entry",
     "Advance",
@@ -14,5 +18,6 @@
     "enabled": false
   },
   "display_name": "폐허가 된 관문 (데모)",
-  "_note": "**blueprint 1개 = 파일 1개**(구 단일 `blueprint.json`). 성문에서 고르는 단위는 맵이 아니라 **blueprint**다 — 「어느 지역·계약으로 나갈 것인가」. 그래서 `map_id`의 **단일 소유자가 blueprint**이고, 예전에 있던 `blueprint.json map_id == manifest.map_id` 동일성 검사가 필요 없어졌다(두 벌이 아니게 됐다). `manifest.blueprint_id`는 **기본 선택**이며, 런타임 선택은 `RunLoadout.blueprint_id`가 덮는다."
+  "_note": "**blueprint 1개 = 파일 1개**(구 단일 `blueprint.json`). 성문에서 고르는 단위는 맵이 아니라 **blueprint**다 — 「어느 지역·계약으로 나갈 것인가」. 그래서 `map_id`의 **단일 소유자가 blueprint**이고, 예전에 있던 `blueprint.json map_id == manifest.map_id` 동일성 검사가 필요 없어졌다(두 벌이 아니게 됐다). `manifest.blueprint_id`는 **기본 선택**이며, 런타임 선택은 `RunLoadout.blueprint_id`가 덮는다.",
+  "_note_objective": "**런 목표는 계약이 소유한다**(`F-006` §3.1.3 — Contract가 「목표·기믹·탈출 조건」 묶음이고 Blueprint 최소 필드에 `objectiveRef`가 있다). 예전엔 맵 문서가 `objective_rule`을 들고 있었는데, 그러면 **한 맵 = 한 목표**로 굳어 「같은 맵, 다른 계약」이 영영 안 열린다 — 맵을 재사용해 계약을 늘리는 것이 확장의 주 경로인데 그 문이 닫혀 있었다. `rule`이 무엇을 가리키는지는 규칙마다 다르다: `onDoorOpen` = `door_ref`(전이 앵커의 `ref`) · `onObjectiveRoomCleared` = `room_ref`. **규칙이 없으면 목표가 영영 미완료**로 남아 `onObjectiveComplete` 탈출 지점이 안 열리므로 `Slice01Data._validate_blueprint`가 부팅에서 막는다."
 }

@@ -2261,8 +2261,17 @@ func _check_entry_requirements(scn: Node, _map: Node, sd) -> void:
 	_expect(doors.size() >= 1, "[계약/진입] 진입 조건 문 배치 (%d)" % doors.size())
 	if doors.is_empty():
 		return
-	var keyed: Node = doors[0]
-	_expect(String(keyed.get("rule")) == "requiresItem" and bool(keyed.get("completes_objective")),
+	# **목표를 든 문을 골라서** 본다 — `doors[0]`은 배치 순서에 달린 아무 문이라, 데모 맵처럼
+	# 관문이 셋인 맵에서는 심부 관문을 집고도 통과할 수 있었다. 목표를 어느 문이 드는가는 이제
+	# 계약(`objective.door_ref`)이 정하므로, 검사도 그 결과를 지목해서 봐야 한다.
+	var keyed: Node = null
+	for c in doors:
+		if bool(c.get("completes_objective")):
+			keyed = c
+	if keyed == null:
+		_expect(false, "🔴 [계약/진입] 계약이 지목한 **목표 문이 안 서 있다** (문 %d개)" % doors.size())
+		return
+	_expect(String(keyed.get("rule")) == "requiresItem",
 		"[계약/진입] 데모 봉인문 = `requiresItem` + **이 문이 곧 목표** (%s)" % keyed.get("rule"))
 
 	# ③ 진행 조건 문 — **누르는 조건이 아니라 진행 조건**이므로 스스로 열린다.
@@ -2917,22 +2926,27 @@ func _check_playability(scn: Node, map: Node, sd) -> void:
 
 	# ③ **탈출이 가능한가.** 목표가 완료될 길이 없으면 `onObjectiveComplete` 지점이 영원히 안 열리고,
 	#    `always` 지점조차 전역 AND에 막힐 수 있다(실제로 UPPER가 그 상태였다).
-	var doc: Dictionary = sd.get_rooms_document()
-	var rule := String(doc.get("objective_rule", ""))
+	# 목표의 소유자는 **계약**이다(blueprint `objective`, `F-006` §3.1.3) — 맵이 아니다.
+	# 맵이 소유하던 시절엔 「한 맵 = 한 목표」로 굳어 같은 맵을 다른 계약으로 못 돌렸다.
+	var obj: Dictionary = sd.get_objective()
+	var rule := String(obj.get("rule", ""))
 	var reachable := false
 	var why := ""
 	match rule:
 		"onDoorOpen":
+			# **계약이 지목한 그 문이** 실제로 서 있고 목표를 들고 있는가. 「아무 문이나 하나」로
+			# 세면 계약이 엉뚱한 `door_ref`를 가리켜도 통과한다.
+			var want := String(obj.get("door_ref", ""))
 			for c in scn.get_children():
 				if ("completes_objective" in c) and bool(c.get("completes_objective")):
 					reachable = true
-			why = "목표 문 없음"
+			why = "계약이 지목한 목표 문(`%s`)이 안 서 있음" % want
 		"onObjectiveRoomCleared":
-			var target := String(doc.get("objective_room", ""))
+			var target := String(obj.get("room_ref", ""))
 			reachable = not target.is_empty() and _rects.has(target)
-			why = "objective_room `%s` 없음" % target
+			why = "objective.room_ref `%s` 없음" % target
 		_:
-			why = "objective_rule 미선언"
+			why = "objective.rule 미선언(계약)"
 	_expect(reachable, "🔴 [계약/플레이] 목표를 **완료할 길이 있다** (%s)" % (rule if reachable else why))
 	# **탈출로가 실제로 뚫려 있는가.** 지점이 하나도 없으면 당연히 막히고, 전부 목표 뒤라면
 	# **목표가 완료 가능해야** 뚫린다(위 검사). 「항상 열린 지점이 하나는 있어야 한다」로 쓰면

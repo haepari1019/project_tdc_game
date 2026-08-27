@@ -2690,3 +2690,18 @@
 > **교훈:** 1차 전파 때 나는 §3.5.3의 **색·표식**만 손보고 **끝점 문장은 원문 그대로 뒀다**. 그 문장이 이미 틀려 있었는데(단일 대상에서도 선이 적까지 이어졌다) 끝점에 적이 서 있어 「저 적에게 간다」로 읽혀 **덜 드러났을 뿐**이다. 조문을 열었으면 **그 절의 전제까지** 읽었어야 했다.
 
 **검증:** mapper 0 · `RelationGraph` 재생성 · xref broken-ref **0** / drift **0**(잔여 NOTE 1건 = `F-025`→`F-023`, 선행 건).
+
+---
+
+### DRIFT-201 — 런 목표의 소유자를 **맵 → 계약**으로 옮겼다 (`F-006` §3.1.3 수렴) 🔶 필드 형태 = 전파 후보
+- **근거:** 사용자 설계 판정 — 의뢰 구조 재편 논의에서 *「향후 맵을 훨씬 늘릴 계획」* + *「목표 소유권 이전도 지금 해」*. 코어를 작게 가져가되 **맵 수에 비례해 비싸지는 결정만** 먼저 옮긴다는 판단.
+- **🔴 무엇이 어긋나 있었나.** `F-006` §3.1.3은 `Run Contract`를 「한 번의 방문에서의 **목표·기믹·탈출 조건** 묶음」으로 정의하고 *「동일 Map, 다른 Contract로 다른 경험을 만든다」*고 못 박는다. Blueprint 최소 필드에도 `objectiveRef`가 있다. 그런데 구현은 `objective_rule`/`objective_room`을 **맵 문서**가 들고 있었다 — 그러면 **한 맵 = 한 목표**로 굳어 *「같은 맵, 다른 계약」*이 **구조적으로 불가능**하다. 맵 2개일 땐 드러나지 않았지만, 맵을 늘리며 **같은 맵을 재사용해 계약을 늘리는 것**이 확장의 주 경로이므로 정확히 반대로 굳고 있었다.
+- **해결 ① 계약이 목표를 소유한다.** blueprint에 `objective: {rule, door_ref?, room_ref?}`. `onDoorOpen`은 `door_ref`(전이 앵커의 `ref`), `onObjectiveRoomCleared`는 `room_ref`를 가리킨다. 맵 문서는 **공간만** 소유한다.
+- **해결 ② 목표 문 지목도 계약이 한다.** 종전엔 맵 앵커가 `completes_objective: true`를 **스스로** 들고 있었다 — 같은 맵을 다른 계약으로 돌려도 늘 같은 문이 목표라 ①이 반쪽이 된다. 이제 `objective.door_ref` ↔ 앵커 `ref` 일치로 런타임에 실린다(데모 = `DOOR-DEMO-01`). 그 전 세대는 코드가 **무조건** 목표를 완료시켜 문이 둘 이상인 맵에서 아무 관문이나 목표를 끝냈다 — 소유자가 코드 → 앵커 → 계약으로 두 번 옮겨온 셈이다.
+- **해결 ③ 가드도 소유자를 따라 옮겼다 — 단 두 갈래로.** 「**지목했는가**」는 `_validate_blueprint`(계약만 보면 되고, 맵 문서를 아직 안 읽었을 수 있다), 「**그게 실재하는가**」는 `_validate_rooms`(계약 × 맵을 맞붙여 본다). 규칙이 없으면 목표가 영영 미완료 → `onObjectiveComplete` 탈출 지점이 안 열려 **탈출 불가능한 런**이 된다(UPPER가 실제로 그 상태였다 — 그때는 맵이 규칙을 선언하지 않아서였다). 새 blueprint를 얹으며 목표를 빠뜨리면 **부팅에서** 걸린다.
+- **🔴 스모크가 아무 문이나 세고 있었다.** `_check_entry_requirements`가 `doors[0]`(배치 순서에 달린 아무 문)을 집어 「데모 봉인문 = 목표」를 주장했다 — 데모 맵은 관문이 셋이라 심부 관문을 집고도 통과할 수 있었다. 이제 **목표를 든 문을 골라서** 본다. 목표를 어느 문이 드는가를 계약이 정하게 된 이상, 검사도 그 결과를 지목해야 한다.
+- **반증 확인:** ① `objective` 블록 제거 → `objective.rule 미선언` 부팅 abort. ② `door_ref`를 실재하지 않는 `DOOR-NOPE-99`로 → `그런 전이 앵커가 없다` 부팅 abort. ③ 배선 무력화(`completes_objective = false`) → map smoke **3건 FAIL**(목표 완료 경로·탈출로·목표 문 부재) + 섹션 미완주. 각각 복구 후 재확인.
+- **영향 파일:** `data/slice01/blueprints/DBP-{DEMO,UPPER}-001.json`(신규 `objective`) · `data/slice01/maps/MAP-{DEMO,UPPER}-001.json`(`objective_rule`/`objective_room`/앵커 `completes_objective` 제거) · `scripts/autoload/slice01_data.gd`(`get_objective()`·`_validate_objective`·`_validate_objective_targets`·`_find_transition_anchor`) · `scripts/run/dungeon_run.gd`(`_check_objective_cleared`·`_objective_door_ref`·`_place_gates`) · `tools/map_smoke.gd` · `docs/ARCHITECTURE.md` §4.
+- **게이트:** `ci_smoke.sh` 전 스위트 PASS · map smoke `DBP-DEMO-001`·`DBP-UPPER-001` 둘 다 PASS.
+- **분류:** 규칙 자체는 **스펙으로 수렴**(위반 해소)이라 `OPS_30` 불요. 다만 **필드 형태**는 스펙보다 잘게 쪼갰다 — 스펙은 스칼라 `objectiveRef`(+`gimmickRef`)인데 게임은 `{rule, door_ref, room_ref}` 구조체를 썼다. 규칙마다 가리키는 대상이 다르기 때문이다(문 ↔ 방). → **PENDING-PROP**: `F-006` §3.1.5 Contract 메타 표에 `objective` 구조를 올릴지, 아니면 `objectiveRef`를 유지하고 게임 쪽을 스칼라로 접을지 **미판정**.
+- **⚠ 남은 것:** 목표는 여전히 **계약당 1건**이다. 의뢰(서브퀘스트) 목표물이 한 런에 여럿 배치되는 구조(사용자 판정: **고유 의뢰 = 하드 바인딩 · 반복 bounty = 태그**)는 이 위에 얹을 다음 층이고, 이번 이전은 그 자리를 **비워 둔 채 배선만** 한 것이다.

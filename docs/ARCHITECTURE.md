@@ -166,7 +166,7 @@ scripts/
 
 `data/slice01/*.json` → [slice01_data.gd](../scripts/autoload/slice01_data.gd)가 로드·검증·링크:
 
-- `manifest.json` (phase/contract/pool→encounter 바인딩 · **활성 `map_id`**) · `id_registry.json` (허용 ID) · `blueprint.json` · **`maps/<map_id>.json`** (맵 1개 = 파일 1개; 구 `rooms.json`) · `formation.json`
+- `manifest.json` (phase/contract/pool→encounter 바인딩 · **활성 `map_id`**) · `id_registry.json` (허용 ID) · **`blueprints/<blueprint_id>.json`** (blueprint 1개 = 파일 1개; 출정 선택 단위 = 계약. `map_id`와 **런 목표** `objective`의 단일 소유자) · **`maps/<map_id>.json`** (맵 1개 = 파일 1개; 구 `rooms.json` — **공간만** 소유한다) · `formation.json`
 - `identities.json` (역할→`ability_id`/`sub_ability_id`) · `enemies.json` (적→`abilities[].ref`) · `abilities.json` (**통합 카탈로그**, AB-### → kind/효과) · `encounters/ENC-*.json`
 - `gear.json` (**Identity Gear 마스터**: `base_gear_id` → `bundled_identity_skill_id` → identities; F-008 §3.7 · `DEC-20260611-001`) — 캐릭터 **identity는 장착 gear에서 파생**(`party_member._bind_gear`). 미장착 looted gear = run-inventory At Risk(인벤 `kind:"gear"`).
 - `skillbooks.json` (**Skillbook 마스터**: `base_ability_id`(적 lootable AB Shared) → 탄수·`equip_classes`·player-cast; F-009 · `DEC-20260611-002`) — **서브 Q/E/R = 루팅 스킬북**(`party_member.skillbook_slots`); 적 처치 **per-kill** 드랍 → run-inventory At-Risk(인벤 `kind:"skillbook"`).

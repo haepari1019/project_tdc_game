@@ -4,6 +4,10 @@
   "map_id": "MAP-UPPER-001",
   "display_name": "상층 그레이박스 (임시)",
   "difficulty_profile": "Normal",
+  "objective": {
+    "rule": "onObjectiveRoomCleared",
+    "room_ref": "RM-UPPER-04"
+  },
   "run_phase_sequence": [
     "Entry",
     "Advance",
@@ -14,5 +18,6 @@
   "third_faction": {
     "enabled": false
   },
-  "_note": "`DBP-UPPER-001` — 루프 위상·백레이어 그레이박스. `difficulty_profile`은 **런 기본값(폴백)**이고 심부 방들이 `Hard`로 덮는다(`F-006` §3.1.2). `third_faction.enabled`는 Slice-01 스코프 가드상 `false`여야 한다 — 창발 주입(게임 S5b)은 이 플래그와 별개로 돈다. `display_name`은 **(임시)**다: 지역 테마 미확정이고 ID는 안정 축이라 이 필드만 갈면 된다."
+  "_note": "`DBP-UPPER-001` — 루프 위상·백레이어 그레이박스. `difficulty_profile`은 **런 기본값(폴백)**이고 심부 방들이 `Hard`로 덮는다(`F-006` §3.1.2). `third_faction.enabled`는 Slice-01 스코프 가드상 `false`여야 한다 — 창발 주입(게임 S5b)은 이 플래그와 별개로 돈다. `display_name`은 **(임시)**다: 지역 테마 미확정이고 ID는 안정 축이라 이 필드만 갈면 된다.",
+  "_note_objective": "**런 목표는 계약이 소유한다**(`F-006` §3.1.3 — Contract가 「목표·기믹·탈출 조건」 묶음이고 Blueprint 최소 필드에 `objectiveRef`가 있다). 예전엔 맵 문서가 `objective_rule`을 들고 있었는데, 그러면 **한 맵 = 한 목표**로 굳어 「같은 맵, 다른 계약」이 영영 안 열린다 — 맵을 재사용해 계약을 늘리는 것이 확장의 주 경로인데 그 문이 닫혀 있었다. `rule`이 무엇을 가리키는지는 규칙마다 다르다: `onDoorOpen` = `door_ref`(전이 앵커의 `ref`) · `onObjectiveRoomCleared` = `room_ref`. **규칙이 없으면 목표가 영영 미완료**로 남아 `onObjectiveComplete` 탈출 지점이 안 열리므로 `Slice01Data._validate_blueprint`가 부팅에서 막는다."
 }

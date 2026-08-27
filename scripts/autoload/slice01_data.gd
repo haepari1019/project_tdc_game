@@ -272,6 +272,15 @@ func get_blueprint() -> Dictionary:
 	return _blueprint.duplicate(true)
 
 
+## **런 목표는 계약이 소유한다** — blueprint `objective` (`F-006` §3.1.3: Contract = 「목표·기믹·탈출
+## 조건」 묶음, Blueprint 최소 필드 `objectiveRef`). 예전엔 맵 문서가 `objective_rule`을 들고 있어
+## **한 맵 = 한 목표**로 굳어 있었다 — 같은 맵을 다른 계약으로 재사용하는 길이 막힌다.
+## `{rule, door_ref?, room_ref?}`. 부팅 검증이 통과했다면 `rule`은 반드시 채워져 있다.
+func get_objective() -> Dictionary:
+	var o = _blueprint.get("objective", {})
+	return o.duplicate(true) if typeof(o) == TYPE_DICTIONARY else {}
+
+
 func get_rooms_document() -> Dictionary:
 	return _rooms.duplicate(true)
 
@@ -1129,6 +1138,30 @@ func _validate_blueprint(errors: Array[String]) -> void:
 		String(_blueprint.get("contract_id", "")), _registry_list("contract_ids"), "contract_id", errors)
 	if bool(_blueprint.get("third_faction", {}).get("enabled", false)):
 		errors.append("Slice-01: third_faction must be disabled (blueprint %s)" % _blueprint.get("blueprint_id", "?"))
+	_validate_objective(errors)
+
+
+## **목표 규칙이 없는 계약은 나갈 수 없다.** 규칙이 없으면 목표가 영영 미완료로 남고,
+## `onObjectiveComplete` 탈출 지점이 안 열려 **탈출이 불가능한 런**이 된다(UPPER가 실제로 그랬다 —
+## 그때는 맵이 규칙을 선언하지 않아서였다). 소유자가 계약으로 옮겨온 이상 가드도 여기로 옮긴다:
+## 새 blueprint를 얹을 때 목표를 빠뜨리면 **부팅에서** 걸려야 한다.
+func _validate_objective(errors: Array[String]) -> void:
+	var bid := String(_blueprint.get("blueprint_id", "?"))
+	var obj: Dictionary = get_objective()
+	var rule := String(obj.get("rule", ""))
+	match rule:
+		"onDoorOpen":
+			# 어느 문이 곧 목표인가 — 전이 앵커의 `ref`를 계약이 지목한다. 맵 문서를 아직 안 읽었을
+			# 수도 있으므로(호출 순서) 존재 검사는 맵 검증이 맡고, 여기선 지목 자체를 요구한다.
+			if String(obj.get("door_ref", "")).is_empty():
+				errors.append("blueprint %s: objective.rule=onDoorOpen인데 door_ref 없음 — 어느 문이 목표인지 알 수 없다" % bid)
+		"onObjectiveRoomCleared":
+			IdValidate.require_id(
+				String(obj.get("room_ref", "")), _registry_list("room_refs"), "objective.room_ref", errors)
+		"":
+			errors.append("blueprint %s: objective.rule 미선언 — 목표를 완료할 길이 없어 탈출이 불가능해진다" % bid)
+		_:
+			errors.append("blueprint %s: 알 수 없는 objective.rule `%s`" % [bid, rule])
 
 
 func _validate_manifest(errors: Array[String]) -> void:
@@ -1224,3 +1257,35 @@ func _validate_rooms(errors: Array[String]) -> void:
 		if typeof(row) != TYPE_DICTIONARY:
 			continue
 		IdValidate.require_id(String(row.get("room_ref", "")), allowed_rooms, "room_ref", errors)
+	_validate_objective_targets(errors)
+
+
+## **계약이 지목한 목표가 이 맵에 실재하는가.** 계약과 맵은 이제 갈라져 있으므로(계약이 목표를
+## 소유) 둘을 맞붙여 볼 곳이 필요하다 — 없는 문·없는 방을 가리키는 계약은 `objective.rule`이
+## 채워져 있어도 **완료 불가 = 탈출 불가**다. blueprint 검증은 「지목했는가」만 보고, 「그게 있는가」는
+## 맵 문서를 읽은 여기가 본다.
+func _validate_objective_targets(errors: Array[String]) -> void:
+	var obj: Dictionary = get_objective()
+	match String(obj.get("rule", "")):
+		"onDoorOpen":
+			var want := String(obj.get("door_ref", ""))
+			if want.is_empty() or _find_transition_anchor(want).is_empty():
+				errors.append("계약 objective.door_ref `%s` — 이 맵에 그런 전이 앵커가 없다(목표 완료 불가)" % want)
+		"onObjectiveRoomCleared":
+			var room := String(obj.get("room_ref", ""))
+			if room.is_empty() or get_room_row(room).is_empty():
+				errors.append("계약 objective.room_ref `%s` — 이 맵에 그런 방이 없다(목표 완료 불가)" % room)
+
+
+## 전이 앵커를 `ref`로 찾는다 — 계약이 문을 지목하는 유일한 수단. {} if none.
+func _find_transition_anchor(ref: String) -> Dictionary:
+	if ref.is_empty():
+		return {}
+	for row in _rooms.get("rooms", []):
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var anchors: Dictionary = row.get("anchors", {})
+		for a in (anchors.get("transitions", []) as Array):
+			if typeof(a) == TYPE_DICTIONARY and String(a.get("ref", "")) == ref:
+				return (a as Dictionary).duplicate(true)
+	return {}

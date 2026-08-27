@@ -373,25 +373,26 @@ func _on_squad_cleared_quest(encounter_id: String, pos: Vector3) -> void:
 	_check_objective_cleared(pos)
 
 
-## **런 목표가 무엇으로 완료되는가는 맵이 정한다**(`objective_rule`).
-##   - `onDoorOpen` — 봉인문을 여는 것이 목표(데모). `Door.completes_objective`가 부른다.
-##   - `onObjectiveRoomCleared` — `objective_room`의 분대를 정리하면 완료.
-## 규칙이 없으면 목표가 **영원히 미완료**로 남고, `onObjectiveComplete` 탈출 지점이 안 열린다
-## (UPPER가 실제로 그 상태였다 — 탈출이 불가능했다).
+## **런 목표가 무엇으로 완료되는가는 계약이 정한다**(blueprint `objective.rule` — `F-006` §3.1.3).
+##   - `onDoorOpen` — 계약이 지목한 문(`door_ref`)을 여는 것이 목표(데모). `Door`가 부른다.
+##   - `onObjectiveRoomCleared` — `room_ref`의 분대를 정리하면 완료.
+## 예전엔 맵 문서가 이 규칙을 들고 있었다 — 그러면 **한 맵 = 한 목표**로 굳어 같은 맵을 다른
+## 계약으로 재사용할 수 없다. 규칙이 없으면 목표가 영원히 미완료로 남고 `onObjectiveComplete`
+## 탈출 지점이 안 열리므로(UPPER가 실제로 그 상태였다) 부팅 검증이 계약에서 그걸 막는다.
 func _check_objective_cleared(pos: Vector3) -> void:
 	if _run == null or _run.objective_complete:
 		return
 	var sd := get_node_or_null("/root/Slice01Data")
 	if sd == null:
 		return
-	var doc: Dictionary = sd.get_rooms_document()
-	if String(doc.get("objective_rule", "onDoorOpen")) != "onObjectiveRoomCleared":
+	var obj: Dictionary = sd.get_objective()
+	if String(obj.get("rule", "")) != "onObjectiveRoomCleared":
 		return
-	var target := String(doc.get("objective_room", ""))
+	var target := String(obj.get("room_ref", ""))
 	if target.is_empty() or _room_of_point(pos) != target:
 		return
 	_run.complete_objective()
-	print("[TDC] 목표 완료 — %s 정리 (objective_rule=onObjectiveRoomCleared)" % target)
+	print("[TDC] 목표 완료 — %s 정리 (objective.rule=onObjectiveRoomCleared)" % target)
 
 
 ## Shift+우클릭 버리기 (백팩) → 컨트롤 멤버 발치에 재획득 가능한 ItemDrop 생성.
@@ -716,6 +717,7 @@ func _place_gates() -> void:
 	if _map == null:
 		return
 	var sd := get_node_or_null("/root/Slice01Data")
+	var obj_door := _objective_door_ref()   # 계약이 지목한 목표 문(없으면 "")
 	var n := 0
 	for ref in _map.data_room_refs():
 		for a in _map.get_anchors(String(ref), "transitions"):
@@ -740,9 +742,10 @@ func _place_gates() -> void:
 			door.rule = String(req.get("rule", "requiresItem"))
 			door.key_id = String(req.get("ref", ""))
 			door.consume_on_use = bool(req.get("consume_on_use", true))
-			# 이 문을 열면 목표가 완료되는가 — **앵커가 명시할 때만**. 예전엔 무조건이라
-			# 문이 둘 이상인 맵에서 아무 관문이나 목표를 끝내 버렸다.
-			door.completes_objective = bool(d.get("completes_objective", false))
+			# 이 문을 열면 목표가 완료되는가 — **계약이 지목한 문만**(`objective.door_ref` ↔ 앵커 `ref`).
+			# 예전엔 앵커가 `completes_objective`를 스스로 들고 있어서 같은 맵을 다른 계약으로 돌려도
+			# 늘 같은 문이 목표였다. 그 전엔 코드가 무조건 완료시켜 아무 관문이나 목표를 끝냈다.
+			door.completes_objective = obj_door != "" and String(d.get("ref", "")) == obj_door
 			door.span = float(op.get("width", Door.SIZE.x)) + DOOR_OVERLAP_M
 			# **무엇이, 어디서** — 「열쇠 필요」만 뜨면 맵을 헤매게 된다.
 			var need_id := String(req.get("ref", ""))
@@ -811,6 +814,18 @@ func _room_of_point(p: Vector3) -> String:
 			best_d = d
 			best = room
 	return best
+
+
+## 계약이 지목한 **목표 문**의 앵커 `ref`. `onDoorOpen`이 아니면 빈 문자열 — 그러면 어떤 문도
+## 목표를 끝내지 않는다(`onObjectiveRoomCleared` 맵에서 관문이 목표를 가로채면 안 된다).
+func _objective_door_ref() -> String:
+	var sd := get_node_or_null("/root/Slice01Data")
+	if sd == null:
+		return ""
+	var obj: Dictionary = sd.get_objective()
+	if String(obj.get("rule", "")) != "onDoorOpen":
+		return ""
+	return String(obj.get("door_ref", ""))
 
 
 ## 앵커가 실은 **문자열 필드**(`yields` 등). 데이터가 소유한 ID를 코드가 다시 적지 않기 위한 통로다.
