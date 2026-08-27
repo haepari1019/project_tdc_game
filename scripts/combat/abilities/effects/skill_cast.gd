@@ -22,7 +22,8 @@ var _done: bool = false
 
 func setup(caster: CharacterBody3D, slot_index: int, dur: float, ctx, on_complete: Callable,
 		radius: float = 0.0, bar_color: Color = Color(0.45, 0.8, 1.0),
-		charge_color: Color = Color(0, 0, 0, 0), target: Node3D = null) -> void:
+		charge_color: Color = Color(0, 0, 0, 0), target: Node3D = null,
+		aim: Vector3 = Vector3.ZERO, aim_radius: float = -1.0) -> void:
 	_caster = caster
 	_slot = slot_index
 	_dur = dur
@@ -41,7 +42,9 @@ func setup(caster: CharacterBody3D, slot_index: int, dur: float, ctx, on_complet
 	if caster.has_method("begin_channel"):
 		# 점유 = 캐스트 중 다른 서브 차단. `target`을 함께 실어 시전 내내 대상 조준 표식이 뜬다
 		# (DRIFT-197) — 완료·취소 어느 쪽이든 `end_channel()`을 지나므로 해제가 자동이다.
-		caster.begin_channel(dur, target)
+		# `aim`/`aim_radius` = 범위기 **착탄점**(DRIFT-200) — 대상 유닛이 없는 스킬은 「누구에게」가
+		# 아니라 **「어디에」**를 시전 내내 보여 준다. 해제는 target과 같이 `end_channel()`이 한다.
+		caster.begin_channel(dur, target, aim, aim_radius)
 
 
 func _process(delta: float) -> void:

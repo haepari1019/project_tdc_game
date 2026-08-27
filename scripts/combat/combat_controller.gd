@@ -409,8 +409,9 @@ func _tick_party_attacks(members: Array, delta: float) -> void:
 		m.attack_cooldown_s = m.attack_interval()   # Haste(AB-069)-aware
 
 
-func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO, target_unit = null) -> void:
-	_ability_dispatch.cast_skillbook(member, slot_index, target_pos, target_unit)
+func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO,
+		target_unit = null, aim_radius: float = -1.0) -> void:
+	_ability_dispatch.cast_skillbook(member, slot_index, target_pos, target_unit, aim_radius)
 
 
 ## PILOT — resolve a UNIFIED skillbook ability CAST BY AN ENEMY through the SAME sb_* effect the ally

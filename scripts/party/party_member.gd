@@ -189,6 +189,9 @@ var _last_move_dir: Vector3 = Vector3.ZERO   # 마지막으로 실제 이동하�
 var _channel_timer_s: float = 0.0
 ## 이번 캐스트의 대상 유닛(단일 대상 스킬만; 없으면 null) — 조준 표식이 이 값을 읽는다. DRIFT-197.
 var _cast_target: Node3D = null
+## 이번 캐스트의 **착탄점**(범위기; `_cast_aim_r < 0` = 없음) — 시전 내내 지면에 표기한다. DRIFT-200.
+var _cast_aim: Vector3 = Vector3.ZERO
+var _cast_aim_r: float = -1.0
 ## AB-054 채널 진행 노드 참조 — 이동/다른 스킬 시전이 채널을 강제로 막지 않고 대신 중단시킨다(begin_channel 점유와 별개).
 var _active_channel: Node = null
 ## Elemental OUTCOME statuses (STATUS-OUTCOME-CORE): Sodden/Chilled/SteamHaze/OilSlick/IceGlide/Shock/
@@ -269,6 +272,10 @@ var _order_stuck_s: float = 0.0
 ## 매 틱 `_order_target`을 대상의 현위치로 갱신하므로 적이 움직이면 경로도 점선도 따라간다.
 ## null = 기존 좌표 오더(순수 이동·상자·소모품 투척)와 동일 거동.
 var _order_follow: Node3D = null
+## **오더 목표가 착탄점인가**(DRIFT-200) — `-1` = 아님(순수 이동·상호작용·단일 대상 추종).
+## `>= 0` = 목표 지점이 **범위기 착탄점**이고 이 값이 그 반경(0이면 점만 표기).
+## 이동선은 **시전 지점**(= `arrive_dist`만큼 못 미친 곳)까지만 그리고, 착탄점은 따로 표기한다.
+var _order_aim_radius: float = -1.0
 
 
 ## Spawn a party member from its Identity Gear master (F-008 §3.7): the gear's
@@ -1005,10 +1012,11 @@ func nav_invalidate() -> void:
 ## callback is a "go do this" errand and releases to NONE on arrival; a bare move order parks
 ## the member (HOLD) so it can be positioned independently of the formation.
 func order_move_to(target: Vector3, cb: Callable = Callable(), arrive_dist: float = 0.4,
-		follow: Node3D = null) -> void:
+		follow: Node3D = null, aim_radius: float = -1.0) -> void:
 	if not _alive or _mia:
 		return
 	_order_follow = follow          # 유닛 추종 오더(단일 대상 시전 접근) — null이면 기존 좌표 오더
+	_order_aim_radius = aim_radius  # >=0 이면 목표가 착탄점(범위기) — 이동선은 시전 지점까지만
 	_order_target = target
 	_order_cb = cb
 	_order_arrive_dist = arrive_dist
@@ -1026,6 +1034,7 @@ func cancel_order() -> void:
 	_order_state = MoveOrder.NONE
 	_order_cb = Callable()
 	_order_follow = null
+	_order_aim_radius = -1.0
 	_order_stuck_s = 0.0
 	nav_invalidate()      # 오더 경로를 진형 추종이 물려받지 않게
 
@@ -1047,6 +1056,16 @@ func has_any_order() -> bool:
 
 func order_target() -> Vector3:
 	return _order_target
+
+
+## 오더가 멈출 거리 — 오버레이가 이동선을 **여기서 자른다**(멤버가 실제로 서는 곳 = 시전 지점).
+func order_arrive_dist() -> float:
+	return _order_arrive_dist
+
+
+## 오더 목표의 착탄 반경(`-1` = 착탄점 아님). 오버레이가 착탄 표기 여부를 이 값으로 가른다(DRIFT-200).
+func order_aim_radius() -> float:
+	return _order_aim_radius
 
 
 ## 추종 중인 대상(없으면 null) — 점선 오버레이가 **색과 표식**을 이 값으로 가른다(DRIFT-196).
@@ -1098,6 +1117,7 @@ func _finish_order() -> void:
 	var cb := _order_cb
 	_order_cb = Callable()
 	_order_follow = null
+	_order_aim_radius = -1.0
 	_order_stuck_s = 0.0
 	_order_state = MoveOrder.HOLD if _order_hold_on_arrive else MoveOrder.NONE
 	if not _order_hold_on_arrive:
@@ -1498,9 +1518,12 @@ func last_move_dir() -> Vector3:
 ## `target`(DRIFT-197) = 이 캐스트가 **누구에게** 나가는가. 점선 오버레이가 시전 내내 그 대상 발밑에
 ## 조준 표식을 그린다. 시전 점유와 **같은 수명**에 매다는 이유: 캐스트의 모든 출구(완료·취소·중단·
 ## 시전자 사망)가 예외 없이 `end_channel()`을 지나므로 **해제 지점을 새로 만들 필요가 없다**.
-func begin_channel(dur: float, target: Node3D = null) -> void:
+func begin_channel(dur: float, target: Node3D = null,
+		aim: Vector3 = Vector3.ZERO, aim_radius: float = -1.0) -> void:
 	_channel_timer_s = maxf(_channel_timer_s, dur)
 	_cast_target = target
+	_cast_aim = aim
+	_cast_aim_r = aim_radius
 
 
 func is_channeling() -> bool:
@@ -1533,6 +1556,7 @@ func is_casting_or_channeling() -> bool:
 func end_channel() -> void:
 	_channel_timer_s = 0.0
 	_cast_target = null
+	_cast_aim_r = -1.0
 
 
 ## AB-054 채널 노드 등록(시전 시). 이전 채널이 남아 있으면 먼저 중단.
@@ -2026,6 +2050,16 @@ func apply_poison_stack(dur: float, add_dps: float, cap_dps: float, unit_dps: fl
 		popup_status("중독", Color(0.5, 0.9, 0.4))
 	_outcome.apply_stack("Poison", dur, add_dps, cap_dps, unit_dps)
 	_update_status_icons()
+
+
+## 시전 중인 **착탄점 반경**(`-1` = 없음). `cast_target()`과 같은 자기제한 — 시전 중일 때만.
+## 범위기는 대상 유닛이 없으므로 「누구에게」가 아니라 **「어디에」**를 시전 내내 보여 준다.
+func cast_aim_radius() -> float:
+	return _cast_aim_r if is_channeling() else -1.0
+
+
+func cast_aim_pos() -> Vector3:
+	return _cast_aim
 
 
 ## Public outcome query (Third-faction Scent/Root targeting reads this). ref: DEC-20260621-001.

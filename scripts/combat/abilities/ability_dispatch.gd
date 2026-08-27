@@ -167,7 +167,11 @@ func _is_main_class_sub(member: CharacterBody3D, inst) -> bool:
 
 ## Player-cast a sub skillbook from slot Q/E/R. Charges + cooldown gated; on success
 ## -1 charge + set the slot's cooldown. Effect = the Shared AB applied to enemies.
-func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO, target_unit = null) -> void:
+## `aim_radius`(DRIFT-200) = 이 시전이 **지면 착탄점**을 갖는가와 그 반경. `-1` = 없음(단일 대상·
+## 자기중심·직선). **분류는 조준(`aim_controller`)이 소유한다** — 여기서 kind/반경으로 다시 판정하면
+## 화면(조준 프리뷰)과 표기가 갈라진다. 조준을 안 거치는 경로(AI·적)는 기본값 `-1`로 표기가 없다.
+func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector3 = Vector3.ZERO,
+		target_unit = null, aim_radius: float = -1.0) -> void:
 	if member == null or not is_instance_valid(member) or not member.is_alive():
 		return
 	if member.has_method("is_channeling") and member.is_channeling():
@@ -251,7 +255,7 @@ func cast_skillbook(member: CharacterBody3D, slot_index: int, target_pos: Vector
 		# 표식이 유지된다(DRIFT-197). 사거리 **안**이라 접근 오더가 아예 없는 경우까지 덮는다.
 		node.setup(member, slot_index, cast_s, self, on_done,
 			float(p.get("cast_range_disc_m", 0.0)), _cast_bar_color(String(p.get("kind", ""))),
-			_cast_charge_color(p), target_unit)
+			_cast_charge_color(p), target_unit, target_pos, aim_radius)
 		return
 	# 즉발 — 발현 성공 시에만 차감.
 	_cd_refund_frac = 0.0

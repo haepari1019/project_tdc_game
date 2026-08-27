@@ -31,6 +31,10 @@ const LOCK_R := 0.75        # 대상 조준 표식 — 발밑 링 반지름
 const LOCK_SEGS := 20
 const LOCK_TICK := 0.30     # 링 밖으로 뻗는 브래킷 길이(4방향) — 링만으론 목적지 원과 안 갈린다
 const LOCK_SPIN_DPS := 55.0 # 브래킷 회전 속도(°/s) — 정지 표식과 달리 "지금 걸려 있다"가 읽힌다
+## **착탄 표기**(DRIFT-200) — 범위기는 대상 유닛이 없으므로 「누구에게」가 아니라 **「어디에」**를 보여
+## 준다. 목적지 링(_draw_ring = "여기까지 간다")과 **뜻이 다르므로 그림도 달라야 한다**: 십자 + 반경 링.
+const IMPACT_ARM := 0.55    # 십자 팔 길이(m) — 반경 0(점 표기)일 때도 이것만으로 읽힌다
+const IMPACT_SEGS := 24
 
 var _party: Node3D = null
 var _im: ImmediateMesh = null
@@ -71,7 +75,9 @@ func _process(delta: float) -> void:
 		# **시전 중인 대상**(DRIFT-197) — 접근이 끝난 뒤에도, 그리고 사거리 안이라 접근 오더가
 		# 아예 없던 경우에도 표식을 잇는다. 표식이 사라지는 시점 = 스킬이 나가는 시점.
 		var casting: Node3D = m.cast_target() if m.has_method("cast_target") else null
-		if not moving and casting == null:
+		# 범위기 착탄점 — 대상 유닛이 없는 시전이 「어디에」를 시전 내내 보여 준다(DRIFT-200).
+		var cast_r: float = m.cast_aim_radius() if m.has_method("cast_aim_radius") else -1.0
+		if not moving and casting == null and cast_r < 0.0:
 			continue          # 오더도 시전도 없음 → 그릴 것 없음
 		if not any:
 			_im.surface_begin(Mesh.PRIMITIVE_LINES)
@@ -88,6 +94,8 @@ func _process(delta: float) -> void:
 		# 그렸다면(follow == casting) 겹쳐 그리지 않는다.
 		if casting != null and casting != follow:
 			_draw_lock(casting.global_position, cast_col)
+		if cast_r >= 0.0:
+			_draw_impact(m.cast_aim_pos(), cast_r, cast_col)
 	if any:
 		_im.surface_end()
 
@@ -106,13 +114,23 @@ func _draw_member_path(m: Node3D, col: Color, follow: Node3D = null) -> void:
 	if pts.size() == 0 or pts[pts.size() - 1].distance_to(goal) > 0.05:
 		pts.append(goal)
 	# 폴리라인 전체를 하나의 연속 길이로 보고 대시를 얹어야 세그먼트 경계에서 리듬이 끊기지 않는다.
+	# **이동선은 멤버가 실제로 서는 곳까지만**(DRIFT-200). 오더는 목표에서 `arrive_dist`만큼 못 미쳐
+	# 멈추는데(시전 사거리) 선이 목표까지 이어지면 "저기까지 간다"고 거짓말을 한다 — 범위기에선
+	# **착탄점까지 걸어가는 것처럼** 보였다. 자르는 기준은 `order_desired_velocity`의 도착 판정과
+	# **같은 식**(목표까지 직선거리 ≤ arrive_dist)이라 선의 끝이 곧 시전 지점이다.
+	var stop_r: float = m.order_arrive_dist() if m.has_method("order_arrive_dist") else 0.0
+	var line := _truncate(pts, goal, stop_r)
 	var carry := 0.0   # 이번 세그먼트 시작 시점의 대시 주기 내 위상
-	for i in pts.size() - 1:
-		carry = _dash_segment(pts[i], pts[i + 1], col, carry)
+	for i in line.size() - 1:
+		carry = _dash_segment(line[i], line[i + 1], col, carry)
+	if line.size() > 0:
+		_draw_ring(line[line.size() - 1], col)   # 목적지 링 = **시전 지점**(도달하면 오더와 함께 사라진다)
+	# 목표 지점의 표기는 오더 종류가 정한다 — 추종(단일 대상)이면 대상 표식, 범위기면 착탄 표기.
+	var aim_r: float = m.order_aim_radius() if m.has_method("order_aim_radius") else -1.0
 	if follow != null:
-		_draw_lock(goal, col)   # 대상 발밑 조준 표식(링 + 회전 브래킷)
-	else:
-		_draw_ring(goal, col)
+		_draw_lock(goal, col)      # 대상 발밑 조준 표식(링 + 회전 브래킷)
+	elif aim_r >= 0.0:
+		_draw_impact(goal, aim_r, col)
 
 
 ## a→b 구간에 대시를 얹는다. `phase` = 구간 시작 시 대시 주기(DASH_LEN+GAP_LEN) 내 위치.
@@ -170,3 +188,61 @@ func _draw_lock(center: Vector3, col: Color) -> void:
 		_im.surface_add_vertex(c + dir * LOCK_R)
 		_im.surface_set_color(col)
 		_im.surface_add_vertex(c + dir * (LOCK_R + LOCK_TICK))
+
+
+## 폴리라인을 `goal` 반경 `r` 원에 **처음 닿는 지점**에서 자른다 — 그 점이 멤버가 실제로 멈추는 곳이다.
+## 판정을 수평(XZ)으로 하는 것도 `order_desired_velocity`와 같다(`to_final.y = 0`).
+static func _truncate(pts: PackedVector3Array, goal: Vector3, r: float) -> PackedVector3Array:
+	if r <= 0.0 or pts.size() == 0:
+		return pts
+	var g := Vector2(goal.x, goal.z)
+	var out := PackedVector3Array()
+	for i in pts.size():
+		var a: Vector3 = pts[i]
+		var av := Vector2(a.x, a.z)
+		if av.distance_to(g) <= r:
+			return out          # 이미 도착 반경 안 — 여기서 끝(첫 점이면 선 자체가 없다)
+		out.append(a)
+		if i + 1 >= pts.size():
+			break
+		var b: Vector3 = pts[i + 1]
+		var bv := Vector2(b.x, b.z)
+		if bv.distance_to(g) > r:
+			continue            # 이 구간은 원 밖 — 통째로 그린다
+		# 이 구간에서 원에 진입한다 → 교점까지만. |a + t(b-a) - g| = r 의 작은 근.
+		var d := bv - av
+		var f := av - g
+		var qa := d.dot(d)
+		if qa < 0.000001:
+			break
+		var qb := 2.0 * f.dot(d)
+		var qc := f.dot(f) - r * r
+		var disc := qb * qb - 4.0 * qa * qc
+		if disc < 0.0:
+			break
+		var t: float = clampf((-qb - sqrt(disc)) / (2.0 * qa), 0.0, 1.0)
+		out.append(a.lerp(b, t))
+		break
+	return out
+
+
+## 착탄 표기 — **십자 + 반경 링**(DRIFT-200). 십자는 「여기가 중심」, 링은 「이만큼 덮는다」.
+## `radius <= 0`(rect 존 등 원이 아닌 형상)이면 **십자만** 그린다 — 없는 원을 그려 실제와 어긋나게
+## 하느니 점만 찍는 편이 정직하다.
+func _draw_impact(center: Vector3, radius: float, col: Color) -> void:
+	var c := Vector3(center.x, center.y + GROUND_LIFT, center.z)
+	for k in 2:
+		var dir := Vector3(1.0, 0.0, 0.0) if k == 0 else Vector3(0.0, 0.0, 1.0)
+		_im.surface_set_color(col)
+		_im.surface_add_vertex(c - dir * IMPACT_ARM)
+		_im.surface_set_color(col)
+		_im.surface_add_vertex(c + dir * IMPACT_ARM)
+	if radius <= 0.0:
+		return
+	for i in IMPACT_SEGS:
+		var a0 := TAU * float(i) / float(IMPACT_SEGS)
+		var a1 := TAU * float(i + 1) / float(IMPACT_SEGS)
+		_im.surface_set_color(col)
+		_im.surface_add_vertex(c + Vector3(cos(a0), 0.0, sin(a0)) * radius)
+		_im.surface_set_color(col)
+		_im.surface_add_vertex(c + Vector3(cos(a1), 0.0, sin(a1)) * radius)

@@ -37,6 +37,11 @@ var _cursor_enemy: ImageTexture    # 빨강 십자(적 대상)
 var _range: float = 0.0            # 이번 조준 스킬의 시전 사거리(range_m)
 var _is_line_aim: bool = false     # 직선 빔 조준 여부(확정 시 사거리까지 안 걷고 그 방향으로 즉시 시전)
 var _single_target: bool = false   # 단일 대상 잠금 — 적 유닛을 찍어야만 시전(빈 지면 = 취소)
+## 이번 조준의 **착탄 반경**(DRIFT-200). `-1` = 지면 착탄점이 없다(단일 대상 잠금·자기중심·직선 조준).
+## `>= 0` = 커서 지점이 착탄점이고 이 값이 그 반경(rect 존은 원이 아니라 **점만** 표기 = 0).
+## **이 분류는 여기 한 곳이 소유한다** — 조준 프리뷰(`show_aim`의 `disc`)와 같은 값에서 나오므로
+## 「조준할 때 본 원」과 「접근·시전 중 보는 착탄 표기」가 어긋날 수 없다.
+var _aim_radius: float = -1.0
 
 
 func setup(aim_marker: Node3D, combat: Node3D) -> void:
@@ -77,6 +82,7 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 	var cc: Color = member.get_class_color()
 	var kind := String(p.get("kind", ""))
 	_single_target = bool(p.get("single_target", false))
+	_aim_radius = -1.0
 	_range = float(p.get("range_m", 10.0))
 	# Flank Collapse 「잠행」 — 링크된 스킬은 근접 사거리로만 시전(붙어야 함). 원래 range_m를 melee로 대체 → 링도 좁게.
 	if String(BindingOverlays.resolve_effective(String(member.base_gear_id), String(member.ability_id), String(inst.get("base_ability_id", "")), slot_index).get("delta", "")) == "flank_strike":
@@ -88,6 +94,7 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 		_is_line_aim = false
 		Input.set_custom_mouse_cursor(_cursor_enemy, Input.CURSOR_ARROW, Vector2(15, 15))
 		_aim.show_zone_rect(member, _range, float(p.get("length_m", 6.0)), float(p.get("width_m", 2.5)), cc)
+		_aim_radius = 0.0   # 지면 배치 = 착탄점 있음. 단 형상이 원이 아니라 **점만** 표기한다
 		return
 	# 직선 빔(AB-054 절단 광선) / 캐스터에서 뻗는 직사각형(AB-005 근접 rect) — 원형이 아니라 시전자→마우스 직선
 	# 레인으로 조준(적 커서). 확정 시 그 방향으로 즉시 시전(사거리까지 걷지 않음).
@@ -132,6 +139,8 @@ func start_aim(member: CharacterBody3D, slot_index: int, inst: Dictionary) -> vo
 		band_in = _SbBolt.deadzone_of(p)
 		band_out = float(p.get("scatter_range_m", 0.0))
 		band_cone = float(p.get("scatter_cone_deg", 360.0))   # 실제 확산과 같은 각도로 그린다
+	if not unit_aim:
+		_aim_radius = disc   # 지면 조준 = 착탄점. 잠금 조준은 -1 그대로(표기를 대상 표식이 맡는다)
 	_aim.show_aim(member, _range, disc, cc, band_in, band_out, band_cone)
 
 
@@ -238,9 +247,10 @@ func _confirm_cast(target_pos: Vector3, unit = null) -> void:
 	var slot := _slot
 	var rng := _range
 	var cb := _combat
+	var aim_r := _aim_radius
 	# 직선 빔 — 방향만 의미(사거리까지 걷지 않음). 마우스 방향으로 그 자리에서 즉시 시전.
 	if _is_line_aim:
-		cb.cast_skillbook(m, slot, target_pos, unit)
+		cb.cast_skillbook(m, slot, target_pos, unit, aim_r)
 		return
 	# 단일 대상 잠금이면 **거리 판정도 대상 기준**이다. 관대 선택(DRIFT-198)으로 커서 지면점과 대상이
 	# 최대 ~1m 어긋날 수 있어, 지면점으로 재면 「사거리 안」이라 즉시 쐈는데 **실제 대상은 밖**인 경우가
@@ -250,11 +260,13 @@ func _confirm_cast(target_pos: Vector3, unit = null) -> void:
 	var d: Vector3 = m.global_position - aim_pos
 	d.y = 0.0
 	if d.length() <= rng:
-		cb.cast_skillbook(m, slot, aim_pos, unit)
+		cb.cast_skillbook(m, slot, aim_pos, unit, aim_r)
 		return
 	var pc := m.get_node_or_null("Control")
 	if pc != null and pc.has_method("order_move_to"):
 		# aim_pos까지 걷되 rng만큼 못 미쳐서 멈추고 → 도착 콜백에서 시전(그 지점은 이미 사거리 안).
-		pc.order_move_to(aim_pos, func() -> void: cb.cast_skillbook(m, slot, aim_pos, unit), rng, unit)
+		# `aim_r`을 오더에도 실어, 걸어가는 동안 **이동선은 시전 지점까지**만 그리고 **착탄점은 따로**
+		# 표기한다(DRIFT-200). 접근·시전 두 구간이 같은 값을 쓰므로 표기가 끊기지 않는다.
+		pc.order_move_to(aim_pos, func() -> void: cb.cast_skillbook(m, slot, aim_pos, unit, aim_r), rng, unit, aim_r)
 	else:
-		cb.cast_skillbook(m, slot, aim_pos, unit)
+		cb.cast_skillbook(m, slot, aim_pos, unit, aim_r)

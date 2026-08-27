@@ -139,10 +139,11 @@ func _target_velocity(input: Vector2) -> Vector3:
 ## cb 없는 순수 이동 오더는 그 자리에 HOLD 한다.
 ## `follow`가 있으면 목적지가 좌표가 아니라 **그 유닛**이다 — 대상이 움직이면 경로가 따라간다
 ## (단일 대상 시전 접근, DRIFT-196). 그 외 호출자는 3인자 그대로 = 기존 좌표 오더.
-func order_move_to(target: Vector3, cb: Callable, arrive_dist: float, follow: Node3D = null) -> void:
+func order_move_to(target: Vector3, cb: Callable, arrive_dist: float, follow: Node3D = null,
+		aim_radius: float = -1.0) -> void:
 	var body := get_parent() as CharacterBody3D
 	if body != null and body.has_method("order_move_to"):
-		body.order_move_to(target, cb, arrive_dist, follow)
+		body.order_move_to(target, cb, arrive_dist, follow, aim_radius)
 
 
 func cancel_move() -> void:

@@ -214,13 +214,50 @@ func _initialize() -> void:
 	chn.free()
 	_chk("채널 노드 소멸 → 자동 해소(영구 정지 없음)", not m.is_casting_or_channeling())
 
+	# --- 10) 이동선은 시전 지점까지, 착탄점은 따로(DRIFT-200) ---
+	# 범위기를 사거리 밖에 쓰면 오더 목표는 **착탄점**이지만 멤버는 `arrive_dist`(= 시전 사거리)만큼
+	# 못 미쳐 멈춘다. 선이 목표까지 이어지면 「착탄점까지 걸어간다」고 거짓말한다.
+	var MPO = load("res://scripts/run/controllers/move_path_overlay.gd")
+	var line := PackedVector3Array([Vector3.ZERO, Vector3(10, 0, 0)])
+	var cut: PackedVector3Array = MPO._truncate(line, Vector3(10, 0, 0), 3.0)
+	_chk("이동선이 도착 반경에서 잘린다", cut.size() == 2 and is_equal_approx(cut[1].x, 7.0))
+	_chk("잘린 끝 = 시전 지점(목표 아님)", cut[cut.size() - 1].distance_to(Vector3(10, 0, 0)) > 2.9)
+	# 꺾인 경로에서도 **처음 닿는 지점**에서 잘려야 한다(마지막 구간만 보면 안 된다).
+	var bent := PackedVector3Array([Vector3.ZERO, Vector3(10, 0, 0), Vector3(10, 0, 10)])
+	var cut2: PackedVector3Array = MPO._truncate(bent, Vector3(10, 0, 0), 3.0)
+	_chk("꺾인 경로도 첫 진입점에서 잘린다", cut2.size() == 2 and is_equal_approx(cut2[1].x, 7.0))
+	_chk("도착 반경 0 → 선 그대로", (MPO._truncate(line, Vector3(10, 0, 0), 0.0) as PackedVector3Array).size() == 2)
+	_chk("이미 반경 안 → 선 없음", (MPO._truncate(PackedVector3Array([Vector3(9, 0, 0)]), Vector3(10, 0, 0), 3.0) as PackedVector3Array).size() == 0)
+
+	# 착탄 표기 수명 — 오더 구간(order_aim_radius)과 시전 구간(cast_aim_radius)이 이어진다.
+	_chk("평시 = 착탄 표기 없음", m.order_aim_radius() < 0.0 and m.cast_aim_radius() < 0.0)
+	m.order_move_to(Vector3(20, 0, 0), func() -> void: pass, 6.0, null, 4.5)
+	_chk("범위기 접근 오더 → 착탄 반경 노출", is_equal_approx(m.order_aim_radius(), 4.5))
+	_chk("접근 오더의 도착 거리 = 시전 사거리", is_equal_approx(m.order_arrive_dist(), 6.0))
+	m.cancel_order()
+	_chk("오더 해제 → 착탄 표기 없음(이동선과 함께 사라진다)", m.order_aim_radius() < 0.0)
+	# 순수 이동 오더는 착탄점이 아니다 — 표기가 붙으면 안 된다.
+	m.order_move_to(Vector3(20, 0, 0), Callable(), 0.4)
+	_chk("순수 이동 오더 → 착탄 표기 없음", m.order_aim_radius() < 0.0)
+	m.cancel_order()
+	# 시전 구간 — 대상 유닛이 없는 범위기는 「어디에」를 시전 내내 보여 준다.
+	m.begin_channel(3.0, null, Vector3(20, 0, 0), 4.5)
+	_chk("시전 중 → 착탄 표기 유지(대상 유닛 없이도)", is_equal_approx(m.cast_aim_radius(), 4.5)
+		and m.cast_aim_pos().is_equal_approx(Vector3(20, 0, 0)) and m.cast_target() == null)
+	m.end_channel()
+	_chk("시전 종료 → 착탄 표기 해제(스킬 나가는 시점)", m.cast_aim_radius() < 0.0)
+	m.begin_channel(0.0, null, Vector3(20, 0, 0), 4.5)
+	_chk("점유 소진 → 착탄 표기 자동 소멸", m.cast_aim_radius() < 0.0)
+	m.end_channel()
+
 	# 배선 두 지점은 헤드리스에서 못 돈다(조준 모달 = 마우스 · 오버레이 = 렌더) → **소스로 못박는다**
 	# (DRIFT-119 ward_heal 선례). 위 상태기계가 옳아도 이 둘이 안 이어지면 화면엔 아무 변화가 없다.
 	var aim := FileAccess.get_file_as_string("res://scripts/run/controllers/aim_controller.gd")
-	# 핀은 **조준점 변수명이 아니라 대상이 넘어가는가**를 본다 — 위치 인자는 이름이 바뀔 수 있고
-	# (실제로 `target_pos`→`aim_pos`로 바뀌었다) 그때마다 게이트가 깨지면 핀이 진짜 회귀 대신
-	# 리팩터를 잡는다. 지켜야 할 계약은 「4번째 인자 = 추종 대상」 하나다.
-	_chk("조준 확정이 대상을 추종 인자로 넘긴다", aim.contains("order_move_to(") and aim.contains(", rng, unit)"))
+	# 핀 작성 규칙(세 번 깨지고 배운 것) — **인자 목록의 끝을 붙들지 않는다.** 변수명을 박으면
+	# 리네임에 깨지고(`target_pos`→`aim_pos`), 닫는 괄호까지 박으면 **인자를 하나 추가할 때마다**
+	# 깨진다(`unit)` → `unit, aim_r)`). 둘 다 회귀가 아니라 리팩터를 잡는 것이다. 지켜야 할 계약은
+	# 「그 인자가 그 호출에 실린다」이므로 **닫는 괄호 없이** 조각만 본다.
+	_chk("조준 확정이 대상을 추종 인자로 넘긴다", aim.contains("order_move_to(") and aim.contains(", rng, unit"))
 	_chk("사거리 판정이 대상 기준(관대 선택 정합)", aim.contains("unit.global_position if unit != null"))
 	_chk("적 선택이 레이픽 실패 시 근접 스냅으로 넘어간다", aim.contains("_nearest_enemy_on_screen(cam, mp)"))
 	_chk("스냅이 안 보이는 적을 제외한다", aim.contains("is_seen") and aim.contains("PICK_SLACK_PX"))
@@ -236,9 +273,15 @@ func _initialize() -> void:
 	var plc := FileAccess.get_file_as_string("res://scripts/run/controllers/player_controller.gd")
 	_chk("오더 일시정지도 통합 술어 사용", plc.contains("is_casting_or_channeling()") and not plc.contains("is_channeling()"))
 	var disp := FileAccess.get_file_as_string("res://scripts/combat/abilities/ability_dispatch.gd")
-	_chk("캐스트 노드가 시전 대상을 받는다", disp.contains("_cast_charge_color(p), target_unit)"))
+	_chk("캐스트 노드가 시전 대상을 받는다", disp.contains("_cast_charge_color(p), target_unit"))
 	var sc := FileAccess.get_file_as_string("res://scripts/combat/abilities/effects/skill_cast.gd")
-	_chk("캐스트가 점유와 함께 대상을 싣는다", sc.contains("caster.begin_channel(dur, target)"))
+	_chk("캐스트가 점유와 함께 대상·착탄점을 싣는다", sc.contains("caster.begin_channel(dur, target, aim, aim_radius)"))
+	# 착탄 분류는 **조준이 소유한다** — dispatch에서 kind/반경으로 다시 판정하면 조준 프리뷰와 갈라진다.
+	_chk("착탄 반경이 접근 오더와 시전 양쪽에 실린다",
+		aim.contains("rng, unit, aim_r") and aim.contains("cast_skillbook(m, slot, aim_pos, unit, aim_r"))
+	_chk("착탄 분류가 조준 프리뷰(disc)에서 나온다", aim.contains("_aim_radius = disc"))
+	_chk("오버레이가 이동선을 도착 거리에서 자른다", ov.contains("_truncate(pts, goal, stop_r)"))
+	_chk("오버레이가 착탄 표기를 따로 그린다", ov.contains("_draw_impact(goal, aim_r, col)") and ov.contains("_draw_impact(m.cast_aim_pos(), cast_r, cast_col)"))
 
 	# --- 5) nav 캐시 무효화 — 오더↔진형 전환에서 stale path 재사용 차단 ---
 	m.nav_set_target(Vector3(3, 0, 3))
