@@ -59,8 +59,21 @@ func refresh() -> void:
 	if _hub == null or _shop == null:
 		return
 	set_title("무기고 — 기어" if mode == "gear" else "군수 — 보급")
-	var scrap: int = int(_hub.scrap())
-	set_status("ward_scrap %d" % scrap, HubTheme.ACCENT if scrap > 0 else HubTheme.BAD)
+	# **화면마다 값이 다르다** — 기어는 `ward_scrap`(살아 돌아온 대가), 보급은 **부품**(매 런 들어오는
+	# 것). 상단에 안 쓰는 통화를 띄우면 「왜 돈이 있는데 못 사지」가 남는다.
+	if mode == "gear":
+		var scrap: int = int(_hub.scrap())
+		set_status("ward_scrap %d" % scrap, HubTheme.ACCENT if scrap > 0 else HubTheme.BAD)
+	else:
+		var parts: Array = []
+		var any := false
+		for hid in Slice01Data.get_haul_material_ids():
+			if String(Slice01Data.get_haul_material(String(hid)).get("tier", "")) != "supply":
+				continue
+			var n: int = int(_hub.vault_count(String(hid)))
+			any = any or n > 0
+			parts.append("%s %d" % [Slice01Data.get_haul_material(String(hid)).get("display", hid), n])
+		set_status("금고 보급품 — " + " · ".join(parts), HubTheme.ACCENT if any else HubTheme.BAD)
 	for c in _shop.get_children():
 		_shop.remove_child(c)
 		c.queue_free()
@@ -107,6 +120,26 @@ func _refresh_armory() -> void:
 
 
 ## 소모품 보급 — 게이트 없음. `quartermaster` tier는 **런 반입 한도**라 여기 상태줄에 함께 적는다:
+## 재료 비용 표기 — **보유/필요**를 같이 적는다(트리 패널과 같은 어법). 「살 수 있나」를
+## 버튼 활성만으로 말하면 **얼마나 모자란지**가 안 보인다.
+func _cost_text(cost: Dictionary) -> String:
+	if cost.is_empty():
+		return "무료"
+	var parts: Array = []
+	for m in cost:
+		var have: int = int(_hub.vault_count(String(m)))
+		var need := int(cost[m])
+		parts.append("%s %d/%d" % [Slice01Data.get_haul_material(String(m)).get("display", m), have, need])
+	return " · ".join(parts)
+
+
+func _can_afford(cost: Dictionary) -> bool:
+	for m in cost:
+		if int(_hub.vault_count(String(m))) < int(cost[m]):
+			return false
+	return true
+
+
 ## 살 수는 있는데 못 들고 나가는 상황을 미리 알 수 있어야 한다.
 func _refresh_supply() -> void:
 	var cap: int = int(_hub.run_inventory_capacity()) if _hub.has_method("run_inventory_capacity") else 0
@@ -118,13 +151,14 @@ func _refresh_supply() -> void:
 		var cid := String((row as Dictionary).get("consumable_id", ""))
 		if cid.is_empty():
 			continue
-		var price: int = int((row as Dictionary).get("price", 25))
+		# **보급은 부품으로 산다** — `ward_scrap`이 아니라 금고 재료다(`consumables.json` `cost`).
+		var cost: Dictionary = (row as Dictionary).get("cost", {})
 		var have: int = int(_stash.consumables.get(cid, 0)) if _stash != null else 0
-		var afford: bool = int(_hub.scrap()) >= price
+		var afford: bool = _can_afford(cost)
 		g.add_child(HubTheme.label(String((row as Dictionary).get("display_name", cid)), "",
 			HubTheme.TEXT if afford else HubTheme.DISABLED))
 		g.add_child(HubTheme.label("보유 %d" % have, "HubMeta"))
-		var pl := HubTheme.label("⚙%d" % price, "HubMeta", HubTheme.OK if afford else HubTheme.BAD)
+		var pl := HubTheme.label(_cost_text(cost), "HubMeta", HubTheme.OK if afford else HubTheme.BAD)
 		pl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		g.add_child(pl)
 		var btn := Button.new()

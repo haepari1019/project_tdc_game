@@ -5,69 +5,126 @@
       "haul_material_id": "haul_ward_splinter",
       "color": "#8d99ae",
       "display": "성채 파편",
-      "source": "일반 ENC / 상자"
+      "source": "일반 ENC / 상자",
+      "tier": "supply",
+      "chest_weight": {
+        "common": 3,
+        "rare": 0
+      }
     },
     {
       "haul_material_id": "haul_script_fragment",
       "color": "#d7c9a7",
       "display": "필기 파편",
-      "source": "Upper"
+      "source": "Upper",
+      "tier": "supply",
+      "chest_weight": {
+        "common": 2,
+        "rare": 0
+      }
     },
     {
       "haul_material_id": "haul_arc_ink",
       "color": "#6f7fd6",
       "display": "아크 잉크",
-      "source": "Mid / 마법"
+      "source": "Mid / 마법",
+      "tier": "works",
+      "chest_weight": {
+        "common": 0,
+        "rare": 18
+      }
     },
     {
       "haul_material_id": "haul_ward_plate",
       "color": "#9a7b4f",
       "display": "와드 판금",
-      "source": "Mid·정예"
+      "source": "Mid·정예",
+      "tier": "works",
+      "chest_weight": {
+        "common": 0,
+        "rare": 22
+      }
     },
     {
       "haul_material_id": "haul_ruin_glass",
       "color": "#5fc2b0",
       "display": "폐허 유리",
-      "source": "Nuker·폐허"
+      "source": "Nuker·폐허",
+      "tier": "works",
+      "chest_weight": {
+        "common": 0,
+        "rare": 12
+      }
     },
     {
       "haul_material_id": "haul_forge_coal",
       "color": "#c9603a",
       "display": "단조 연료",
-      "source": "Deep / 보스 근처"
+      "source": "Deep / 보스 근처",
+      "tier": "deep",
+      "chest_weight": {
+        "common": 0,
+        "rare": 14
+      }
     },
     {
       "haul_material_id": "haul_deep_core",
       "color": "#a663d9",
       "display": "심층 코어",
-      "source": "Deep rare"
+      "source": "Deep rare",
+      "tier": "deep",
+      "chest_weight": {
+        "common": 0,
+        "rare": 5
+      }
     },
     {
       "haul_material_id": "haul_boss_relay",
       "color": "#d9b036",
       "display": "중계 부품",
-      "source": "Objective / 보스"
+      "source": "Objective / 보스",
+      "tier": "deep",
+      "chest_weight": {
+        "common": 0,
+        "rare": 5
+      }
     },
     {
       "haul_material_id": "haul_pack_frame",
       "color": "#7f8c5a",
       "display": "군수 프레임",
-      "source": "군수 상자"
+      "source": "군수 상자",
+      "tier": "works",
+      "chest_weight": {
+        "common": 0,
+        "rare": 12
+      }
     },
     {
       "haul_material_id": "haul_shared_shard",
       "color": "#e2e6ee",
       "display": "공유 파편",
-      "source": "Shared AB 보유 적 처치 (F-009 §3.9.2 `shared_shard_*`)"
+      "source": "Shared AB 보유 적 처치 (F-009 §3.9.2 `shared_shard_*`)",
+      "tier": "shared",
+      "chest_weight": {
+        "common": 0,
+        "rare": 0
+      }
     },
     {
       "haul_material_id": "haul_shared_core",
       "color": "#f2f4f8",
       "display": "재구현 핵",
-      "source": "정예/보스 Shared AB 처치 — 금고용 (F-009 §3.9.2)"
+      "source": "정예/보스 Shared AB 처치 — 금고용 (F-009 §3.9.2)",
+      "tier": "shared",
+      "chest_weight": {
+        "common": 0,
+        "rare": 0
+      }
     }
   ],
   "_note_color": "`color` = **게임측 표시 레이어**(스펙 미규정 필드, DRIFT-158). 재료 타일이 전부 같은 황토색 1×1이라 「뭐가 뭔지 구분이 안 되고 딱히 의미도 없다」(사용자)는 문제의 절반이 여기 있었다. 색은 재료의 정체(돌/양피지/잉크/숯/유리…)를 따르고, 스킬 계열 공유재료 2종만 무채색으로 묶어 승급재료와 갈라 놓는다. 소비처는 데이터로 파생한다 — `Slice01Data.haul_consumers()`가 facilities_tiers.json을 읽으므로 여기 복제하지 않는다.",
-  "_note_shared": "`haul_shared_shard`/`haul_shared_core` = per-kill 스킬북 드롭의 **대체재**(F-009 §3.9.2 Deprecated 행). 적을 죽여 얻는 건 이제 책이 아니라 재료고, 재료는 금고를 거쳐 트리 `Unlock` 노드로 AB를 연다 — 학습 체감은 유지, 인스턴스 인벤 압박은 제거(I-006 K1)."
+  "_note_shared": "`haul_shared_shard`/`haul_shared_core` = per-kill 스킬북 드롭의 **대체재**(F-009 §3.9.2 Deprecated 행). 적을 죽여 얻는 건 이제 책이 아니라 재료고, 재료는 금고를 거쳐 트리 `Unlock` 노드로 AB를 연다 — 학습 체감은 유지, 인스턴스 인벤 압박은 제거(I-006 K1).",
+  "_note_tier": "**재료에 축이 둘 있다 — `tier`가 그걸 데이터로 소유한다.** `supply` = 매 런 쓰고 매 런 채우는 **보급**(소모품 값), `works`·`deep` = 시설·트리를 올리는 **승급**, `shared` = 스킬 트리 `Unlock` 전용(적 처치로만 들어온다). 두 축을 가른 이유: 매 런 소모되는 것과 1회 영구 해금이 **같은 통화**를 쓰면 플레이어는 언제나 소모품을 아끼고 영구 쪽에 붓는다 — 그러면 소모품이 죽는다.",
+  "_note_chest_weight": "**상자가 티어를 존중한다** — `chest_weight`가 상자 등급별 추첨 가중이다(0 = 그 등급에선 안 나온다). 예전엔 `loot_service`가 재료 9종을 **균등 추첨**했다: `haul_deep_core`가 `haul_ward_splinter`와 **같은 확률**로 나왔다는 뜻이고, 그러면 희소도 축은 이 파일에만 존재하고 실제 루트에는 없다 (`HUB-COR-000` §2.5가 상자를 **주 공급원**이라 못 박았으므로 ENC 드롭표로는 만회되지 않는다). **일반 상자 = 보급 · 희귀 상자 = 승급**으로 갈라 「좋은 상자를 찾는 것」이 곧 「사다리를 올리는 길」이 되게 했다 — 탐색 보상이 승급과 이어진다. 가중치는 tuning."
 }

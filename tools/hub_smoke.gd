@@ -26,7 +26,7 @@ func _init() -> void:
 	# T-HUB-004 — 퀘스트+재료 충족 → 승급 성공 · vault 차감 · Tier+1 · 효과(capacity) 반영
 	# **의뢰는 수락해야 완료된다**(M6) — 조건만 채우고 안 받으면 아무 일도 없다. 그게 요점이라
 	# 「미수락이면 완료 안 됨」을 먼저 단언한다.
-	hp.add_haul("haul_ward_splinter", 5)
+	hp.add_haul("haul_ward_plate", 3)
 	hp.evaluate_quests()
 	_expect(not hp.is_quest_done("Q-HUB-002"), "미수락 의뢰는 조건을 채워도 미완료")
 	_expect(hp.accept_quest("Q-HUB-002"), "창고 의뢰 수락")
@@ -35,7 +35,7 @@ func _init() -> void:
 	_expect(bool(hp.upgrade_check("stash").get("ok", false)), "stash 승급 가능(퀘+재료)")
 	_expect(hp.attempt_upgrade("stash"), "stash 승급 적용")
 	_expect(hp.facility_tier("stash") == 1, "stash Tier 1")
-	_expect(hp.vault_count("haul_ward_splinter") == 0, "재료 차감(0)")
+	_expect(hp.vault_count("haul_ward_plate") == 0, "재료 차감(0)")
 	_expect(hp.stash_capacity_tier() == 28, "stash capacity 28 (tier 실값 — 플테 우회와 분리)")
 
 	# **7시설**(M6) — 필기소(`scriptorium`)는 `scribe_shop`이 흡수했다. 선행 시설 스키마는 남지만
@@ -59,6 +59,55 @@ func _init() -> void:
 	# HUB-COR-000 — ENC별 haul 드롭표 (스펙 정확값 + 커버리지)
 	_expect(sd.get_haul_drops("ENC-NORM-001").size() == 2, "haul_drops NORM-001 = 2행")
 	_expect(not sd.get_haul_drops("ENC-BOSS-001").is_empty(), "haul_drops BOSS-001 존재")
+	# **재료 두 축의 분리 불변식** — `supply`(보급, 소모품 값)와 `works`/`deep`(승급, 시설·트리).
+	# 한 재료가 양쪽을 먹으면 **매 런 소모되는 쪽이 1회 영구 해금에 언제나 진다**(플레이어는
+	# 소모품을 아끼고 사다리에 붓는다) — 그러면 보급 루프가 죽는다. 축을 나눈 이유가 그것뿐이므로
+	# 「나뉘어 있는가」는 데이터가 조용히 되돌아가지 않게 단언해야 한다.
+	var tiers_ok := true
+	var axis_leak: Array = []
+	for hid in sd.get_haul_material_ids():
+		var mid := String(hid)
+		var mtier := String(sd.get_haul_material(mid).get("tier", ""))
+		if not ["supply", "works", "deep", "shared"].has(mtier):
+			tiers_ok = false
+		if mtier != "supply":
+			continue
+		# 승급 소비처는 `haul_consumers`가 시설 표·트리에서 **파생**한다(복제 아님).
+		for c in sd.haul_consumers(mid):
+			if not String(c).begins_with("군수 보급"):
+				axis_leak.append("%s → %s" % [mid, c])
+	_expect(tiers_ok, "재료 전종이 `tier`를 선언한다(supply/works/deep/shared)")
+	_expect(axis_leak.is_empty(), "🔴 보급 재료(`supply`)는 승급을 먹지 않는다 — 두 축 분리 (%s)" % (
+		"분리됨" if axis_leak.is_empty() else ", ".join(axis_leak.slice(0, 3))))
+	# 소모품 값이 실제로 보급 재료인가 — 반대 방향도 본다(값이 비면 「무료」가 되어 루프가 사라진다).
+	var con_ok := true
+	for crow in sd.get_consumable_rows():
+		var ccost: Dictionary = (crow as Dictionary).get("cost", {})
+		if ccost.is_empty():
+			con_ok = false
+		for m in ccost:
+			if String(sd.get_haul_material(String(m)).get("tier", "")) != "supply":
+				con_ok = false
+	_expect(con_ok, "소모품 값 = **보급 재료**로만 매겨진다(빈 값 없음)")
+
+	# **상자가 희소도 축을 존중한다** — 예전엔 재료 9종을 균등 추첨해 `haul_deep_core`가
+	# `haul_ward_splinter`와 같은 확률로 나왔다. 상자가 주 공급원(`HUB-COR-000` §2.5)이므로
+	# 그 상태에선 티어가 이 파일에만 존재하고 실제 루트엔 없다.
+	var common_w := 0
+	var rare_w := 0
+	var common_leak: Array = []
+	for hid2 in sd.get_haul_material_ids():
+		var mid2 := String(hid2)
+		var cw: Dictionary = sd.get_haul_material(mid2).get("chest_weight", {})
+		var t2 := String(sd.get_haul_material(mid2).get("tier", ""))
+		common_w += int(cw.get("common", 0))
+		rare_w += int(cw.get("rare", 0))
+		if int(cw.get("common", 0)) > 0 and t2 != "supply":
+			common_leak.append(mid2)
+	_expect(common_w > 0 and rare_w > 0, "상자 재료 풀 — 두 등급 모두 비어 있지 않다")
+	_expect(common_leak.is_empty(), "🔴 일반 상자 = **보급만** · 승급 재료는 희귀 상자에서 (%s)" % (
+		"분리됨" if common_leak.is_empty() else ", ".join(common_leak)))
+
 
 	# ~~분석 N=3 → 해금 → 생본 구매 → 중복 sink~~ — **M5 폐기**(`D-018` §9 · `F-009` §3.9.4).
 	# 후임 = **트리 해금(권한)** + **모딩 시술비(시전이 아니라 새기는 값)**. 시술비가 없으면 D2 소멸이
@@ -123,12 +172,20 @@ func _init() -> void:
 	_expect(bool(hp.buy_gear("gear_ward_tank_iron_set", 1).get("ok", false)) and hp.scrap() == gear_before - 40, "B세트 구매 -40 scrap")
 	_expect(String(hp.buy_gear("gear_ward_dps_guardbreak_set", 2).get("reason", "")) == "tier", "C세트(T2) armory T1선 차단")
 
-	# F-010 소모품 상점 — price(consumables.json) 차감, 게이트 없음.
-	hp.ward_scrap = 50
-	var consum_before: int = hp.scrap()
-	_expect(bool(hp.buy_consumable("con_revive_scroll").get("ok", false)) and hp.scrap() == consum_before - 20, "소모품(부활) 구매 -20 scrap")
-	hp.ward_scrap = 5
-	_expect(String(hp.buy_consumable("con_revive_scroll").get("reason", "")) == "scrap", "소모품 — scrap 부족 차단")
+	# F-010 소모품 상점 — **부품으로 산다**(`consumables.json` `cost`, 금고 차감). 게이트 없음.
+	# `ward_scrap`이 아무리 많아도 못 산다는 것부터 단언한다 — 두 통화가 갈렸다는 게 요점이다.
+	hp.hub_haul_vault.clear()
+	hp.ward_scrap = 9999
+	_expect(String(hp.buy_consumable("con_revive_scroll").get("reason", "")) == "haul",
+		"소모품 — scrap이 넘쳐도 **부품**이 없으면 못 산다(통화 분리)")
+	hp.add_haul("haul_ward_splinter", 3)
+	hp.add_haul("haul_script_fragment", 1)
+	var scrap_before: int = hp.scrap()
+	_expect(bool(hp.buy_consumable("con_revive_scroll").get("ok", false)), "소모품(부활) 구매 — 부품 지불")
+	_expect(hp.vault_count("haul_ward_splinter") == 0 and hp.vault_count("haul_script_fragment") == 0,
+		"소모품 구매 = **금고 부품 차감**(sink)")
+	_expect(hp.scrap() == scrap_before, "소모품 구매는 `ward_scrap`을 건드리지 않는다")
+	_expect(String(hp.buy_consumable("con_oil_flask").get("reason", "")) == "haul", "소모품 — 부품 부족 차단")
 
 	# S6b per-AB tier — skillbooks.json tier(스펙 abilityTier) + 상점 tier 천장 게이트.
 	_expect(String(sd.get_skillbook_master("AB-002").get("tier", "")) == "Basic", "per-AB tier — AB-002 Basic")
@@ -368,9 +425,12 @@ func _init() -> void:
 	hp2.facilities["scribe_shop"] = 1
 	_expect(String(hp2.tree_check("TREE-TNK-UL01").get("reason", "")) == "haul", "트리 — 재료 부족 차단(Unlock)")
 	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "haul", "트리 — 재료 부족 차단")
-	hp2.add_haul("haul_ward_splinter", 4)
+	# 구 `Doctrine` 값은 `haul_ward_splinter`였다 — **보급 축**(소모품 값)으로 넘어가며 승급 축
+	# (`haul_arc_ink`)으로 갈아 끼웠다. 매 런 소모되는 재료와 1회 영구 해금이 같은 통화면 영구 쪽이
+	# 언제나 이긴다(플레이어는 소모품을 아끼고 트리에 붓는다).
+	hp2.add_haul("haul_arc_ink", 2)
 	_expect(bool(hp2.tree_buy("TREE-TNK-DOC1").get("ok", false)), "재료 충족 → doctrine 노드 구매")
-	_expect(hp2.vault_count("haul_ward_splinter") == 0, "구매 시 금고 재료 차감(sink)")
+	_expect(hp2.vault_count("haul_arc_ink") == 0, "구매 시 금고 재료 차감(sink)")
 	_expect(String(hp2.tree_check("TREE-TNK-DOC1").get("reason", "")) == "already", "재구매 차단(환불 없음)")
 	# 파생 — Slot 보너스 · Unlock → AB 해금 · Upgrade 배율.
 	# ⚠️ 플테 플래그를 **끄고** 잰다 — 켜 두면 is_node_unlocked가 항상 true라 트리 로직을 안 타고
@@ -616,19 +676,20 @@ func _init() -> void:
 	_expect(not sd.get_facility_tier("smithy", 3).is_empty(), "대장간 T3 실재(슬롯 3칸의 자리)")
 	for aq in ["Q-HUB-030", "Q-HUB-031", "Q-HUB-032"]:
 		hp3.quest_accepted[aq] = true
-	# T1 — **초반 재료로** 열려야 한다(파편은 2.4/런, 연료는 0.4/런 Deep 전용).
-	hp3.add_haul("haul_ward_splinter", 6)
+	# T1 — **초반 재료로** 열려야 한다(연료는 0.4/런 Deep 전용). 구 T1 재료 `haul_ward_splinter`는
+	# 보급 축(소모품 값)으로 넘어가 `haul_ward_plate`로 갈렸다 — **사다리 모양은 그대로**.
+	hp3.add_haul("haul_ward_plate", 4)
 	hp3.evaluate_quests()
-	_expect(bool(hp3.upgrade_check("smithy").get("ok", false)), "대장간 T1 — 파편만으로 건립 가능(연료 불요)")
+	_expect(bool(hp3.upgrade_check("smithy").get("ok", false)), "대장간 T1 — 판금만으로 건립 가능(연료 불요)")
 	_expect(hp3.attempt_upgrade("smithy") and hp3.facility_tier("smithy") == 1, "대장간 T1 적용")
 	# T2 — 슬롯 2칸. 여기서부터 연료(심층에 갈 이유).
-	hp3.add_haul("haul_ward_splinter", 10)
-	hp3.add_haul("haul_forge_coal", 2)
+	hp3.add_haul("haul_ward_plate", 8)
+	hp3.add_haul("haul_forge_coal", 3)
 	hp3.evaluate_quests()
 	_expect(hp3.attempt_upgrade("smithy") and hp3.facility_tier("smithy") == 2, "대장간 T2 — 슬롯 2칸")
 	# T3 — 슬롯 3칸. 심층 ENC 클리어 + 연료·코어.
-	hp3.add_haul("haul_forge_coal", 6)
-	hp3.add_haul("haul_deep_core", 1)
+	hp3.add_haul("haul_forge_coal", 8)
+	hp3.add_haul("haul_deep_core", 3)
 	hp3.evaluate_quests()
 	_expect(not bool(hp3.upgrade_check("smithy").get("ok", false)), "대장간 T3 — 심층 ENC 전 차단")
 	hp3.record_enc_cleared("ENC-DEEP-001", "Normal")

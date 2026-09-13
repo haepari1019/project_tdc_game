@@ -2,7 +2,7 @@
   "_ref": "spec F-020 §3.10 (스킬 트리 — Phase 4b) · F-029 `chapel` Tier · I-007 §14.5. **분석 의뢰 N=3 → 트리 노드 클릭 = 해금**으로 교체(F-009 §3.9.4 — 분석 UI 제거). 소비 = 금고 재료(`haul_*`) · (선택) `ward_scrap`.",
   "_note_types": "노드 4종 = `Slot`/`Unlock`/`Upgrade`/`Doctrine` (`F-020` §3.10). **루트 노드는 없다** — 클래스 트리의 진입 게이트는 `chapel` T1이고(`F-029`), 아무것도 주지 않는 의례 노드를 두면 「샀는데 아무 일도 안 일어남」이 첫 경험이 된다. 선행 관계는 의미 있는 곳에만 건다: `U1 → U2`(해금 사슬) · `U1 → UP1`(해금 안 한 AB는 발전시킬 수 없다) · `SLOT1 → SLOT2`.",
   "_note_unit": "트리 단위 = **클래스별**(`F-029` chapel 「클래스당 트리 루트」). `F-030` OQ-5(교차 doctrine 별도 노드)는 Deferred라 클래스 안에서만 갈린다. **U6 기본값 — 플래그**.",
-  "_note_cost": "`Unlock` = **공유 재료**(적 처치 → 금고), tier 차등 **Basic 3 / Advanced 5 / Master 8** — 마석 시전비(Basic 1 / Adv 2 / Master 3)와 같은 축이라 「비싼 스킬은 열기도 쓰기도 비싸다」가 일관된다. `Upgrade`도 공유 재료(+ `haul_shared_core` 1). `Doctrine`/`Slot` = `haul_ward_splinter`/`haul_forge_coal` — 시설 승급과 같은 재료를 두고 경쟁한다(`I-007` §14.6 sink 경쟁). 축을 갈라 놨으므로 「스킬을 열려고 시설을 못 올리는」 교착은 생기지 않는다.",
+  "_note_cost": "`Unlock` = **공유 재료**(적 처치 → 금고), tier 차등 **Basic 3 / Advanced 5 / Master 8** — 마석 시전비(Basic 1 / Adv 2 / Master 3)와 같은 축이라 「비싼 스킬은 열기도 쓰기도 비싸다」가 일관된다. `Upgrade`도 공유 재료(+ `haul_shared_core` 1). `Doctrine`/`Slot` = `haul_arc_ink`/`haul_forge_coal` — **승급 축(`works`·`deep`)** 재료다. 구 `Doctrine` 값 `haul_ward_splinter`는 **보급 축으로 넘어가** 소모품이 먹으므로 트리에서 뺐다: 매 런 소모되는 것과 1회 영구 해금이 같은 통화를 쓰면 영구 쪽이 언제나 이긴다. 시설 승급과는 여전히 같은 축을 두고 경쟁한다(`I-007` §14.6 sink 경쟁) — 그건 의도한 긴장이다.",
   "_note_playtest": "플테 프로필은 **전 노드 해금 상태로 시드**한다(D4 「전 카탈로그 개방」의 트리판) — 교정한 스킬에 손이 닿아야 한다. `HubProfile.PLAYTEST_TREE_ALL_UNLOCKED`.",
   "node_types": [
     "Unlock",
@@ -134,7 +134,7 @@
       "display_name": "전열 위임",
       "doctrine_id": "DOC-TNK-01",
       "cost": {
-        "haul_ward_splinter": 4
+        "haul_arc_ink": 2
       },
       "desc": "짧게 개입하고 AI에게 넘기는 운용"
     },
@@ -145,7 +145,7 @@
       "display_name": "최전선 고수",
       "doctrine_id": "DOC-TNK-02",
       "cost": {
-        "haul_ward_splinter": 4
+        "haul_arc_ink": 2
       },
       "desc": "직접 조작으로 버티고, 복귀해서 터뜨리는 운용"
     },

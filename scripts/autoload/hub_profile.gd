@@ -254,7 +254,7 @@ func building_action(facility_id: String) -> String:
 ## 행 문법: {kind, ...}. `all`은 하위 행을 전부 만족해야 한다.
 ##   vault(haul, need) · extract(need) · wipe(need) · facility(fid, need) · enc(enc)
 const QUEST_RULES := {
-	"Q-HUB-002": {"kind": "vault", "haul": "haul_ward_splinter", "need": 2},   # 창고 T1 — 파편 반입
+	"Q-HUB-002": {"kind": "vault", "haul": "haul_ward_plate", "need": 2},      # 창고 T1 — 판금 반입
 	# 데모 이벤트 퀘스트(미구현 기능 대용, DRIFT-065): 2번째 맵·전멸 복구·NPC → 추출/전멸 횟수로 근사.
 	"Q-HUB-003": {"kind": "extract", "need": 2},                               # 창고 T2 — 추출 2회
 	"Q-HUB-040": {"kind": "wipe", "need": 1},                                  # 성소 T1 — 전멸 1회
@@ -266,8 +266,9 @@ const QUEST_RULES := {
 	"Q-HUB-020": {"kind": "enc", "enc": "ENC-BOSS-001"},
 	"Q-HUB-021": {"kind": "facility", "fid": "armory", "need": 1},             # 무기고 T2
 	# 대장간 사다리 — **초반 재료로 연다**(DRIFT-154). 연료(`haul_forge_coal`)는 Deep 분기 전용
-	# (0.4/런)이라 T1부터 요구하면 건 모딩이 ~20런 뒤에 열린다. T1은 파편, T2부터 연료.
-	"Q-HUB-030": {"kind": "vault", "haul": "haul_ward_splinter", "need": 3},   # 대장간 건립
+	# (0.4/런)이라 T1부터 요구하면 건 모딩이 ~20런 뒤에 열린다. T1은 판금, T2부터 연료.
+	# ※ 구 T1 재료 `haul_ward_splinter`는 **보급 축**(소모품 값)으로 넘어가 승급에서 빠졌다.
+	"Q-HUB-030": {"kind": "vault", "haul": "haul_ward_plate", "need": 2},      # 대장간 건립
 	"Q-HUB-031": {"kind": "all", "of": [
 		{"kind": "facility", "fid": "smithy", "need": 1},
 		{"kind": "vault", "haul": "haul_forge_coal", "need": 1}]},
@@ -613,17 +614,29 @@ func gear_price(catalog_tier: int) -> int:
 	return int(GEAR_PRICE.get(catalog_tier, 999))
 
 
-## 소모품 구매(상점 — 기본 보급, 시설 게이트 없음). 가격 = consumables.json `price`(없으면 25). ward_scrap 차감.
-## 성공 시 CALLER가 스태시에 추가. {ok, reason("ok"|"scrap"), cost}.
+## 소모품 구매(상점 — 기본 보급, 시설 게이트 없음). 값 = `consumables.json` `cost` = **금고 부품**.
+##
+## **보급은 부품으로 산다**(사용자 판정). `ward_scrap`이 아닌 이유: 소모품은 매 런 쓰고 매 런 채우는
+## 것이라 **매 런 들어오는 재료**가 값이어야 루프가 돈다. `ward_scrap`은 추출 성공 보상 — 「살아
+## 돌아온 대가」이고 그건 장비(무기고·모딩)가 먹는다. 같은 통화를 쓰면 매 런 소모되는 쪽이 1회
+## 영구 해금에 언제나 진다(플레이어는 아끼고 트리에 붓는다).
+##
+## 성공 시 CALLER가 스태시에 추가. {ok, reason("ok"|"haul"), cost:{haulId:수량}, missing:{haulId:부족}}.
 func buy_consumable(consumable_id: String) -> Dictionary:
 	var m: Dictionary = Slice01Data.get_consumable_master(consumable_id)
-	var cost := int(m.get("price", 25))
-	if ward_scrap < cost:
-		return {"ok": false, "reason": "scrap", "cost": cost}
-	ward_scrap -= cost
+	var cost: Dictionary = m.get("cost", {})
+	var missing: Dictionary = {}
+	for hid in cost:
+		var deficit := int(cost[hid]) - vault_count(String(hid))
+		if deficit > 0:
+			missing[hid] = deficit
+	if not missing.is_empty():
+		return {"ok": false, "reason": "haul", "cost": cost, "missing": missing}
+	for hid in cost:
+		remove_haul(String(hid), int(cost[hid]))
 	economy_changed.emit()
 	save_profile()
-	return {"ok": true, "reason": "ok", "cost": cost}
+	return {"ok": true, "reason": "ok", "cost": cost, "missing": {}}
 
 
 ## F-029 무기고 기어 구매 — armory Tier ≥ catalog_tier + ward_scrap. 성공 시 scrap 차감(CALLER가 스태시 추가,

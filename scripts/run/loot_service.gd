@@ -154,6 +154,36 @@ func _record_class_drop(equip_classes: Array) -> void:
 	_class_drops[pick] = int(_class_drops.get(pick, 0)) + 1
 
 
+## 이 등급 상자가 낼 수 있는 재료 — [{id, w}]. 가중 0은 아예 빠진다(그 등급에선 안 나온다).
+## 공유 재료는 언제나 제외 — 「그 적을 죽여서 얻었다」가 유일한 출처여야 한다.
+func _chest_haul_pool(band: String) -> Array:
+	var pool: Array = []
+	for hid in Slice01Data.get_haul_material_ids():
+		var mid := String(hid)
+		if mid == SHARED_SHARD_ID or mid == SHARED_CORE_ID:
+			continue
+		var w := int(Slice01Data.get_haul_material(mid).get("chest_weight", {}).get(band, 0))
+		if w > 0:
+			pool.append({"id": mid, "w": w})
+	return pool
+
+
+## 가중 추첨 1회. 풀이 비면 빈 문자열(호출부가 비어 있는지 먼저 본다).
+func _roll_chest_haul(band: String) -> String:
+	var pool: Array = _chest_haul_pool(band)
+	var total := 0
+	for e in pool:
+		total += int((e as Dictionary)["w"])
+	if total <= 0:
+		return ""
+	var r := randi() % total
+	for e in pool:
+		r -= int((e as Dictionary)["w"])
+		if r < 0:
+			return String((e as Dictionary)["id"])
+	return String((pool[pool.size() - 1] as Dictionary)["id"])
+
+
 ## 상자 내용물 빌드 — 티어별(common/rare) 재료·스킬·기어 인스턴스 item dict 배열(그리드 col/row 포함).
 ## 일반(안좋은)=재료 多 + 기어 적음. 희귀(좋은)=재료 1 + **공유 핵** + 기어 多.
 ## 콘텐츠는 global randf(다양성), 배치 시드는 호출측(dungeon_run)이 담당. ref: F-009/F-010.
@@ -162,14 +192,17 @@ func build_chest_items(tier: String) -> Array:
 	var out: Array = []
 	# 1) 재료(haul) — 상자가 주 공급원. 일반 상자가 더 많이.
 	# 공유 재료는 상자 풀에서 **뺀다** — 「그 적을 죽여서 얻었다」가 유일한 출처여야 해금이 서사를 갖는다.
-	var haul_ids: Array = []
-	for hid in Slice01Data.get_haul_material_ids():
-		if String(hid) != SHARED_SHARD_ID and String(hid) != SHARED_CORE_ID:
-			haul_ids.append(String(hid))
-	if not haul_ids.is_empty():
+	#
+	# **등급이 무엇이 나오는지를 정한다**(`haul_materials.chest_weight`). 예전엔 재료 9종을 **균등**
+	# 추첨했다 — `haul_deep_core`가 `haul_ward_splinter`와 같은 확률로 나왔다는 뜻이고, 상자가
+	# **주 공급원**(`HUB-COR-000` §2.5)인 이상 희소도 축은 데이터에만 있고 실제 루트엔 없었다.
+	# 이제 **일반 상자 = 보급(supply) · 희귀 상자 = 승급(works·deep)**이라 「좋은 상자를 찾는 것」이
+	# 곧 「사다리를 올리는 길」이 된다.
+	var band := "rare" if rare else "common"
+	if not _chest_haul_pool(band).is_empty():
 		var span: Vector2i = CHEST_HAUL_RARE if rare else CHEST_HAUL_COMMON
 		for _h in randi_range(span.x, span.y):
-			out.append(_make_haul_drop_def(String(haul_ids[randi() % haul_ids.size()])))
+			out.append(_make_haul_drop_def(_roll_chest_haul(band)))
 	# 2) ~~스킬북~~ — **M5에서 제거**. 스킬북 인스턴스가 Frozen(`D-018` §9)이라 상자에서 나올 것이
 	# 없다. 상자의 스킬 축은 **공유 재료**가 대신하며(위 haul), 실제 스킬은 트리 해금 + 모딩이다.
 	# 대신 재료를 그만큼 더 준다 — 상자를 열 이유가 사라지면 탐색이 죽는다.

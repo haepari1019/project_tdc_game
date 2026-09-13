@@ -34,7 +34,7 @@
           "value": 28,
           "quest": "Q-HUB-002",
           "haul": {
-            "haul_ward_splinter": 5
+            "haul_ward_plate": 3
           }
         },
         {
@@ -43,7 +43,7 @@
           "value": 36,
           "quest": "Q-HUB-003",
           "haul": {
-            "haul_ward_splinter": 10,
+            "haul_ward_plate": 8,
             "haul_ruin_glass": 3
           }
         }
@@ -68,7 +68,7 @@
           "effect": "Basic 스킬 해금·강화·시술",
           "quest": "Q-HUB-012",
           "haul": {
-            "haul_script_fragment": 3
+            "haul_arc_ink": 3
           }
         },
         {
@@ -76,8 +76,8 @@
           "effect": "Advanced 스킬 해금·강화·시술",
           "quest": "Q-HUB-013",
           "haul": {
-            "haul_arc_ink": 4,
-            "haul_script_fragment": 6
+            "haul_arc_ink": 6,
+            "haul_ruin_glass": 3
           }
         }
       ],
@@ -103,7 +103,7 @@
           "value": 1,
           "quest": "Q-HUB-020",
           "haul": {
-            "haul_ward_plate": 6
+            "haul_ward_plate": 8
           },
           "catalog": {
             "Tank": "gear_ward_tank_iron_set",
@@ -118,7 +118,7 @@
           "value": 2,
           "quest": "Q-HUB-021",
           "haul": {
-            "haul_ward_plate": 10,
+            "haul_ward_plate": 12,
             "haul_boss_relay": 1
           },
           "catalog": {
@@ -152,7 +152,7 @@
           "value": 14,
           "quest": "Q-HUB-050",
           "haul": {
-            "haul_pack_frame": 4
+            "haul_pack_frame": 3
           }
         },
         {
@@ -161,7 +161,7 @@
           "value": 16,
           "quest": "Q-HUB-051",
           "haul": {
-            "haul_pack_frame": 8
+            "haul_pack_frame": 6
           }
         }
       ],
@@ -185,7 +185,7 @@
           "effect": "건 모딩 해금 (Q/E/R 장착)",
           "quest": "Q-HUB-030",
           "haul": {
-            "haul_ward_splinter": 6
+            "haul_ward_plate": 4
           }
         },
         {
@@ -193,8 +193,8 @@
           "effect": "gear 슬롯 +1 (2칸)",
           "quest": "Q-HUB-031",
           "haul": {
-            "haul_ward_splinter": 10,
-            "haul_forge_coal": 2
+            "haul_ward_plate": 8,
+            "haul_forge_coal": 3
           }
         },
         {
@@ -202,8 +202,8 @@
           "effect": "gear 슬롯 +1 (3칸) · F-008 §3.8 재조합",
           "quest": "Q-HUB-032",
           "haul": {
-            "haul_forge_coal": 6,
-            "haul_deep_core": 1
+            "haul_forge_coal": 8,
+            "haul_deep_core": 3
           }
         }
       ],
@@ -211,7 +211,7 @@
         0.28,
         0.34
       ],
-      "_note_tiers": "**요구 재료를 진행 단계에 맞춰 재편**(DRIFT-154). 구 표는 T1부터 `haul_forge_coal` ×8을 요구했는데 연료는 **Deep 분기 전용**(`ENC-DEEP-001` 0.4/런)이라 건 모딩이 ~20런 뒤에 열렸다 — P4b의 중심 기능이 그때까지 통째로 잠긴다. T1은 가장 흔한 파편(2.4/런)으로 내리고, **연료는 T2부터**(심층에 갈 이유) **심층 코어는 T3**(반복 방문)으로 올렸다. **T3 실체화** — 구 `F-029`는 T3+를 Expansion으로 미뤄 뒀는데, 그러면 `gearSkillSlotCountMax=3` gear의 세 번째 칸이 Slice-01에서 **영원히 안 열린다**(존재하되 도달 불가). 슬롯 사다리가 `smithy`에 묶인 이상 사다리의 마지막 칸도 이 표 안에 있어야 한다."
+      "_note_tiers": "**요구 재료를 진행 단계에 맞춰 재편**(DRIFT-154). 구 표는 T1부터 `haul_forge_coal` ×8을 요구했는데 연료는 **Deep 분기 전용**(`ENC-DEEP-001` 0.4/런)이라 건 모딩이 ~20런 뒤에 열렸다 — P4b의 중심 기능이 그때까지 통째로 잠긴다. T1은 문턱을 내리고 **연료는 T2부터**(심층에 갈 이유) **심층 코어는 T3**(반복 방문)으로 올렸다. ※ 당시 T1은 `haul_ward_splinter`였는데, 그 재료가 **보급 축으로 넘어가며**(→ `_note_haul_axis`) T1/T2를 `haul_ward_plate`로 갈아 끼웠다 — **사다리의 모양(런 수)은 그대로** 두고 재료만 바꾼 것이다. **T3 실체화** — 구 `F-029`는 T3+를 Expansion으로 미뤄 뒀는데, 그러면 `gearSkillSlotCountMax=3` gear의 세 번째 칸이 Slice-01에서 **영원히 안 열린다**(존재하되 도달 불가). 슬롯 사다리가 `smithy`에 묶인 이상 사다리의 마지막 칸도 이 표 안에 있어야 한다."
     },
     "chapel": {
       "display": "성소",
@@ -228,7 +228,7 @@
           "effect": "운용 교리(doctrine) — 정체성당 1",
           "quest": "Q-HUB-040",
           "haul": {
-            "haul_ward_splinter": 5
+            "haul_arc_ink": 3
           }
         }
       ],
@@ -239,5 +239,6 @@
     }
   },
   "_note_village": "`map_pos` = 마을 화면 정규화 좌표(0..1, x=우 y=하). **데이터가 소유**한다 — 아트가 배경을 넣으면 코드를 고치지 않고 좌표만 옮겨 맞춘다. `function`은 어느 패널이 열리는지의 힌트이며 라우팅 SSOT는 `main.gd`의 매핑표다(스모크가 전수 대조).",
-  "_note_scriptorium": "~~`scriptorium`(필기소)~~ — **M6에서 제거**. 분석 의뢰가 M5에서 폐기돼(`D-018` §9) 기능이 0이 됐고, 남은 「글·스킬」 계열 일은 `scribe_shop`이 전부 가져갔다(해금·강화·시술). 빈 건물은 「여기 뭐가 있었는데」를 계속 묻게 만든다. **PENDING-PROP** — `F-029` 8시설 → 7시설."
+  "_note_scriptorium": "~~`scriptorium`(필기소)~~ — **M6에서 제거**. 분석 의뢰가 M5에서 폐기돼(`D-018` §9) 기능이 0이 됐고, 남은 「글·스킬」 계열 일은 `scribe_shop`이 전부 가져갔다(해금·강화·시술). 빈 건물은 「여기 뭐가 있었는데」를 계속 묻게 만든다. **PENDING-PROP** — `F-029` 8시설 → 7시설.",
+  "_note_haul_axis": "**승급은 `works`·`deep` 재료가 먹는다 — 보급 재료(`supply`)는 여기서 빠졌다.** 사용자 판정으로 `haul_ward_splinter`/`haul_script_fragment`는 **소모품 값**이 됐고(`consumables.json` `cost`), 같은 재료가 시설 승급도 먹으면 **매 런 소모되는 쪽이 1회 영구 해금에 언제나 진다** — 플레이어는 소모품을 아끼고 사다리에 붓고, 그러면 보급 루프가 죽는다. 재료 티어는 `haul_materials.json` `tier`가 소유하고 상자가 그 축을 존중한다(**일반 상자 = 보급 · 희귀 상자 = 승급**).\n**수량은 런 수 기준으로 환산했다**(tuning) — 재료가 바뀌면서 공급 곡선도 바뀌므로 「몇 런이면 닿는가」를 유지하는 편이 안전하다. 덤으로 구 표의 **극단 3건**을 잡았다: 창고 T2가 `haul_ruin_glass` ×3(0.1/런 → **30런**), 군수 T1/T2가 `haul_pack_frame` ×4/×8(0.2/런 → **20/40런**)이었다 — `DRIFT-154`가 대장간에서 고친 것과 **같은 병**이 세 시설에 남아 있었다."
 }

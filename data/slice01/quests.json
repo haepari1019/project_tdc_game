@@ -5,8 +5,8 @@
       "quest_id": "Q-HUB-002",
       "facility": "stash",
       "tier": 1,
-      "one_liner": "창고 확장 의뢰 — 파편 2종 반입",
-      "completion": "haul_ward_splinter×2 in vault + talk"
+      "one_liner": "창고 확장 의뢰 — 판금 반입",
+      "completion": "haul_ward_plate×2 in vault + talk"
     },
     {
       "quest_id": "Q-HUB-003",
@@ -48,7 +48,7 @@
       "facility": "smithy",
       "tier": 1,
       "one_liner": "대장간 건립",
-      "completion": "haul_ward_splinter×3 in vault"
+      "completion": "haul_ward_plate×2 in vault"
     },
     {
       "quest_id": "Q-HUB-031",

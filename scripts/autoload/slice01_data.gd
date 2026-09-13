@@ -420,6 +420,24 @@ func haul_consumers(haul_material_id: String) -> Array:
 	if tree_n > 0:
 		out.append("필기 상점 해금 %d종 ×%s" % [tree_n,
 			str(tree_lo) if tree_lo == tree_hi else "%d~%d" % [tree_lo, tree_hi]])
+	# **보급도 재료를 먹는다.** 소모품 값이 `ward_scrap` → 부품으로 바뀐 뒤(`consumables.json` `cost`),
+	# 시설·트리만 훑으면 `supply` 티어 재료가 「쓸 데 없음」으로 표시된다 — 정작 매 런 쓰는 재료인데.
+	var con_n := 0
+	var con_lo := 0
+	var con_hi := 0
+	for crow in _consumables:
+		if not (crow is Dictionary):
+			continue
+		var ccost: Dictionary = (crow as Dictionary).get("cost", {})
+		if not ccost.has(haul_material_id):
+			continue
+		var cq := int(ccost[haul_material_id])
+		con_n += 1
+		con_lo = cq if con_lo == 0 else mini(con_lo, cq)
+		con_hi = maxi(con_hi, cq)
+	if con_n > 0:
+		out.append("군수 보급 %d종 ×%s" % [con_n,
+			str(con_lo) if con_lo == con_hi else "%d~%d" % [con_lo, con_hi]])
 	return out
 
 
