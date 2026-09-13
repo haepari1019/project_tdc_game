@@ -1,3 +1,17 @@
+> # 📦 이 저장소는 이전됐습니다
+>
+> 구현(game)과 설계(spec)가 **[`haepari1019/keysword`](https://github.com/haepari1019/keysword)**
+> 하나로 합쳐졌습니다 (2026-09-13). 이 저장소의 전체 이력은 그곳에 `game/` 아래로 **보존**돼 있습니다.
+>
+> - 새 위치: `game/` (`res://` 기준 = `game/project.godot` — 내부 경로는 그대로입니다)
+> - 이전 기준 커밋: `main` @ `ef51f0e342a99feb8d05de215abc777dce7c04dc` (태그 `pre-monorepo-baseline`)
+> - **엔진이 Godot 4.7-stable로 올라갔습니다** — 새 저장소의 `spec/planning/ENGINE_MIGRATION.md`
+> - 경로 매핑과 검증 결과: 새 저장소의 `spec/planning/MIGRATION_BASELINE.md`
+>
+> **새 작업은 이 저장소에 하지 않습니다.** 여기는 이전 시점(Godot 4.5.1)까지의 역사 기록으로 남습니다.
+
+---
+
 # Project TDC — Game (Godot)
 
 탑다운 익스트랙션 레이드 ARPG **구현 레포**. 설계 SSOT는 별도 저장소 [`project_tdc`](https://github.com/haepari1019/project_tdc) (docs-only)입니다.
